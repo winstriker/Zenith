@@ -105,14 +105,14 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     ref.read(flightListProvider.notifier).refresh();
   }
 
-  void _stopRecording() {
+  Future<void> _stopRecording() async {
     _timer?.cancel();
     _timer = null;
     _locationSubscription?.cancel();
     _locationSubscription = null;
 
     LocationService().stopTracking();
-    FlightService().endSession();
+    await FlightService().endSession();
 
     ref.read(recordingStateProvider.notifier).state = false;
     ref.read(flightListProvider.notifier).refresh();

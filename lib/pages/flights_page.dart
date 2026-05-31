@@ -63,7 +63,7 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
       ),
     );
     if (confirmed == true) {
-      _flightService.deleteSession(flight.sessionId);
+      await _flightService.deleteSession(flight.sessionId);
       ref.read(flightListProvider.notifier).refresh();
     }
   }

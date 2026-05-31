@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:collection';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/flight_session.dart';
 import '../models/flight_point.dart';
 
@@ -7,8 +10,40 @@ class FlightService {
   factory FlightService() => _instance;
   FlightService._();
 
+  static const String _storageKey = 'logbook_flight_sessions';
+
   final List<FlightSession> _sessions = [];
   String? _activeSessionId;
+  Timer? _saveDebounce;
+
+  Future<void> initialize() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_storageKey);
+    if (json != null) {
+      final List<dynamic> decoded = jsonDecode(json) as List<dynamic>;
+      _sessions.clear();
+      for (final item in decoded) {
+        _sessions.add(FlightSession.fromJson(item as Map<String, dynamic>));
+      }
+    }
+    final active = _sessions.where((s) => s.status == FlightStatus.inProgress).toList();
+    if (active.isNotEmpty) {
+      _activeSessionId = active.first.sessionId;
+    }
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = jsonEncode(_sessions.map((s) => s.toJson()).toList());
+    await prefs.setString(_storageKey, json);
+  }
+
+  void _debouncedSave() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(seconds: 2), () {
+      _save();
+    });
+  }
 
   UnmodifiableListView<FlightSession> get sessions => UnmodifiableListView(_sessions);
 
@@ -51,6 +86,7 @@ class FlightService {
     );
     _sessions.add(session);
     _activeSessionId = session.sessionId;
+    _save();
     return session.sessionId;
   }
 
@@ -68,9 +104,10 @@ class FlightService {
       heading: heading,
     );
     _sessions[index] = session.copyWith(points: [...session.points, point]);
+    _debouncedSave();
   }
 
-  void endSession() {
+  Future<void> endSession() async {
     if (_activeSessionId == null) return;
     final index = _sessions.indexWhere((s) => s.sessionId == _activeSessionId);
     if (index == -1) return;
@@ -79,10 +116,13 @@ class FlightService {
       endTime: DateTime.now(),
     );
     _activeSessionId = null;
+    _saveDebounce?.cancel();
+    await _save();
   }
 
-  void deleteSession(String sessionId) {
+  Future<void> deleteSession(String sessionId) async {
     _sessions.removeWhere((s) => s.sessionId == sessionId);
+    await _save();
   }
 
   List<FlightSession> searchByDate(DateTime date) {

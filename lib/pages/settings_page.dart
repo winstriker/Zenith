@@ -26,10 +26,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              FlightService().sessions.toList().forEach((s) => FlightService().deleteSession(s.sessionId));
+            onPressed: () async {
+              final sessions = FlightService().sessions.toList();
+              for (final s in sessions) {
+                await FlightService().deleteSession(s.sessionId);
+              }
               ref.read(flightListProvider.notifier).refresh();
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
