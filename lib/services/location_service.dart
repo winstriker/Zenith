@@ -1,18 +1,20 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 
 class LocationService {
   static final LocationService _instance = LocationService._();
   factory LocationService() => _instance;
   LocationService._();
 
-  Timer? _timer;
-  bool get isTracking => _timer != null;
+  Timer? _gpsTimer;
+  Timer? _mockTimer;
+  bool get isTracking => _gpsTimer != null || _mockTimer != null;
 
-  // Simulated starting position (near an airport)
-  double _lat = 51.4700;
-  double _lon = -0.4543;
-  double _alt = 0;
+  double _latitude = 0;
+  double _longitude = 0;
+  double _altitude = 0;
   double _speed = 0;
   double _heading = 0;
 
@@ -20,19 +22,56 @@ class LocationService {
   Stream<Map<String, double>> get locationStream => _locationStream.stream;
 
   void startTracking() {
-    if (_timer != null) return;
-    _lat = 51.4700;
-    _lon = -0.4543;
-    _alt = 0;
+    if (isTracking) return;
+
+    if (kDebugMode) {
+      _startMockTracking();
+    } else {
+      _startRealTracking();
+    }
+  }
+
+  void _startRealTracking() {
+    _pollGps();
+    _gpsTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollGps());
+  }
+
+  Future<void> _pollGps() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      _latitude = position.latitude;
+      _longitude = position.longitude;
+      _altitude = position.altitude;
+      _speed = position.speed;
+      _heading = position.heading;
+
+      _locationStream.add({
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'altitude': _altitude,
+        'speed': _speed * 3.6,
+        'heading': _heading,
+      });
+    } catch (_) {}
+  }
+
+  void _startMockTracking() {
+    _latitude = 51.4700;
+    _longitude = -0.4543;
+    _altitude = 0;
     _speed = 0;
     _heading = 0;
 
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _mockTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _simulateMovement();
       _locationStream.add({
-        'latitude': _lat,
-        'longitude': _lon,
-        'altitude': _alt,
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'altitude': _altitude,
         'speed': _speed,
         'heading': _heading,
       });
@@ -40,35 +79,37 @@ class LocationService {
   }
 
   void stopTracking() {
-    _timer?.cancel();
-    _timer = null;
+    _gpsTimer?.cancel();
+    _gpsTimer = null;
+    _mockTimer?.cancel();
+    _mockTimer = null;
   }
 
   void _simulateMovement() {
     final rng = Random();
-    // Simulate takeoff and climbing
-    if (_alt < 1000) {
-      _alt += rng.nextDouble() * 50 + 20;
+    if (_altitude < 1000) {
+      _altitude += rng.nextDouble() * 50 + 20;
       _speed = 100 + rng.nextDouble() * 50;
-    } else if (_alt < 3000) {
-      _alt += rng.nextDouble() * 30 + 10;
+    } else if (_altitude < 3000) {
+      _altitude += rng.nextDouble() * 30 + 10;
       _speed = 200 + rng.nextDouble() * 50;
     } else {
-      _alt += rng.nextDouble() * 10 - 5;
+      _altitude += rng.nextDouble() * 10 - 5;
       _speed = 250 + rng.nextDouble() * 30;
     }
-    _alt = _alt.clamp(0, 5000);
+    _altitude = _altitude.clamp(0, 5000);
 
     _heading += (rng.nextDouble() - 0.5) * 10;
     _heading = _heading % 360;
 
     final headingRad = _heading * pi / 180;
-    final distKm = _speed * 2 / 3600; // distance in 2 seconds
+    final distKm = _speed * 2 / 3600;
     final latChange = distKm / 111.32 * cos(headingRad);
-    final lonChange = distKm / (111.32 * cos(_lat * pi / 180)) * sin(headingRad);
+    final lonChange =
+        distKm / (111.32 * cos(_latitude * pi / 180)) * sin(headingRad);
 
-    _lat += latChange;
-    _lon += lonChange;
+    _latitude += latChange;
+    _longitude += lonChange;
   }
 
   void dispose() {
