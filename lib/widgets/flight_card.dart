@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/unit_provider.dart';
 import '../models/flight_session.dart';
 
-class FlightCard extends StatelessWidget {
+class FlightCard extends ConsumerWidget {
   final FlightSession flight;
   final VoidCallback? onTap;
 
   const FlightCard({super.key, required this.flight, this.onTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('HH:mm');
+    final unitMode = ref.watch(unitProvider);
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -86,9 +89,23 @@ class FlightCard extends StatelessWidget {
                 children: [
                   _StatItem(label: 'Duration', value: flight.duration != null ? '${flight.duration!.inMinutes} min' : '--'),
                   const SizedBox(width: 24),
-                  _StatItem(label: 'Max Alt', value: flight.maxAltitude != null ? '${flight.maxAltitude!.toStringAsFixed(0)} m' : '--'),
+                  _StatItem(
+                    label: 'Max Alt',
+                    value: flight.maxAltitude != null
+                        ? unitMode == MeasurementUnit.metric
+                            ? '${flight.maxAltitude!.toStringAsFixed(0)} m'
+                            : '${(flight.maxAltitude! * 3.28084).toStringAsFixed(0)} ft'
+                        : '--',
+                  ),
                   const SizedBox(width: 24),
-                  _StatItem(label: 'Distance', value: flight.totalDistance != null ? '${flight.totalDistance!.toStringAsFixed(1)} km' : '--'),
+                  _StatItem(
+                    label: 'Distance',
+                    value: flight.totalDistance != null
+                        ? unitMode == MeasurementUnit.metric
+                            ? '${flight.totalDistance!.toStringAsFixed(1)} km'
+                            : '${(flight.totalDistance! * 0.539957).toStringAsFixed(1)} nm'
+                        : '--',
+                  ),
                 ],
               ),
               if (flight.departure != null || flight.arrival != null) ...[

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_providers.dart';
 import '../services/flight_service.dart';
 import '../providers/theme_provider.dart';
+import '../providers/unit_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -12,8 +13,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _useMetric = true;
-
   void _clearAllFlights() {
     showDialog(
       context: context,
@@ -57,6 +56,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
+    final unitMode = ref.watch(unitProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings'), centerTitle: true),
@@ -122,15 +122,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 const Divider(height: 1, indent: 16),
-                SwitchListTile(
-                  secondary: Icon(
-                    _useMetric ? Icons.straighten : Icons.monitor_weight,
-                    color: theme.colorScheme.primary,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
-                  title: const Text('Metric Units'),
-                  subtitle: Text(_useMetric ? 'km, m, km/h' : 'nm, ft, kts'),
-                  value: _useMetric,
-                  onChanged: (v) => setState(() => _useMetric = v),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.straighten,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Measurement Units',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<MeasurementUnit>(
+                          segments: const [
+                            ButtonSegment<MeasurementUnit>(
+                              value: MeasurementUnit.metric,
+                              icon: Icon(Icons.speed),
+                              label: Text('Metric'),
+                            ),
+                            ButtonSegment<MeasurementUnit>(
+                              value: MeasurementUnit.knots,
+                              icon: Icon(Icons.airplanemode_active),
+                              label: Text('Knots'),
+                            ),
+                          ],
+                          selected: {unitMode},
+                          onSelectionChanged: (newSelection) {
+                            ref
+                                .read(unitProvider.notifier)
+                                .setUnit(newSelection.first);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

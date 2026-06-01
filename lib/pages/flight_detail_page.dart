@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/unit_provider.dart';
 import '../models/flight_session.dart';
 import 'replay_page.dart';
 
-class FlightDetailPage extends StatelessWidget {
+class FlightDetailPage extends ConsumerWidget {
   final FlightSession flight;
 
   const FlightDetailPage({super.key, required this.flight});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
         title: Text(flight.title),
       ),
       body: ListView(
         children: [
-          _buildHeroSection(context, flight),
+          _buildHeroSection(context, ref, flight),
           if (flight.departure != null || flight.arrival != null)
             _buildRouteSection(context, flight),
-          _buildAltitudeChart(context, flight),
+          _buildAltitudeChart(context, ref, flight),
           _buildDetailsSection(context, flight),
           const SizedBox(height: 16),
           _buildReplayButton(context, flight),
@@ -30,10 +32,20 @@ class FlightDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, FlightSession flight) {
+  Widget _buildHeroSection(BuildContext context, WidgetRef ref, FlightSession flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final unitMode = ref.watch(unitProvider);
+
+    final distanceKmVal = flight.totalDistance;
+    final distanceKtsVal = flight.totalDistance != null ? flight.totalDistance! * 0.539957 : null;
+
+    final maxAltMeterVal = flight.maxAltitude;
+    final maxAltFeetVal = flight.maxAltitude != null ? flight.maxAltitude! * 3.28084 : null;
+
+    final speedKmhVal = _averageSpeed(flight);
+    final speedKnotsVal = _averageSpeed(flight) != null ? _averageSpeed(flight)! * 0.539957 : null;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -76,7 +88,9 @@ class FlightDetailPage extends StatelessWidget {
                   icon: Icons.trending_up,
                   label: 'Max Alt',
                   value: flight.maxAltitude != null
-                      ? '${flight.maxAltitude!.toStringAsFixed(0)} m'
+                      ? unitMode == MeasurementUnit.metric
+                          ? '${maxAltMeterVal!.toStringAsFixed(0)} m'
+                          : '${maxAltFeetVal!.toStringAsFixed(0)} ft'
                       : '--',
                 ),
               ),
@@ -88,10 +102,14 @@ class FlightDetailPage extends StatelessWidget {
                   icon: Icons.straighten,
                   label: 'Distance',
                   value: flight.totalDistance != null
-                      ? '${flight.totalDistance!.toStringAsFixed(1)} km'
+                      ? unitMode == MeasurementUnit.metric
+                          ? '${distanceKmVal!.toStringAsFixed(1)} km'
+                          : '${distanceKtsVal!.toStringAsFixed(1)} nm'
                       : '--',
                   subtitle: flight.totalDistance != null
-                      ? '${(flight.totalDistance! * 0.539957).toStringAsFixed(1)} kts'
+                      ? unitMode == MeasurementUnit.metric
+                          ? '${distanceKtsVal!.toStringAsFixed(1)} kts'
+                          : '${distanceKmVal!.toStringAsFixed(1)} km'
                       : null,
                 ),
               ),
@@ -104,8 +122,12 @@ class FlightDetailPage extends StatelessWidget {
               cs: cs,
               icon: Icons.speed,
               label: 'Avg Speed',
-              value: '${_averageSpeed(flight)!.toStringAsFixed(1)} km/h',
-              subtitle: '${(_averageSpeed(flight)! * 0.539957).toStringAsFixed(1)} knots',
+              value: unitMode == MeasurementUnit.metric
+                  ? '${speedKmhVal!.toStringAsFixed(1)} km/h'
+                  : '${speedKnotsVal!.toStringAsFixed(1)} knots',
+              subtitle: unitMode == MeasurementUnit.metric
+                  ? '${speedKnotsVal!.toStringAsFixed(1)} knots'
+                  : '${speedKmhVal!.toStringAsFixed(1)} km/h',
             ),
           ],
         ],
@@ -206,11 +228,14 @@ class FlightDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildAltitudeChart(BuildContext context, FlightSession flight) {
+  Widget _buildAltitudeChart(BuildContext context, WidgetRef ref, FlightSession flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final spots = <FlSpot>[];
     final points = flight.points;
+    final unitMode = ref.watch(unitProvider);
+    final altFactor = unitMode == MeasurementUnit.metric ? 1.0 : 3.28084;
+    final altUnit = unitMode == MeasurementUnit.metric ? 'm' : 'ft';
 
     if (points.length >= 2) {
       final firstTime = points.first.timestamp;
@@ -220,7 +245,7 @@ class FlightDetailPage extends StatelessWidget {
       for (final point in points) {
         final elapsed = point.timestamp.difference(firstTime).inMilliseconds.toDouble();
         final x = durationMs > 0 ? elapsed / durationMs : 0.0;
-        spots.add(FlSpot(x, point.altitude));
+        spots.add(FlSpot(x, point.altitude * altFactor));
       }
     }
 
@@ -232,7 +257,7 @@ class FlightDetailPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Altitude Profile',
+              'Altitude Profile ($altUnit)',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 16),

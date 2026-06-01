@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../providers/flight_providers.dart';
+import '../providers/unit_provider.dart';
 import '../services/flight_service.dart';
 import '../services/location_service.dart';
 
@@ -450,6 +451,15 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Widget _buildGpsCard(ThemeData theme) {
+    final unitMode = ref.watch(unitProvider);
+    final isMetric = unitMode == MeasurementUnit.metric;
+
+    final altValue = isMetric ? _altitude : _altitude * 3.28084;
+    final altUnit = isMetric ? 'm' : 'ft';
+
+    final speedValue = isMetric ? _speed : _speed * 0.539957;
+    final speedUnit = isMetric ? 'km/h' : 'kts'; // Knots mode shows kts
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -479,12 +489,12 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             const SizedBox(height: 12),
             _GpsRow(
                 label: 'Altitude',
-                value: '${_altitude.toStringAsFixed(1)} m',
+                value: '${altValue.toStringAsFixed(1)} $altUnit',
                 icon: Icons.height),
             const SizedBox(height: 12),
             _GpsRow(
                 label: 'Speed',
-                value: '${_speed.toStringAsFixed(1)} km/h',
+                value: '${speedValue.toStringAsFixed(1)} $speedUnit',
                 icon: Icons.speed),
             const SizedBox(height: 12),
             _GpsRow(

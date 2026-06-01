@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/flight_session.dart';
 import '../models/flight_point.dart';
+import '../providers/unit_provider.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
   final FlightSession flight;
@@ -253,14 +254,21 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     return '${s}s';
   }
 
-  String _formatAltitude(double meters) {
+  String _formatAltitude(double meters, bool isMetric) {
+    if (isMetric) {
+      return '${meters.round()} m';
+    }
     final feet = meters * 3.28084;
     return '${feet.round()} ft';
   }
 
-  String _formatSpeed(double? speed) {
+  String _formatSpeed(double? speed, bool isMetric) {
     if (speed == null) return '--';
-    return '${speed.round()} kts';
+    if (isMetric) {
+      return '${speed.round()} km/h';
+    }
+    final knots = speed * 0.539957;
+    return '${knots.round()} kts';
   }
 
   List<LatLng> _buildTrailPoints() {
@@ -279,6 +287,8 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     final topPad = MediaQuery.of(context).padding.top;
     final botPad = MediaQuery.of(context).padding.bottom;
     final points = widget.flight.points;
+    final unitMode = ref.watch(unitProvider);
+    final isMetric = unitMode == MeasurementUnit.metric;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -415,7 +425,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                               ),
                             ),
                             Text(
-                              _formatSpeed(_currentSpeed),
+                              _formatSpeed(_currentSpeed, isMetric),
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -455,7 +465,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
             bottom: botPad + 16,
             left: 16,
             right: 16,
-            child: _buildControlPanel(theme, cs),
+            child: _buildControlPanel(theme, cs, isMetric),
           ),
 
           if (_pathPoints.length < 2)
@@ -515,7 +525,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     );
   }
 
-  Widget _buildControlPanel(ThemeData theme, ColorScheme cs) {
+  Widget _buildControlPanel(ThemeData theme, ColorScheme cs, bool isMetric) {
     final elapsed = _replayDuration * _progress;
     final remaining = _replayDuration - elapsed;
 
@@ -568,7 +578,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                 children: [
                   _StatTile(
                     label: 'ALT',
-                    value: _formatAltitude(_currentAltitude),
+                    value: _formatAltitude(_currentAltitude, isMetric),
                     icon: Icons.height,
                   ),
                   Container(
@@ -578,7 +588,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                   ),
                   _StatTile(
                     label: 'SPEED',
-                    value: _formatSpeed(_currentSpeed),
+                    value: _formatSpeed(_currentSpeed, isMetric),
                     icon: Icons.speed,
                   ),
                   Container(
