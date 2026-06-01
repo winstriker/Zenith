@@ -4,8 +4,14 @@ import '../models/airport.dart';
 class AirportCard extends StatelessWidget {
   final Airport airport;
   final VoidCallback? onTap;
+  final double? distanceKm;
 
-  const AirportCard({super.key, required this.airport, this.onTap});
+  const AirportCard({
+    super.key,
+    required this.airport,
+    this.onTap,
+    this.distanceKm,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -96,19 +102,22 @@ class AirportCard extends StatelessWidget {
               Row(
                 children: [
                   _buildTypeChip(context, airport.typeLabel),
-                  const SizedBox(width: 8),
-                  if (airport.elevationFt != null)
+                  if (distanceKm != null) ...[
+                    const SizedBox(width: 8),
+                    _buildInfoChip(
+                      context,
+                      Icons.near_me,
+                      distanceKm! < 1
+                          ? '${(distanceKm! * 1000).toStringAsFixed(0)} m'
+                          : '${distanceKm!.toStringAsFixed(1)} km',
+                    ),
+                  ],
+                  if (airport.elevationFt != null) ...[
+                    const SizedBox(width: 8),
                     _buildInfoChip(
                       context,
                       Icons.trending_up,
                       '${airport.elevationFt!.toStringAsFixed(0)} ft',
-                    ),
-                  if (airport.latitudeDeg != null && airport.longitudeDeg != null) ...[
-                    const SizedBox(width: 8),
-                    _buildInfoChip(
-                      context,
-                      Icons.location_on,
-                      '${airport.latitudeDeg!.toStringAsFixed(2)}, ${airport.longitudeDeg!.toStringAsFixed(2)}',
                     ),
                   ],
                 ],

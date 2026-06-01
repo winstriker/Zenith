@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../models/airport.dart';
@@ -20,17 +22,20 @@ class AirportService {
   static const _runwaysFile = 'runways.csv';
   static const _countriesFile = 'countries.csv';
   static const _regionsFile = 'regions.csv';
-  static const _downloadStampFile = '.last_download';
+  static const _stampFile = '.last_download';
+  static const _metaKey = '_meta';
 
   List<Airport> _airports = [];
-  List<AirportFrequency> _frequencies = [];
-  List<Runway> _runways = [];
   List<Country> _countries = [];
   List<Region> _regions = [];
   bool _loaded = false;
   bool _loading = false;
   bool _refreshing = false;
   String? _error;
+
+  LazyBox<String>? _freqBox;
+  LazyBox<String>? _runwayBox;
+  bool _hiveReady = false;
 
   bool get isLoaded => _loaded;
   bool get isLoading => _loading;
@@ -60,8 +65,17 @@ class AirportService {
     }
   }
 
+  Future<void> initHive() async {
+    if (_hiveReady) return;
+    await Hive.initFlutter();
+    _freqBox = await Hive.openLazyBox<String>('airport_frequencies');
+    _runwayBox = await Hive.openLazyBox<String>('airport_runways');
+    _hiveReady = true;
+  }
+
   Future<void> loadData() async {
-    if (_loaded && _loading) return;
+    if (_loading) return;
+    await initHive();
     _loading = true;
     _error = null;
     _notify();
@@ -93,52 +107,40 @@ class AirportService {
     } catch (e) {
       _loading = false;
       _refreshing = false;
-      _error = e.toString();
+      if (!_loaded) {
+        _error = e.toString();
+      }
       _notify();
     }
   }
 
   Future<bool> _tryLoadCache(Directory dir) async {
+    final stampFile = File('${dir.path}/$_stampFile');
     final airportFile = File('${dir.path}/$_airportsFile');
-    final freqFile = File('${dir.path}/$_frequenciesFile');
-    final runwayFile = File('${dir.path}/$_runwaysFile');
-    final countryFile = File('${dir.path}/$_countriesFile');
-    final regionFile = File('${dir.path}/$_regionsFile');
-
-    final stampFile = File('${dir.path}/$_downloadStampFile');
-    if (!await airportFile.exists() ||
-        !await freqFile.exists() ||
-        !await runwayFile.exists() ||
-        !await countryFile.exists() ||
-        !await regionFile.exists() ||
-        !await stampFile.exists()) {
+    if (!await stampFile.exists() || !await airportFile.exists()) {
       return false;
     }
 
+    if (!_freqBox!.containsKey(_metaKey)) return false;
+
     final airportData = await airportFile.readAsString();
-    final freqData = await freqFile.readAsString();
-    final runwayData = await runwayFile.readAsString();
-    final countryData = await countryFile.readAsString();
-    final regionData = await regionFile.readAsString();
+    final airportRows = parseCsv(airportData);
+    _airports = _parseAirportsFromRows(airportRows);
 
-    final result = await compute(_parseAll, _ParseArgs(
-      airportData: airportData,
-      freqData: freqData,
-      runwayData: runwayData,
-      countryData: countryData,
-      regionData: regionData,
-    ));
+    final countryFile = File('${dir.path}/$_countriesFile');
+    final regionFile = File('${dir.path}/$_regionsFile');
+    if (await countryFile.exists()) {
+      _countries = _parseCountriesFromRows(parseCsv(await countryFile.readAsString()));
+    }
+    if (await regionFile.exists()) {
+      _regions = _parseRegionsFromRows(parseCsv(await regionFile.readAsString()));
+    }
 
-    _airports = result.airports;
-    _frequencies = result.frequencies;
-    _runways = result.runways;
-    _countries = result.countries;
-    _regions = result.regions;
     return true;
   }
 
   Future<bool> _isCacheStale(Directory dir) async {
-    final stampFile = File('${dir.path}/$_downloadStampFile');
+    final stampFile = File('${dir.path}/$_stampFile');
     if (!await stampFile.exists()) return true;
     try {
       final content = await stampFile.readAsString();
@@ -181,7 +183,7 @@ class AirportService {
         File('${dir.path}/$_runwaysFile').writeAsString(runwayData),
         File('${dir.path}/$_countriesFile').writeAsString(countryData),
         File('${dir.path}/$_regionsFile').writeAsString(regionData),
-        File('${dir.path}/$_downloadStampFile').writeAsString(
+        File('${dir.path}/$_stampFile').writeAsString(
           DateTime.now().toUtc().toIso8601String(),
         ),
       ]);
@@ -195,13 +197,48 @@ class AirportService {
       ));
 
       _airports = result.airports;
-      _frequencies = result.frequencies;
-      _runways = result.runways;
       _countries = result.countries;
       _regions = result.regions;
+
+      await _storeFrequencies(result.frequencies);
+      await _storeRunways(result.runways);
     } finally {
       client.close();
     }
+  }
+
+  Future<void> _storeFrequencies(List<AirportFrequency> freqs) async {
+    final byRef = <String, List<List<dynamic>>>{};
+    for (final f in freqs) {
+      byRef.putIfAbsent(f.airportRef, () => []).add([
+        f.id, f.airportIdent, f.type, f.description, f.frequencyMhz,
+      ]);
+    }
+    await _freqBox!.clear();
+    final keys = byRef.keys.toList();
+    for (int i = 0; i < keys.length; i++) {
+      await _freqBox!.put(keys[i], jsonEncode(byRef[keys[i]]));
+    }
+    await _freqBox!.put(_metaKey, jsonEncode({'count': freqs.length, 'groups': byRef.length}));
+  }
+
+  Future<void> _storeRunways(List<Runway> runways) async {
+    final byRef = <String, List<List<dynamic>>>{};
+    for (final r in runways) {
+      byRef.putIfAbsent(r.airportRef, () => []).add([
+        r.id, r.airportIdent, r.lengthFt, r.widthFt, r.surface, r.lighted, r.closed,
+        r.leIdent, r.leLatitudeDeg, r.leLongitudeDeg, r.leElevationFt,
+        r.leHeadingDegT, r.leDisplacedThresholdFt,
+        r.heIdent, r.heLatitudeDeg, r.heLongitudeDeg, r.heElevationFt,
+        r.heHeadingDegT, r.heDisplacedThresholdFt,
+      ]);
+    }
+    await _runwayBox!.clear();
+    final keys = byRef.keys.toList();
+    for (int i = 0; i < keys.length; i++) {
+      await _runwayBox!.put(keys[i], jsonEncode(byRef[keys[i]]));
+    }
+    await _runwayBox!.put(_metaKey, jsonEncode({'count': runways.length, 'groups': byRef.length}));
   }
 
   List<Airport> searchAirports({
@@ -233,15 +270,54 @@ class AirportService {
     return result;
   }
 
-  List<AirportFrequency> getFrequencies(String airportRef) {
-    return _frequencies
-        .where((f) => f.airportRef == airportRef)
-        .toList()
-      ..sort((a, b) => a.type.compareTo(b.type));
+  Future<List<AirportFrequency>> getFrequencies(String airportRef) async {
+    final raw = await _freqBox!.get(airportRef);
+    if (raw == null) return [];
+    final list = jsonDecode(raw) as List<dynamic>;
+    final freqs = list.map((e) {
+      final row = e as List<dynamic>;
+      return AirportFrequency(
+        id: row[0] as String,
+        airportRef: airportRef,
+        airportIdent: row[1] as String,
+        type: row[2] as String,
+        description: row[3] as String,
+        frequencyMhz: (row[4] as num).toDouble(),
+      );
+    }).toList();
+    freqs.sort((a, b) => a.type.compareTo(b.type));
+    return freqs;
   }
 
-  List<Runway> getRunways(String airportRef) {
-    return _runways.where((r) => r.airportRef == airportRef).toList();
+  Future<List<Runway>> getRunways(String airportRef) async {
+    final raw = await _runwayBox!.get(airportRef);
+    if (raw == null) return [];
+    final list = jsonDecode(raw) as List<dynamic>;
+    return list.map((e) {
+      final row = e as List<dynamic>;
+      return Runway(
+        id: row[0] as String,
+        airportRef: airportRef,
+        airportIdent: row[1] as String,
+        lengthFt: row[2] as double?,
+        widthFt: row[3] as double?,
+        surface: row[4] as String?,
+        lighted: row[5] is bool ? row[5] as bool : (row[5] as num?)?.toInt() == 1,
+        closed: row[6] is bool ? row[6] as bool : (row[6] as num?)?.toInt() == 1,
+        leIdent: row[7] as String?,
+        leLatitudeDeg: row[8] as double?,
+        leLongitudeDeg: row[9] as double?,
+        leElevationFt: row[10] as double?,
+        leHeadingDegT: row[11] as double?,
+        leDisplacedThresholdFt: row[12] as double?,
+        heIdent: row[13] as String?,
+        heLatitudeDeg: row[14] as double?,
+        heLongitudeDeg: row[15] as double?,
+        heElevationFt: row[16] as double?,
+        heHeadingDegT: row[17] as double?,
+        heDisplacedThresholdFt: row[18] as double?,
+      );
+    }).toList();
   }
 
   Country? getCountry(String? code) {
@@ -310,22 +386,22 @@ class _ParseResult {
 }
 
 _ParseResult _parseAll(_ParseArgs args) {
-  final airports = _parseAirports(args.airportData);
-  final frequencies = _parseFrequencies(args.freqData);
-  final runways = _parseRunways(args.runwayData);
-  final countries = _parseCountries(args.countryData);
-  final regions = _parseRegions(args.regionData);
+  final airportRows = parseCsv(args.airportData);
+  final freqRows = parseCsv(args.freqData);
+  final runwayRows = parseCsv(args.runwayData);
+  final countryRows = parseCsv(args.countryData);
+  final regionRows = parseCsv(args.regionData);
+
   return _ParseResult(
-    airports: airports,
-    frequencies: frequencies,
-    runways: runways,
-    countries: countries,
-    regions: regions,
+    airports: _parseAirportsFromRows(airportRows),
+    frequencies: _parseFrequenciesFromRows(freqRows),
+    runways: _parseRunwaysFromRows(runwayRows),
+    countries: _parseCountriesFromRows(countryRows),
+    regions: _parseRegionsFromRows(regionRows),
   );
 }
 
-List<Airport> _parseAirports(String data) {
-  final rows = parseCsv(data);
+List<Airport> _parseAirportsFromRows(List<List<String>> rows) {
   if (rows.length < 2) return [];
   final airports = <Airport>[];
   for (int i = 1; i < rows.length; i++) {
@@ -356,8 +432,7 @@ List<Airport> _parseAirports(String data) {
   return airports;
 }
 
-List<AirportFrequency> _parseFrequencies(String data) {
-  final rows = parseCsv(data);
+List<AirportFrequency> _parseFrequenciesFromRows(List<List<String>> rows) {
   if (rows.isEmpty) return [];
   final frequencies = <AirportFrequency>[];
   for (int i = 1; i < rows.length; i++) {
@@ -375,8 +450,7 @@ List<AirportFrequency> _parseFrequencies(String data) {
   return frequencies;
 }
 
-List<Runway> _parseRunways(String data) {
-  final rows = parseCsv(data);
+List<Runway> _parseRunwaysFromRows(List<List<String>> rows) {
   if (rows.isEmpty) return [];
   final runways = <Runway>[];
   for (int i = 1; i < rows.length; i++) {
@@ -408,8 +482,7 @@ List<Runway> _parseRunways(String data) {
   return runways;
 }
 
-List<Country> _parseCountries(String data) {
-  final rows = parseCsv(data);
+List<Country> _parseCountriesFromRows(List<List<String>> rows) {
   if (rows.isEmpty) return [];
   final countries = <Country>[];
   for (int i = 1; i < rows.length; i++) {
@@ -427,8 +500,7 @@ List<Country> _parseCountries(String data) {
   return countries;
 }
 
-List<Region> _parseRegions(String data) {
-  final rows = parseCsv(data);
+List<Region> _parseRegionsFromRows(List<List<String>> rows) {
   if (rows.isEmpty) return [];
   final regions = <Region>[];
   for (int i = 1; i < rows.length; i++) {

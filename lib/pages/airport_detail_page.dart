@@ -6,6 +6,236 @@ import '../models/airport_frequency.dart';
 import '../models/runway.dart';
 import '../models/country.dart';
 
+class _FrequenciesSection extends ConsumerWidget {
+  final String airportRef;
+  const _FrequenciesSection({required this.airportRef});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = ref.read(airportServiceProvider);
+    return FutureBuilder<List<AirportFrequency>>(
+      future: service.getFrequencies(airportRef),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 80,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final freqs = snapshot.data ?? [];
+        if (freqs.isEmpty) return const SizedBox.shrink();
+        return _buildFrequenciesSection(context, freqs);
+      },
+    );
+  }
+
+  Widget _buildFrequenciesSection(
+    BuildContext context,
+    List<AirportFrequency> frequencies,
+  ) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Frequencies (${frequencies.length})',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ...frequencies.map((freq) => _frequencyRow(context, freq)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _frequencyRow(BuildContext context, AirportFrequency freq) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: cs.primaryContainer,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              freq.type,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onPrimaryContainer,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              freq.description,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${freq.frequencyMhz.toStringAsFixed(3)} MHz',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RunwaysSection extends ConsumerWidget {
+  final String airportRef;
+  const _RunwaysSection({required this.airportRef});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final service = ref.read(airportServiceProvider);
+    return FutureBuilder<List<Runway>>(
+      future: service.getRunways(airportRef),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 80,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final runways = snapshot.data ?? [];
+        if (runways.isEmpty) return const SizedBox.shrink();
+        return _buildRunwaysSection(context, runways);
+      },
+    );
+  }
+
+  Widget _buildRunwaysSection(
+    BuildContext context,
+    List<Runway> runways,
+  ) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Runways (${runways.length})',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ...runways.map((runway) => _runwayRow(context, runway)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _runwayRow(BuildContext context, Runway runway) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (runway.leIdent != null)
+                _runwayEndChip(context, runway.leIdent!),
+              if (runway.leIdent != null && runway.heIdent != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.swap_horiz,
+                    size: 18,
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              if (runway.heIdent != null)
+                _runwayEndChip(context, runway.heIdent!),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (runway.surface != null && runway.surface!.isNotEmpty)
+                _detailChip(context, runway.surface!),
+              if (runway.lengthFt != null) ...[
+                const SizedBox(width: 8),
+                _detailChip(
+                  context,
+                  '${runway.lengthFt!.toStringAsFixed(0)} ft',
+                ),
+              ],
+              if (runway.widthFt != null) ...[
+                const SizedBox(width: 8),
+                _detailChip(
+                  context,
+                  '${runway.widthFt!.toStringAsFixed(0)} ft wide',
+                ),
+              ],
+              if (runway.lighted) ...[
+                const SizedBox(width: 8),
+                Icon(Icons.light, size: 14, color: cs.tertiary),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _runwayEndChip(BuildContext context, String ident) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        ident,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: cs.onSecondaryContainer,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'monospace',
+        ),
+      ),
+    );
+  }
+
+  Widget _detailChip(BuildContext context, String label) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: cs.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
 class AirportDetailPage extends ConsumerWidget {
   final String airportRef;
 
@@ -23,8 +253,6 @@ class AirportDetailPage extends ConsumerWidget {
       );
     }
 
-    final frequencies = service.getFrequencies(airport.id);
-    final runways = service.getRunways(airport.id);
     final country = service.getCountry(airport.isoCountry);
 
     return Scaffold(
@@ -37,9 +265,8 @@ class AirportDetailPage extends ConsumerWidget {
         children: [
           _buildHeroSection(context, airport),
           _buildInfoSection(context, airport, country),
-          if (frequencies.isNotEmpty)
-            _buildFrequenciesSection(context, frequencies),
-          if (runways.isNotEmpty) _buildRunwaysSection(context, runways),
+          _FrequenciesSection(airportRef: airport.id),
+          _RunwaysSection(airportRef: airport.id),
           const SizedBox(height: 32),
         ],
       ),
@@ -224,194 +451,6 @@ class AirportDetailPage extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _buildFrequenciesSection(
-    BuildContext context,
-    List<AirportFrequency> frequencies,
-  ) {
-    final theme = Theme.of(context);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Frequencies (${frequencies.length})',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            ...frequencies.map(
-              (freq) => _frequencyRow(context, freq),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _frequencyRow(BuildContext context, AirportFrequency freq) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              freq.type,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onPrimaryContainer,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              freq.description,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            '${freq.frequencyMhz.toStringAsFixed(3)} MHz',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRunwaysSection(
-    BuildContext context,
-    List<Runway> runways,
-  ) {
-    final theme = Theme.of(context);
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Runways (${runways.length})',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            ...runways.map(
-              (runway) => _runwayRow(context, runway),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _runwayRow(BuildContext context, Runway runway) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (runway.leIdent != null)
-                _runwayEndChip(context, runway.leIdent!),
-              if (runway.leIdent != null && runway.heIdent != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(
-                    Icons.swap_horiz,
-                    size: 18,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              if (runway.heIdent != null)
-                _runwayEndChip(context, runway.heIdent!),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              if (runway.surface != null && runway.surface!.isNotEmpty)
-                _detailChip(context, runway.surface!),
-              if (runway.lengthFt != null) ...[
-                const SizedBox(width: 8),
-                _detailChip(
-                  context,
-                  '${runway.lengthFt!.toStringAsFixed(0)} ft',
-                ),
-              ],
-              if (runway.widthFt != null) ...[
-                const SizedBox(width: 8),
-                _detailChip(
-                  context,
-                  '${runway.widthFt!.toStringAsFixed(0)} ft wide',
-                ),
-              ],
-              if (runway.lighted) ...[
-                const SizedBox(width: 8),
-                Icon(Icons.light, size: 14, color: cs.tertiary),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _runwayEndChip(BuildContext context, String ident) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: cs.secondaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        ident,
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: cs.onSecondaryContainer,
-          fontWeight: FontWeight.w600,
-          fontFamily: 'monospace',
-        ),
-      ),
-    );
-  }
-
-  Widget _detailChip(BuildContext context, String label) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: cs.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
 }
+
+
