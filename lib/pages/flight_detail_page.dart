@@ -88,8 +88,11 @@ class FlightDetailPage extends StatelessWidget {
                   icon: Icons.straighten,
                   label: 'Distance',
                   value: flight.totalDistance != null
-                      ? '${(flight.totalDistance! / 1000).toStringAsFixed(1)} km'
+                      ? '${flight.totalDistance!.toStringAsFixed(1)} km'
                       : '--',
+                  subtitle: flight.totalDistance != null
+                      ? '${(flight.totalDistance! * 0.539957).toStringAsFixed(1)} kts'
+                      : null,
                 ),
               ),
             ],
@@ -102,6 +105,7 @@ class FlightDetailPage extends StatelessWidget {
               icon: Icons.speed,
               label: 'Avg Speed',
               value: '${_averageSpeed(flight)!.toStringAsFixed(1)} km/h',
+              subtitle: '${(_averageSpeed(flight)! * 0.539957).toStringAsFixed(1)} knots',
             ),
           ],
         ],
@@ -115,6 +119,7 @@ class FlightDetailPage extends StatelessWidget {
     required IconData icon,
     required String label,
     required String value,
+    String? subtitle,
   }) {
     final theme = Theme.of(context);
     return Column(
@@ -130,6 +135,15 @@ class FlightDetailPage extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onPrimary.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
@@ -392,6 +406,6 @@ class FlightDetailPage extends StatelessWidget {
         .toList();
     if (speeds.isEmpty) return null;
     final avg = speeds.reduce((a, b) => a + b) / speeds.length;
-    return avg * 3.6;
+    return avg;
   }
 }
