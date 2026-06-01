@@ -7,6 +7,8 @@ import 'pages/flights_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/intro_page.dart';
 
+import 'providers/theme_provider.dart';
+
 class LogbookApp extends ConsumerStatefulWidget {
   const LogbookApp({super.key});
 
@@ -74,14 +76,16 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(themeProvider);
+
     return MaterialApp(
       title: 'Logbook',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       home: _checkingPermission
-          ? Scaffold(
+          ? const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             )
           : _permissionGranted

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_providers.dart';
 import '../services/flight_service.dart';
+import '../providers/theme_provider.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -11,7 +12,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _isDarkMode = false;
   bool _useMetric = true;
 
   void _clearAllFlights() {
@@ -19,7 +19,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Clear All Flights'),
-        content: const Text('Are you sure you want to delete all recorded flights? This action cannot be undone.'),
+        content: const Text(
+          'Are you sure you want to delete all recorded flights? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -46,37 +48,85 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _exportData() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export coming soon')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Export coming soon')));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Settings'), centerTitle: true),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          _SectionHeader(title: 'Preferences'),
+          const _SectionHeader(title: 'Preferences'),
           Card(
             child: Column(
               children: [
-                SwitchListTile(
-                  secondary: Icon(_isDarkMode ? Icons.dark_mode : Icons.light_mode),
-                  title: const Text('Dark Mode'),
-                  subtitle: const Text('Toggle dark theme'),
-                  value: _isDarkMode,
-                  onChanged: (v) => setState(() => _isDarkMode = v),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            themeMode == ThemeMode.light
+                                ? Icons.light_mode
+                                : themeMode == ThemeMode.dark
+                                ? Icons.dark_mode
+                                : Icons.brightness_auto,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 16),
+                          Text('Theme', style: theme.textTheme.titleMedium),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<ThemeMode>(
+                          segments: const [
+                            ButtonSegment<ThemeMode>(
+                              value: ThemeMode.light,
+                              icon: Icon(Icons.light_mode_outlined),
+                              label: Text('Light'),
+                            ),
+                            ButtonSegment<ThemeMode>(
+                              value: ThemeMode.dark,
+                              icon: Icon(Icons.dark_mode_outlined),
+                              label: Text('Dark'),
+                            ),
+                            ButtonSegment<ThemeMode>(
+                              value: ThemeMode.system,
+                              icon: Icon(Icons.settings_suggest_outlined),
+                              label: Text('Auto'),
+                            ),
+                          ],
+                          selected: {themeMode},
+                          onSelectionChanged: (newSelection) {
+                            ref
+                                .read(themeProvider.notifier)
+                                .setThemeMode(newSelection.first);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Divider(height: 1, indent: 72),
+                const Divider(height: 1, indent: 16),
                 SwitchListTile(
-                  secondary: Icon(_useMetric ? Icons.straighten : Icons.monitor_weight),
+                  secondary: Icon(
+                    _useMetric ? Icons.straighten : Icons.monitor_weight,
+                    color: theme.colorScheme.primary,
+                  ),
                   title: const Text('Metric Units'),
                   subtitle: Text(_useMetric ? 'km, m, km/h' : 'nm, ft, kts'),
                   value: _useMetric,
@@ -131,7 +181,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Center(
             child: Text(
               'Logbook v1.0.0',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(height: 80),
