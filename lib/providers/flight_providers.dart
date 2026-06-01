@@ -19,7 +19,9 @@ final flightListProvider = StateNotifierProvider<FlightListNotifier, List<Flight
   return FlightListNotifier();
 });
 
-final recordingStateProvider = StateProvider<bool>((ref) => false);
+final recordingStateProvider = StateProvider<bool>((ref) {
+  return FlightService().activeSession != null;
+});
 
 class ActiveFlightNotifier extends StateNotifier<FlightSession?> {
   ActiveFlightNotifier() : super(FlightService().activeSession);

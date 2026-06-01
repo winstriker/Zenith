@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
@@ -8,9 +8,13 @@ class LocationService {
   factory LocationService() => _instance;
   LocationService._();
 
-  Timer? _gpsTimer;
-  Timer? _mockTimer;
-  bool get isTracking => _gpsTimer != null || _mockTimer != null;
+  static const _methodChannel = MethodChannel('com.example.logbook/location_service');
+  static const _eventChannel = EventChannel('com.example.logbook/location_events');
+
+  StreamSubscription<Position>? _gpsSubscription;
+  StreamSubscription<dynamic>? _nativeSubscription;
+
+  bool get isTracking => _gpsSubscription != null || _nativeSubscription != null;
 
   double _latitude = 0;
   double _longitude = 0;
@@ -24,50 +28,35 @@ class LocationService {
   void startTracking() {
     if (isTracking) return;
 
-    if (kDebugMode) {
-      _startMockTracking();
-    } else {
-      _startRealTracking();
-    }
+    _startRealTracking();
   }
 
   void _startRealTracking() {
-    _pollGps();
-    _gpsTimer = Timer.periodic(const Duration(seconds: 2), (_) => _pollGps());
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      _startAndroidTracking();
+    } else {
+      _startIosTracking();
+    }
   }
 
-  Future<void> _pollGps() async {
+  void _startAndroidTracking() {
     try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-      _latitude = position.latitude;
-      _longitude = position.longitude;
-      _altitude = position.altitude;
-      _speed = position.speed;
-      _heading = position.heading;
+      _methodChannel.invokeMethod('startService');
+    } catch (_) {
+      _fallbackToGeolocator();
+      return;
+    }
 
-      _locationStream.add({
-        'latitude': _latitude,
-        'longitude': _longitude,
-        'altitude': _altitude,
-        'speed': _speed * 3.6,
-        'heading': _heading,
-      });
-    } catch (_) {}
-  }
+    _nativeSubscription = _eventChannel
+        .receiveBroadcastStream()
+        .listen((event) {
+      final data = Map<String, dynamic>.from(event as Map);
+      _latitude = (data['latitude'] as num).toDouble();
+      _longitude = (data['longitude'] as num).toDouble();
+      _altitude = (data['altitude'] as num).toDouble();
+      _speed = (data['speed'] as num).toDouble() * 3.6;
+      _heading = (data['heading'] as num).toDouble();
 
-  void _startMockTracking() {
-    _latitude = 51.4700;
-    _longitude = -0.4543;
-    _altitude = 0;
-    _speed = 0;
-    _heading = 0;
-
-    _mockTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      _simulateMovement();
       _locationStream.add({
         'latitude': _latitude,
         'longitude': _longitude,
@@ -75,41 +64,95 @@ class LocationService {
         'speed': _speed,
         'heading': _heading,
       });
+    }, onError: (_) {
+      _fallbackToGeolocator();
     });
   }
 
-  void stopTracking() {
-    _gpsTimer?.cancel();
-    _gpsTimer = null;
-    _mockTimer?.cancel();
-    _mockTimer = null;
+  void _fallbackToGeolocator() {
+    _nativeSubscription?.cancel();
+    _nativeSubscription = null;
+    _gpsSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: AndroidSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'Logbook',
+              notificationText: 'Recording flight...',
+              setOngoing: true,
+            ),
+          ),
+        ).listen((position) {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          _altitude = position.altitude;
+          _speed = position.speed;
+          _heading = position.heading;
+
+          _locationStream.add({
+            'latitude': _latitude,
+            'longitude': _longitude,
+            'altitude': _altitude,
+            'speed': _speed * 3.6,
+            'heading': _heading,
+          });
+        });
   }
 
-  void _simulateMovement() {
-    final rng = Random();
-    if (_altitude < 1000) {
-      _altitude += rng.nextDouble() * 50 + 20;
-      _speed = 100 + rng.nextDouble() * 50;
-    } else if (_altitude < 3000) {
-      _altitude += rng.nextDouble() * 30 + 10;
-      _speed = 200 + rng.nextDouble() * 50;
-    } else {
-      _altitude += rng.nextDouble() * 10 - 5;
-      _speed = 250 + rng.nextDouble() * 30;
+  void _startIosTracking() {
+    _gpsSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 0,
+          ),
+        ).listen((position) {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          _altitude = position.altitude;
+          _speed = position.speed;
+          _heading = position.heading;
+
+          _locationStream.add({
+            'latitude': _latitude,
+            'longitude': _longitude,
+            'altitude': _altitude,
+            'speed': _speed * 3.6,
+            'heading': _heading,
+          });
+        });
+  }
+
+  void stopTracking() {
+    _gpsSubscription?.cancel();
+    _gpsSubscription = null;
+    _nativeSubscription?.cancel();
+    _nativeSubscription = null;
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        _methodChannel.invokeMethod('stopService');
+      } catch (_) {}
     }
-    _altitude = _altitude.clamp(0, 5000);
+  }
 
-    _heading += (rng.nextDouble() - 0.5) * 10;
-    _heading = _heading % 360;
+  Future<List<Map<String, dynamic>>> getBufferedData() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return [];
+    try {
+      final result = await _methodChannel.invokeMethod('getBufferedData');
+      if (result == null) return [];
+      return List<Map<String, dynamic>>.from(result as List);
+    } catch (_) {
+      return [];
+    }
+  }
 
-    final headingRad = _heading * pi / 180;
-    final distKm = _speed * 2 / 3600;
-    final latChange = distKm / 111.32 * cos(headingRad);
-    final lonChange =
-        distKm / (111.32 * cos(_latitude * pi / 180)) * sin(headingRad);
-
-    _latitude += latChange;
-    _longitude += lonChange;
+  Future<void> clearBuffer() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _methodChannel.invokeMethod('clearBuffer');
+    } catch (_) {}
   }
 
   void dispose() {

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../providers/flight_providers.dart';
 import '../services/flight_service.dart';
 import '../services/location_service.dart';
@@ -37,6 +39,67 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     final today = DateTime.now();
     _titleController.text =
         'Flight ${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resumeExistingRecording();
+    });
+  }
+
+  Future<void> _resumeExistingRecording() async {
+    final activeSession = FlightService().activeSession;
+    if (activeSession == null) return;
+
+    setState(() {
+      _startTime = activeSession.startTime;
+      _elapsed = DateTime.now().difference(_startTime!);
+    });
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _elapsed = DateTime.now().difference(_startTime!);
+        });
+      }
+    });
+
+    final locationService = LocationService();
+    locationService.startTracking();
+
+    _locationSubscription = locationService.locationStream.listen((location) {
+      final lat = location['latitude']!;
+      final lon = location['longitude']!;
+      final alt = location['altitude']!;
+      final speed = location['speed']!;
+      final heading = location['heading']!;
+
+      FlightService().addPoint(lat, lon, alt, speed: speed, heading: heading);
+
+      if (mounted) {
+        setState(() {
+          _latitude = lat;
+          _longitude = lon;
+          _altitude = alt;
+          _speed = speed;
+          _heading = heading;
+        });
+      }
+    });
+
+    final bufferedData = await LocationService().getBufferedData();
+    if (bufferedData.isNotEmpty) {
+      for (final point in bufferedData) {
+        FlightService().addPoint(
+          (point['latitude'] as num).toDouble(),
+          (point['longitude'] as num).toDouble(),
+          (point['altitude'] as num).toDouble(),
+          speed: (point['speed'] as num?)?.toDouble(),
+          heading: (point['heading'] as num?)?.toDouble(),
+        );
+      }
+      await LocationService().clearBuffer();
+    }
+
+    ref.read(recordingStateProvider.notifier).state = true;
+    ref.read(flightListProvider.notifier).refresh();
   }
 
   @override
@@ -50,9 +113,13 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     super.dispose();
   }
 
-  void _startRecording() {
+  Future<void> _startRecording() async {
     final flightService = FlightService();
     final locationService = LocationService();
+
+    if (!kDebugMode && mounted) {
+      await _ensureBackgroundPermission();
+    }
 
     flightService.startSession(
       title: _titleController.text.trim().isEmpty
@@ -105,11 +172,55 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     ref.read(flightListProvider.notifier).refresh();
   }
 
+  Future<void> _ensureBackgroundPermission() async {
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.always) return;
+
+    if (!mounted) return;
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Background Location'),
+        content: const Text(
+          'To record flights when your screen is off, '
+          'enable "Allow all the time" location access in system settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Skip'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'settings'),
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
+    if (action == 'settings') {
+      await Geolocator.openAppSettings();
+    }
+  }
+
   Future<void> _stopRecording() async {
     _timer?.cancel();
     _timer = null;
     _locationSubscription?.cancel();
     _locationSubscription = null;
+
+    final bufferedData = await LocationService().getBufferedData();
+    if (bufferedData.isNotEmpty) {
+      for (final point in bufferedData) {
+        FlightService().addPoint(
+          (point['latitude'] as num).toDouble(),
+          (point['longitude'] as num).toDouble(),
+          (point['altitude'] as num).toDouble(),
+          speed: (point['speed'] as num?)?.toDouble(),
+          heading: (point['heading'] as num?)?.toDouble(),
+        );
+      }
+      await LocationService().clearBuffer();
+    }
 
     LocationService().stopTracking();
     await FlightService().endSession();

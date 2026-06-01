@@ -24,8 +24,14 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Logbook uses GPS to record flight paths, altitude, speed, and heading during your flights, even when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Logbook uses GPS to record flight paths, altitude, speed, and heading during your flights.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
