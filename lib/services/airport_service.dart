@@ -38,6 +38,8 @@ class AirportService {
   Box<Country>? _countryBox;
   Box<Region>? _regionBox;
   bool _hiveReady = false;
+  List<String> _airportTypes = [];
+  int _dataVersion = 0;
 
   bool get isLoaded => _loaded;
   bool get isLoading => _loading;
@@ -48,8 +50,14 @@ class AirportService {
   List<Country> get countries => List.unmodifiable(_countries);
   List<Region> get regions => List.unmodifiable(_regions);
 
-  List<String> get airportTypes =>
-      _airports.map((a) => a.type).toSet().toList()..sort();
+  int get dataVersion => _dataVersion;
+
+  List<String> get airportTypes => _airportTypes;
+
+  void _updateAirportTypes() {
+    _airportTypes = _airports.map((a) => a.type).toSet().toList()..sort();
+    _dataVersion++;
+  }
 
   final List<VoidCallback> _listeners = [];
 
@@ -124,6 +132,7 @@ class AirportService {
       _airports = _airportBox!.values.toList();
       _countries = _countryBox!.values.toList();
       _regions = _regionBox!.values.toList();
+      _updateAirportTypes();
       return true;
     }
 
@@ -137,6 +146,7 @@ class AirportService {
     final airportData = await airportFile.readAsString();
     final airportRows = parseCsv(airportData);
     _airports = _parseAirportsFromRows(airportRows);
+    _updateAirportTypes();
 
     final countryFile = File('${dir.path}/$_countriesFile');
     final regionFile = File('${dir.path}/$_regionsFile');
@@ -214,6 +224,7 @@ class AirportService {
       _airports = result.airports;
       _countries = result.countries;
       _regions = result.regions;
+      _updateAirportTypes();
 
       // Store everything in Hive
       await Future.wait([

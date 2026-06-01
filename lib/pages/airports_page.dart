@@ -26,6 +26,16 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   double? _lng;
   bool _locating = true;
 
+  String _lastQuery = '';
+  String? _lastCountry;
+  String? _lastType;
+  int _lastDataVersion = -1;
+  List<Airport> _cachedResults = [];
+
+  double? _lastLat;
+  double? _lastLng;
+  List<Airport> _cachedNearest = [];
+
   static const _radius = 6371;
 
   @override
@@ -67,6 +77,24 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
 
   double _toRad(double deg) => deg * pi / 180;
 
+  List<Airport> _searchAirportsCached(AirportService service) {
+    if (_searchQuery != _lastQuery ||
+        _selectedCountry != _lastCountry ||
+        _selectedType != _lastType ||
+        service.dataVersion != _lastDataVersion) {
+      _lastQuery = _searchQuery;
+      _lastCountry = _selectedCountry;
+      _lastType = _selectedType;
+      _lastDataVersion = service.dataVersion;
+      _cachedResults = service.searchAirports(
+        query: _searchQuery,
+        countryCode: _selectedCountry,
+        type: _selectedType,
+      );
+    }
+    return _cachedResults;
+  }
+
   @override
   Widget build(BuildContext context) {
     final loadState = ref.watch(airportLoadProvider);
@@ -78,11 +106,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
         _selectedType != null;
 
     final allAirports = loadState.isLoaded
-        ? service.searchAirports(
-            query: _searchQuery,
-            countryCode: _selectedCountry,
-            type: _selectedType,
-          )
+        ? _searchAirportsCached(service)
         : <Airport>[];
 
     final airports = isFiltering
@@ -225,13 +249,32 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
 
   List<Airport> _nearest(List<Airport> airports) {
     if (_lat == null || _lng == null) return airports;
-    final withDist = airports.where((a) => a.latitudeDeg != null).toList();
-    withDist.sort((a, b) {
-      final da = _distance(_lat!, _lng!, a.latitudeDeg!, a.longitudeDeg!);
-      final db = _distance(_lat!, _lng!, b.latitudeDeg!, b.longitudeDeg!);
-      return da.compareTo(db);
-    });
-    return withDist.take(20).toList();
+    if (_lat == _lastLat && _lng == _lastLng && identical(airports, _cachedResults)) {
+      return _cachedNearest;
+    }
+    final lat = _lat!;
+    final lng = _lng!;
+    final keep = <_AirportDist>[];
+    for (final a in airports) {
+      if (a.latitudeDeg == null) continue;
+      final d = _distance(lat, lng, a.latitudeDeg!, a.longitudeDeg!);
+      if (keep.length < 20) {
+        keep.add(_AirportDist(a, d));
+      } else {
+        var maxIdx = 0;
+        for (int j = 1; j < 20; j++) {
+          if (keep[j].dist > keep[maxIdx].dist) maxIdx = j;
+        }
+        if (d < keep[maxIdx].dist) {
+          keep[maxIdx] = _AirportDist(a, d);
+        }
+      }
+    }
+    keep.sort((a, b) => a.dist.compareTo(b.dist));
+    _cachedNearest = keep.map((e) => e.airport).toList();
+    _lastLat = _lat;
+    _lastLng = _lng;
+    return _cachedNearest;
   }
 
   Widget _buildLoadingState(BuildContext context) {
@@ -427,4 +470,10 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
       ),
     );
   }
+}
+
+class _AirportDist {
+  final Airport airport;
+  final double dist;
+  const _AirportDist(this.airport, this.dist);
 }
