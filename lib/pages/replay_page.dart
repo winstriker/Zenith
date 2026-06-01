@@ -94,27 +94,21 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
   }
 
   void _fitMapBounds() {
-    if (!_mapReady || _pathPoints.length < 2) return;
+    if (!_mapReady || _pathPoints.isEmpty) return;
 
-    double minLat = double.infinity, maxLat = double.negativeInfinity;
-    double minLon = double.infinity, maxLon = double.negativeInfinity;
+    final startPoint = _pathPoints.first;
 
-    for (final p in _pathPoints) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLon) minLon = p.longitude;
-      if (p.longitude > maxLon) maxLon = p.longitude;
-    }
+    _mapController.move(startPoint, 13.0);
 
-    _mapController.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds(
-          LatLng(minLat, minLon),
-          LatLng(maxLat, maxLon),
-        ),
-        padding: const EdgeInsets.all(60),
-      ),
-    );
+    // Force a tiny movement to trigger a tile refresh and resolve the blurry tiles
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _mapController.move(
+          _mapController.camera.center,
+          _mapController.camera.zoom + 0.000001,
+        );
+      }
+    });
   }
 
   LatLng _getPositionAtProgress(double progress) {
