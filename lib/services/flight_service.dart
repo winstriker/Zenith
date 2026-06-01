@@ -98,7 +98,7 @@ class FlightService {
     final point = FlightPoint(
       latitude: latitude,
       longitude: longitude,
-      altitude: altitude,
+      altitude: altitude.roundToDouble(),
       timestamp: DateTime.now(),
       speed: speed,
       heading: heading,

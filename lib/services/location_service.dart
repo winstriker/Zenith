@@ -53,7 +53,7 @@ class LocationService {
       final data = Map<String, dynamic>.from(event as Map);
       _latitude = (data['latitude'] as num).toDouble();
       _longitude = (data['longitude'] as num).toDouble();
-      _altitude = (data['altitude'] as num).toDouble();
+      _altitude = (data['altitude'] as num).toDouble().roundToDouble();
       _speed = (data['speed'] as num).toDouble() * 3.6;
       _heading = (data['heading'] as num).toDouble();
 
@@ -86,7 +86,7 @@ class LocationService {
         ).listen((position) {
           _latitude = position.latitude;
           _longitude = position.longitude;
-          _altitude = position.altitude;
+          _altitude = position.altitude.roundToDouble();
           _speed = position.speed;
           _heading = position.heading;
 
@@ -110,7 +110,7 @@ class LocationService {
         ).listen((position) {
           _latitude = position.latitude;
           _longitude = position.longitude;
-          _altitude = position.altitude;
+          _altitude = position.altitude.roundToDouble();
           _speed = position.speed;
           _heading = position.heading;
 
