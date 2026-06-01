@@ -20,6 +20,7 @@ class AirportService {
   static const _runwaysFile = 'runways.csv';
   static const _countriesFile = 'countries.csv';
   static const _regionsFile = 'regions.csv';
+  static const _downloadStampFile = '.last_download';
 
   List<Airport> _airports = [];
   List<AirportFrequency> _frequencies = [];
@@ -27,9 +28,13 @@ class AirportService {
   List<Country> _countries = [];
   List<Region> _regions = [];
   bool _loaded = false;
+  bool _loading = false;
+  bool _refreshing = false;
   String? _error;
 
   bool get isLoaded => _loaded;
+  bool get isLoading => _loading;
+  bool get isRefreshing => _refreshing;
   String? get error => _error;
 
   List<Airport> get airports => List.unmodifiable(_airports);
@@ -39,38 +44,75 @@ class AirportService {
   List<String> get airportTypes =>
       _airports.map((a) => a.type).toSet().toList()..sort();
 
-  Future<void> loadData({bool forceRefresh = false}) async {
-    final dir = await getApplicationDocumentsDirectory();
+  final List<VoidCallback> _listeners = [];
 
-    try {
-      if (!forceRefresh) {
-        await _loadFromCache(dir);
-      }
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+  }
 
-      if (!_loaded) {
-        await _downloadAndParse(dir);
-        _loaded = true;
-        _error = null;
-      }
-    } catch (e) {
-      _error = e.toString();
-      rethrow;
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+  }
+
+  void _notify() {
+    for (final listener in List.from(_listeners)) {
+      listener();
     }
   }
 
-  Future<void> _loadFromCache(Directory dir) async {
+  Future<void> loadData() async {
+    if (_loaded && _loading) return;
+    _loading = true;
+    _error = null;
+    _notify();
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final cacheOk = await _tryLoadCache(dir);
+
+      if (cacheOk) {
+        _loaded = true;
+        _loading = false;
+        _notify();
+
+        final stale = await _isCacheStale(dir);
+        if (stale) {
+          _refreshing = true;
+          _notify();
+          await _downloadAndParse(dir);
+          _refreshing = false;
+          _notify();
+        }
+      } else {
+        await _downloadAndParse(dir);
+        _loaded = true;
+        _loading = false;
+        _error = null;
+        _notify();
+      }
+    } catch (e) {
+      _loading = false;
+      _refreshing = false;
+      _error = e.toString();
+      _notify();
+    }
+  }
+
+  Future<bool> _tryLoadCache(Directory dir) async {
     final airportFile = File('${dir.path}/$_airportsFile');
     final freqFile = File('${dir.path}/$_frequenciesFile');
     final runwayFile = File('${dir.path}/$_runwaysFile');
     final countryFile = File('${dir.path}/$_countriesFile');
     final regionFile = File('${dir.path}/$_regionsFile');
 
+    final stampFile = File('${dir.path}/$_downloadStampFile');
     if (!await airportFile.exists() ||
         !await freqFile.exists() ||
         !await runwayFile.exists() ||
         !await countryFile.exists() ||
-        !await regionFile.exists()) {
-      return;
+        !await regionFile.exists() ||
+        !await stampFile.exists()) {
+      return false;
     }
 
     final airportData = await airportFile.readAsString();
@@ -79,20 +121,41 @@ class AirportService {
     final countryData = await countryFile.readAsString();
     final regionData = await regionFile.readAsString();
 
-    await compute(_parseAll, _ParseArgs(
+    final result = await compute(_parseAll, _ParseArgs(
       airportData: airportData,
       freqData: freqData,
       runwayData: runwayData,
       countryData: countryData,
       regionData: regionData,
-    )).then((result) {
-      _airports = result.airports;
-      _frequencies = result.frequencies;
-      _runways = result.runways;
-      _countries = result.countries;
-      _regions = result.regions;
-      _loaded = true;
-    });
+    ));
+
+    _airports = result.airports;
+    _frequencies = result.frequencies;
+    _runways = result.runways;
+    _countries = result.countries;
+    _regions = result.regions;
+    return true;
+  }
+
+  Future<bool> _isCacheStale(Directory dir) async {
+    final stampFile = File('${dir.path}/$_downloadStampFile');
+    if (!await stampFile.exists()) return true;
+    try {
+      final content = await stampFile.readAsString();
+      final lastDownload = DateTime.parse(content.trim());
+      return lastDownload.isBefore(_lastUpdateCutoff());
+    } catch (_) {
+      return true;
+    }
+  }
+
+  DateTime _lastUpdateCutoff() {
+    final now = DateTime.now().toUtc();
+    final todayMidnight = DateTime.utc(now.year, now.month, now.day);
+    if (now.isAfter(todayMidnight) || now.isAtSameMomentAs(todayMidnight)) {
+      return todayMidnight;
+    }
+    return todayMidnight.subtract(const Duration(days: 1));
   }
 
   Future<void> _downloadAndParse(Directory dir) async {
@@ -118,6 +181,9 @@ class AirportService {
         File('${dir.path}/$_runwaysFile').writeAsString(runwayData),
         File('${dir.path}/$_countriesFile').writeAsString(countryData),
         File('${dir.path}/$_regionsFile').writeAsString(regionData),
+        File('${dir.path}/$_downloadStampFile').writeAsString(
+          DateTime.now().toUtc().toIso8601String(),
+        ),
       ]);
 
       final result = await compute(_parseAll, _ParseArgs(

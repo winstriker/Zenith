@@ -27,13 +27,31 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final asyncLoad = ref.watch(airportDataLoadProvider);
+    final loadState = ref.watch(airportLoadProvider);
     final service = ref.read(airportServiceProvider);
+    final theme = Theme.of(context);
+
+    final airports = loadState.isLoaded
+        ? service.searchAirports(
+            query: _searchQuery,
+            countryCode: _selectedCountry,
+            type: _selectedType,
+          )
+        : <dynamic>[];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Airports'),
         actions: [
+          if (loadState.isRefreshing)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           IconButton(
             icon: Icon(_showFilters ? Icons.filter_alt_off : Icons.filter_alt),
             tooltip: 'Filters',
@@ -49,139 +67,141 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 _selectedType = null;
                 _searchController.clear();
               });
-              ref.invalidate(airportDataLoadProvider);
+              ref.read(airportLoadProvider).refresh();
             },
           ),
         ],
       ),
-      body: asyncLoad.when(
-        loading: () => const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Downloading airport data...'),
-            ],
-          ),
-        ),
-        error: (error, stack) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.cloud_off,
-                  size: 64,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .error
-                      .withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Failed to load airport data',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Check your internet connection and try again.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      body: Column(
+        children: [
+          _buildSearchBar(context, service),
+          if (loadState.error != null && !loadState.isLoaded)
+            _buildErrorBanner(context, loadState.error!),
+          if (_showFilters) _buildFilters(context, service),
+          Expanded(
+            child: !loadState.isLoaded
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.flight,
+                            size: 64,
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.3),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading airports...',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Downloading and parsing data in background',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const CircularProgressIndicator(),
+                        ],
                       ),
-                ),
-                const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: () => ref.invalidate(airportDataLoadProvider),
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
-                ),
-              ],
-            ),
+                    ),
+                  )
+                : airports.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _searchQuery.isNotEmpty ||
+                                        _selectedCountry != null ||
+                                        _selectedType != null
+                                    ? Icons.search_off
+                                    : Icons.flight,
+                                size: 64,
+                                color: theme.colorScheme.primary
+                                    .withValues(alpha: 0.3),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _searchQuery.isNotEmpty ||
+                                        _selectedCountry != null ||
+                                        _selectedType != null
+                                    ? 'No airports match your filters'
+                                    : 'No airports found',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _searchQuery.isNotEmpty ||
+                                        _selectedCountry != null ||
+                                        _selectedType != null
+                                    ? 'Try adjusting your search or filters'
+                                    : 'Data may still be loading',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(top: 8, bottom: 80),
+                        itemCount: airports.length,
+                        itemBuilder: (context, index) {
+                          final airport = airports[index];
+                          return AirportCard(
+                            airport: airport,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AirportDetailPage(
+                                    airportRef: airport.id),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
           ),
-        ),
-        data: (_) => _buildContent(context, service),
+        ],
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context, AirportService service) {
-    final airports = service.searchAirports(
-      query: _searchQuery,
-      countryCode: _selectedCountry,
-      type: _selectedType,
-    );
+  Widget _buildErrorBanner(BuildContext context, String error) {
     final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        _buildSearchBar(context, service),
-        if (_showFilters) _buildFilters(context, service),
-        Expanded(
-          child: airports.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _searchQuery.isNotEmpty ||
-                                  _selectedCountry != null ||
-                                  _selectedType != null
-                              ? Icons.search_off
-                              : Icons.flight,
-                          size: 64,
-                          color: theme.colorScheme.primary
-                              .withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isNotEmpty ||
-                                  _selectedCountry != null ||
-                                  _selectedType != null
-                              ? 'No airports match your filters'
-                              : 'No airports found',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _searchQuery.isNotEmpty ||
-                                  _selectedCountry != null ||
-                                  _selectedType != null
-                              ? 'Try adjusting your search or filters'
-                              : 'Data may still be loading',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(top: 8, bottom: 80),
-                  itemCount: airports.length,
-                  itemBuilder: (context, index) {
-                    final airport = airports[index];
-                    return AirportCard(
-                      airport: airport,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              AirportDetailPage(airportRef: airport.id),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: theme.colorScheme.errorContainer,
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off, size: 18, color: theme.colorScheme.onErrorContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Could not load airport data. Check connection.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => ref.read(airportLoadProvider).refresh(),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 
