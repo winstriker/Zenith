@@ -23,7 +23,6 @@ class AirportService {
   static const _countriesFile = 'countries.csv';
   static const _regionsFile = 'regions.csv';
   static const _stampFile = '.last_download';
-  static const _metaKey = '_meta';
 
   List<Airport> _airports = [];
   List<Country> _countries = [];
@@ -35,6 +34,9 @@ class AirportService {
 
   LazyBox<String>? _freqBox;
   LazyBox<String>? _runwayBox;
+  Box<Airport>? _airportBox;
+  Box<Country>? _countryBox;
+  Box<Region>? _regionBox;
   bool _hiveReady = false;
 
   bool get isLoaded => _loaded;
@@ -67,9 +69,11 @@ class AirportService {
 
   Future<void> initHive() async {
     if (_hiveReady) return;
-    await Hive.initFlutter();
     _freqBox = await Hive.openLazyBox<String>('airport_frequencies');
     _runwayBox = await Hive.openLazyBox<String>('airport_runways');
+    _airportBox = await Hive.openBox<Airport>('airports');
+    _countryBox = await Hive.openBox<Country>('countries');
+    _regionBox = await Hive.openBox<Region>('regions');
     _hiveReady = true;
   }
 
@@ -115,13 +119,20 @@ class AirportService {
   }
 
   Future<bool> _tryLoadCache(Directory dir) async {
+    // Try loading from Hive first
+    if (_airportBox!.isNotEmpty) {
+      _airports = _airportBox!.values.toList();
+      _countries = _countryBox!.values.toList();
+      _regions = _regionBox!.values.toList();
+      return true;
+    }
+
+    // Fallback: parse CSV files and populate Hive
     final stampFile = File('${dir.path}/$_stampFile');
     final airportFile = File('${dir.path}/$_airportsFile');
     if (!await stampFile.exists() || !await airportFile.exists()) {
       return false;
     }
-
-    if (!_freqBox!.containsKey(_metaKey)) return false;
 
     final airportData = await airportFile.readAsString();
     final airportRows = parseCsv(airportData);
@@ -136,6 +147,9 @@ class AirportService {
       _regions = _parseRegionsFromRows(parseCsv(await regionFile.readAsString()));
     }
 
+    await _storeAirports(_airports);
+    await _storeCountries(_countries);
+    await _storeRegions(_regions);
     return true;
   }
 
@@ -177,6 +191,7 @@ class AirportService {
       final countryData = results[3].body;
       final regionData = results[4].body;
 
+      // Write CSVs to disk as backup
       await Future.wait([
         File('${dir.path}/$_airportsFile').writeAsString(airportData),
         File('${dir.path}/$_frequenciesFile').writeAsString(freqData),
@@ -200,10 +215,37 @@ class AirportService {
       _countries = result.countries;
       _regions = result.regions;
 
-      await _storeFrequencies(result.frequencies);
-      await _storeRunways(result.runways);
+      // Store everything in Hive
+      await Future.wait([
+        _storeAirports(result.airports),
+        _storeCountries(result.countries),
+        _storeRegions(result.regions),
+        _storeFrequencies(result.frequencies),
+        _storeRunways(result.runways),
+      ]);
     } finally {
       client.close();
+    }
+  }
+
+  Future<void> _storeAirports(List<Airport> airports) async {
+    await _airportBox!.clear();
+    for (final a in airports) {
+      await _airportBox!.put(a.id, a);
+    }
+  }
+
+  Future<void> _storeCountries(List<Country> countries) async {
+    await _countryBox!.clear();
+    for (final c in countries) {
+      await _countryBox!.put(c.code, c);
+    }
+  }
+
+  Future<void> _storeRegions(List<Region> regions) async {
+    await _regionBox!.clear();
+    for (final r in regions) {
+      await _regionBox!.put(r.code, r);
     }
   }
 
@@ -219,7 +261,6 @@ class AirportService {
     for (int i = 0; i < keys.length; i++) {
       await _freqBox!.put(keys[i], jsonEncode(byRef[keys[i]]));
     }
-    await _freqBox!.put(_metaKey, jsonEncode({'count': freqs.length, 'groups': byRef.length}));
   }
 
   Future<void> _storeRunways(List<Runway> runways) async {
@@ -238,7 +279,6 @@ class AirportService {
     for (int i = 0; i < keys.length; i++) {
       await _runwayBox!.put(keys[i], jsonEncode(byRef[keys[i]]));
     }
-    await _runwayBox!.put(_metaKey, jsonEncode({'count': runways.length, 'groups': byRef.length}));
   }
 
   List<Airport> searchAirports({
