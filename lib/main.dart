@@ -12,8 +12,6 @@ void main() async {
   Hive.registerAdapter(FlightPointAdapter());
   Hive.registerAdapter(FlightSessionAdapter());
   Hive.registerAdapter(AirportAdapter());
-  Hive.registerAdapter(CountryAdapter());
-  Hive.registerAdapter(RegionAdapter());
   await FlightService().initialize();
   await AirportService().initHive();
   runApp(

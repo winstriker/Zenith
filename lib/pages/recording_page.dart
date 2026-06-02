@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../providers/flight_providers.dart';
@@ -63,7 +62,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     });
 
     final locationService = LocationService();
-    locationService.startTracking();
+    await locationService.startTracking();
 
     _locationSubscription = locationService.locationStream.listen((location) {
       final lat = location['latitude']!;
@@ -85,20 +84,6 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       }
     });
 
-    final bufferedData = await LocationService().getBufferedData();
-    if (bufferedData.isNotEmpty) {
-      for (final point in bufferedData) {
-        FlightService().addPoint(
-          (point['latitude'] as num).toDouble(),
-          (point['longitude'] as num).toDouble(),
-          (point['altitude'] as num).toDouble(),
-          speed: (point['speed'] as num?)?.toDouble(),
-          heading: (point['heading'] as num?)?.toDouble(),
-        );
-      }
-      await LocationService().clearBuffer();
-    }
-
     ref.read(recordingStateProvider.notifier).state = true;
     ref.read(flightListProvider.notifier).refresh();
   }
@@ -118,7 +103,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     final flightService = FlightService();
     final locationService = LocationService();
 
-    if (!kDebugMode && mounted) {
+    if (mounted) {
       await _ensureBackgroundPermission();
     }
 
@@ -126,15 +111,18 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
-      aircraftType:
-          _aircraftController.text.trim().isEmpty ? null : _aircraftController.text.trim(),
-      departure:
-          _departureController.text.trim().isEmpty ? null : _departureController.text.trim(),
-      arrival:
-          _arrivalController.text.trim().isEmpty ? null : _arrivalController.text.trim(),
+      aircraftType: _aircraftController.text.trim().isEmpty
+          ? null
+          : _aircraftController.text.trim(),
+      departure: _departureController.text.trim().isEmpty
+          ? null
+          : _departureController.text.trim(),
+      arrival: _arrivalController.text.trim().isEmpty
+          ? null
+          : _arrivalController.text.trim(),
     );
 
-    locationService.startTracking();
+    await locationService.startTracking();
 
     setState(() {
       _startTime = DateTime.now();
@@ -209,20 +197,6 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     _locationSubscription?.cancel();
     _locationSubscription = null;
 
-    final bufferedData = await LocationService().getBufferedData();
-    if (bufferedData.isNotEmpty) {
-      for (final point in bufferedData) {
-        FlightService().addPoint(
-          (point['latitude'] as num).toDouble(),
-          (point['longitude'] as num).toDouble(),
-          (point['altitude'] as num).toDouble(),
-          speed: (point['speed'] as num?)?.toDouble(),
-          heading: (point['heading'] as num?)?.toDouble(),
-        );
-      }
-      await LocationService().clearBuffer();
-    }
-
     LocationService().stopTracking();
     await FlightService().endSession();
 
@@ -260,19 +234,27 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(Icons.flight, size: 64,
-              color: theme.colorScheme.primary.withValues(alpha: 0.3)),
+          Icon(
+            Icons.flight,
+            size: 64,
+            color: theme.colorScheme.primary.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 16),
-          Text('Configure Flight',
-              style: theme.textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
+          Text(
+            'Configure Flight',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           Text(
-              'Set up your flight details before starting the recording.',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              textAlign: TextAlign.center),
+            'Set up your flight details before starting the recording.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 32),
           TextField(
             controller: _titleController,
@@ -321,9 +303,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              textStyle: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -333,8 +317,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
 
   Widget _buildRecordingView(ThemeData theme) {
     final session = FlightService().activeSession;
-    final hasRoute =
-        session?.departure != null || session?.arrival != null;
+    final hasRoute = session?.departure != null || session?.arrival != null;
     final hasAircraft = session?.aircraftType != null;
 
     return Column(
@@ -347,12 +330,14 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             children: [
               const _PulsingRecordingDot(),
               const SizedBox(width: 10),
-              Text('RECORDING',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: Colors.red.shade800,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  )),
+              Text(
+                'RECORDING',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: Colors.red.shade800,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
             ],
           ),
         ),
@@ -362,16 +347,21 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             child: Column(
               children: [
                 const SizedBox(height: 16),
-                Text(_formatDuration(_elapsed),
-                    style: theme.textTheme.displayLarge?.copyWith(
-                      fontWeight: FontWeight.w200,
-                      fontFamily: 'monospace',
-                      color: theme.colorScheme.onSurface,
-                    )),
+                Text(
+                  _formatDuration(_elapsed),
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    fontWeight: FontWeight.w200,
+                    fontFamily: 'monospace',
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text('elapsed time',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                Text(
+                  'elapsed time',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 32),
                 if (hasAircraft || hasRoute)
                   Card(
@@ -384,13 +374,17 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Row(
                                 children: [
-                                  Icon(Icons.airplanemode_active, size: 18,
-                                      color: theme.colorScheme.primary),
+                                  Icon(
+                                    Icons.airplanemode_active,
+                                    size: 18,
+                                    color: theme.colorScheme.primary,
+                                  ),
                                   const SizedBox(width: 8),
-                                  Text(session!.aircraftType!,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w600)),
+                                  Text(
+                                    session!.aircraftType!,
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
                                 ],
                               ),
                             ),
@@ -400,21 +394,26 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                               children: [
                                 if (session!.departure != null)
                                   _RouteChip(
-                                      label: session.departure!,
-                                      icon: Icons.flight_takeoff),
+                                    label: session.departure!,
+                                    icon: Icons.flight_takeoff,
+                                  ),
                                 if (session.departure != null &&
                                     session.arrival != null)
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(horizontal: 8),
-                                    child: Icon(Icons.arrow_forward, size: 16,
-                                        color: theme
-                                            .colorScheme.onSurfaceVariant),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    child: Icon(
+                                      Icons.arrow_forward,
+                                      size: 16,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 if (session.arrival != null)
                                   _RouteChip(
-                                      label: session.arrival!,
-                                      icon: Icons.flight_land),
+                                    label: session.arrival!,
+                                    icon: Icons.flight_land,
+                                  ),
                               ],
                             ),
                         ],
@@ -439,9 +438,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                textStyle: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -468,39 +469,50 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           children: [
             Row(
               children: [
-                Icon(Icons.satellite_alt, size: 18,
-                    color: theme.colorScheme.primary),
+                Icon(
+                  Icons.satellite_alt,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
-                Text('Live GPS Data',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  'Live GPS Data',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
             _GpsRow(
-                label: 'Latitude',
-                value: _latitude.toStringAsFixed(6),
-                icon: Icons.explore),
+              label: 'Latitude',
+              value: _latitude.toStringAsFixed(6),
+              icon: Icons.explore,
+            ),
             const SizedBox(height: 12),
             _GpsRow(
-                label: 'Longitude',
-                value: _longitude.toStringAsFixed(6),
-                icon: Icons.explore),
+              label: 'Longitude',
+              value: _longitude.toStringAsFixed(6),
+              icon: Icons.explore,
+            ),
             const SizedBox(height: 12),
             _GpsRow(
-                label: 'Altitude',
-                value: '${altValue.toStringAsFixed(1)} $altUnit',
-                icon: Icons.height),
+              label: 'Altitude',
+              value: '${altValue.toStringAsFixed(1)} $altUnit',
+              icon: Icons.height,
+            ),
             const SizedBox(height: 12),
             _GpsRow(
-                label: 'Speed',
-                value: '${speedValue.toStringAsFixed(1)} $speedUnit',
-                icon: Icons.speed),
+              label: 'Speed',
+              value: '${speedValue.toStringAsFixed(1)} $speedUnit',
+              icon: Icons.speed,
+            ),
             const SizedBox(height: 12),
             _GpsRow(
-                label: 'Heading',
-                value: '${_heading.toStringAsFixed(1)}\u00B0',
-                icon: Icons.navigation),
+              label: 'Heading',
+              value: '${_heading.toStringAsFixed(1)}\u00B0',
+              icon: Icons.navigation,
+            ),
           ],
         ),
       ),
@@ -524,9 +536,13 @@ class _PulsingRecordingDotState extends State<_PulsingRecordingDot>
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(seconds: 1));
-    _animation = Tween<double>(begin: 1.0, end: 0.3)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    );
+    _animation = Tween<double>(
+      begin: 1.0,
+      end: 0.3,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
   }
 
@@ -557,11 +573,7 @@ class _GpsRow extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _GpsRow({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+  const _GpsRow({required this.label, required this.value, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -572,16 +584,21 @@ class _GpsRow extends StatelessWidget {
         const SizedBox(width: 10),
         SizedBox(
           width: 90,
-          child: Text(label,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
         Expanded(
-          child: Text(value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                fontFamily: 'monospace',
-              )),
+          child: Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontFamily: 'monospace',
+            ),
+          ),
         ),
       ],
     );
@@ -608,11 +625,13 @@ class _RouteChip extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: theme.colorScheme.onTertiaryContainer),
           const SizedBox(width: 4),
-          Text(label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onTertiaryContainer,
-                fontWeight: FontWeight.w500,
-              )),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onTertiaryContainer,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );

@@ -2,19 +2,21 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:logging/logging.dart';
 
 class LocationService {
   static final LocationService _instance = LocationService._();
+  final Logger logger = Logger("Location Service");
   factory LocationService() => _instance;
   LocationService._();
 
-  static const _methodChannel = MethodChannel('com.example.logbook/location_service');
-  static const _eventChannel = EventChannel('com.example.logbook/location_events');
+  static const _methodChannel = MethodChannel(
+    'com.example.logbook/location_service',
+  );
 
   StreamSubscription<Position>? _gpsSubscription;
-  StreamSubscription<dynamic>? _nativeSubscription;
 
-  bool get isTracking => _gpsSubscription != null || _nativeSubscription != null;
+  bool get isTracking => _gpsSubscription != null;
 
   double _latitude = 0;
   double _longitude = 0;
@@ -25,62 +27,47 @@ class LocationService {
   final _locationStream = StreamController<Map<String, double>>.broadcast();
   Stream<Map<String, double>> get locationStream => _locationStream.stream;
 
-  void startTracking() {
-    if (isTracking) return;
-
-    _startRealTracking();
+  Future<void> requestNotificationPermission() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _methodChannel.invokeMethod('requestNotificationPermission');
+    } catch (_) {}
   }
 
-  void _startRealTracking() {
+  Future<void> startTracking() async {
+    if (isTracking) return;
+
+    await _startRealTracking();
+  }
+
+  Future<void> _startRealTracking() async {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      _startAndroidTracking();
+      await _startAndroidTracking();
     } else {
       _startIosTracking();
     }
   }
 
-  void _startAndroidTracking() {
+  Future<void> _startAndroidTracking() async {
+    // On Android 13+ the system may block foreground service notifications
+    // if POST_NOTIFICATIONS hasn't been granted at runtime.
     try {
-      _methodChannel.invokeMethod('startService');
-    } catch (_) {
-      _fallbackToGeolocator();
-      return;
+      await _methodChannel.invokeMethod('requestNotificationPermission');
+    } catch (e) {
+      logger.log(Level.SEVERE, e.toString());
     }
 
-    _nativeSubscription = _eventChannel
-        .receiveBroadcastStream()
-        .listen((event) {
-      final data = Map<String, dynamic>.from(event as Map);
-      _latitude = (data['latitude'] as num).toDouble();
-      _longitude = (data['longitude'] as num).toDouble();
-      _altitude = (data['altitude'] as num).toDouble().roundToDouble();
-      _speed = (data['speed'] as num).toDouble() * 3.6;
-      _heading = (data['heading'] as num).toDouble();
-
-      _locationStream.add({
-        'latitude': _latitude,
-        'longitude': _longitude,
-        'altitude': _altitude,
-        'speed': _speed,
-        'heading': _heading,
-      });
-    }, onError: (_) {
-      _fallbackToGeolocator();
-    });
-  }
-
-  void _fallbackToGeolocator() {
-    _nativeSubscription?.cancel();
-    _nativeSubscription = null;
     _gpsSubscription =
         Geolocator.getPositionStream(
           locationSettings: AndroidSettings(
             accuracy: LocationAccuracy.high,
-            distanceFilter: 0,
+            distanceFilter: 5,
+
             foregroundNotificationConfig: const ForegroundNotificationConfig(
               notificationTitle: 'Logbook',
               notificationText: 'Recording flight...',
               setOngoing: true,
+              enableWakeLock: true,
             ),
           ),
         ).listen((position) {
@@ -127,32 +114,6 @@ class LocationService {
   void stopTracking() {
     _gpsSubscription?.cancel();
     _gpsSubscription = null;
-    _nativeSubscription?.cancel();
-    _nativeSubscription = null;
-
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      try {
-        _methodChannel.invokeMethod('stopService');
-      } catch (_) {}
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getBufferedData() async {
-    if (defaultTargetPlatform != TargetPlatform.android) return [];
-    try {
-      final result = await _methodChannel.invokeMethod('getBufferedData');
-      if (result == null) return [];
-      return List<Map<String, dynamic>>.from(result as List);
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> clearBuffer() async {
-    if (defaultTargetPlatform != TargetPlatform.android) return;
-    try {
-      await _methodChannel.invokeMethod('clearBuffer');
-    } catch (_) {}
   }
 
   void dispose() {

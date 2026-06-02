@@ -34,9 +34,9 @@ class AirportService {
 
   LazyBox<String>? _freqBox;
   LazyBox<String>? _runwayBox;
+  LazyBox<String>? _countryBox;
+  LazyBox<String>? _regionBox;
   Box<Airport>? _airportBox;
-  Box<Country>? _countryBox;
-  Box<Region>? _regionBox;
   bool _hiveReady = false;
   List<String> _airportTypes = [];
   int _dataVersion = 0;
@@ -59,6 +59,34 @@ class AirportService {
     _dataVersion++;
   }
 
+  List<Country> _deriveCountries() {
+    final codes = _airports
+        .where((a) => a.isoCountry != null && a.isoCountry!.length == 2)
+        .map((a) => a.isoCountry!)
+        .toSet()
+        .toList()
+      ..sort();
+    return codes.map((c) => Country(
+      id: c,
+      code: c,
+      name: '$c',
+      continent: '',
+    )).toList();
+  }
+
+  String countryFlag(String code) {
+    if (code.length != 2) return '';
+    final flag = String.fromCharCodes(
+      code.toUpperCase().runes.map((r) => 0x1F1E6 - 65 + r),
+    );
+    return flag;
+  }
+
+  String countryLabel(Country c) {
+    final flag = countryFlag(c.code);
+    return flag.isNotEmpty ? '$flag ${c.name}' : c.name;
+  }
+
   final List<VoidCallback> _listeners = [];
 
   void addListener(VoidCallback listener) {
@@ -79,9 +107,9 @@ class AirportService {
     if (_hiveReady) return;
     _freqBox = await Hive.openLazyBox<String>('airport_frequencies');
     _runwayBox = await Hive.openLazyBox<String>('airport_runways');
+    _countryBox = await Hive.openLazyBox<String>('airport_countries');
+    _regionBox = await Hive.openLazyBox<String>('airport_regions');
     _airportBox = await Hive.openBox<Airport>('airports');
-    _countryBox = await Hive.openBox<Country>('countries');
-    _regionBox = await Hive.openBox<Region>('regions');
     _hiveReady = true;
   }
 
@@ -130,8 +158,7 @@ class AirportService {
     // Try loading from Hive first
     if (_airportBox!.isNotEmpty) {
       _airports = _airportBox!.values.toList();
-      _countries = _countryBox!.values.toList();
-      _regions = _regionBox!.values.toList();
+      await _rebuildCountriesAndRegions();
       _updateAirportTypes();
       return true;
     }
@@ -217,23 +244,21 @@ class AirportService {
         airportData: airportData,
         freqData: freqData,
         runwayData: runwayData,
-        countryData: countryData,
-        regionData: regionData,
       ));
 
       _airports = result.airports;
-      _countries = result.countries;
-      _regions = result.regions;
+      _countries = _parseCountriesFromRows(parseCsv(countryData));
+      _regions = _parseRegionsFromRows(parseCsv(regionData));
       _updateAirportTypes();
 
-      // Store everything in Hive
       await Future.wait([
         _storeAirports(result.airports),
-        _storeCountries(result.countries),
-        _storeRegions(result.regions),
+        _storeCountries(_countries),
+        _storeRegions(_regions),
         _storeFrequencies(result.frequencies),
         _storeRunways(result.runways),
       ]);
+      await _rebuildCountriesAndRegions();
     } finally {
       client.close();
     }
@@ -249,14 +274,74 @@ class AirportService {
   Future<void> _storeCountries(List<Country> countries) async {
     await _countryBox!.clear();
     for (final c in countries) {
-      await _countryBox!.put(c.code, c);
+      final data = jsonEncode({
+        'id': c.id,
+        'code': c.code,
+        'name': c.name,
+        'continent': c.continent,
+        'wikipediaLink': c.wikipediaLink,
+        'keywords': c.keywords,
+      });
+      await _countryBox!.put(c.code, data);
     }
   }
 
   Future<void> _storeRegions(List<Region> regions) async {
     await _regionBox!.clear();
     for (final r in regions) {
-      await _regionBox!.put(r.code, r);
+      final data = jsonEncode({
+        'id': r.id,
+        'code': r.code,
+        'localCode': r.localCode,
+        'name': r.name,
+        'continent': r.continent,
+        'isoCountry': r.isoCountry,
+        'wikipediaLink': r.wikipediaLink,
+        'keywords': r.keywords,
+      });
+      await _regionBox!.put(r.code, data);
+    }
+  }
+
+  Future<void> _rebuildCountriesAndRegions() async {
+    if (_countryBox!.isNotEmpty) {
+      final list = <Country>[];
+      for (final key in _countryBox!.keys) {
+        final raw = await _countryBox!.get(key);
+        if (raw == null) continue;
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        list.add(Country(
+          id: m['id'] as String,
+          code: m['code'] as String,
+          name: m['name'] as String,
+          continent: m['continent'] as String,
+          wikipediaLink: m['wikipediaLink'] as String?,
+          keywords: m['keywords'] as String?,
+        ));
+      }
+      _countries = list;
+    } else {
+      _countries = _deriveCountries();
+      await _storeCountries(_countries);
+    }
+    if (_regionBox!.isNotEmpty) {
+      final list = <Region>[];
+      for (final key in _regionBox!.keys) {
+        final raw = await _regionBox!.get(key);
+        if (raw == null) continue;
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        list.add(Region(
+          id: m['id'] as String,
+          code: m['code'] as String,
+          localCode: m['localCode'] as String,
+          name: m['name'] as String,
+          continent: m['continent'] as String,
+          isoCountry: m['isoCountry'] as String,
+          wikipediaLink: m['wikipediaLink'] as String?,
+          keywords: m['keywords'] as String?,
+        ));
+      }
+      _regions = list;
     }
   }
 
@@ -410,14 +495,10 @@ class _ParseArgs {
   final String airportData;
   final String freqData;
   final String runwayData;
-  final String countryData;
-  final String regionData;
   const _ParseArgs({
     required this.airportData,
     required this.freqData,
     required this.runwayData,
-    required this.countryData,
-    required this.regionData,
   });
 }
 
@@ -425,14 +506,10 @@ class _ParseResult {
   final List<Airport> airports;
   final List<AirportFrequency> frequencies;
   final List<Runway> runways;
-  final List<Country> countries;
-  final List<Region> regions;
   const _ParseResult({
     required this.airports,
     required this.frequencies,
     required this.runways,
-    required this.countries,
-    required this.regions,
   });
 }
 
@@ -440,15 +517,11 @@ _ParseResult _parseAll(_ParseArgs args) {
   final airportRows = parseCsv(args.airportData);
   final freqRows = parseCsv(args.freqData);
   final runwayRows = parseCsv(args.runwayData);
-  final countryRows = parseCsv(args.countryData);
-  final regionRows = parseCsv(args.regionData);
 
   return _ParseResult(
     airports: _parseAirportsFromRows(airportRows),
     frequencies: _parseFrequenciesFromRows(freqRows),
     runways: _parseRunwaysFromRows(runwayRows),
-    countries: _parseCountriesFromRows(countryRows),
-    regions: _parseRegionsFromRows(regionRows),
   );
 }
 

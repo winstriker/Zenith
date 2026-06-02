@@ -1,32 +1,45 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/airport_service.dart';
 
 final airportServiceProvider = Provider<AirportService>((ref) => AirportService());
 
-class AirportLoadNotifier extends ChangeNotifier {
-  final AirportService _service;
-  bool _initialized = false;
+class AirportLoadState {
+  final bool isLoaded;
+  final bool isLoading;
+  final bool isRefreshing;
+  final String? error;
 
-  AirportLoadNotifier(this._service);
+  const AirportLoadState({
+    required this.isLoaded,
+    required this.isLoading,
+    required this.isRefreshing,
+    this.error,
+  });
+}
 
-  bool get isLoaded => _service.isLoaded;
-  bool get isLoading => _service.isLoading;
-  bool get isRefreshing => _service.isRefreshing;
-  String? get error => _service.error;
-  bool get initialized => _initialized;
-
-  Future<void> initialize() async {
-    if (_initialized) return;
-    _initialized = true;
-    _service.addListener(notifyListeners);
-    _service.loadData();
-  }
+class AirportLoadNotifier extends Notifier<AirportLoadState> {
+  late final AirportService _service;
 
   @override
-  void dispose() {
-    _service.removeListener(notifyListeners);
-    super.dispose();
+  AirportLoadState build() {
+    _service = ref.watch(airportServiceProvider);
+    _service.addListener(_onServiceChange);
+    ref.onDispose(() => _service.removeListener(_onServiceChange));
+    if (!_service.isLoaded && !_service.isLoading) {
+      _service.loadData();
+    }
+    return _buildState();
+  }
+
+  AirportLoadState _buildState() => AirportLoadState(
+        isLoaded: _service.isLoaded,
+        isLoading: _service.isLoading,
+        isRefreshing: _service.isRefreshing,
+        error: _service.error,
+      );
+
+  void _onServiceChange() {
+    state = _buildState();
   }
 
   Future<void> refresh() async {
@@ -34,9 +47,5 @@ class AirportLoadNotifier extends ChangeNotifier {
   }
 }
 
-final airportLoadProvider = ChangeNotifierProvider<AirportLoadNotifier>((ref) {
-  final service = ref.read(airportServiceProvider);
-  final notifier = AirportLoadNotifier(service);
-  notifier.initialize();
-  return notifier;
-});
+final airportLoadProvider =
+    NotifierProvider<AirportLoadNotifier, AirportLoadState>(AirportLoadNotifier.new);

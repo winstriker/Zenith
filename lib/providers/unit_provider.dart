@@ -3,11 +3,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 enum MeasurementUnit { metric, knots }
 
-class UnitNotifier extends StateNotifier<MeasurementUnit> {
+class UnitNotifier extends Notifier<MeasurementUnit> {
   static const _key = 'measurement_unit';
 
-  UnitNotifier() : super(MeasurementUnit.metric) {
+  @override
+  MeasurementUnit build() {
     _loadUnit();
+    return MeasurementUnit.metric;
   }
 
   Future<void> _loadUnit() async {
@@ -25,6 +27,4 @@ class UnitNotifier extends StateNotifier<MeasurementUnit> {
   }
 }
 
-final unitProvider = StateNotifierProvider<UnitNotifier, MeasurementUnit>((ref) {
-  return UnitNotifier();
-});
+final unitProvider = NotifierProvider<UnitNotifier, MeasurementUnit>(UnitNotifier.new);

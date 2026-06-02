@@ -7,34 +7,35 @@ final flightServiceProvider = Provider<FlightService>((ref) => FlightService());
 
 final locationServiceProvider = Provider<LocationService>((ref) => LocationService());
 
-class FlightListNotifier extends StateNotifier<List<FlightSession>> {
-  FlightListNotifier() : super(FlightService().recordedSessions);
+class FlightListNotifier extends Notifier<List<FlightSession>> {
+  @override
+  List<FlightSession> build() => FlightService().recordedSessions;
 
   void refresh() {
     state = FlightService().recordedSessions;
   }
 }
 
-final flightListProvider = StateNotifierProvider<FlightListNotifier, List<FlightSession>>((ref) {
-  return FlightListNotifier();
-});
+final flightListProvider = NotifierProvider<FlightListNotifier, List<FlightSession>>(FlightListNotifier.new);
 
-final recordingStateProvider = StateProvider<bool>((ref) {
-  return FlightService().activeSession != null;
-});
+class RecordingStateNotifier extends Notifier<bool> {
+  @override
+  bool build() => FlightService().activeSession != null;
+}
 
-class ActiveFlightNotifier extends StateNotifier<FlightSession?> {
-  ActiveFlightNotifier() : super(FlightService().activeSession);
+final recordingStateProvider = NotifierProvider<RecordingStateNotifier, bool>(RecordingStateNotifier.new);
+
+class ActiveFlightNotifier extends Notifier<FlightSession?> {
+  @override
+  FlightSession? build() => FlightService().activeSession;
 
   void refresh() {
     state = FlightService().activeSession;
   }
 
-  void setFlight(FlightSession flight) {
+  void setFlight(FlightSession? flight) {
     state = flight;
   }
 }
 
-final activeFlightProvider = StateNotifierProvider<ActiveFlightNotifier, FlightSession?>((ref) {
-  return ActiveFlightNotifier();
-});
+final activeFlightProvider = NotifierProvider<ActiveFlightNotifier, FlightSession?>(ActiveFlightNotifier.new);

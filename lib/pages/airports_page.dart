@@ -164,7 +164,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 _selectedType = null;
                 _searchController.clear();
               });
-              ref.read(airportLoadProvider).refresh();
+              ref.read(airportLoadProvider.notifier).refresh();
             },
           ),
         ],
@@ -342,7 +342,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => ref.read(airportLoadProvider).refresh(),
+              onPressed: () => ref.read(airportLoadProvider.notifier).refresh(),
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
             ),
@@ -427,7 +427,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                     ...countries.map((c) => DropdownMenuItem(
                           value: c.code,
                           child: Text(
-                            c.name,
+                            service.countryLabel(c),
                             overflow: TextOverflow.ellipsis,
                           ),
                         )),
