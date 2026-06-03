@@ -19,6 +19,7 @@ class AirportsService {
     isLocating = true;
     _locate().then((pos) {
       position = pos;
+    }).whenComplete(() {
       isLocating = false;
     });
   }
@@ -42,6 +43,12 @@ class AirportsService {
 
   void removeListener(Function fun) {
     callbacks.remove(fun);
+  }
+
+  void _notify() {
+    for (var fun in callbacks) {
+      fun();
+    }
   }
 
   Future<void> _downloadAirports(http.Client client) async {
@@ -215,18 +222,23 @@ class AirportsService {
     final client = http.Client();
     try {
       status = AirportServiceStatus.downloadingCountries;
+      _notify();
       await _downloadCountries(client);
       status = AirportServiceStatus.downloadingRegions;
+      _notify();
       await _downloadRegions(client);
       status = AirportServiceStatus.downloadingAirports;
+      _notify();
       await _downloadAirports(client);
       status = AirportServiceStatus.downloadingRunwaysAndFrequencies;
+      _notify();
       await Future.wait([
         _downloadFrequencies(client),
         _downloadRunways(client),
       ]);
     } catch (e) {
       status = AirportServiceStatus.error;
+      _notify();
       return;
     } finally {
       client.close();
@@ -237,10 +249,8 @@ class AirportsService {
       DateTime.now().millisecondsSinceEpoch,
     );
 
-    for (var fun in callbacks) {
-      fun();
-    }
     status = AirportServiceStatus.ready;
+    _notify();
   }
 
   Future<AirportWithEverything?> getCompleteAirportData(int id) async {
@@ -253,8 +263,11 @@ class AirportsService {
   }) async {
     if (relocate || position == null) {
       isLocating = true;
-      position = await _locate();
-      isLocating = false;
+      try {
+        position = await _locate();
+      } finally {
+        isLocating = false;
+      }
     }
     return getAirportsNearCoordinates(position!.latitude, position!.longitude);
   }

@@ -19,6 +19,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   AirportType? _selectedType;
   final _searchController = TextEditingController();
   bool _showFilters = false;
+  bool _shouldRelocate = false;
 
   String _lastQuery = '';
   String? _lastCountry;
@@ -50,7 +51,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final loadState = ref.watch(airportLoadProvider);
+    ref.watch(airportLoadProvider);
     final service = ref.read(airportServiceProvider);
     final theme = Theme.of(context);
 
@@ -59,7 +60,11 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
         _selectedCountry != null ||
         _selectedType != null;
 
-    var nearAirports = service.getNearAirports(limit: 20);
+    final nearAirports = service.getNearAirports(
+      limit: 20,
+      relocate: _shouldRelocate,
+    );
+    _shouldRelocate = false;
 
     return Scaffold(
       appBar: AppBar(
@@ -99,7 +104,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             icon: const Icon(Icons.my_location),
             tooltip: 'Recenter location',
             onPressed: () {
-              nearAirports = service.getNearAirports(relocate: true);
+              setState(() => _shouldRelocate = true);
             },
           ),
           IconButton(

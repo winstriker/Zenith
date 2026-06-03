@@ -5,31 +5,28 @@ final airportServiceProvider = Provider<AirportsService>(
   (ref) => AirportsService(),
 );
 
-class AirportLoadNotifier extends Notifier<bool> {
+class AirportLoadNotifier extends Notifier<int> {
   late final AirportsService _service;
-  var isLoading = false;
 
   @override
-  bool build() {
+  int build() {
     _service = ref.watch(airportServiceProvider);
     _service.addListener(_onServiceChange);
     ref.onDispose(() => _service.removeListener(_onServiceChange));
-    isLoading = true;
     _service.loadData();
-    return isLoading;
+    return 0;
   }
 
   void _onServiceChange() {
-    isLoading = false;
-    state = false;
+    state = state + 1;
   }
 
   Future<void> refresh() async {
-    isLoading = true;
+    _onServiceChange();
     await _service.loadData(forceDownload: true);
   }
 }
 
-final airportLoadProvider = NotifierProvider<AirportLoadNotifier, bool>(
+final airportLoadProvider = NotifierProvider<AirportLoadNotifier, int>(
   AirportLoadNotifier.new,
 );
