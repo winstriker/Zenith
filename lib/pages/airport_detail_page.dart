@@ -1,37 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
-import '../models/airport.dart';
-import '../models/airport_frequency.dart';
-import '../models/runway.dart';
-import '../models/country.dart';
 
 class _FrequenciesSection extends ConsumerWidget {
-  final String airportRef;
-  const _FrequenciesSection({required this.airportRef});
+  final List<Frequency>? frequencies;
+  const _FrequenciesSection({required this.frequencies});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final service = ref.read(airportServiceProvider);
-    return FutureBuilder<List<AirportFrequency>>(
-      future: service.getFrequencies(airportRef),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const SizedBox(
-            height: 80,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final freqs = snapshot.data ?? [];
-        if (freqs.isEmpty) return const SizedBox.shrink();
-        return _buildFrequenciesSection(context, freqs);
-      },
+    if (frequencies == null || frequencies!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _buildFrequenciesSection(
+      context,
+      frequencies ?? List<Frequency>.empty(),
     );
   }
 
   Widget _buildFrequenciesSection(
     BuildContext context,
-    List<AirportFrequency> frequencies,
+    List<Frequency> frequencies,
   ) {
     final theme = Theme.of(context);
     return Card(
@@ -53,7 +42,7 @@ class _FrequenciesSection extends ConsumerWidget {
     );
   }
 
-  Widget _frequencyRow(BuildContext context, AirportFrequency freq) {
+  Widget _frequencyRow(BuildContext context, Frequency freq) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Padding(
@@ -67,7 +56,7 @@ class _FrequenciesSection extends ConsumerWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              freq.type,
+              freq.type ?? "",
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onPrimaryContainer,
                 fontWeight: FontWeight.w500,
@@ -77,13 +66,13 @@ class _FrequenciesSection extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              freq.description,
+              freq.description ?? "",
               style: theme.textTheme.bodyMedium,
             ),
           ),
           const SizedBox(width: 12),
           Text(
-            '${freq.frequencyMhz.toStringAsFixed(3)} MHz',
+            '${freq.frequencyMhz} MHz',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
@@ -96,32 +85,16 @@ class _FrequenciesSection extends ConsumerWidget {
 }
 
 class _RunwaysSection extends ConsumerWidget {
-  final String airportRef;
-  const _RunwaysSection({required this.airportRef});
+  final List<Runway>? runways;
+  const _RunwaysSection({required this.runways});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final service = ref.read(airportServiceProvider);
-    return FutureBuilder<List<Runway>>(
-      future: service.getRunways(airportRef),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const SizedBox(
-            height: 80,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final runways = snapshot.data ?? [];
-        if (runways.isEmpty) return const SizedBox.shrink();
-        return _buildRunwaysSection(context, runways);
-      },
-    );
+    if (runways == null || runways!.isEmpty) return const SizedBox.shrink();
+    return _buildRunwaysSection(context, runways!);
   }
 
-  Widget _buildRunwaysSection(
-    BuildContext context,
-    List<Runway> runways,
-  ) {
+  Widget _buildRunwaysSection(BuildContext context, List<Runway> runways) {
     final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -186,7 +159,7 @@ class _RunwaysSection extends ConsumerWidget {
                   '${runway.widthFt!.toStringAsFixed(0)} ft wide',
                 ),
               ],
-              if (runway.lighted) ...[
+              if (runway.lighted ?? false) ...[
                 const SizedBox(width: 8),
                 Icon(Icons.light, size: 14, color: cs.tertiary),
               ],
@@ -228,47 +201,50 @@ class _RunwaysSection extends ConsumerWidget {
       ),
       child: Text(
         label,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: cs.onSurfaceVariant,
-        ),
+        style: theme.textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
       ),
     );
   }
 }
 
 class AirportDetailPage extends ConsumerWidget {
-  final String airportRef;
+  final int airportId;
 
-  const AirportDetailPage({super.key, required this.airportRef});
+  const AirportDetailPage({super.key, required this.airportId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final service = ref.read(airportServiceProvider);
-    final airport = service.getAirportById(airportRef);
-
-    if (airport == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Airport')),
-        body: const Center(child: Text('Airport not found')),
-      );
-    }
-
-    final country = service.getCountry(airport.isoCountry);
-
+    final airport = service.getCompleteAirportData(airportId);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(airport.displayCode.isNotEmpty
-            ? airport.displayCode
-            : 'Airport Details'),
-      ),
-      body: ListView(
-        children: [
-          _buildHeroSection(context, airport),
-          _buildInfoSection(context, airport, country),
-          _FrequenciesSection(airportRef: airport.id),
-          _RunwaysSection(airportRef: airport.id),
-          const SizedBox(height: 32),
-        ],
+      appBar: AppBar(title: Text('Airport Details')),
+      body: FutureBuilder(
+        future: airport,
+        builder: ((context, snapshot) {
+          if (snapshot.hasError) {
+            return ErrorWidget("Error while loading airport");
+          }
+          if (!snapshot.hasData) {
+            return const SizedBox(
+              height: 80,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return ListView(
+            children: [
+              _buildHeroSection(context, snapshot.data!.airport),
+              _buildInfoSection(
+                context,
+                snapshot.data!.airport,
+                snapshot.data!.country,
+                snapshot.data!.region,
+              ),
+              _FrequenciesSection(frequencies: snapshot.data!.frequencies),
+              _RunwaysSection(runways: snapshot.data!.runways),
+              const SizedBox(height: 32),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -297,7 +273,7 @@ class AirportDetailPage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      airport.name,
+                      airport.name ?? "NO NAME FOUND",
                       style: theme.textTheme.headlineSmall?.copyWith(
                         color: cs.onPrimary,
                         fontWeight: FontWeight.bold,
@@ -314,7 +290,7 @@ class AirportDetailPage extends ConsumerWidget {
                   ],
                 ),
               ),
-              if (airport.displayCode.isNotEmpty)
+              if (airport.ident != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -325,7 +301,7 @@ class AirportDetailPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    airport.displayCode,
+                    airport.ident!,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: cs.onPrimary,
                       fontWeight: FontWeight.bold,
@@ -343,10 +319,8 @@ class AirportDetailPage extends ConsumerWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              airport.typeLabel,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: cs.onPrimary,
-              ),
+              AirportType.getDisplayName(airport.type),
+              style: theme.textTheme.labelMedium?.copyWith(color: cs.onPrimary),
             ),
           ),
         ],
@@ -358,6 +332,7 @@ class AirportDetailPage extends ConsumerWidget {
     BuildContext context,
     Airport airport,
     Country? country,
+    Region? region,
   ) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -369,25 +344,19 @@ class AirportDetailPage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Information',
-              style: theme.textTheme.titleMedium,
-            ),
+            Text('Information', style: theme.textTheme.titleMedium),
             const SizedBox(height: 16),
-            if (airport.ident.isNotEmpty)
-              _infoRow(theme, cs, 'Ident', airport.ident),
+            if (airport.ident != null)
+              _infoRow(theme, cs, 'Ident', airport.ident!),
             if (airport.icaoCode != null)
               _infoRow(theme, cs, 'ICAO', airport.icaoCode!),
             if (airport.iataCode != null)
               _infoRow(theme, cs, 'IATA', airport.iataCode!),
             if (airport.municipality != null)
               _infoRow(theme, cs, 'Municipality', airport.municipality!),
-            if (country != null)
-              _infoRow(theme, cs, 'Country', country.name),
-            if (airport.isoRegion != null)
-              _infoRow(theme, cs, 'Region', airport.isoRegion!),
-            if (airport.continent != null)
-              _infoRow(theme, cs, 'Continent', airport.continent!),
+            if (country != null) _infoRow(theme, cs, 'Country', country.name),
+            if (region != null) _infoRow(theme, cs, 'Region', region.name),
+            _infoRow(theme, cs, 'Continent', airport.continent),
             if (airport.latitudeDeg != null)
               _infoRow(
                 theme,
@@ -421,12 +390,7 @@ class AirportDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _infoRow(
-    ThemeData theme,
-    ColorScheme cs,
-    String label,
-    String value,
-  ) {
+  Widget _infoRow(ThemeData theme, ColorScheme cs, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -441,16 +405,9 @@ class AirportDetailPage extends ConsumerWidget {
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );
   }
 }
-
-

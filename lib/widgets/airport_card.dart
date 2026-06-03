@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/airport.dart';
+import 'package:logbook/services/database.dart';
 
 class AirportCard extends StatelessWidget {
   final Airport airport;
@@ -29,7 +29,9 @@ class AirportCard extends StatelessWidget {
             gradient: LinearGradient(
               colors: [
                 theme.colorScheme.surface,
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -60,7 +62,7 @@ class AirportCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          airport.name,
+                          airport.name ?? "",
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -69,7 +71,7 @@ class AirportCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          airport.municipality ?? airport.isoCountry ?? '',
+                          airport.municipality ?? airport.isoCountry,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                           ),
@@ -77,7 +79,7 @@ class AirportCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (airport.displayCode.isNotEmpty)
+                  if (airport.ident != null)
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -88,7 +90,7 @@ class AirportCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        airport.displayCode,
+                        airport.ident!,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onSecondaryContainer,
                           fontWeight: FontWeight.w600,
@@ -101,7 +103,10 @@ class AirportCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  _buildTypeChip(context, airport.typeLabel),
+                  _buildTypeChip(
+                    context,
+                    AirportType.getDisplayName(airport.type),
+                  ),
                   if (distanceKm != null) ...[
                     const SizedBox(width: 8),
                     _buildInfoChip(
@@ -172,18 +177,20 @@ class AirportCard extends StatelessWidget {
     );
   }
 
-  IconData _airportIcon(String type) {
+  IconData _airportIcon(AirportType type) {
     switch (type) {
-      case 'large_airport':
-      case 'medium_airport':
-      case 'small_airport':
+      case AirportType.largeAirport:
+      case AirportType.mediumAirport:
+      case AirportType.smallAirport:
         return Icons.flight;
-      case 'heliport':
+      case AirportType.heliport:
         return Icons.airplanemode_active;
-      case 'seaplane_base':
+      case AirportType.seaplaneBase:
         return Icons.directions_boat;
-      case 'closed':
+      case AirportType.closed:
         return Icons.block;
+      case AirportType.balloonport:
+        return Icons.cloud_sharp;
       default:
         return Icons.flight;
     }

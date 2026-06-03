@@ -1,10 +1,8 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
-import '../models/airport.dart';
 import '../widgets/airport_card.dart';
 import 'airport_detail_page.dart';
 
@@ -18,31 +16,14 @@ class AirportsPage extends ConsumerStatefulWidget {
 class _AirportsPageState extends ConsumerState<AirportsPage> {
   String _searchQuery = '';
   String? _selectedCountry;
-  String? _selectedType;
+  AirportType? _selectedType;
   final _searchController = TextEditingController();
   bool _showFilters = false;
 
-  double? _lat;
-  double? _lng;
-  bool _locating = true;
-
   String _lastQuery = '';
   String? _lastCountry;
-  String? _lastType;
-  int _lastDataVersion = -1;
+  AirportType? _lastType;
   List<Airport> _cachedResults = [];
-
-  double? _lastLat;
-  double? _lastLng;
-  List<Airport> _cachedNearest = [];
-
-  static const _radius = 6371;
-
-  @override
-  void initState() {
-    super.initState();
-    _locate();
-  }
 
   @override
   void dispose() {
@@ -50,47 +31,19 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     super.dispose();
   }
 
-  Future<void> _locate() async {
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
-      );
-      if (!mounted) return;
-      setState(() {
-        _lat = pos.latitude;
-        _lng = pos.longitude;
-        _locating = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _locating = false);
-    }
-  }
-
-  double _distance(double lat1, double lon1, double lat2, double lon2) {
-    final dLat = _toRad(lat2 - lat1);
-    final dLon = _toRad(lon2 - lon1);
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRad(lat1)) * cos(_toRad(lat2)) * sin(dLon / 2) * sin(dLon / 2);
-    return _radius * 2 * asin(sqrt(a));
-  }
-
-  double _toRad(double deg) => deg * pi / 180;
-
-  List<Airport> _searchAirportsCached(AirportService service) {
+  List<Airport> _searchAirportsCached(AirportsService service) {
     if (_searchQuery != _lastQuery ||
         _selectedCountry != _lastCountry ||
-        _selectedType != _lastType ||
-        service.dataVersion != _lastDataVersion) {
+        _selectedType != _lastType) {
       _lastQuery = _searchQuery;
       _lastCountry = _selectedCountry;
       _lastType = _selectedType;
-      _lastDataVersion = service.dataVersion;
-      _cachedResults = service.searchAirports(
+      _cachedResults = []; /*TODO: service.searchAirports(
         query: _searchQuery,
         countryCode: _selectedCountry,
         type: _selectedType,
-      );
+        limit: 100,
+      );*/
     }
     return _cachedResults;
   }
@@ -101,29 +54,22 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     final service = ref.read(airportServiceProvider);
     final theme = Theme.of(context);
 
-    final isFiltering = _searchQuery.isNotEmpty ||
+    final isFiltering =
+        _searchQuery.isNotEmpty ||
         _selectedCountry != null ||
         _selectedType != null;
 
-    final allAirports = loadState.isLoaded
-        ? _searchAirportsCached(service)
-        : <Airport>[];
-
-    final airports = isFiltering
-        ? allAirports
-        : _nearest(allAirports);
+    var nearAirports = service.getNearAirports(limit: 20);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           isFiltering
-              ? 'Airports (${airports.length})'
-              : _lat != null
-                  ? 'Nearest Airports'
-                  : 'Airports',
+              ? 'Airports (3)' //TODO: Add matching search result number
+              : 'Nearest Airports',
         ),
         actions: [
-          if (loadState.isRefreshing)
+          if (service.status.type == StatusType.downloading)
             const Padding(
               padding: EdgeInsets.only(right: 8),
               child: SizedBox(
@@ -132,13 +78,16 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
-          if (_locating)
+          if (service.isLocating)
             const Padding(
               padding: EdgeInsets.only(right: 8),
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color.fromRGBO(0, 255, 0, 1),
+                ),
               ),
             ),
           IconButton(
@@ -150,8 +99,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             icon: const Icon(Icons.my_location),
             tooltip: 'Recenter location',
             onPressed: () {
-              setState(() => _locating = true);
-              _locate();
+              nearAirports = service.getNearAirports(relocate: true);
             },
           ),
           IconButton(
@@ -169,16 +117,24 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(context),
-          if (_showFilters) _buildFilters(context, service),
-          Expanded(
-            child: !loadState.isLoaded
-                ? (loadState.error != null
-                    ? _buildErrorState(context, loadState.error!)
-                    : _buildLoadingState(context))
-                : airports.isEmpty
+      body: FutureBuilder(
+        future: nearAirports,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return ErrorWidget("Error while loading airport");
+          }
+          if (!snapshot.hasData) {
+            return const SizedBox(
+              height: 80,
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return Column(
+            children: [
+              _buildSearchBar(context),
+              if (_showFilters) _buildFilters(context, service),
+              Expanded(
+                child: snapshot.data == null || snapshot.data!.isEmpty
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(40),
@@ -186,12 +142,11 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                isFiltering
-                                    ? Icons.search_off
-                                    : Icons.flight,
+                                isFiltering ? Icons.search_off : Icons.flight,
                                 size: 64,
-                                color: theme.colorScheme.primary
-                                    .withValues(alpha: 0.3),
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.3,
+                                ),
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -217,137 +172,27 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.only(top: 8, bottom: 80),
-                        itemCount: airports.length,
+                        itemCount: snapshot.data!.length,
                         itemBuilder: (context, index) {
-                          final airport = airports[index];
-                          final dist = _lat != null && airport.latitudeDeg != null
-                              ? _distance(
-                                  _lat!,
-                                  _lng!,
-                                  airport.latitudeDeg!,
-                                  airport.longitudeDeg!,
-                                )
-                              : null;
+                          final airportWithDistance = snapshot.data![index];
                           return AirportCard(
-                            airport: airport,
-                            distanceKm: dist,
+                            airport: airportWithDistance.airport,
+                            distanceKm: airportWithDistance.distance,
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => AirportDetailPage(
-                                    airportRef: airport.id),
+                                  airportId: airportWithDistance.airport.id,
+                                ),
                               ),
                             ),
                           );
                         },
                       ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Airport> _nearest(List<Airport> airports) {
-    if (_lat == null || _lng == null) return airports;
-    if (_lat == _lastLat && _lng == _lastLng && identical(airports, _cachedResults)) {
-      return _cachedNearest;
-    }
-    final lat = _lat!;
-    final lng = _lng!;
-    final keep = <_AirportDist>[];
-    for (final a in airports) {
-      if (a.latitudeDeg == null) continue;
-      final d = _distance(lat, lng, a.latitudeDeg!, a.longitudeDeg!);
-      if (keep.length < 20) {
-        keep.add(_AirportDist(a, d));
-      } else {
-        var maxIdx = 0;
-        for (int j = 1; j < 20; j++) {
-          if (keep[j].dist > keep[maxIdx].dist) maxIdx = j;
-        }
-        if (d < keep[maxIdx].dist) {
-          keep[maxIdx] = _AirportDist(a, d);
-        }
-      }
-    }
-    keep.sort((a, b) => a.dist.compareTo(b.dist));
-    _cachedNearest = keep.map((e) => e.airport).toList();
-    _lastLat = _lat;
-    _lastLng = _lng;
-    return _cachedNearest;
-  }
-
-  Widget _buildLoadingState(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.flight,
-              size: 64,
-              color: theme.colorScheme.primary.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Loading airports...',
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Downloading and parsing data in background',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorState(BuildContext context, String error) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.cloud_off,
-              size: 64,
-              color: theme.colorScheme.error.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Could not load airport data',
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Check your internet connection and try again.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => ref.read(airportLoadProvider.notifier).refresh(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -375,9 +220,9 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     );
   }
 
-  Widget _buildFilters(BuildContext context, AirportService service) {
-    final countries = service.countries;
-    final types = service.airportTypes.where((t) => t != 'closed').toList();
+  Widget _buildFilters(BuildContext context, AirportsService service) {
+    final List<Country> countries = []; //TODO: service.getCountriesList();
+    final types = AirportType.values;
     final theme = Theme.of(context);
 
     return Container(
@@ -410,7 +255,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedCountry,
+                  initialValue: _selectedCountry,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Country',
@@ -424,13 +269,12 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                       value: null,
                       child: Text('All Countries'),
                     ),
-                    ...countries.map((c) => DropdownMenuItem(
-                          value: c.code,
-                          child: Text(
-                            service.countryLabel(c),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        )),
+                    ...countries.map(
+                      (c) => DropdownMenuItem(
+                        value: c.code,
+                        child: Text(c.name, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
                   ],
                   onChanged: (value) =>
                       setState(() => _selectedCountry = value),
@@ -438,8 +282,8 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedType,
+                child: DropdownButtonFormField<AirportType>(
+                  initialValue: _selectedType,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Type',
@@ -453,15 +297,14 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                       value: null,
                       child: Text('All Types'),
                     ),
-                    ...types.map((t) => DropdownMenuItem(
-                          value: t,
-                          child: Text(
-                            t.replaceAll('_', ' '),
-                          ),
-                        )),
+                    ...types.map(
+                      (t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(AirportType.getDisplayName(t)),
+                      ),
+                    ),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _selectedType = value),
+                  onChanged: (value) => setState(() => _selectedType = value),
                 ),
               ),
             ],
@@ -470,10 +313,4 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
       ),
     );
   }
-}
-
-class _AirportDist {
-  final Airport airport;
-  final double dist;
-  const _AirportDist(this.airport, this.dist);
 }
