@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logbook/main.dart';
 import '../services/airport_service.dart';
 
-final airportServiceProvider = Provider<AirportsService>(
-  (ref) => AirportsService(),
-);
+final airportServiceProvider = Provider<AirportsService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return AirportsService(db);
+});
 
 class AirportLoadNotifier extends Notifier<int> {
   late final AirportsService _service;

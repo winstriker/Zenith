@@ -1,11 +1,3 @@
-import 'dart:isolate';
-
-Future<List<List<String>>> parseCsvAsync(String data) async {
-  return await Isolate.run(() {
-    return parseCsv(data);
-  });
-}
-
 List<List<String>> parseCsv(String data) {
   final rows = <List<String>>[];
   final currentRow = <String>[];

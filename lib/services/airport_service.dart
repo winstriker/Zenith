@@ -1,5 +1,3 @@
-import 'dart:isolate';
-
 import 'package:drift/drift.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -10,12 +8,10 @@ import 'dart:math';
 import 'package:logging/logging.dart';
 
 class AirportsService {
-  static final AirportsService _instance = AirportsService._();
   final logger = Logger("Airports Service");
-  final database = LogbookDatabase();
+  final LogbookDatabase database;
 
-  factory AirportsService() => _instance;
-  AirportsService._() {
+  AirportsService(this.database) {
     isLocating = true;
     _locate()
         .then((pos) {
@@ -53,37 +49,37 @@ class AirportsService {
     }
   }
 
-  Future<void> _downloadAirports(http.Client client) async {
-    final response = await client.get(Uri.parse('$_baseUrl/$_airportsFile'));
-    final rows = await parseCsvAsync(response.body);
+  static Future<void> _parseAirports(
+    http.Response response,
+    LogbookDatabase database,
+  ) async {
+    final rows = parseCsv(response.body);
 
-    final airports = await Isolate.run(() {
-      return rows
-          .skip(1)
-          .map(
-            (row) => AirportsCompanion.insert(
-              id: Value(_parseInt(row[0])!),
-              ident: Value(row[1]),
-              type: AirportType.fromCsvString(row[2]),
-              name: Value(row[3]),
-              latitudeDeg: Value(_parseDouble(row[4])),
-              longitudeDeg: Value(_parseDouble(row[5])),
-              elevationFt: Value(_parseInt(row[6])),
-              continent: row[7],
-              isoCountry: row[8],
-              isoRegion: row[9],
-              municipality: Value(row[10]),
-              scheduledService: Value(row[11] == 'yes'),
-              icaoCode: Value(row[12]),
-              iataCode: Value(row[13]),
-              gpsCode: Value(row[14]),
-              localCode: Value(row[15]),
-              homeLink: Value(row[16]),
-              wikipediaLink: Value(row[17]),
-              keywords: Value(row[18]),
-            ),
-          );
-    });
+    final airports = rows
+        .skip(1)
+        .map(
+          (row) => AirportsCompanion.insert(
+            id: Value(_parseInt(row[0])!),
+            ident: Value(row[1]),
+            type: AirportType.fromCsvString(row[2]),
+            name: Value(row[3]),
+            latitudeDeg: Value(_parseDouble(row[4])),
+            longitudeDeg: Value(_parseDouble(row[5])),
+            elevationFt: Value(_parseInt(row[6])),
+            continent: row[7],
+            isoCountry: row[8],
+            isoRegion: row[9],
+            municipality: Value(row[10]),
+            scheduledService: Value(row[11] == 'yes'),
+            icaoCode: Value(row[12]),
+            iataCode: Value(row[13]),
+            gpsCode: Value(row[14]),
+            localCode: Value(row[15]),
+            homeLink: Value(row[16]),
+            wikipediaLink: Value(row[17]),
+            keywords: Value(row[18]),
+          ),
+        );
 
     await database.airports.deleteAll();
 
@@ -92,36 +88,34 @@ class AirportsService {
     });
   }
 
-  Future<void> _downloadRunways(http.Client client) async {
-    final response = await client.get(Uri.parse('$_baseUrl/$_runwaysFile'));
-    final rows = await parseCsvAsync(response.body);
+  static Future<void> _parseRunways(
+    http.Response response,
+    LogbookDatabase database,
+  ) async {
+    final rows = parseCsv(response.body);
     if (rows.length < 2) return;
-
-    // Skip the header row and map the rest
-    final runways = await Isolate.run(() {
-      return rows.skip(1).map((row) {
-        return RunwaysCompanion.insert(
-          id: Value(_parseInt(row[0])!),
-          airport: _parseInt(row[1])!,
-          lengthFt: Value(_parseInt(row[3])),
-          widthFt: Value(_parseInt(row[4])),
-          surface: Value(_nullIfEmpty(row[5])),
-          lighted: Value(row[6] == '1'),
-          closed: Value(row[7] == '1'),
-          leIdent: Value(_nullIfEmpty(row[8])),
-          leLatitudeDeg: Value(_parseDouble(row[9])),
-          leLongitudeDeg: Value(_parseDouble(row[10])),
-          leElevationFt: Value(_parseInt(row[11])),
-          leHeadingDegT: Value(_parseDouble(row[12])),
-          leDisplacedThresholdFt: Value(_parseInt(row[13])),
-          heIdent: Value(_nullIfEmpty(row[14])),
-          heLatitudeDeg: Value(_parseDouble(row[15])),
-          heLongitudeDeg: Value(_parseDouble(row[16])),
-          heElevationFt: Value(_parseInt(row[17])),
-          heHeadingDegT: Value(_parseDouble(row[18])),
-          heDisplacedThresholdFt: Value(_parseInt(row[19])),
-        );
-      });
+    final runways = rows.skip(1).map((row) {
+      return RunwaysCompanion.insert(
+        id: Value(_parseInt(row[0])!),
+        airport: _parseInt(row[1])!,
+        lengthFt: Value(_parseInt(row[3])),
+        widthFt: Value(_parseInt(row[4])),
+        surface: Value(_nullIfEmpty(row[5])),
+        lighted: Value(row[6] == '1'),
+        closed: Value(row[7] == '1'),
+        leIdent: Value(_nullIfEmpty(row[8])),
+        leLatitudeDeg: Value(_parseDouble(row[9])),
+        leLongitudeDeg: Value(_parseDouble(row[10])),
+        leElevationFt: Value(_parseInt(row[11])),
+        leHeadingDegT: Value(_parseDouble(row[12])),
+        leDisplacedThresholdFt: Value(_parseInt(row[13])),
+        heIdent: Value(_nullIfEmpty(row[14])),
+        heLatitudeDeg: Value(_parseDouble(row[15])),
+        heLongitudeDeg: Value(_parseDouble(row[16])),
+        heElevationFt: Value(_parseInt(row[17])),
+        heHeadingDegT: Value(_parseDouble(row[18])),
+        heDisplacedThresholdFt: Value(_parseInt(row[19])),
+      );
     });
 
     await database.runways.deleteAll();
@@ -130,21 +124,21 @@ class AirportsService {
     });
   }
 
-  Future<void> _downloadFrequencies(http.Client client) async {
-    final response = await client.get(Uri.parse('$_baseUrl/$_frequenciesFile'));
-    final rows = await parseCsvAsync(response.body);
+  static Future<void> _parseFrequencies(
+    http.Response response,
+    LogbookDatabase database,
+  ) async {
+    final rows = parseCsv(response.body);
     if (rows.length < 2) return;
 
-    final frequencies = await Isolate.run(() {
-      return rows.skip(1).map((row) {
-        return FrequenciesCompanion.insert(
-          id: Value(_parseInt(row[0])!),
-          airport: _parseInt(row[1])!,
-          type: Value(_nullIfEmpty(row[3])),
-          description: Value(_nullIfEmpty(row[4])),
-          frequencyMhz: Value(_nullIfEmpty(row[5])),
-        );
-      });
+    final frequencies = rows.skip(1).map((row) {
+      return FrequenciesCompanion.insert(
+        id: Value(_parseInt(row[0])!),
+        airport: _parseInt(row[1])!,
+        type: Value(_nullIfEmpty(row[3])),
+        description: Value(_nullIfEmpty(row[4])),
+        frequencyMhz: Value(_nullIfEmpty(row[5])),
+      );
     });
     await database.frequencies.deleteAll();
 
@@ -153,21 +147,21 @@ class AirportsService {
     });
   }
 
-  Future<void> _downloadCountries(http.Client client) async {
-    final response = await client.get(Uri.parse('$_baseUrl/$_countriesFile'));
-    final rows = await parseCsvAsync(response.body);
+  static Future<void> _parseCountries(
+    http.Response response,
+    LogbookDatabase database,
+  ) async {
+    final rows = parseCsv(response.body);
 
-    final countries = await Isolate.run(() {
-      return rows.skip(1).map((row) {
-        return CountriesCompanion.insert(
-          id: Value(_parseInt(row[0])!),
-          code: row[1],
-          name: row[2],
-          continent: row[3],
-          wikipediaLink: Value(_nullIfEmpty(row[4])),
-          keywords: Value(_nullIfEmpty(row[5])),
-        );
-      });
+    final countries = rows.skip(1).map((row) {
+      return CountriesCompanion.insert(
+        id: Value(_parseInt(row[0])!),
+        code: row[1],
+        name: row[2],
+        continent: row[3],
+        wikipediaLink: Value(_nullIfEmpty(row[4])),
+        keywords: Value(_nullIfEmpty(row[5])),
+      );
     });
 
     await database.countries.deleteAll();
@@ -176,27 +170,25 @@ class AirportsService {
     });
   }
 
-  Future<void> _downloadRegions(http.Client client) async {
-    final response = await client.get(Uri.parse('$_baseUrl/$_regionsFile'));
-    final rows = await parseCsvAsync(response.body);
+  static Future<void> _parseRegions(
+    http.Response response,
+    LogbookDatabase database,
+  ) async {
+    final rows = parseCsv(response.body);
     if (rows.length < 2) return;
 
-    final regions = await Isolate.run(() {
-      return rows.skip(1).map((row) {
-        return RegionsCompanion.insert(
-          id: Value(_parseInt(row[0])!),
-          code: row[1],
-          localCode: Value(_nullIfEmpty(row[2])),
-          name: row[3],
-          continent: row[4],
-          isoCountry: row[5],
-          wikipediaLink: Value(_nullIfEmpty(row[6])),
-          keywords: Value(_nullIfEmpty(row[7])),
-        );
-      });
+    final regions = rows.skip(1).map((row) {
+      return RegionsCompanion.insert(
+        id: Value(_parseInt(row[0])!),
+        code: row[1],
+        localCode: Value(_nullIfEmpty(row[2])),
+        name: row[3],
+        continent: row[4],
+        isoCountry: row[5],
+        wikipediaLink: Value(_nullIfEmpty(row[6])),
+        keywords: Value(_nullIfEmpty(row[7])),
+      );
     });
-
-    logger.log(Level.INFO, regions.length);
 
     await database.regions.deleteAll();
     await database.batch((batch) {
@@ -223,24 +215,32 @@ class AirportsService {
 
     final client = http.Client();
     try {
-      status = AirportServiceStatus.downloadingCountries;
-      _notify();
-      await _downloadCountries(client);
-      status = AirportServiceStatus.downloadingRegions;
-      _notify();
-      await _downloadRegions(client);
       status = AirportServiceStatus.downloadingAirports;
-      _notify();
-      await _downloadAirports(client);
-      status = AirportServiceStatus.downloadingRunwaysAndFrequencies;
-      _notify();
-      await Future.wait([
-        _downloadFrequencies(client),
-        _downloadRunways(client),
+      final responses = await Future.wait([
+        client.get(Uri.parse('$_baseUrl/$_countriesFile')),
+        client.get(Uri.parse('$_baseUrl/$_regionsFile')),
+        client.get(Uri.parse('$_baseUrl/$_airportsFile')),
+        client.get(Uri.parse('$_baseUrl/$_frequenciesFile')),
+        client.get(Uri.parse('$_baseUrl/$_runwaysFile')),
       ]);
+
+      await database.computeWithDatabase(
+        computation: (database) async {
+          await AirportsService._parseCountries(responses[0], database);
+          await AirportsService._parseRegions(responses[1], database);
+          await AirportsService._parseAirports(responses[2], database);
+          await Future.wait([
+            AirportsService._parseFrequencies(responses[3], database),
+            AirportsService._parseRunways(responses[4], database),
+          ]);
+        },
+        connect: (connection) {
+          return LogbookDatabase(connection);
+        },
+      );
     } catch (e) {
-      print(e.toString());
       status = AirportServiceStatus.error;
+      print(e);
       _notify();
       return;
     } finally {
