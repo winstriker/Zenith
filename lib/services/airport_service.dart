@@ -17,11 +17,13 @@ class AirportsService {
   factory AirportsService() => _instance;
   AirportsService._() {
     isLocating = true;
-    _locate().then((pos) {
-      position = pos;
-    }).whenComplete(() {
-      isLocating = false;
-    });
+    _locate()
+        .then((pos) {
+          position = pos;
+        })
+        .whenComplete(() {
+          isLocating = false;
+        });
   }
 
   static const _baseUrl = 'https://davidmegginson.github.io/ourairports-data';
@@ -237,6 +239,7 @@ class AirportsService {
         _downloadRunways(client),
       ]);
     } catch (e) {
+      print(e.toString());
       status = AirportServiceStatus.error;
       _notify();
       return;
@@ -297,6 +300,10 @@ class AirportsService {
     sorted.sort((a, b) => a.distance.compareTo(b.distance));
 
     return sorted.take(limit).toList();
+  }
+
+  Future<List<Country>> getCountriesList() {
+    return database.countries.select(distinct: true).get();
   }
 }
 

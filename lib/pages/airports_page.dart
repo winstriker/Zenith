@@ -226,7 +226,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   }
 
   Widget _buildFilters(BuildContext context, AirportsService service) {
-    final List<Country> countries = []; //TODO: service.getCountriesList();
+    final countries = service.getCountriesList();
     final types = AirportType.values;
     final theme = Theme.of(context);
 
@@ -258,33 +258,42 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _selectedCountry,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Country',
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('All Countries'),
-                    ),
-                    ...countries.map(
-                      (c) => DropdownMenuItem(
-                        value: c.code,
-                        child: Text(c.name, overflow: TextOverflow.ellipsis),
+              FutureBuilder(
+                future: countries,
+                builder: (context, snapshot) {
+                  return Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _selectedCountry,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Country',
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                       ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('All Countries'),
+                        ),
+                        ...(snapshot.hasData ? snapshot.data! : []).map(
+                          (c) => DropdownMenuItem(
+                            value: c.code,
+                            child: Text(
+                              c.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _selectedCountry = value),
                     ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _selectedCountry = value),
-                ),
+                  );
+                },
               ),
+
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<AirportType>(
