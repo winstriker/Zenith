@@ -32,20 +32,22 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     super.dispose();
   }
 
-  List<Airport> _searchAirportsCached(AirportsService service) {
-    if (_searchQuery != _lastQuery ||
-        _selectedCountry != _lastCountry ||
-        _selectedType != _lastType) {
-      _lastQuery = _searchQuery;
-      _lastCountry = _selectedCountry;
-      _lastType = _selectedType;
-      _cachedResults = []; /*TODO: service.searchAirports(
-        query: _searchQuery,
-        countryCode: _selectedCountry,
-        type: _selectedType,
-        limit: 100,
-      );*/
+  Future<List<Airport>> _searchAirportsCached(AirportsService service) async {
+    if (_searchQuery == _lastQuery &&
+        _selectedCountry == _lastCountry &&
+        _selectedType == _lastType &&
+        _cachedResults.isNotEmpty) {
+      return _cachedResults;
     }
+    _lastQuery = _searchQuery;
+    _lastCountry = _selectedCountry;
+    _lastType = _selectedType;
+    _cachedResults = await service.searchAirports(
+      query: _searchQuery,
+      countryCode: _selectedCountry,
+      type: _selectedType,
+      limit: 100,
+    );
     return _cachedResults;
   }
 
@@ -60,17 +62,23 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
         _selectedCountry != null ||
         _selectedType != null;
 
-    final nearAirports = service.getNearAirports(
-      limit: 20,
-      relocate: _shouldRelocate,
-    );
+    final airportsFuture = isFiltering
+        ? _searchAirportsCached(service).then(
+            (list) => list
+                .map((a) => AirportWithDistance(a, -1))
+                .toList(),
+          )
+        : service.getNearAirports(
+            limit: 20,
+            relocate: _shouldRelocate,
+          );
     _shouldRelocate = false;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           isFiltering
-              ? 'Airports (3)' //TODO: Add matching search result number
+              ? 'Search Results'
               : 'Nearest Airports',
         ),
         actions: [
@@ -123,10 +131,10 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
         ],
       ),
       body: FutureBuilder(
-        future: nearAirports,
+        future: airportsFuture,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return ErrorWidget("Error while loading airport");
+            return ErrorWidget("Error while loading airports");
           }
           if (!snapshot.hasData) {
             return const SizedBox(
@@ -179,15 +187,16 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                         padding: const EdgeInsets.only(top: 8, bottom: 80),
                         itemCount: snapshot.data!.length,
                         itemBuilder: (context, index) {
-                          final airportWithDistance = snapshot.data![index];
+                          final item = snapshot.data![index];
                           return AirportCard(
-                            airport: airportWithDistance.airport,
-                            distanceKm: airportWithDistance.distance,
+                            airport: item.airport,
+                            distanceKm:
+                                item.distance >= 0 ? item.distance : null,
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => AirportDetailPage(
-                                  airportId: airportWithDistance.airport.id,
+                                  airportId: item.airport.id,
                                 ),
                               ),
                             ),

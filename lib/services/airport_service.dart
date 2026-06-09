@@ -302,6 +302,20 @@ class AirportsService {
     return sorted.take(limit).toList();
   }
 
+  Future<List<Airport>> searchAirports({
+    String query = '',
+    String? countryCode,
+    AirportType? type,
+    int limit = 100,
+  }) {
+    return database.searchAirports(
+      query: query,
+      countryCode: countryCode,
+      type: type,
+      limit: limit,
+    );
+  }
+
   Future<List<Country>> getCountriesList() {
     return database.countries.select(distinct: true).get();
   }
