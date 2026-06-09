@@ -317,7 +317,9 @@ class AirportsService {
   }
 
   Future<List<Country>> getCountriesList() {
-    return database.countries.select(distinct: true).get();
+    return database.countries.select(distinct: true).get().then(
+      (countries) => countries..sort((a, b) => a.name.compareTo(b.name)),
+    );
   }
 }
 
