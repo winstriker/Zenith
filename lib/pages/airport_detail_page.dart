@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
 
@@ -239,6 +241,7 @@ class AirportDetailPage extends ConsumerWidget {
                 snapshot.data!.country,
                 snapshot.data!.region,
               ),
+              _buildMapSection(context, snapshot.data!.airport),
               _FrequenciesSection(frequencies: snapshot.data!.frequencies),
               _RunwaysSection(runways: snapshot.data!.runways),
               const SizedBox(height: 32),
@@ -384,6 +387,36 @@ class AirportDetailPage extends ConsumerWidget {
               _infoRow(theme, cs, 'Local Code', airport.localCode!),
             if (airport.homeLink != null)
               _infoRow(theme, cs, 'Website', airport.homeLink!),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapSection(BuildContext context, Airport airport) {
+    final lat = airport.latitudeDeg;
+    final lng = airport.longitudeDeg;
+    if (lat == null || lng == null) return const SizedBox.shrink();
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        height: 200,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(lat, lng),
+            initialZoom: 13.0,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.none,
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate:
+                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.logbook.app',
+            ),
           ],
         ),
       ),
