@@ -3525,6 +3525,405 @@ class RunwaysCompanion extends UpdateCompanion<Runway> {
   }
 }
 
+class $AircraftsTable extends Aircrafts
+    with TableInfo<$AircraftsTable, Aircraft> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AircraftsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modelMeta = const VerificationMeta('model');
+  @override
+  late final GeneratedColumn<String> model = GeneratedColumn<String>(
+    'model',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tailNumberMeta = const VerificationMeta(
+    'tailNumber',
+  );
+  @override
+  late final GeneratedColumn<String> tailNumber = GeneratedColumn<String>(
+    'tail_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    type,
+    model,
+    tailNumber,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'aircrafts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Aircraft> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('model')) {
+      context.handle(
+        _modelMeta,
+        model.isAcceptableOrUnknown(data['model']!, _modelMeta),
+      );
+    }
+    if (data.containsKey('tail_number')) {
+      context.handle(
+        _tailNumberMeta,
+        tailNumber.isAcceptableOrUnknown(data['tail_number']!, _tailNumberMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Aircraft map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Aircraft(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      model: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model'],
+      ),
+      tailNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tail_number'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AircraftsTable createAlias(String alias) {
+    return $AircraftsTable(attachedDatabase, alias);
+  }
+}
+
+class Aircraft extends DataClass implements Insertable<Aircraft> {
+  final int id;
+  final String type;
+  final String? model;
+  final String? tailNumber;
+  final String? notes;
+  final DateTime createdAt;
+  const Aircraft({
+    required this.id,
+    required this.type,
+    this.model,
+    this.tailNumber,
+    this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || model != null) {
+      map['model'] = Variable<String>(model);
+    }
+    if (!nullToAbsent || tailNumber != null) {
+      map['tail_number'] = Variable<String>(tailNumber);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  AircraftsCompanion toCompanion(bool nullToAbsent) {
+    return AircraftsCompanion(
+      id: Value(id),
+      type: Value(type),
+      model: model == null && nullToAbsent
+          ? const Value.absent()
+          : Value(model),
+      tailNumber: tailNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tailNumber),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Aircraft.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Aircraft(
+      id: serializer.fromJson<int>(json['id']),
+      type: serializer.fromJson<String>(json['type']),
+      model: serializer.fromJson<String?>(json['model']),
+      tailNumber: serializer.fromJson<String?>(json['tailNumber']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'type': serializer.toJson<String>(type),
+      'model': serializer.toJson<String?>(model),
+      'tailNumber': serializer.toJson<String?>(tailNumber),
+      'notes': serializer.toJson<String?>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Aircraft copyWith({
+    int? id,
+    String? type,
+    Value<String?> model = const Value.absent(),
+    Value<String?> tailNumber = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    DateTime? createdAt,
+  }) => Aircraft(
+    id: id ?? this.id,
+    type: type ?? this.type,
+    model: model.present ? model.value : this.model,
+    tailNumber: tailNumber.present ? tailNumber.value : this.tailNumber,
+    notes: notes.present ? notes.value : this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Aircraft copyWithCompanion(AircraftsCompanion data) {
+    return Aircraft(
+      id: data.id.present ? data.id.value : this.id,
+      type: data.type.present ? data.type.value : this.type,
+      model: data.model.present ? data.model.value : this.model,
+      tailNumber: data.tailNumber.present
+          ? data.tailNumber.value
+          : this.tailNumber,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Aircraft(')
+          ..write('id: $id, ')
+          ..write('type: $type, ')
+          ..write('model: $model, ')
+          ..write('tailNumber: $tailNumber, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, type, model, tailNumber, notes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Aircraft &&
+          other.id == this.id &&
+          other.type == this.type &&
+          other.model == this.model &&
+          other.tailNumber == this.tailNumber &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class AircraftsCompanion extends UpdateCompanion<Aircraft> {
+  final Value<int> id;
+  final Value<String> type;
+  final Value<String?> model;
+  final Value<String?> tailNumber;
+  final Value<String?> notes;
+  final Value<DateTime> createdAt;
+  const AircraftsCompanion({
+    this.id = const Value.absent(),
+    this.type = const Value.absent(),
+    this.model = const Value.absent(),
+    this.tailNumber = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  AircraftsCompanion.insert({
+    this.id = const Value.absent(),
+    required String type,
+    this.model = const Value.absent(),
+    this.tailNumber = const Value.absent(),
+    this.notes = const Value.absent(),
+    required DateTime createdAt,
+  }) : type = Value(type),
+       createdAt = Value(createdAt);
+  static Insertable<Aircraft> custom({
+    Expression<int>? id,
+    Expression<String>? type,
+    Expression<String>? model,
+    Expression<String>? tailNumber,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (type != null) 'type': type,
+      if (model != null) 'model': model,
+      if (tailNumber != null) 'tail_number': tailNumber,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  AircraftsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? type,
+    Value<String?>? model,
+    Value<String?>? tailNumber,
+    Value<String?>? notes,
+    Value<DateTime>? createdAt,
+  }) {
+    return AircraftsCompanion(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      model: model ?? this.model,
+      tailNumber: tailNumber ?? this.tailNumber,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (model.present) {
+      map['model'] = Variable<String>(model.value);
+    }
+    if (tailNumber.present) {
+      map['tail_number'] = Variable<String>(tailNumber.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AircraftsCompanion(')
+          ..write('id: $id, ')
+          ..write('type: $type, ')
+          ..write('model: $model, ')
+          ..write('tailNumber: $tailNumber, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -3628,6 +4027,20 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _aircraftIdMeta = const VerificationMeta(
+    'aircraftId',
+  );
+  @override
+  late final GeneratedColumn<int> aircraftId = GeneratedColumn<int>(
+    'aircraft_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES aircrafts (id)',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3638,6 +4051,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     arrivalTime,
     isRecording,
     aircraftType,
+    aircraftId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3714,6 +4128,12 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         ),
       );
     }
+    if (data.containsKey('aircraft_id')) {
+      context.handle(
+        _aircraftIdMeta,
+        aircraftId.isAcceptableOrUnknown(data['aircraft_id']!, _aircraftIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3755,6 +4175,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.string,
         data['${effectivePrefix}aircraft_type'],
       ),
+      aircraftId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}aircraft_id'],
+      ),
     );
   }
 
@@ -3773,6 +4197,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   final DateTime? arrivalTime;
   final bool isRecording;
   final String? aircraftType;
+  final int? aircraftId;
   const Flight({
     required this.id,
     required this.title,
@@ -3782,6 +4207,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.arrivalTime,
     required this.isRecording,
     this.aircraftType,
+    this.aircraftId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3801,6 +4227,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     map['is_recording'] = Variable<bool>(isRecording);
     if (!nullToAbsent || aircraftType != null) {
       map['aircraft_type'] = Variable<String>(aircraftType);
+    }
+    if (!nullToAbsent || aircraftId != null) {
+      map['aircraft_id'] = Variable<int>(aircraftId);
     }
     return map;
   }
@@ -3823,6 +4252,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       aircraftType: aircraftType == null && nullToAbsent
           ? const Value.absent()
           : Value(aircraftType),
+      aircraftId: aircraftId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aircraftId),
     );
   }
 
@@ -3840,6 +4272,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       arrivalTime: serializer.fromJson<DateTime?>(json['arrivalTime']),
       isRecording: serializer.fromJson<bool>(json['isRecording']),
       aircraftType: serializer.fromJson<String?>(json['aircraftType']),
+      aircraftId: serializer.fromJson<int?>(json['aircraftId']),
     );
   }
   @override
@@ -3854,6 +4287,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       'arrivalTime': serializer.toJson<DateTime?>(arrivalTime),
       'isRecording': serializer.toJson<bool>(isRecording),
       'aircraftType': serializer.toJson<String?>(aircraftType),
+      'aircraftId': serializer.toJson<int?>(aircraftId),
     };
   }
 
@@ -3866,6 +4300,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<DateTime?> arrivalTime = const Value.absent(),
     bool? isRecording,
     Value<String?> aircraftType = const Value.absent(),
+    Value<int?> aircraftId = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -3875,6 +4310,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrivalTime: arrivalTime.present ? arrivalTime.value : this.arrivalTime,
     isRecording: isRecording ?? this.isRecording,
     aircraftType: aircraftType.present ? aircraftType.value : this.aircraftType,
+    aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
@@ -3894,6 +4330,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       aircraftType: data.aircraftType.present
           ? data.aircraftType.value
           : this.aircraftType,
+      aircraftId: data.aircraftId.present
+          ? data.aircraftId.value
+          : this.aircraftId,
     );
   }
 
@@ -3907,7 +4346,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
           ..write('isRecording: $isRecording, ')
-          ..write('aircraftType: $aircraftType')
+          ..write('aircraftType: $aircraftType, ')
+          ..write('aircraftId: $aircraftId')
           ..write(')'))
         .toString();
   }
@@ -3922,6 +4362,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrivalTime,
     isRecording,
     aircraftType,
+    aircraftId,
   );
   @override
   bool operator ==(Object other) =>
@@ -3934,7 +4375,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.departureTime == this.departureTime &&
           other.arrivalTime == this.arrivalTime &&
           other.isRecording == this.isRecording &&
-          other.aircraftType == this.aircraftType);
+          other.aircraftType == this.aircraftType &&
+          other.aircraftId == this.aircraftId);
 }
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
@@ -3946,6 +4388,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<DateTime?> arrivalTime;
   final Value<bool> isRecording;
   final Value<String?> aircraftType;
+  final Value<int?> aircraftId;
   const FlightsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -3955,6 +4398,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrivalTime = const Value.absent(),
     this.isRecording = const Value.absent(),
     this.aircraftType = const Value.absent(),
+    this.aircraftId = const Value.absent(),
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
@@ -3965,6 +4409,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrivalTime = const Value.absent(),
     required bool isRecording,
     this.aircraftType = const Value.absent(),
+    this.aircraftId = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
        isRecording = Value(isRecording);
@@ -3977,6 +4422,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<DateTime>? arrivalTime,
     Expression<bool>? isRecording,
     Expression<String>? aircraftType,
+    Expression<int>? aircraftId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3987,6 +4433,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (arrivalTime != null) 'arrival_time': arrivalTime,
       if (isRecording != null) 'is_recording': isRecording,
       if (aircraftType != null) 'aircraft_type': aircraftType,
+      if (aircraftId != null) 'aircraft_id': aircraftId,
     });
   }
 
@@ -3999,6 +4446,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<DateTime?>? arrivalTime,
     Value<bool>? isRecording,
     Value<String?>? aircraftType,
+    Value<int?>? aircraftId,
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
@@ -4009,6 +4457,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       arrivalTime: arrivalTime ?? this.arrivalTime,
       isRecording: isRecording ?? this.isRecording,
       aircraftType: aircraftType ?? this.aircraftType,
+      aircraftId: aircraftId ?? this.aircraftId,
     );
   }
 
@@ -4039,6 +4488,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (aircraftType.present) {
       map['aircraft_type'] = Variable<String>(aircraftType.value);
     }
+    if (aircraftId.present) {
+      map['aircraft_id'] = Variable<int>(aircraftId.value);
+    }
     return map;
   }
 
@@ -4052,7 +4504,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
           ..write('isRecording: $isRecording, ')
-          ..write('aircraftType: $aircraftType')
+          ..write('aircraftType: $aircraftType, ')
+          ..write('aircraftId: $aircraftId')
           ..write(')'))
         .toString();
   }
@@ -4569,6 +5022,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $AirportsTable airports = $AirportsTable(this);
   late final $FrequenciesTable frequencies = $FrequenciesTable(this);
   late final $RunwaysTable runways = $RunwaysTable(this);
+  late final $AircraftsTable aircrafts = $AircraftsTable(this);
   late final $FlightsTable flights = $FlightsTable(this);
   late final $FlightDataPointsTable flightDataPoints = $FlightDataPointsTable(
     this,
@@ -4583,6 +5037,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     airports,
     frequencies,
     runways,
+    aircrafts,
     flights,
     flightDataPoints,
   ];
@@ -7432,6 +7887,323 @@ typedef $$RunwaysTableProcessedTableManager =
       Runway,
       PrefetchHooks Function({bool airport})
     >;
+typedef $$AircraftsTableCreateCompanionBuilder =
+    AircraftsCompanion Function({
+      Value<int> id,
+      required String type,
+      Value<String?> model,
+      Value<String?> tailNumber,
+      Value<String?> notes,
+      required DateTime createdAt,
+    });
+typedef $$AircraftsTableUpdateCompanionBuilder =
+    AircraftsCompanion Function({
+      Value<int> id,
+      Value<String> type,
+      Value<String?> model,
+      Value<String?> tailNumber,
+      Value<String?> notes,
+      Value<DateTime> createdAt,
+    });
+
+final class $$AircraftsTableReferences
+    extends BaseReferences<_$LogbookDatabase, $AircraftsTable, Aircraft> {
+  $$AircraftsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$FlightsTable, List<Flight>> _aircraftRefsTable(
+    _$LogbookDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.flights,
+    aliasName: $_aliasNameGenerator(db.aircrafts.id, db.flights.aircraftId),
+  );
+
+  $$FlightsTableProcessedTableManager get aircraftRefs {
+    final manager = $$FlightsTableTableManager(
+      $_db,
+      $_db.flights,
+    ).filter((f) => f.aircraftId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_aircraftRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$AircraftsTableFilterComposer
+    extends Composer<_$LogbookDatabase, $AircraftsTable> {
+  $$AircraftsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get model => $composableBuilder(
+    column: $table.model,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tailNumber => $composableBuilder(
+    column: $table.tailNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> aircraftRefs(
+    Expression<bool> Function($$FlightsTableFilterComposer f) f,
+  ) {
+    final $$FlightsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.aircraftId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableFilterComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AircraftsTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $AircraftsTable> {
+  $$AircraftsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get model => $composableBuilder(
+    column: $table.model,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tailNumber => $composableBuilder(
+    column: $table.tailNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AircraftsTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $AircraftsTable> {
+  $$AircraftsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get model =>
+      $composableBuilder(column: $table.model, builder: (column) => column);
+
+  GeneratedColumn<String> get tailNumber => $composableBuilder(
+    column: $table.tailNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  Expression<T> aircraftRefs<T extends Object>(
+    Expression<T> Function($$FlightsTableAnnotationComposer a) f,
+  ) {
+    final $$FlightsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.aircraftId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$AircraftsTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $AircraftsTable,
+          Aircraft,
+          $$AircraftsTableFilterComposer,
+          $$AircraftsTableOrderingComposer,
+          $$AircraftsTableAnnotationComposer,
+          $$AircraftsTableCreateCompanionBuilder,
+          $$AircraftsTableUpdateCompanionBuilder,
+          (Aircraft, $$AircraftsTableReferences),
+          Aircraft,
+          PrefetchHooks Function({bool aircraftRefs})
+        > {
+  $$AircraftsTableTableManager(_$LogbookDatabase db, $AircraftsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AircraftsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AircraftsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AircraftsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> model = const Value.absent(),
+                Value<String?> tailNumber = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => AircraftsCompanion(
+                id: id,
+                type: type,
+                model: model,
+                tailNumber: tailNumber,
+                notes: notes,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String type,
+                Value<String?> model = const Value.absent(),
+                Value<String?> tailNumber = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                required DateTime createdAt,
+              }) => AircraftsCompanion.insert(
+                id: id,
+                type: type,
+                model: model,
+                tailNumber: tailNumber,
+                notes: notes,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$AircraftsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({aircraftRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (aircraftRefs) db.flights],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (aircraftRefs)
+                    await $_getPrefetchedData<
+                      Aircraft,
+                      $AircraftsTable,
+                      Flight
+                    >(
+                      currentTable: table,
+                      referencedTable: $$AircraftsTableReferences
+                          ._aircraftRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$AircraftsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).aircraftRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.aircraftId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$AircraftsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $AircraftsTable,
+      Aircraft,
+      $$AircraftsTableFilterComposer,
+      $$AircraftsTableOrderingComposer,
+      $$AircraftsTableAnnotationComposer,
+      $$AircraftsTableCreateCompanionBuilder,
+      $$AircraftsTableUpdateCompanionBuilder,
+      (Aircraft, $$AircraftsTableReferences),
+      Aircraft,
+      PrefetchHooks Function({bool aircraftRefs})
+    >;
 typedef $$FlightsTableCreateCompanionBuilder =
     FlightsCompanion Function({
       Value<int> id,
@@ -7442,6 +8214,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<DateTime?> arrivalTime,
       required bool isRecording,
       Value<String?> aircraftType,
+      Value<int?> aircraftId,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
@@ -7453,6 +8226,7 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<DateTime?> arrivalTime,
       Value<bool> isRecording,
       Value<String?> aircraftType,
+      Value<int?> aircraftId,
     });
 
 final class $$FlightsTableReferences
@@ -7487,6 +8261,25 @@ final class $$FlightsTableReferences
       $_db.airports,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_arrivalTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AircraftsTable _aircraftIdTable(_$LogbookDatabase db) =>
+      db.aircrafts.createAlias(
+        $_aliasNameGenerator(db.flights.aircraftId, db.aircrafts.id),
+      );
+
+  $$AircraftsTableProcessedTableManager? get aircraftId {
+    final $_column = $_itemColumn<int>('aircraft_id');
+    if ($_column == null) return null;
+    final manager = $$AircraftsTableTableManager(
+      $_db,
+      $_db.aircrafts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_aircraftIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -7594,6 +8387,29 @@ class $$FlightsTableFilterComposer
           }) => $$AirportsTableFilterComposer(
             $db: $db,
             $table: $db.airports,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AircraftsTableFilterComposer get aircraftId {
+    final $$AircraftsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.aircraftId,
+      referencedTable: $db.aircrafts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AircraftsTableFilterComposer(
+            $db: $db,
+            $table: $db.aircrafts,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -7713,6 +8529,29 @@ class $$FlightsTableOrderingComposer
     );
     return composer;
   }
+
+  $$AircraftsTableOrderingComposer get aircraftId {
+    final $$AircraftsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.aircraftId,
+      referencedTable: $db.aircrafts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AircraftsTableOrderingComposer(
+            $db: $db,
+            $table: $db.aircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FlightsTableAnnotationComposer
@@ -7796,6 +8635,29 @@ class $$FlightsTableAnnotationComposer
     return composer;
   }
 
+  $$AircraftsTableAnnotationComposer get aircraftId {
+    final $$AircraftsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.aircraftId,
+      referencedTable: $db.aircrafts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AircraftsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.aircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
   Expression<T> flightDataPointsRefs<T extends Object>(
     Expression<T> Function($$FlightDataPointsTableAnnotationComposer a) f,
   ) {
@@ -7838,6 +8700,7 @@ class $$FlightsTableTableManager
           PrefetchHooks Function({
             bool departure,
             bool arrival,
+            bool aircraftId,
             bool flightDataPointsRefs,
           })
         > {
@@ -7862,6 +8725,7 @@ class $$FlightsTableTableManager
                 Value<DateTime?> arrivalTime = const Value.absent(),
                 Value<bool> isRecording = const Value.absent(),
                 Value<String?> aircraftType = const Value.absent(),
+                Value<int?> aircraftId = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
                 title: title,
@@ -7871,6 +8735,7 @@ class $$FlightsTableTableManager
                 arrivalTime: arrivalTime,
                 isRecording: isRecording,
                 aircraftType: aircraftType,
+                aircraftId: aircraftId,
               ),
           createCompanionCallback:
               ({
@@ -7882,6 +8747,7 @@ class $$FlightsTableTableManager
                 Value<DateTime?> arrivalTime = const Value.absent(),
                 required bool isRecording,
                 Value<String?> aircraftType = const Value.absent(),
+                Value<int?> aircraftId = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
                 title: title,
@@ -7891,6 +8757,7 @@ class $$FlightsTableTableManager
                 arrivalTime: arrivalTime,
                 isRecording: isRecording,
                 aircraftType: aircraftType,
+                aircraftId: aircraftId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7904,6 +8771,7 @@ class $$FlightsTableTableManager
               ({
                 departure = false,
                 arrival = false,
+                aircraftId = false,
                 flightDataPointsRefs = false,
               }) {
                 return PrefetchHooks(
@@ -7949,6 +8817,19 @@ class $$FlightsTableTableManager
                                         ._arrivalTable(db),
                                     referencedColumn: $$FlightsTableReferences
                                         ._arrivalTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (aircraftId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.aircraftId,
+                                    referencedTable: $$FlightsTableReferences
+                                        ._aircraftIdTable(db),
+                                    referencedColumn: $$FlightsTableReferences
+                                        ._aircraftIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -8002,6 +8883,7 @@ typedef $$FlightsTableProcessedTableManager =
       PrefetchHooks Function({
         bool departure,
         bool arrival,
+        bool aircraftId,
         bool flightDataPointsRefs,
       })
     >;
@@ -8402,6 +9284,8 @@ class $LogbookDatabaseManager {
       $$FrequenciesTableTableManager(_db, _db.frequencies);
   $$RunwaysTableTableManager get runways =>
       $$RunwaysTableTableManager(_db, _db.runways);
+  $$AircraftsTableTableManager get aircrafts =>
+      $$AircraftsTableTableManager(_db, _db.aircrafts);
   $$FlightsTableTableManager get flights =>
       $$FlightsTableTableManager(_db, _db.flights);
   $$FlightDataPointsTableTableManager get flightDataPoints =>

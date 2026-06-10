@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:logbook/main.dart';
 import '../providers/flight_providers.dart';
+import '../providers/aircraft_providers.dart';
 import '../providers/unit_provider.dart';
+import '../services/database.dart';
 import '../services/location_service.dart';
 
 class RecordingPage extends ConsumerStatefulWidget {
@@ -15,9 +18,9 @@ class RecordingPage extends ConsumerStatefulWidget {
 
 class _RecordingPageState extends ConsumerState<RecordingPage> {
   final _titleController = TextEditingController();
-  final _aircraftController = TextEditingController();
   final _departureController = TextEditingController();
   final _arrivalController = TextEditingController();
+  Aircraft? _selectedAircraft;
 
   StreamSubscription<Map<String, double>>? _locationSubscription;
   Timer? _timer;
@@ -92,7 +95,6 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   @override
   void dispose() {
     _titleController.dispose();
-    _aircraftController.dispose();
     _departureController.dispose();
     _arrivalController.dispose();
     _locationSubscription?.cancel();
@@ -112,9 +114,8 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
-      aircraftType: _aircraftController.text.trim().isEmpty
-          ? null
-          : _aircraftController.text.trim(),
+      aircraftType: _selectedAircraft?.type,
+      aircraftId: _selectedAircraft?.id,
       departure: _departureController.text.trim().isEmpty
           ? null
           : _departureController.text.trim(),
@@ -232,6 +233,8 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Widget _buildSetupForm(ThemeData theme) {
+    final aircraftList = ref.watch(aircraftListProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -267,12 +270,46 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             ),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _aircraftController,
-            decoration: const InputDecoration(
-              labelText: 'Aircraft Type (optional)',
-              prefixIcon: Icon(Icons.airplanemode_active),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<Aircraft>(
+                  value: _selectedAircraft,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Aircraft *',
+                    prefixIcon: Icon(Icons.airplanemode_active),
+                  ),
+                  items: aircraftList.map((aws) => DropdownMenuItem(
+                    value: aws.aircraft,
+                    child: Text(
+                      aws.aircraft.tailNumber != null
+                          ? '${aws.aircraft.type} (${aws.aircraft.tailNumber})'
+                          : aws.aircraft.type,
+                    ),
+                  )).toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedAircraft = value);
+                  },
+                  validator: (value) => value == null ? 'Aircraft is required' : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: IconButton.filled(
+                  onPressed: () => _addNewAircraft(),
+                  icon: const Icon(Icons.add, size: 20),
+                  tooltip: 'Add new aircraft',
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primaryContainer,
+                    foregroundColor: theme.colorScheme.onPrimaryContainer,
+                    minimumSize: const Size(48, 48),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Row(
@@ -300,7 +337,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           ),
           const SizedBox(height: 32),
           FilledButton.icon(
-            onPressed: _startRecording,
+            onPressed: _selectedAircraft == null ? null : _startRecording,
             icon: const Icon(Icons.fiber_manual_record, size: 22),
             label: const Text('Start Recording'),
             style: FilledButton.styleFrom(
@@ -316,6 +353,88 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _addNewAircraft() async {
+    final db = ref.read(databaseProvider);
+    final typeCtrl = TextEditingController();
+    final modelCtrl = TextEditingController();
+    final tailCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Aircraft'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: typeCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Type *',
+                  hintText: 'e.g. C172',
+                  prefixIcon: Icon(Icons.airplanemode_active),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: modelCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  hintText: 'e.g. Cessna 172S',
+                  prefixIcon: Icon(Icons.model_training),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: tailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Tail Number',
+                  hintText: 'e.g. N123AB',
+                  prefixIcon: Icon(Icons.numbers),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Notes',
+                  prefixIcon: Icon(Icons.notes),
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              if (typeCtrl.text.trim().isEmpty) return;
+              await db.addAircraft(
+                type: typeCtrl.text.trim(),
+                model: modelCtrl.text.trim().isEmpty ? null : modelCtrl.text.trim(),
+                tailNumber: tailCtrl.text.trim().isEmpty ? null : tailCtrl.text.trim(),
+                notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+              );
+              if (ctx.mounted) Navigator.pop(ctx, true);
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+
+    typeCtrl.dispose();
+    modelCtrl.dispose();
+    tailCtrl.dispose();
+    notesCtrl.dispose();
+
+    if (saved == true) {
+      ref.read(aircraftListProvider.notifier).refresh();
+    }
   }
 
   Widget _buildRecordingView(ThemeData theme) {

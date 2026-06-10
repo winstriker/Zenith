@@ -136,6 +136,7 @@ class FlightService {
   Future<int> startSession({
     String title = 'New Flight',
     String? aircraftType,
+    int? aircraftId,
     String? departure,
     String? arrival,
   }) async {
@@ -154,6 +155,7 @@ class FlightService {
             arrivalTime: Value(now),
             isRecording: true,
             aircraftType: Value(aircraftType),
+            aircraftId: Value(aircraftId),
           ),
         );
 
@@ -166,6 +168,7 @@ class FlightService {
       arrivalTime: now,
       isRecording: true,
       aircraftType: aircraftType,
+      aircraftId: aircraftId,
     );
 
     final session = FlightWithStats(

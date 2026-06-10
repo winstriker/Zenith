@@ -154,6 +154,15 @@ class Runways extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+class Aircrafts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get type => text()();
+  TextColumn get model => text().nullable()();
+  TextColumn get tailNumber => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 class Flights extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
@@ -165,6 +174,8 @@ class Flights extends Table {
   DateTimeColumn get arrivalTime => dateTime().nullable()();
   BoolColumn get isRecording => boolean()();
   TextColumn get aircraftType => text().nullable()();
+  @ReferenceName("aircraftRefs")
+  IntColumn get aircraftId => integer().nullable().references(Aircrafts, #id)();
 }
 
 class FlightDataPoints extends Table {
@@ -198,6 +209,7 @@ class FlightWithStats {
     required this.flight,
     required this.dataPoints,
     this.aircraftType,
+    this.aircraft,
     this.departureIdent,
     this.arrivalIdent,
   }) {
@@ -211,6 +223,7 @@ class FlightWithStats {
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
   final String? aircraftType;
+  final Aircraft? aircraft;
   final String? departureIdent;
   final String? arrivalIdent;
   Duration? duration;
@@ -234,6 +247,7 @@ class FlightWithStats {
     Flight? flight,
     List<FlightDataPoint>? dataPoints,
     String? aircraftType,
+    Aircraft? aircraft,
     String? departureIdent,
     String? arrivalIdent,
     Duration? duration,
@@ -242,6 +256,7 @@ class FlightWithStats {
     flight: flight ?? this.flight,
     dataPoints: dataPoints ?? this.dataPoints,
     aircraftType: aircraftType ?? this.aircraftType,
+    aircraft: aircraft ?? this.aircraft,
     departureIdent: departureIdent ?? this.departureIdent,
     arrivalIdent: arrivalIdent ?? this.arrivalIdent,
   );
@@ -269,6 +284,13 @@ class AirportWithDistance {
   AirportWithDistance(this.airport, this.distance);
 }
 
+class AircraftWithStats {
+  final Aircraft aircraft;
+  final int flightCount;
+  final Duration? totalFlightTime;
+  AircraftWithStats(this.aircraft, this.flightCount, this.totalFlightTime);
+}
+
 @DriftDatabase(
   tables: [
     Countries,
@@ -278,6 +300,7 @@ class AirportWithDistance {
     Runways,
     Flights,
     FlightDataPoints,
+    Aircrafts,
   ],
 )
 class LogbookDatabase extends _$LogbookDatabase {
@@ -285,7 +308,7 @@ class LogbookDatabase extends _$LogbookDatabase {
     : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -293,6 +316,21 @@ class LogbookDatabase extends _$LogbookDatabase {
       onUpgrade: (m, from, to) async {
         if (from == 1) {
           await m.addColumn(flights, flights.aircraftType);
+        }
+        if (from == 2) {
+          await m.createTable(aircrafts);
+          await m.addColumn(flights, flights.aircraftId);
+          await customStatement('''
+            INSERT OR IGNORE INTO aircrafts (type, created_at)
+            SELECT DISTINCT aircraft_type, datetime('now')
+            FROM flights WHERE aircraft_type IS NOT NULL
+          ''');
+          await customStatement('''
+            UPDATE flights SET aircraft_id = (
+              SELECT id FROM aircrafts WHERE aircrafts.type = flights.aircraft_type
+            )
+            WHERE aircraft_type IS NOT NULL
+          ''');
         }
       },
     );
@@ -419,19 +457,116 @@ class LogbookDatabase extends _$LogbookDatabase {
       return ident;
     }
 
+    final aircraftCache = <int, Aircraft?>{};
+    Future<Aircraft?> resolveAircraft(int? id) async {
+      if (id == null) return null;
+      if (aircraftCache.containsKey(id)) return aircraftCache[id];
+      final query = select(aircrafts)..where((a) => a.id.equals(id));
+      final match = await query.getSingleOrNull();
+      aircraftCache[id] = match;
+      return match;
+    }
+
     final results = <FlightWithStats>[];
     for (final flight in recentFlights) {
       final points = pointsByFlight[flight.id] ?? const [];
       final depIdent = await resolveIdent(flight.departure);
       final arrIdent = await resolveIdent(flight.arrival);
+      final aircraft = await resolveAircraft(flight.aircraftId);
       results.add(FlightWithStats(
         flight: flight,
         dataPoints: points,
         aircraftType: flight.aircraftType,
+        aircraft: aircraft,
         departureIdent: depIdent,
         arrivalIdent: arrIdent,
       ));
     }
     return results;
+  }
+
+  Future<List<Aircraft>> getAircrafts() async {
+    return (select(aircrafts)
+      ..orderBy([(a) => OrderingTerm.desc(a.createdAt)])
+    ).get();
+  }
+
+  Future<Aircraft?> getAircraft(int id) async {
+    final query = select(aircrafts)..where((a) => a.id.equals(id));
+    return query.getSingleOrNull();
+  }
+
+  Future<int> addAircraft({
+    required String type,
+    String? model,
+    String? tailNumber,
+    String? notes,
+  }) async {
+    return into(aircrafts).insert(AircraftsCompanion.insert(
+      type: type,
+      model: Value(model),
+      tailNumber: Value(tailNumber),
+      notes: Value(notes),
+      createdAt: DateTime.now(),
+    ));
+  }
+
+  Future<void> updateAircraft(int id, {
+    String? type,
+    String? model,
+    String? tailNumber,
+    String? notes,
+  }) async {
+    await (update(aircrafts)..where((a) => a.id.equals(id))).write(
+      AircraftsCompanion(
+        type: type != null ? Value(type) : const Value.absent(),
+        model: model != null ? Value(model) : const Value.absent(),
+        tailNumber: tailNumber != null ? Value(tailNumber) : const Value.absent(),
+        notes: notes != null ? Value(notes) : const Value.absent(),
+      ),
+    );
+  }
+
+  Future<void> deleteAircraft(int id) async {
+    await (update(flights)..where((f) => f.aircraftId.equals(id)))
+      .write(const FlightsCompanion(aircraftId: Value(null)));
+    await (delete(aircrafts)..where((a) => a.id.equals(id))).go();
+  }
+
+  Future<List<AircraftWithStats>> getAircraftsWithStats() async {
+    final allAircraft = await getAircrafts();
+    final result = <AircraftWithStats>[];
+    for (final ac in allAircraft) {
+      final flightQuery = select(flights)
+        ..where((f) => f.aircraftId.equals(ac.id))
+        ..where((f) => f.isRecording.equals(false));
+      final flightRows = await flightQuery.get();
+      Duration? totalTime;
+      for (final f in flightRows) {
+        if (f.arrivalTime != null) {
+          final dur = f.arrivalTime!.difference(f.departureTime);
+          totalTime = (totalTime ?? Duration.zero) + dur;
+        }
+      }
+      result.add(AircraftWithStats(ac, flightRows.length, totalTime));
+    }
+    return result;
+  }
+
+  Future<List<Airport>> getRecentAirports({int limit = 5}) async {
+    final recentFlightsQuery = select(flights)
+      ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
+      ..limit(20);
+    final recentFlights = await recentFlightsQuery.get();
+    final airportIds = <int>{};
+    for (final f in recentFlights) {
+      if (f.departure != null) airportIds.add(f.departure!);
+      if (f.arrival != null) airportIds.add(f.arrival!);
+    }
+    if (airportIds.isEmpty) return [];
+    final airportQuery = select(airports)
+      ..where((a) => a.id.isIn(airportIds.toList()))
+      ..limit(limit);
+    return airportQuery.get();
   }
 }

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'core/theme.dart';
 import 'pages/home_page.dart';
-import 'pages/flights_page.dart';
 import 'pages/airports_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/intro_page.dart';
@@ -41,7 +40,6 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
 
   final _pages = <Widget>[
     const HomePage(),
-    const FlightsPage(),
     const AirportsPage(),
     const SettingsPage(),
   ];
@@ -60,11 +58,6 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.flight_outlined),
-            selectedIcon: Icon(Icons.flight),
-            label: 'Flights',
           ),
           NavigationDestination(
             icon: Icon(Icons.local_airport_outlined),
