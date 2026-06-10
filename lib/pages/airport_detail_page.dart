@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
+import 'airport_map_page.dart';
 
 class _FrequenciesSection extends ConsumerWidget {
   final List<Frequency>? frequencies;
@@ -410,6 +411,18 @@ class AirportDetailPage extends ConsumerWidget {
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.none,
             ),
+            onTap: (tap, point) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AirportMapPage(
+                    latitude: lat,
+                    longitude: lng,
+                    airportName: airport.name ?? '',
+                  ),
+                ),
+              );
+            },
           ),
           children: [
             TileLayer(
