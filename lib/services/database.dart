@@ -173,8 +173,6 @@ class Flights extends Table {
   DateTimeColumn get departureTime => dateTime()();
   DateTimeColumn get arrivalTime => dateTime().nullable()();
   BoolColumn get isRecording => boolean()();
-  TextColumn get aircraftType => text().nullable()();
-  @ReferenceName("aircraftRefs")
   IntColumn get aircraftId => integer().nullable().references(Aircrafts, #id)();
 }
 
@@ -208,7 +206,6 @@ class FlightWithStats {
   FlightWithStats({
     required this.flight,
     required this.dataPoints,
-    this.aircraftType,
     this.aircraft,
     this.departureIdent,
     this.arrivalIdent,
@@ -216,13 +213,10 @@ class FlightWithStats {
     duration = flight.arrivalTime?.difference(flight.departureTime);
     maxAltitude = dataPoints.isEmpty
         ? null
-        : dataPoints
-            .map((p) => p.altitude)
-            .reduce((a, b) => a > b ? a : b);
+        : dataPoints.map((p) => p.altitude).reduce((a, b) => a > b ? a : b);
   }
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
-  final String? aircraftType;
   final Aircraft? aircraft;
   final String? departureIdent;
   final String? arrivalIdent;
@@ -246,7 +240,6 @@ class FlightWithStats {
   FlightWithStats copyWith({
     Flight? flight,
     List<FlightDataPoint>? dataPoints,
-    String? aircraftType,
     Aircraft? aircraft,
     String? departureIdent,
     String? arrivalIdent,
@@ -255,7 +248,6 @@ class FlightWithStats {
   }) => FlightWithStats(
     flight: flight ?? this.flight,
     dataPoints: dataPoints ?? this.dataPoints,
-    aircraftType: aircraftType ?? this.aircraftType,
     aircraft: aircraft ?? this.aircraft,
     departureIdent: departureIdent ?? this.departureIdent,
     arrivalIdent: arrivalIdent ?? this.arrivalIdent,
@@ -308,33 +300,7 @@ class LogbookDatabase extends _$LogbookDatabase {
     : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
-
-  @override
-  MigrationStrategy get migration {
-    return MigrationStrategy(
-      onUpgrade: (m, from, to) async {
-        if (from == 1) {
-          await m.addColumn(flights, flights.aircraftType);
-        }
-        if (from == 2) {
-          await m.createTable(aircrafts);
-          await m.addColumn(flights, flights.aircraftId);
-          await customStatement('''
-            INSERT OR IGNORE INTO aircrafts (type, created_at)
-            SELECT DISTINCT aircraft_type, datetime('now')
-            FROM flights WHERE aircraft_type IS NOT NULL
-          ''');
-          await customStatement('''
-            UPDATE flights SET aircraft_id = (
-              SELECT id FROM aircrafts WHERE aircrafts.type = flights.aircraft_type
-            )
-            WHERE aircraft_type IS NOT NULL
-          ''');
-        }
-      },
-    );
-  }
+  int get schemaVersion => 1;
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
@@ -452,7 +418,8 @@ class LogbookDatabase extends _$LogbookDatabase {
       if (airportCache.containsKey(id)) return airportCache[id];
       final query = select(airports)..where((a) => a.id.equals(id));
       final match = await query.getSingleOrNull();
-      final ident = match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
+      final ident =
+          match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
       airportCache[id] = ident;
       return ident;
     }
@@ -473,22 +440,23 @@ class LogbookDatabase extends _$LogbookDatabase {
       final depIdent = await resolveIdent(flight.departure);
       final arrIdent = await resolveIdent(flight.arrival);
       final aircraft = await resolveAircraft(flight.aircraftId);
-      results.add(FlightWithStats(
-        flight: flight,
-        dataPoints: points,
-        aircraftType: flight.aircraftType,
-        aircraft: aircraft,
-        departureIdent: depIdent,
-        arrivalIdent: arrIdent,
-      ));
+      results.add(
+        FlightWithStats(
+          flight: flight,
+          dataPoints: points,
+          aircraft: aircraft,
+          departureIdent: depIdent,
+          arrivalIdent: arrIdent,
+        ),
+      );
     }
     return results;
   }
 
   Future<List<Aircraft>> getAircrafts() async {
-    return (select(aircrafts)
-      ..orderBy([(a) => OrderingTerm.desc(a.createdAt)])
-    ).get();
+    return (select(
+      aircrafts,
+    )..orderBy([(a) => OrderingTerm.desc(a.createdAt)])).get();
   }
 
   Future<Aircraft?> getAircraft(int id) async {
@@ -502,16 +470,19 @@ class LogbookDatabase extends _$LogbookDatabase {
     String? tailNumber,
     String? notes,
   }) async {
-    return into(aircrafts).insert(AircraftsCompanion.insert(
-      type: type,
-      model: Value(model),
-      tailNumber: Value(tailNumber),
-      notes: Value(notes),
-      createdAt: DateTime.now(),
-    ));
+    return into(aircrafts).insert(
+      AircraftsCompanion.insert(
+        type: type,
+        model: Value(model),
+        tailNumber: Value(tailNumber),
+        notes: Value(notes),
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
-  Future<void> updateAircraft(int id, {
+  Future<void> updateAircraft(
+    int id, {
     String? type,
     String? model,
     String? tailNumber,
@@ -521,15 +492,24 @@ class LogbookDatabase extends _$LogbookDatabase {
       AircraftsCompanion(
         type: type != null ? Value(type) : const Value.absent(),
         model: model != null ? Value(model) : const Value.absent(),
-        tailNumber: tailNumber != null ? Value(tailNumber) : const Value.absent(),
+        tailNumber: tailNumber != null
+            ? Value(tailNumber)
+            : const Value.absent(),
         notes: notes != null ? Value(notes) : const Value.absent(),
       ),
     );
   }
 
+  Future<void> updateFlightAircraft(int flightId, {int? aircraftId}) async {
+    await (update(flights)..where((f) => f.id.equals(flightId))).write(
+      FlightsCompanion(aircraftId: Value(aircraftId)),
+    );
+  }
+
   Future<void> deleteAircraft(int id) async {
-    await (update(flights)..where((f) => f.aircraftId.equals(id)))
-      .write(const FlightsCompanion(aircraftId: Value(null)));
+    await (update(flights)..where((f) => f.aircraftId.equals(id))).write(
+      const FlightsCompanion(aircraftId: Value(null)),
+    );
     await (delete(aircrafts)..where((a) => a.id.equals(id))).go();
   }
 

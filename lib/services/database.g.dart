@@ -4016,17 +4016,6 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
       'CHECK ("is_recording" IN (0, 1))',
     ),
   );
-  static const VerificationMeta _aircraftTypeMeta = const VerificationMeta(
-    'aircraftType',
-  );
-  @override
-  late final GeneratedColumn<String> aircraftType = GeneratedColumn<String>(
-    'aircraft_type',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _aircraftIdMeta = const VerificationMeta(
     'aircraftId',
   );
@@ -4050,7 +4039,6 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     departureTime,
     arrivalTime,
     isRecording,
-    aircraftType,
     aircraftId,
   ];
   @override
@@ -4119,15 +4107,6 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     } else if (isInserting) {
       context.missing(_isRecordingMeta);
     }
-    if (data.containsKey('aircraft_type')) {
-      context.handle(
-        _aircraftTypeMeta,
-        aircraftType.isAcceptableOrUnknown(
-          data['aircraft_type']!,
-          _aircraftTypeMeta,
-        ),
-      );
-    }
     if (data.containsKey('aircraft_id')) {
       context.handle(
         _aircraftIdMeta,
@@ -4171,10 +4150,6 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_recording'],
       )!,
-      aircraftType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}aircraft_type'],
-      ),
       aircraftId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}aircraft_id'],
@@ -4196,7 +4171,6 @@ class Flight extends DataClass implements Insertable<Flight> {
   final DateTime departureTime;
   final DateTime? arrivalTime;
   final bool isRecording;
-  final String? aircraftType;
   final int? aircraftId;
   const Flight({
     required this.id,
@@ -4206,7 +4180,6 @@ class Flight extends DataClass implements Insertable<Flight> {
     required this.departureTime,
     this.arrivalTime,
     required this.isRecording,
-    this.aircraftType,
     this.aircraftId,
   });
   @override
@@ -4225,9 +4198,6 @@ class Flight extends DataClass implements Insertable<Flight> {
       map['arrival_time'] = Variable<DateTime>(arrivalTime);
     }
     map['is_recording'] = Variable<bool>(isRecording);
-    if (!nullToAbsent || aircraftType != null) {
-      map['aircraft_type'] = Variable<String>(aircraftType);
-    }
     if (!nullToAbsent || aircraftId != null) {
       map['aircraft_id'] = Variable<int>(aircraftId);
     }
@@ -4249,9 +4219,6 @@ class Flight extends DataClass implements Insertable<Flight> {
           ? const Value.absent()
           : Value(arrivalTime),
       isRecording: Value(isRecording),
-      aircraftType: aircraftType == null && nullToAbsent
-          ? const Value.absent()
-          : Value(aircraftType),
       aircraftId: aircraftId == null && nullToAbsent
           ? const Value.absent()
           : Value(aircraftId),
@@ -4271,7 +4238,6 @@ class Flight extends DataClass implements Insertable<Flight> {
       departureTime: serializer.fromJson<DateTime>(json['departureTime']),
       arrivalTime: serializer.fromJson<DateTime?>(json['arrivalTime']),
       isRecording: serializer.fromJson<bool>(json['isRecording']),
-      aircraftType: serializer.fromJson<String?>(json['aircraftType']),
       aircraftId: serializer.fromJson<int?>(json['aircraftId']),
     );
   }
@@ -4286,7 +4252,6 @@ class Flight extends DataClass implements Insertable<Flight> {
       'departureTime': serializer.toJson<DateTime>(departureTime),
       'arrivalTime': serializer.toJson<DateTime?>(arrivalTime),
       'isRecording': serializer.toJson<bool>(isRecording),
-      'aircraftType': serializer.toJson<String?>(aircraftType),
       'aircraftId': serializer.toJson<int?>(aircraftId),
     };
   }
@@ -4299,7 +4264,6 @@ class Flight extends DataClass implements Insertable<Flight> {
     DateTime? departureTime,
     Value<DateTime?> arrivalTime = const Value.absent(),
     bool? isRecording,
-    Value<String?> aircraftType = const Value.absent(),
     Value<int?> aircraftId = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
@@ -4309,7 +4273,6 @@ class Flight extends DataClass implements Insertable<Flight> {
     departureTime: departureTime ?? this.departureTime,
     arrivalTime: arrivalTime.present ? arrivalTime.value : this.arrivalTime,
     isRecording: isRecording ?? this.isRecording,
-    aircraftType: aircraftType.present ? aircraftType.value : this.aircraftType,
     aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
@@ -4327,9 +4290,6 @@ class Flight extends DataClass implements Insertable<Flight> {
       isRecording: data.isRecording.present
           ? data.isRecording.value
           : this.isRecording,
-      aircraftType: data.aircraftType.present
-          ? data.aircraftType.value
-          : this.aircraftType,
       aircraftId: data.aircraftId.present
           ? data.aircraftId.value
           : this.aircraftId,
@@ -4346,7 +4306,6 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
           ..write('isRecording: $isRecording, ')
-          ..write('aircraftType: $aircraftType, ')
           ..write('aircraftId: $aircraftId')
           ..write(')'))
         .toString();
@@ -4361,7 +4320,6 @@ class Flight extends DataClass implements Insertable<Flight> {
     departureTime,
     arrivalTime,
     isRecording,
-    aircraftType,
     aircraftId,
   );
   @override
@@ -4375,7 +4333,6 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.departureTime == this.departureTime &&
           other.arrivalTime == this.arrivalTime &&
           other.isRecording == this.isRecording &&
-          other.aircraftType == this.aircraftType &&
           other.aircraftId == this.aircraftId);
 }
 
@@ -4387,7 +4344,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<DateTime> departureTime;
   final Value<DateTime?> arrivalTime;
   final Value<bool> isRecording;
-  final Value<String?> aircraftType;
   final Value<int?> aircraftId;
   const FlightsCompanion({
     this.id = const Value.absent(),
@@ -4397,7 +4353,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.departureTime = const Value.absent(),
     this.arrivalTime = const Value.absent(),
     this.isRecording = const Value.absent(),
-    this.aircraftType = const Value.absent(),
     this.aircraftId = const Value.absent(),
   });
   FlightsCompanion.insert({
@@ -4408,7 +4363,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     required DateTime departureTime,
     this.arrivalTime = const Value.absent(),
     required bool isRecording,
-    this.aircraftType = const Value.absent(),
     this.aircraftId = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
@@ -4421,7 +4375,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<DateTime>? departureTime,
     Expression<DateTime>? arrivalTime,
     Expression<bool>? isRecording,
-    Expression<String>? aircraftType,
     Expression<int>? aircraftId,
   }) {
     return RawValuesInsertable({
@@ -4432,7 +4385,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (departureTime != null) 'departure_time': departureTime,
       if (arrivalTime != null) 'arrival_time': arrivalTime,
       if (isRecording != null) 'is_recording': isRecording,
-      if (aircraftType != null) 'aircraft_type': aircraftType,
       if (aircraftId != null) 'aircraft_id': aircraftId,
     });
   }
@@ -4445,7 +4397,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<DateTime>? departureTime,
     Value<DateTime?>? arrivalTime,
     Value<bool>? isRecording,
-    Value<String?>? aircraftType,
     Value<int?>? aircraftId,
   }) {
     return FlightsCompanion(
@@ -4456,7 +4407,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       departureTime: departureTime ?? this.departureTime,
       arrivalTime: arrivalTime ?? this.arrivalTime,
       isRecording: isRecording ?? this.isRecording,
-      aircraftType: aircraftType ?? this.aircraftType,
       aircraftId: aircraftId ?? this.aircraftId,
     );
   }
@@ -4485,9 +4435,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (isRecording.present) {
       map['is_recording'] = Variable<bool>(isRecording.value);
     }
-    if (aircraftType.present) {
-      map['aircraft_type'] = Variable<String>(aircraftType.value);
-    }
     if (aircraftId.present) {
       map['aircraft_id'] = Variable<int>(aircraftId.value);
     }
@@ -4504,7 +4451,6 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
           ..write('isRecording: $isRecording, ')
-          ..write('aircraftType: $aircraftType, ')
           ..write('aircraftId: $aircraftId')
           ..write(')'))
         .toString();
@@ -7910,20 +7856,20 @@ final class $$AircraftsTableReferences
     extends BaseReferences<_$LogbookDatabase, $AircraftsTable, Aircraft> {
   $$AircraftsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static MultiTypedResultKey<$FlightsTable, List<Flight>> _aircraftRefsTable(
+  static MultiTypedResultKey<$FlightsTable, List<Flight>> _flightsRefsTable(
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.flights,
     aliasName: $_aliasNameGenerator(db.aircrafts.id, db.flights.aircraftId),
   );
 
-  $$FlightsTableProcessedTableManager get aircraftRefs {
+  $$FlightsTableProcessedTableManager get flightsRefs {
     final manager = $$FlightsTableTableManager(
       $_db,
       $_db.flights,
     ).filter((f) => f.aircraftId.id.sqlEquals($_itemColumn<int>('id')!));
 
-    final cache = $_typedResult.readTableOrNull(_aircraftRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(_flightsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -7969,7 +7915,7 @@ class $$AircraftsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  Expression<bool> aircraftRefs(
+  Expression<bool> flightsRefs(
     Expression<bool> Function($$FlightsTableFilterComposer f) f,
   ) {
     final $$FlightsTableFilterComposer composer = $composerBuilder(
@@ -8064,7 +8010,7 @@ class $$AircraftsTableAnnotationComposer
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
-  Expression<T> aircraftRefs<T extends Object>(
+  Expression<T> flightsRefs<T extends Object>(
     Expression<T> Function($$FlightsTableAnnotationComposer a) f,
   ) {
     final $$FlightsTableAnnotationComposer composer = $composerBuilder(
@@ -8103,7 +8049,7 @@ class $$AircraftsTableTableManager
           $$AircraftsTableUpdateCompanionBuilder,
           (Aircraft, $$AircraftsTableReferences),
           Aircraft,
-          PrefetchHooks Function({bool aircraftRefs})
+          PrefetchHooks Function({bool flightsRefs})
         > {
   $$AircraftsTableTableManager(_$LogbookDatabase db, $AircraftsTable table)
     : super(
@@ -8156,14 +8102,14 @@ class $$AircraftsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({aircraftRefs = false}) {
+          prefetchHooksCallback: ({flightsRefs = false}) {
             return PrefetchHooks(
               db: db,
-              explicitlyWatchedTables: [if (aircraftRefs) db.flights],
+              explicitlyWatchedTables: [if (flightsRefs) db.flights],
               addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
-                  if (aircraftRefs)
+                  if (flightsRefs)
                     await $_getPrefetchedData<
                       Aircraft,
                       $AircraftsTable,
@@ -8171,13 +8117,9 @@ class $$AircraftsTableTableManager
                     >(
                       currentTable: table,
                       referencedTable: $$AircraftsTableReferences
-                          ._aircraftRefsTable(db),
+                          ._flightsRefsTable(db),
                       managerFromTypedResult: (p0) =>
-                          $$AircraftsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).aircraftRefs,
+                          $$AircraftsTableReferences(db, table, p0).flightsRefs,
                       referencedItemsForCurrentItem: (item, referencedItems) =>
                           referencedItems.where((e) => e.aircraftId == item.id),
                       typedResults: items,
@@ -8202,7 +8144,7 @@ typedef $$AircraftsTableProcessedTableManager =
       $$AircraftsTableUpdateCompanionBuilder,
       (Aircraft, $$AircraftsTableReferences),
       Aircraft,
-      PrefetchHooks Function({bool aircraftRefs})
+      PrefetchHooks Function({bool flightsRefs})
     >;
 typedef $$FlightsTableCreateCompanionBuilder =
     FlightsCompanion Function({
@@ -8213,7 +8155,6 @@ typedef $$FlightsTableCreateCompanionBuilder =
       required DateTime departureTime,
       Value<DateTime?> arrivalTime,
       required bool isRecording,
-      Value<String?> aircraftType,
       Value<int?> aircraftId,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
@@ -8225,7 +8166,6 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<DateTime> departureTime,
       Value<DateTime?> arrivalTime,
       Value<bool> isRecording,
-      Value<String?> aircraftType,
       Value<int?> aircraftId,
     });
 
@@ -8342,11 +8282,6 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<bool> get isRecording => $composableBuilder(
     column: $table.isRecording,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get aircraftType => $composableBuilder(
-    column: $table.aircraftType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8479,11 +8414,6 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get aircraftType => $composableBuilder(
-    column: $table.aircraftType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   $$AirportsTableOrderingComposer get departure {
     final $$AirportsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8581,11 +8511,6 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<bool> get isRecording => $composableBuilder(
     column: $table.isRecording,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get aircraftType => $composableBuilder(
-    column: $table.aircraftType,
     builder: (column) => column,
   );
 
@@ -8724,7 +8649,6 @@ class $$FlightsTableTableManager
                 Value<DateTime> departureTime = const Value.absent(),
                 Value<DateTime?> arrivalTime = const Value.absent(),
                 Value<bool> isRecording = const Value.absent(),
-                Value<String?> aircraftType = const Value.absent(),
                 Value<int?> aircraftId = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
@@ -8734,7 +8658,6 @@ class $$FlightsTableTableManager
                 departureTime: departureTime,
                 arrivalTime: arrivalTime,
                 isRecording: isRecording,
-                aircraftType: aircraftType,
                 aircraftId: aircraftId,
               ),
           createCompanionCallback:
@@ -8746,7 +8669,6 @@ class $$FlightsTableTableManager
                 required DateTime departureTime,
                 Value<DateTime?> arrivalTime = const Value.absent(),
                 required bool isRecording,
-                Value<String?> aircraftType = const Value.absent(),
                 Value<int?> aircraftId = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
@@ -8756,7 +8678,6 @@ class $$FlightsTableTableManager
                 departureTime: departureTime,
                 arrivalTime: arrivalTime,
                 isRecording: isRecording,
-                aircraftType: aircraftType,
                 aircraftId: aircraftId,
               ),
           withReferenceMapper: (p0) => p0

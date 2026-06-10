@@ -74,7 +74,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       final speed = location['speed']!;
       final heading = location['heading']!;
 
-      ref.read(flightServiceProvider).addPoint(lat, lon, alt, speed: speed, heading: heading);
+      ref
+          .read(flightServiceProvider)
+          .addPoint(lat, lon, alt, speed: speed, heading: heading);
 
       if (mounted) {
         setState(() {
@@ -114,8 +116,8 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
-      aircraftType: _selectedAircraft?.type,
       aircraftId: _selectedAircraft?.id,
+      aircraft: _selectedAircraft,
       departure: _departureController.text.trim().isEmpty
           ? null
           : _departureController.text.trim(),
@@ -146,7 +148,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       final speed = location['speed']!;
       final heading = location['heading']!;
 
-      ref.read(flightServiceProvider).addPoint(lat, lon, alt, speed: speed, heading: heading);
+      ref
+          .read(flightServiceProvider)
+          .addPoint(lat, lon, alt, speed: speed, heading: heading);
 
       if (mounted) {
         setState(() {
@@ -275,24 +279,27 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<Aircraft>(
-                  value: _selectedAircraft,
+                  initialValue: _selectedAircraft,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Aircraft *',
+                    labelText: 'Aircraft (optional)',
                     prefixIcon: Icon(Icons.airplanemode_active),
                   ),
-                  items: aircraftList.map((aws) => DropdownMenuItem(
-                    value: aws.aircraft,
-                    child: Text(
-                      aws.aircraft.tailNumber != null
-                          ? '${aws.aircraft.type} (${aws.aircraft.tailNumber})'
-                          : aws.aircraft.type,
-                    ),
-                  )).toList(),
+                  items: aircraftList
+                      .map(
+                        (aws) => DropdownMenuItem(
+                          value: aws.aircraft,
+                          child: Text(
+                            aws.aircraft.tailNumber != null
+                                ? '${aws.aircraft.type} (${aws.aircraft.tailNumber})'
+                                : aws.aircraft.type,
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) {
                     setState(() => _selectedAircraft = value);
                   },
-                  validator: (value) => value == null ? 'Aircraft is required' : null,
                 ),
               ),
               const SizedBox(width: 8),
@@ -337,7 +344,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           ),
           const SizedBox(height: 32),
           FilledButton.icon(
-            onPressed: _selectedAircraft == null ? null : _startRecording,
+            onPressed: _startRecording,
             icon: const Icon(Icons.fiber_manual_record, size: 22),
             label: const Text('Start Recording'),
             style: FilledButton.styleFrom(
@@ -409,15 +416,24 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
             onPressed: () async {
               if (typeCtrl.text.trim().isEmpty) return;
               await db.addAircraft(
                 type: typeCtrl.text.trim(),
-                model: modelCtrl.text.trim().isEmpty ? null : modelCtrl.text.trim(),
-                tailNumber: tailCtrl.text.trim().isEmpty ? null : tailCtrl.text.trim(),
-                notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                model: modelCtrl.text.trim().isEmpty
+                    ? null
+                    : modelCtrl.text.trim(),
+                tailNumber: tailCtrl.text.trim().isEmpty
+                    ? null
+                    : tailCtrl.text.trim(),
+                notes: notesCtrl.text.trim().isEmpty
+                    ? null
+                    : notesCtrl.text.trim(),
               );
               if (ctx.mounted) Navigator.pop(ctx, true);
             },
@@ -439,8 +455,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
 
   Widget _buildRecordingView(ThemeData theme) {
     final session = ref.watch(flightServiceProvider).activeSession;
-    final hasRoute = session?.departureIdent != null || session?.arrivalIdent != null;
-    final hasAircraft = session?.aircraftType != null;
+    final hasRoute =
+        session?.departureIdent != null || session?.arrivalIdent != null;
+    final hasAircraft = session?.aircraft != null;
 
     return Column(
       children: [
@@ -503,7 +520,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    session!.aircraftType!,
+                                    session!.aircraft!.type,
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(fontWeight: FontWeight.w600),
                                   ),

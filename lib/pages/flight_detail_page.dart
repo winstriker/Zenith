@@ -2,17 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logbook/main.dart';
 import '../providers/unit_provider.dart';
+import '../providers/aircraft_providers.dart';
+import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import 'replay_page.dart';
 
-class FlightDetailPage extends ConsumerWidget {
+class FlightDetailPage extends ConsumerStatefulWidget {
   final FlightWithStats flight;
 
   const FlightDetailPage({super.key, required this.flight});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FlightDetailPage> createState() => _FlightDetailPageState();
+}
+
+class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
+  late FlightWithStats _flight;
+
+  @override
+  void initState() {
+    super.initState();
+    _flight = widget.flight;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final flight = _flight;
     return Scaffold(
       appBar: AppBar(
         title: Text(flight.flight.title),
@@ -22,6 +39,7 @@ class FlightDetailPage extends ConsumerWidget {
           _buildHeroSection(context, ref, flight),
           if (flight.departureIdent != null || flight.arrivalIdent != null)
             _buildRouteSection(context, flight),
+          _buildAircraftSection(context, ref, flight),
           _buildAltitudeChart(context, ref, flight),
           _buildDetailsSection(context, flight),
           const SizedBox(height: 16),
@@ -228,6 +246,146 @@ class FlightDetailPage extends ConsumerWidget {
     );
   }
 
+  Widget _buildAircraftSection(BuildContext context, WidgetRef ref, FlightWithStats flight) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final aircraftList = ref.watch(aircraftListProvider);
+    final displayType = flight.aircraft?.type;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.airplanemode_active, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Text('Aircraft', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _showAircraftPicker(flight, aircraftList),
+                  icon: Icon(displayType != null ? Icons.edit : Icons.add, size: 16),
+                  label: Text(displayType != null ? 'Change' : 'Add'),
+                ),
+              ],
+            ),
+            if (displayType != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: cs.secondaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      displayType,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (flight.aircraft?.tailNumber != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: cs.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        flight.aircraft!.tailNumber!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onTertiaryContainer,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (flight.aircraft?.model != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      flight.aircraft!.model!,
+                      style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ],
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'No aircraft assigned',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAircraftPicker(FlightWithStats flight, List<AircraftWithStats> aircraftList) async {
+    final aircraft = await showDialog<Aircraft>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Select Aircraft'),
+        children: [
+          ...aircraftList.map((aws) => SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, aws.aircraft),
+            child: Row(
+              children: [
+                Icon(Icons.airplanemode_active, size: 18, color: Theme.of(ctx).colorScheme.secondary),
+                const SizedBox(width: 12),
+                Text(
+                  aws.aircraft.tailNumber != null
+                      ? '${aws.aircraft.type} (${aws.aircraft.tailNumber})'
+                      : aws.aircraft.type,
+                ),
+              ],
+            ),
+          )),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx),
+            child: Row(
+              children: [
+                Icon(Icons.remove_circle_outline, size: 18, color: Theme.of(ctx).colorScheme.error),
+                const SizedBox(width: 12),
+                const Text('None (remove aircraft)'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final db = ref.read(databaseProvider);
+    final flightService = ref.read(flightServiceProvider);
+    await db.updateFlightAircraft(
+      flight.flight.id,
+      aircraftId: aircraft?.id,
+    );
+    await flightService.setFlightAircraft(
+      flight.flight.id,
+      aircraftId: aircraft?.id,
+      aircraft: aircraft,
+    );
+
+    setState(() {
+      _flight = flight.copyWith(
+        aircraft: aircraft,
+      );
+    });
+
+    ref.read(flightListProvider.notifier).refresh();
+  }
+
   Widget _buildAltitudeChart(BuildContext context, WidgetRef ref, FlightWithStats flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -357,8 +515,7 @@ class FlightDetailPage extends ConsumerWidget {
             _detailRow(theme, cs, 'Start', DateFormat('MMM d, y – HH:mm').format(flight.flight.departureTime)),
             if (flight.flight.arrivalTime != null)
               _detailRow(theme, cs, 'End', DateFormat('MMM d, y – HH:mm').format(flight.flight.arrivalTime!)),
-            if (flight.aircraftType != null)
-              _detailRow(theme, cs, 'Aircraft', flight.aircraftType!),
+
             _detailRow(theme, cs, 'Status', flight.flight.isRecording ? 'inProgress' : 'recorded'),
             _detailRow(theme, cs, 'Data Points', '${flight.dataPoints.length}'),
           ],

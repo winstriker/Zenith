@@ -50,6 +50,16 @@ class FlightService {
       return ident;
     }
 
+    final aircraftCache = <int, Aircraft?>{};
+    Future<Aircraft?> resolveAircraft(int? id) async {
+      if (id == null) return null;
+      if (aircraftCache.containsKey(id)) return aircraftCache[id];
+      final match = await (database.select(database.aircrafts)
+        ..where((a) => a.id.equals(id))).getSingleOrNull();
+      aircraftCache[id] = match;
+      return match;
+    }
+
     for (final row in flightRows) {
       final pointsRows =
           await (database.select(database.flightDataPoints)
@@ -59,11 +69,12 @@ class FlightService {
 
       final depIdent = await resolveIdent(row.departure);
       final arrIdent = await resolveIdent(row.arrival);
+      final aircraft = await resolveAircraft(row.aircraftId);
 
       _sessions.add(FlightWithStats(
         flight: row,
         dataPoints: pointsRows,
-        aircraftType: row.aircraftType,
+        aircraft: aircraft,
         departureIdent: depIdent,
         arrivalIdent: arrIdent,
       ));
@@ -135,8 +146,8 @@ class FlightService {
 
   Future<int> startSession({
     String title = 'New Flight',
-    String? aircraftType,
     int? aircraftId,
+    Aircraft? aircraft,
     String? departure,
     String? arrival,
   }) async {
@@ -154,7 +165,6 @@ class FlightService {
             departureTime: now,
             arrivalTime: Value(now),
             isRecording: true,
-            aircraftType: Value(aircraftType),
             aircraftId: Value(aircraftId),
           ),
         );
@@ -167,14 +177,13 @@ class FlightService {
       departureTime: now,
       arrivalTime: now,
       isRecording: true,
-      aircraftType: aircraftType,
       aircraftId: aircraftId,
     );
 
     final session = FlightWithStats(
       flight: flight,
       dataPoints: [],
-      aircraftType: aircraftType,
+      aircraft: aircraft,
       departureIdent: departure,
       arrivalIdent: arrival,
     );
@@ -280,6 +289,21 @@ class FlightService {
     );
 
     _activeSessionId = null;
+    _notify();
+  }
+
+  Future<void> setFlightAircraft(int flightId, {int? aircraftId, Aircraft? aircraft}) async {
+    final index = _sessions.indexWhere((s) => s.flight.id == flightId);
+    if (index != -1) {
+      final session = _sessions[index];
+      _sessions[index] = session.copyWith(
+        flight: session.flight.copyWith(
+          aircraftId: Value(aircraftId),
+        ),
+        aircraft: aircraft,
+      );
+    }
+    await database.updateFlightAircraft(flightId, aircraftId: aircraftId);
     _notify();
   }
 

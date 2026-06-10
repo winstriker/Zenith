@@ -67,7 +67,7 @@ class FlightCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (flight.aircraftType != null)
+                  if (flight.aircraft != null)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -75,7 +75,7 @@ class FlightCard extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        flight.aircraftType!,
+                        flight.aircraft!.type,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSecondaryContainer,
                           fontWeight: FontWeight.w500,
