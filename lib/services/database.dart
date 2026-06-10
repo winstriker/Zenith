@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -153,6 +154,30 @@ class Runways extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+class Flights extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get title => text()();
+  @ReferenceName("departureAirportRefs")
+  IntColumn get departure => integer().nullable().references(Airports, #id)();
+  @ReferenceName("arrivalAirportsRefs")
+  IntColumn get arrival => integer().nullable().references(Airports, #id)();
+  DateTimeColumn get departureTime => dateTime()();
+  DateTimeColumn get arrivalTime => dateTime().nullable()();
+  BoolColumn get isRecording => boolean()();
+  TextColumn get aircraftType => text().nullable()();
+}
+
+class FlightDataPoints extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get flight => integer().references(Flights, #id)();
+  RealColumn get longitude => real()();
+  RealColumn get latitude => real()();
+  IntColumn get altitude => integer()();
+  DateTimeColumn get timestamp => dateTime()();
+  RealColumn get speed => real().nullable()();
+  RealColumn get heading => real().nullable()();
+}
+
 class AirportWithEverything {
   AirportWithEverything({
     required this.airport,
@@ -168,19 +193,110 @@ class AirportWithEverything {
   final Region region;
 }
 
+class FlightWithStats {
+  FlightWithStats({
+    required this.flight,
+    required this.dataPoints,
+    this.aircraftType,
+    this.departureIdent,
+    this.arrivalIdent,
+  }) {
+    duration = flight.arrivalTime?.difference(flight.departureTime);
+    maxAltitude = dataPoints.isEmpty
+        ? null
+        : dataPoints
+            .map((p) => p.altitude)
+            .reduce((a, b) => a > b ? a : b);
+  }
+  final Flight flight;
+  final List<FlightDataPoint> dataPoints;
+  final String? aircraftType;
+  final String? departureIdent;
+  final String? arrivalIdent;
+  Duration? duration;
+  int? maxAltitude;
+
+  double? get totalDistance {
+    if (dataPoints.length < 2) return null;
+    double dist = 0;
+    for (int i = 1; i < dataPoints.length; i++) {
+      dist += _haversine(
+        dataPoints[i - 1].latitude,
+        dataPoints[i - 1].longitude,
+        dataPoints[i].latitude,
+        dataPoints[i].longitude,
+      );
+    }
+    return dist;
+  }
+
+  FlightWithStats copyWith({
+    Flight? flight,
+    List<FlightDataPoint>? dataPoints,
+    String? aircraftType,
+    String? departureIdent,
+    String? arrivalIdent,
+    Duration? duration,
+    int? maxAltitude,
+  }) => FlightWithStats(
+    flight: flight ?? this.flight,
+    dataPoints: dataPoints ?? this.dataPoints,
+    aircraftType: aircraftType ?? this.aircraftType,
+    departureIdent: departureIdent ?? this.departureIdent,
+    arrivalIdent: arrivalIdent ?? this.arrivalIdent,
+  );
+
+  static double _haversine(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371;
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * asin(sqrt(a));
+    return R * c;
+  }
+
+  static double _toRadians(double deg) => deg * 3.141592653589793 / 180;
+}
+
 class AirportWithDistance {
   final Airport airport;
   final double distance;
   AirportWithDistance(this.airport, this.distance);
 }
 
-@DriftDatabase(tables: [Countries, Regions, Airports, Frequencies, Runways])
+@DriftDatabase(
+  tables: [
+    Countries,
+    Regions,
+    Airports,
+    Frequencies,
+    Runways,
+    Flights,
+    FlightDataPoints,
+  ],
+)
 class LogbookDatabase extends _$LogbookDatabase {
   LogbookDatabase([QueryExecutor? executor])
     : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onUpgrade: (m, from, to) async {
+        if (from == 1) {
+          await m.addColumn(flights, flights.aircraftType);
+        }
+      },
+    );
+  }
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
@@ -231,12 +347,14 @@ class LogbookDatabase extends _$LogbookDatabase {
 
     if (query.isNotEmpty) {
       final term = '%$query%';
-      statement.where((a) =>
-          a.name.like(term) |
-          a.ident.like(term) |
-          a.icaoCode.like(term) |
-          a.iataCode.like(term) |
-          a.municipality.like(term));
+      statement.where(
+        (a) =>
+            a.name.like(term) |
+            a.ident.like(term) |
+            a.icaoCode.like(term) |
+            a.iataCode.like(term) |
+            a.municipality.like(term),
+      );
     }
 
     if (countryCode != null) {
@@ -268,5 +386,52 @@ class LogbookDatabase extends _$LogbookDatabase {
       );
 
     return query.get();
+  }
+
+  Future<List<FlightWithStats>> getRecentFlights({int limit = 20}) async {
+    final flightsQuery = select(flights)
+      ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
+      ..limit(limit);
+    final recentFlights = await flightsQuery.get();
+
+    if (recentFlights.isEmpty) return [];
+
+    final flightIds = recentFlights.map((f) => f.id).toList();
+
+    final dataPointsQuery = select(flightDataPoints)
+      ..where((p) => p.flight.isIn(flightIds))
+      ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]);
+    final allPoints = await dataPointsQuery.get();
+
+    final pointsByFlight = <int, List<FlightDataPoint>>{};
+    for (final point in allPoints) {
+      pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
+    }
+
+    final airportCache = <int, String?>{};
+    Future<String?> resolveIdent(int? id) async {
+      if (id == null) return null;
+      if (airportCache.containsKey(id)) return airportCache[id];
+      final query = select(airports)..where((a) => a.id.equals(id));
+      final match = await query.getSingleOrNull();
+      final ident = match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
+      airportCache[id] = ident;
+      return ident;
+    }
+
+    final results = <FlightWithStats>[];
+    for (final flight in recentFlights) {
+      final points = pointsByFlight[flight.id] ?? const [];
+      final depIdent = await resolveIdent(flight.departure);
+      final arrIdent = await resolveIdent(flight.arrival);
+      results.add(FlightWithStats(
+        flight: flight,
+        dataPoints: points,
+        aircraftType: flight.aircraftType,
+        departureIdent: depIdent,
+        arrivalIdent: arrIdent,
+      ));
+    }
+    return results;
   }
 }

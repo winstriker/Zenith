@@ -7,12 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../models/flight_session.dart';
-import '../models/flight_point.dart';
+import '../services/database.dart';
 import '../providers/unit_provider.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
-  final FlightSession flight;
+  final FlightWithStats flight;
 
   const ReplayPage({super.key, required this.flight});
 
@@ -54,7 +53,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
   }
 
   void _initFlightData() {
-    final points = widget.flight.points;
+    final points = widget.flight.dataPoints;
     _pathPoints = points.map((p) => LatLng(p.latitude, p.longitude)).toList();
 
     if (points.length >= 2) {
@@ -70,7 +69,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     _replayDuration = _calculateDuration();
     _currentPosition = _pathPoints.isNotEmpty ? _pathPoints.first : null;
     if (points.isNotEmpty) {
-      _currentAltitude = points.first.altitude;
+      _currentAltitude = points.first.altitude.toDouble();
       _currentSpeed = points.first.speed;
     }
   }
@@ -80,7 +79,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
         widget.flight.duration!.inMicroseconds > 0) {
       return widget.flight.duration!;
     }
-    final points = widget.flight.points;
+    final points = widget.flight.dataPoints;
     if (points.length >= 2) {
       final d =
           points.last.timestamp.difference(points.first.timestamp);
@@ -153,7 +152,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
   }
 
   void _updateCurrentPoint(double progress) {
-    final points = widget.flight.points;
+    final points = widget.flight.dataPoints;
     if (points.isEmpty) return;
 
     _currentPosition = _getPositionAtProgress(progress);
@@ -175,13 +174,13 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
       _currentHeading = _computeBearing(p1, p2);
     } else if (points.isNotEmpty) {
       final p = points.last;
-      _currentAltitude = p.altitude;
+      _currentAltitude = p.altitude.toDouble();
       _currentSpeed = p.speed;
       _currentHeading = p.heading;
     }
   }
 
-  double _computeBearing(FlightPoint p1, FlightPoint p2) {
+  double _computeBearing(FlightDataPoint p1, FlightDataPoint p2) {
     final lat1 = p1.latitude * pi / 180;
     final lat2 = p2.latitude * pi / 180;
     final dLon = (p2.longitude - p1.longitude) * pi / 180;
@@ -286,7 +285,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     final cs = theme.colorScheme;
     final topPad = MediaQuery.of(context).padding.top;
     final botPad = MediaQuery.of(context).padding.bottom;
-    final points = widget.flight.points;
+    final points = widget.flight.dataPoints;
     final unitMode = ref.watch(unitProvider);
     final isMetric = unitMode == MeasurementUnit.metric;
 
@@ -388,7 +387,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            widget.flight.title,
+                            widget.flight.flight.title,
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,

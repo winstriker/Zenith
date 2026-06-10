@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/unit_provider.dart';
-import '../models/flight_session.dart';
+import '../services/database.dart';
 
 class FlightCard extends ConsumerWidget {
-  final FlightSession flight;
+  final FlightWithStats flight;
   final VoidCallback? onTap;
 
   const FlightCard({super.key, required this.flight, this.onTap});
@@ -56,12 +56,12 @@ class FlightCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          flight.title,
+                          flight.flight.title,
                           style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${dateFormat.format(flight.startTime)} · ${timeFormat.format(flight.startTime)}',
+                          '${dateFormat.format(flight.flight.departureTime)} · ${timeFormat.format(flight.flight.departureTime)}',
                           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ],
@@ -108,19 +108,19 @@ class FlightCard extends ConsumerWidget {
                   ),
                 ],
               ),
-              if (flight.departure != null || flight.arrival != null) ...[
+              if (flight.departureIdent != null || flight.arrivalIdent != null) ...[
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    if (flight.departure != null)
-                      _RouteChip(label: flight.departure!, icon: Icons.flight_takeoff),
-                    if (flight.departure != null && flight.arrival != null)
+                    if (flight.departureIdent != null)
+                      _RouteChip(label: flight.departureIdent!, icon: Icons.flight_takeoff),
+                    if (flight.departureIdent != null && flight.arrivalIdent != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Icon(Icons.arrow_forward, size: 16, color: theme.colorScheme.onSurfaceVariant),
                       ),
-                    if (flight.arrival != null)
-                      _RouteChip(label: flight.arrival!, icon: Icons.flight_land),
+                    if (flight.arrivalIdent != null)
+                      _RouteChip(label: flight.arrivalIdent!, icon: Icons.flight_land),
                   ],
                 ),
               ],

@@ -3,11 +3,11 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/unit_provider.dart';
-import '../models/flight_session.dart';
+import '../services/database.dart';
 import 'replay_page.dart';
 
 class FlightDetailPage extends ConsumerWidget {
-  final FlightSession flight;
+  final FlightWithStats flight;
 
   const FlightDetailPage({super.key, required this.flight});
 
@@ -15,12 +15,12 @@ class FlightDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(flight.title),
+        title: Text(flight.flight.title),
       ),
       body: ListView(
         children: [
           _buildHeroSection(context, ref, flight),
-          if (flight.departure != null || flight.arrival != null)
+          if (flight.departureIdent != null || flight.arrivalIdent != null)
             _buildRouteSection(context, flight),
           _buildAltitudeChart(context, ref, flight),
           _buildDetailsSection(context, flight),
@@ -32,7 +32,7 @@ class FlightDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, WidgetRef ref, FlightSession flight) {
+  Widget _buildHeroSection(BuildContext context, WidgetRef ref, FlightWithStats flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -41,7 +41,7 @@ class FlightDetailPage extends ConsumerWidget {
     final distanceKmVal = flight.totalDistance;
     final distanceKtsVal = flight.totalDistance != null ? flight.totalDistance! * 0.539957 : null;
 
-    final maxAltMeterVal = flight.maxAltitude;
+    final maxAltMeterVal = flight.maxAltitude?.toDouble();
     final maxAltFeetVal = flight.maxAltitude != null ? flight.maxAltitude! * 3.28084 : null;
 
     final speedKmhVal = _averageSpeed(flight);
@@ -63,7 +63,7 @@ class FlightDetailPage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            DateFormat('EEEE, MMMM d, y').format(flight.startTime),
+            DateFormat('EEEE, MMMM d, y').format(flight.flight.departureTime),
             style: textTheme.titleMedium?.copyWith(
               color: cs.onPrimary.withValues(alpha: 0.8),
             ),
@@ -176,7 +176,7 @@ class FlightDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildRouteSection(BuildContext context, FlightSession flight) {
+  Widget _buildRouteSection(BuildContext context, FlightWithStats flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Card(
@@ -186,21 +186,21 @@ class FlightDetailPage extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (flight.departure != null)
+            if (flight.departureIdent != null)
               Expanded(
                 child: Column(
                   children: [
                     Icon(Icons.flight_takeoff, color: cs.primary),
                     const SizedBox(height: 4),
                     Text(
-                      flight.departure!,
+                      flight.departureIdent!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium,
                     ),
                   ],
                 ),
               ),
-            if (flight.departure != null && flight.arrival != null)
+            if (flight.departureIdent != null && flight.arrivalIdent != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Icon(
@@ -208,14 +208,14 @@ class FlightDetailPage extends ConsumerWidget {
                   color: cs.onSurfaceVariant,
                 ),
               ),
-            if (flight.arrival != null)
+            if (flight.arrivalIdent != null)
               Expanded(
                 child: Column(
                   children: [
                     Icon(Icons.flight_land, color: cs.primary),
                     const SizedBox(height: 4),
                     Text(
-                      flight.arrival!,
+                      flight.arrivalIdent!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium,
                     ),
@@ -228,11 +228,11 @@ class FlightDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildAltitudeChart(BuildContext context, WidgetRef ref, FlightSession flight) {
+  Widget _buildAltitudeChart(BuildContext context, WidgetRef ref, FlightWithStats flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final spots = <FlSpot>[];
-    final points = flight.points;
+    final points = flight.dataPoints;
     final unitMode = ref.watch(unitProvider);
     final altFactor = unitMode == MeasurementUnit.metric ? 1.0 : 3.28084;
     final altUnit = unitMode == MeasurementUnit.metric ? 'm' : 'ft';
@@ -338,7 +338,7 @@ class FlightDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDetailsSection(BuildContext context, FlightSession flight) {
+  Widget _buildDetailsSection(BuildContext context, FlightWithStats flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
@@ -354,13 +354,13 @@ class FlightDetailPage extends ConsumerWidget {
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            _detailRow(theme, cs, 'Start', DateFormat('MMM d, y – HH:mm').format(flight.startTime)),
-            if (flight.endTime != null)
-              _detailRow(theme, cs, 'End', DateFormat('MMM d, y – HH:mm').format(flight.endTime!)),
+            _detailRow(theme, cs, 'Start', DateFormat('MMM d, y – HH:mm').format(flight.flight.departureTime)),
+            if (flight.flight.arrivalTime != null)
+              _detailRow(theme, cs, 'End', DateFormat('MMM d, y – HH:mm').format(flight.flight.arrivalTime!)),
             if (flight.aircraftType != null)
               _detailRow(theme, cs, 'Aircraft', flight.aircraftType!),
-            _detailRow(theme, cs, 'Status', flight.status.name),
-            _detailRow(theme, cs, 'Data Points', '${flight.points.length}'),
+            _detailRow(theme, cs, 'Status', flight.flight.isRecording ? 'inProgress' : 'recorded'),
+            _detailRow(theme, cs, 'Data Points', '${flight.dataPoints.length}'),
           ],
         ),
       ),
@@ -393,7 +393,7 @@ class FlightDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildReplayButton(BuildContext context, FlightSession flight) {
+  Widget _buildReplayButton(BuildContext context, FlightWithStats flight) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
@@ -424,8 +424,8 @@ class FlightDetailPage extends ConsumerWidget {
     return '${minutes}m';
   }
 
-  double? _averageSpeed(FlightSession flight) {
-    final speeds = flight.points
+  double? _averageSpeed(FlightWithStats flight) {
+    final speeds = flight.dataPoints
         .where((p) => p.speed != null)
         .map((p) => p.speed!)
         .toList();

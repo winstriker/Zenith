@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../providers/flight_providers.dart';
 import '../providers/unit_provider.dart';
-import '../services/flight_service.dart';
 import '../services/location_service.dart';
 
 class RecordingPage extends ConsumerStatefulWidget {
@@ -45,11 +44,12 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Future<void> _resumeExistingRecording() async {
-    final activeSession = FlightService().activeSession;
+    final flightService = ref.read(flightServiceProvider);
+    final activeSession = flightService.activeSession;
     if (activeSession == null) return;
 
     setState(() {
-      _startTime = activeSession.startTime;
+      _startTime = activeSession.flight.departureTime;
       _elapsed = DateTime.now().difference(_startTime!);
     });
 
@@ -71,7 +71,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       final speed = location['speed']!;
       final heading = location['heading']!;
 
-      FlightService().addPoint(lat, lon, alt, speed: speed, heading: heading);
+      ref.read(flightServiceProvider).addPoint(lat, lon, alt, speed: speed, heading: heading);
 
       if (mounted) {
         setState(() {
@@ -84,8 +84,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       }
     });
 
-    ref.read(recordingStateProvider.notifier).state = true;
+    ref.read(recordingStateProvider.notifier).refresh();
     ref.read(flightListProvider.notifier).refresh();
+    ref.read(activeFlightProvider.notifier).refresh();
   }
 
   @override
@@ -100,14 +101,14 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Future<void> _startRecording() async {
-    final flightService = FlightService();
+    final flightService = ref.read(flightServiceProvider);
     final locationService = LocationService();
 
     if (mounted) {
       await _ensureBackgroundPermission();
     }
 
-    flightService.startSession(
+    await flightService.startSession(
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
@@ -144,7 +145,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       final speed = location['speed']!;
       final heading = location['heading']!;
 
-      FlightService().addPoint(lat, lon, alt, speed: speed, heading: heading);
+      ref.read(flightServiceProvider).addPoint(lat, lon, alt, speed: speed, heading: heading);
 
       if (mounted) {
         setState(() {
@@ -157,8 +158,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       }
     });
 
-    ref.read(recordingStateProvider.notifier).state = true;
+    ref.read(recordingStateProvider.notifier).refresh();
     ref.read(flightListProvider.notifier).refresh();
+    ref.read(activeFlightProvider.notifier).refresh();
   }
 
   Future<void> _ensureBackgroundPermission() async {
@@ -198,10 +200,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     _locationSubscription = null;
 
     LocationService().stopTracking();
-    await FlightService().endSession();
+    await ref.read(flightServiceProvider).endSession();
 
-    ref.read(recordingStateProvider.notifier).state = false;
+    ref.read(recordingStateProvider.notifier).refresh();
     ref.read(flightListProvider.notifier).refresh();
+    ref.read(activeFlightProvider.notifier).refresh();
 
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -316,8 +319,8 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Widget _buildRecordingView(ThemeData theme) {
-    final session = FlightService().activeSession;
-    final hasRoute = session?.departure != null || session?.arrival != null;
+    final session = ref.watch(flightServiceProvider).activeSession;
+    final hasRoute = session?.departureIdent != null || session?.arrivalIdent != null;
     final hasAircraft = session?.aircraftType != null;
 
     return Column(
@@ -392,13 +395,13 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (session!.departure != null)
+                                if (session!.departureIdent != null)
                                   _RouteChip(
-                                    label: session.departure!,
+                                    label: session.departureIdent!,
                                     icon: Icons.flight_takeoff,
                                   ),
-                                if (session.departure != null &&
-                                    session.arrival != null)
+                                if (session.departureIdent != null &&
+                                    session.arrivalIdent != null)
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
@@ -409,9 +412,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
-                                if (session.arrival != null)
+                                if (session.arrivalIdent != null)
                                   _RouteChip(
-                                    label: session.arrival!,
+                                    label: session.arrivalIdent!,
                                     icon: Icons.flight_land,
                                   ),
                               ],

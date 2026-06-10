@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/flight_providers.dart';
-import '../services/flight_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 
@@ -28,9 +27,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           FilledButton(
             onPressed: () async {
-              final sessions = FlightService().sessions.toList();
+              final flightService = ref.read(flightServiceProvider);
+              final sessions = flightService.sessions.toList();
               for (final s in sessions) {
-                await FlightService().deleteSession(s.sessionId);
+                await flightService.deleteSession(s.flight.id);
               }
               ref.read(flightListProvider.notifier).refresh();
               if (ctx.mounted) Navigator.pop(ctx);

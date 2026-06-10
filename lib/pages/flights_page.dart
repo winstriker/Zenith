@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/flight_providers.dart';
-import '../services/flight_service.dart';
-import '../models/flight_session.dart';
+import '../services/database.dart';
 import '../widgets/flight_card.dart';
 import 'flight_detail_page.dart';
 
@@ -16,12 +15,11 @@ class FlightsPage extends ConsumerStatefulWidget {
 
 class _FlightsPageState extends ConsumerState<FlightsPage> {
   DateTime? _selectedDate;
-  final _flightService = FlightService();
 
-  List<FlightSession> get _filteredFlights {
+  List<FlightWithStats> get _filteredFlights {
     final allFlights = ref.watch(flightListProvider);
     if (_selectedDate == null) return allFlights;
-    return _flightService.searchByDate(_selectedDate!);
+    return ref.read(flightServiceProvider).searchByDate(_selectedDate!);
   }
 
   Future<void> _pickDate() async {
@@ -41,12 +39,12 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
     setState(() => _selectedDate = null);
   }
 
-  Future<void> _confirmDelete(FlightSession flight) async {
+  Future<void> _confirmDelete(FlightWithStats flight) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Flight'),
-        content: Text('Are you sure you want to delete "${flight.title}"?'),
+        content: Text('Are you sure you want to delete "${flight.flight.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -63,7 +61,7 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
       ),
     );
     if (confirmed == true) {
-      await _flightService.deleteSession(flight.sessionId);
+      await ref.read(flightServiceProvider).deleteSession(flight.flight.id);
       ref.read(flightListProvider.notifier).refresh();
     }
   }
