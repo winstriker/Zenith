@@ -237,20 +237,19 @@ class FlightWithStats {
     return dist;
   }
 
-  static const _sentinel = _CopySentinel();
-
   FlightWithStats copyWith({
     Flight? flight,
     List<FlightDataPoint>? dataPoints,
-    Object? aircraft = _sentinel,
+    Aircraft? aircraft,
     String? departureIdent,
     String? arrivalIdent,
     Duration? duration,
     int? maxAltitude,
+    bool removeAircraft = false,
   }) => FlightWithStats(
     flight: flight ?? this.flight,
     dataPoints: dataPoints ?? this.dataPoints,
-    aircraft: identical(aircraft, _sentinel) ? this.aircraft : aircraft as Aircraft?,
+    aircraft: removeAircraft ? null : (aircraft ?? this.aircraft),
     departureIdent: departureIdent ?? this.departureIdent,
     arrivalIdent: arrivalIdent ?? this.arrivalIdent,
   );
@@ -270,10 +269,6 @@ class FlightWithStats {
   }
 
   static double _toRadians(double deg) => deg * 3.141592653589793 / 180;
-}
-
-class _CopySentinel {
-  const _CopySentinel();
 }
 
 class AirportWithDistance {

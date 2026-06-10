@@ -31,9 +31,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
   Widget build(BuildContext context) {
     final flight = _flight;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(flight.flight.title),
-      ),
+      appBar: AppBar(title: Text(flight.flight.title)),
       body: ListView(
         children: [
           _buildHeroSection(context, ref, flight),
@@ -50,29 +48,36 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     );
   }
 
-  Widget _buildHeroSection(BuildContext context, WidgetRef ref, FlightWithStats flight) {
+  Widget _buildHeroSection(
+    BuildContext context,
+    WidgetRef ref,
+    FlightWithStats flight,
+  ) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final textTheme = theme.textTheme;
     final unitMode = ref.watch(unitProvider);
 
     final distanceKmVal = flight.totalDistance;
-    final distanceKtsVal = flight.totalDistance != null ? flight.totalDistance! * 0.539957 : null;
+    final distanceKtsVal = flight.totalDistance != null
+        ? flight.totalDistance! * 0.539957
+        : null;
 
     final maxAltMeterVal = flight.maxAltitude?.toDouble();
-    final maxAltFeetVal = flight.maxAltitude != null ? flight.maxAltitude! * 3.28084 : null;
+    final maxAltFeetVal = flight.maxAltitude != null
+        ? flight.maxAltitude! * 3.28084
+        : null;
 
     final speedKmhVal = _averageSpeed(flight);
-    final speedKnotsVal = _averageSpeed(flight) != null ? _averageSpeed(flight)! * 0.539957 : null;
+    final speedKnotsVal = _averageSpeed(flight) != null
+        ? _averageSpeed(flight)! * 0.539957
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            cs.primary,
-            cs.tertiary,
-          ],
+          colors: [cs.primary, cs.tertiary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -107,8 +112,8 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                   label: 'Max Alt',
                   value: flight.maxAltitude != null
                       ? unitMode == MeasurementUnit.metric
-                          ? '${maxAltMeterVal!.toStringAsFixed(0)} m'
-                          : '${maxAltFeetVal!.toStringAsFixed(0)} ft'
+                            ? '${maxAltMeterVal!.toStringAsFixed(0)} m'
+                            : '${maxAltFeetVal!.toStringAsFixed(0)} ft'
                       : '--',
                 ),
               ),
@@ -121,13 +126,13 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                   label: 'Distance',
                   value: flight.totalDistance != null
                       ? unitMode == MeasurementUnit.metric
-                          ? '${distanceKmVal!.toStringAsFixed(1)} km'
-                          : '${distanceKtsVal!.toStringAsFixed(1)} nm'
+                            ? '${distanceKmVal!.toStringAsFixed(1)} km'
+                            : '${distanceKtsVal!.toStringAsFixed(1)} nm'
                       : '--',
                   subtitle: flight.totalDistance != null
                       ? unitMode == MeasurementUnit.metric
-                          ? '${distanceKtsVal!.toStringAsFixed(1)} kts'
-                          : '${distanceKmVal!.toStringAsFixed(1)} km'
+                            ? '${distanceKtsVal!.toStringAsFixed(1)} kts'
+                            : '${distanceKmVal!.toStringAsFixed(1)} km'
                       : null,
                 ),
               ),
@@ -221,10 +226,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
             if (flight.departureIdent != null && flight.arrivalIdent != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Icon(
-                  Icons.arrow_forward,
-                  color: cs.onSurfaceVariant,
-                ),
+                child: Icon(Icons.arrow_forward, color: cs.onSurfaceVariant),
               ),
             if (flight.arrivalIdent != null)
               Expanded(
@@ -246,7 +248,11 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     );
   }
 
-  Widget _buildAircraftSection(BuildContext context, WidgetRef ref, FlightWithStats flight) {
+  Widget _buildAircraftSection(
+    BuildContext context,
+    WidgetRef ref,
+    FlightWithStats flight,
+  ) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final aircraftList = ref.watch(aircraftListProvider);
@@ -274,14 +280,25 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text('Aircraft', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  'Aircraft',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const Spacer(),
                 FilledButton.tonalIcon(
                   onPressed: () => _showAircraftPicker(flight, aircraftList),
-                  icon: Icon(displayType != null ? Icons.swap_horiz : Icons.add, size: 16),
+                  icon: Icon(
+                    displayType != null ? Icons.swap_horiz : Icons.add,
+                    size: 16,
+                  ),
                   label: Text(displayType != null ? 'Change' : 'Add'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     textStyle: theme.textTheme.labelMedium,
                   ),
                 ),
@@ -339,7 +356,10 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                               if (flight.aircraft?.tailNumber != null) ...[
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: cs.tertiaryContainer,
                                     borderRadius: BorderRadius.circular(6),
@@ -408,7 +428,10 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     );
   }
 
-  Future<void> _showAircraftPicker(FlightWithStats flight, List<AircraftWithStats> aircraftList) async {
+  Future<void> _showAircraftPicker(
+    FlightWithStats flight,
+    List<AircraftWithStats> aircraftList,
+  ) async {
     final aircraft = await showModalBottomSheet<Aircraft>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -438,18 +461,26 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Select Aircraft',
-                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 if (aircraftList.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 24,
+                    ),
                     child: Center(
                       child: Column(
                         children: [
-                          Icon(Icons.airplanemode_active_outlined, size: 40,
-                              color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                          Icon(
+                            Icons.airplanemode_active_outlined,
+                            size: 40,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'No aircraft available',
@@ -477,32 +508,42 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       children: [
-                        ...aircraftList.map((aws) => _AircraftPickerTile(
-                          aircraft: aws.aircraft,
-                          onTap: () => Navigator.pop(ctx, aws.aircraft),
-                        )),
+                        ...aircraftList.map(
+                          (aws) => _AircraftPickerTile(
+                            aircraft: aws.aircraft,
+                            onTap: () => Navigator.pop(ctx, aws.aircraft),
+                          ),
+                        ),
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         InkWell(
                           onTap: () => Navigator.pop(ctx),
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             child: Row(
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: cs.errorContainer.withValues(alpha: 0.5),
+                                    color: cs.errorContainer.withValues(
+                                      alpha: 0.5,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  child: Icon(Icons.remove_circle_outline, size: 20, color: cs.onErrorContainer),
+                                  child: Icon(
+                                    Icons.remove_circle_outline,
+                                    size: 20,
+                                    color: cs.onErrorContainer,
+                                  ),
                                 ),
                                 const SizedBox(width: 14),
                                 Text(
                                   'None (remove aircraft)',
-                                  style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(
-                                    color: cs.onErrorContainer,
-                                  ),
+                                  style: Theme.of(ctx).textTheme.bodyLarge
+                                      ?.copyWith(color: cs.onErrorContainer),
                                 ),
                               ],
                             ),
@@ -520,10 +561,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
 
     final db = ref.read(databaseProvider);
     final flightService = ref.read(flightServiceProvider);
-    await db.updateFlightAircraft(
-      flight.flight.id,
-      aircraftId: aircraft?.id,
-    );
+    await db.updateFlightAircraft(flight.flight.id, aircraftId: aircraft?.id);
     await flightService.setFlightAircraft(
       flight.flight.id,
       aircraftId: aircraft?.id,
@@ -533,13 +571,18 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     setState(() {
       _flight = flight.copyWith(
         aircraft: aircraft,
+        removeAircraft: aircraft == null,
       );
     });
 
     ref.read(flightListProvider.notifier).refresh();
   }
 
-  Widget _buildAltitudeChart(BuildContext context, WidgetRef ref, FlightWithStats flight) {
+  Widget _buildAltitudeChart(
+    BuildContext context,
+    WidgetRef ref,
+    FlightWithStats flight,
+  ) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final spots = <FlSpot>[];
@@ -551,10 +594,16 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     if (points.length >= 2) {
       final firstTime = points.first.timestamp;
       final lastTime = points.last.timestamp;
-      final durationMs = lastTime.difference(firstTime).inMilliseconds.toDouble();
+      final durationMs = lastTime
+          .difference(firstTime)
+          .inMilliseconds
+          .toDouble();
 
       for (final point in points) {
-        final elapsed = point.timestamp.difference(firstTime).inMilliseconds.toDouble();
+        final elapsed = point.timestamp
+            .difference(firstTime)
+            .inMilliseconds
+            .toDouble();
         final x = durationMs > 0 ? elapsed / durationMs : 0.0;
         spots.add(FlSpot(x, point.altitude * altFactor));
       }
@@ -581,7 +630,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                           show: true,
                           drawVerticalLine: false,
                           getDrawingHorizontalLine: (value) => FlLine(
-                              color: cs.outlineVariant.withValues(alpha: 0.5),
+                            color: cs.outlineVariant.withValues(alpha: 0.5),
                           ),
                         ),
                         titlesData: FlTitlesData(
@@ -638,7 +687,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                       child: Text(
                         'Not enough data points',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -660,16 +709,32 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Flight Details',
-              style: theme.textTheme.titleMedium,
-            ),
+            Text('Flight Details', style: theme.textTheme.titleMedium),
             const SizedBox(height: 16),
-            _detailRow(theme, cs, 'Start', DateFormat('MMM d, y – HH:mm').format(flight.flight.departureTime)),
+            _detailRow(
+              theme,
+              cs,
+              'Start',
+              DateFormat(
+                'MMM d, y – HH:mm',
+              ).format(flight.flight.departureTime),
+            ),
             if (flight.flight.arrivalTime != null)
-              _detailRow(theme, cs, 'End', DateFormat('MMM d, y – HH:mm').format(flight.flight.arrivalTime!)),
+              _detailRow(
+                theme,
+                cs,
+                'End',
+                DateFormat(
+                  'MMM d, y – HH:mm',
+                ).format(flight.flight.arrivalTime!),
+              ),
 
-            _detailRow(theme, cs, 'Status', flight.flight.isRecording ? 'inProgress' : 'recorded'),
+            _detailRow(
+              theme,
+              cs,
+              'Status',
+              flight.flight.isRecording ? 'inProgress' : 'recorded',
+            ),
             _detailRow(theme, cs, 'Data Points', '${flight.dataPoints.length}'),
           ],
         ),
@@ -677,7 +742,12 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     );
   }
 
-  Widget _detailRow(ThemeData theme, ColorScheme cs, String label, String value) {
+  Widget _detailRow(
+    ThemeData theme,
+    ColorScheme cs,
+    String label,
+    String value,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -692,12 +762,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
+          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );
@@ -712,9 +777,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         child: FilledButton.icon(
           onPressed: () {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ReplayPage(flight: flight),
-              ),
+              MaterialPageRoute(builder: (_) => ReplayPage(flight: flight)),
             );
           },
           icon: const Icon(Icons.play_circle_filled),
@@ -785,14 +848,19 @@ class _AircraftPickerTile extends StatelessWidget {
                       Flexible(
                         child: Text(
                           aircraft.type,
-                          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (aircraft.tailNumber != null) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: cs.tertiaryContainer,
                             borderRadius: BorderRadius.circular(4),
@@ -823,7 +891,11 @@ class _AircraftPickerTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
           ],
         ),
       ),
