@@ -5,6 +5,7 @@ import '../providers/aircraft_providers.dart';
 import '../widgets/aircraft_card.dart';
 import 'aircraft_form_page.dart';
 import 'aircraft_detail_page.dart';
+import '../main.dart';
 
 class AircraftsPage extends ConsumerStatefulWidget {
   const AircraftsPage({super.key});
@@ -72,9 +73,10 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
               itemCount: aircraftList.length,
               itemBuilder: (context, index) {
                 final aws = aircraftList[index];
-                return AircraftCard(
-                  aircraft: aws,
+                return GestureDetector(
+                  onLongPress: () => _confirmDelete(aws),
                   onTap: () => _showDetailPage(aws),
+                  child: AircraftCard(aircraft: aws),
                 );
               },
             ),
@@ -100,6 +102,34 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
       ref.read(aircraftListProvider.notifier).refresh();
     }
   }
+
+  Future<void> _confirmDelete(AircraftWithStats aws) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Aircraft'),
+        content: Text(
+          'Are you sure you want to delete "${aws.aircraft.type}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final db = ref.read(databaseProvider);
+      await db.deleteAircraft(aws.aircraft.id);
+      ref.read(aircraftListProvider.notifier).refresh();
+    }
+  }
 }
-
-

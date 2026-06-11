@@ -10,6 +10,7 @@ import 'flight_detail_page.dart';
 import 'flights_page.dart';
 import 'aircrafts_page.dart';
 import 'aircraft_detail_page.dart';
+import 'aircraft_form_page.dart';
 
 final _recentAirportsProvider = FutureProvider<List<Airport>>((ref) {
   final db = ref.read(databaseProvider);
@@ -526,9 +527,57 @@ class HomePage extends ConsumerWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.only(left: 4, right: 4),
-                itemCount: displayAircraft.length,
+                itemCount: displayAircraft.length + 1,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (context, index) {
+                  if (index == displayAircraft.length) {
+                    return SizedBox(
+                      width: 160,
+                      child: Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: InkWell(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AircraftFormPage(),
+                            ),
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: theme.colorScheme.outlineVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.add,
+                                    size: 32,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Add Aircraft',
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   final aws = displayAircraft[index];
                   final ac = aws.aircraft;
                   final hours = aws.totalFlightTime != null
