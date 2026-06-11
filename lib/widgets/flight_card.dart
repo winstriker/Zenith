@@ -7,8 +7,9 @@ import '../services/database.dart';
 class FlightCard extends ConsumerWidget {
   final FlightWithStats flight;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
-  const FlightCard({super.key, required this.flight, this.onTap});
+  const FlightCard({super.key, required this.flight, this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,8 +24,9 @@ class FlightCard extends ConsumerWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(

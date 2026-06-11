@@ -129,17 +129,15 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
               itemCount: flights.length,
               itemBuilder: (context, index) {
                 final flight = flights[index];
-                return GestureDetector(
-                  onLongPress: () => _confirmDelete(flight),
-                  child: FlightCard(
-                    flight: flight,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FlightDetailPage(flight: flight),
-                      ),
+                return FlightCard(
+                  flight: flight,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FlightDetailPage(flight: flight),
                     ),
                   ),
+                  onLongPress: () => _confirmDelete(flight),
                 );
               },
             ),
