@@ -550,4 +550,62 @@ class LogbookDatabase extends _$LogbookDatabase {
       ..limit(limit);
     return airportQuery.get();
   }
+
+  Future<List<FlightWithStats>> getFlightsForAircraft(
+    int aircraftId, {
+    int limit = 5,
+    int offset = 0,
+  }) async {
+    final flightsQuery = select(flights)
+      ..where((f) => f.aircraftId.equals(aircraftId))
+      ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
+      ..limit(limit, offset: offset);
+    final flightRows = await flightsQuery.get();
+
+    if (flightRows.isEmpty) return [];
+
+    final flightIds = flightRows.map((f) => f.id).toList();
+
+    final dataPointsQuery = select(flightDataPoints)
+      ..where((p) => p.flight.isIn(flightIds))
+      ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]);
+    final allPoints = await dataPointsQuery.get();
+
+    final pointsByFlight = <int, List<FlightDataPoint>>{};
+    for (final point in allPoints) {
+      pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
+    }
+
+    final airportCache = <int, String?>{};
+    Future<String?> resolveIdent(int? id) async {
+      if (id == null) return null;
+      if (airportCache.containsKey(id)) return airportCache[id];
+      final query = select(airports)..where((a) => a.id.equals(id));
+      final match = await query.getSingleOrNull();
+      final ident =
+          match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
+      airportCache[id] = ident;
+      return ident;
+    }
+
+    final aircraft = await (select(aircrafts)
+      ..where((a) => a.id.equals(aircraftId))).getSingleOrNull();
+
+    final results = <FlightWithStats>[];
+    for (final flight in flightRows) {
+      final points = pointsByFlight[flight.id] ?? const [];
+      final depIdent = await resolveIdent(flight.departure);
+      final arrIdent = await resolveIdent(flight.arrival);
+      results.add(
+        FlightWithStats(
+          flight: flight,
+          dataPoints: points,
+          aircraft: aircraft,
+          departureIdent: depIdent,
+          arrivalIdent: arrIdent,
+        ),
+      );
+    }
+    return results;
+  }
 }
