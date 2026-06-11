@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 class IntroPage extends StatefulWidget {
-  final Widget nextPage;
+  final VoidCallback onPermissionGranted;
 
-  const IntroPage({super.key, required this.nextPage});
+  const IntroPage({super.key, required this.onPermissionGranted});
 
   @override
   State<IntroPage> createState() => _IntroPageState();
@@ -23,9 +23,7 @@ class _IntroPageState extends State<IntroPage> {
 
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => widget.nextPage),
-      );
+      widget.onPermissionGranted();
     }
   }
 

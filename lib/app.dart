@@ -27,6 +27,10 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     _checkLocationPermission();
   }
 
+  void _onPermissionGranted() {
+    setState(() => _permissionGranted = true);
+  }
+
   Future<void> _checkLocationPermission() async {
     final status = await Geolocator.checkPermission();
     if (!mounted) return;
@@ -79,6 +83,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     final themeMode = ref.watch(themeProvider);
 
     return MaterialApp(
+      key: ValueKey(_permissionGranted),
       title: 'Logbook',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
@@ -90,7 +95,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
             )
           : _permissionGranted
               ? _buildMainApp()
-              : IntroPage(nextPage: _buildMainApp()),
+              : IntroPage(onPermissionGranted: _onPermissionGranted),
     );
   }
 }
