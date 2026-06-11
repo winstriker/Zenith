@@ -9,6 +9,7 @@ import 'recording_page.dart';
 import 'flight_detail_page.dart';
 import 'flights_page.dart';
 import 'aircrafts_page.dart';
+import 'aircraft_detail_page.dart';
 
 final _recentAirportsProvider = FutureProvider<List<Airport>>((ref) {
   final db = ref.read(databaseProvider);
@@ -544,7 +545,7 @@ class HomePage extends ConsumerWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const AircraftsPage(),
+                            builder: (_) => AircraftDetailPage(aircraft: aws),
                           ),
                         ),
                         borderRadius: BorderRadius.circular(14),
