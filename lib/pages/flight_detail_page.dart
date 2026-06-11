@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logbook/main.dart';
 import '../providers/unit_provider.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
@@ -19,17 +18,21 @@ class FlightDetailPage extends ConsumerStatefulWidget {
 }
 
 class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
-  late FlightWithStats _flight;
+  FlightWithStats? _cachedFlight;
+
+  FlightWithStats get _flight => _cachedFlight ?? widget.flight;
 
   @override
   void initState() {
     super.initState();
-    _flight = widget.flight;
   }
 
   @override
   Widget build(BuildContext context) {
-    final flight = _flight;
+    final flightService = ref.watch(flightServiceProvider);
+    final liveFlight = flightService.getSession(widget.flight.flight.id);
+    final flight = liveFlight ?? _flight;
+
     return Scaffold(
       appBar: AppBar(title: Text(flight.flight.title)),
       body: ListView(
@@ -432,6 +435,9 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     FlightWithStats flight,
     List<AircraftWithStats> aircraftList,
   ) async {
+    final currentlySelected = flight.aircraft;
+    var didSelectRemove = false;
+
     final aircraft = await showModalBottomSheet<Aircraft>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -439,6 +445,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
       ),
       builder: (ctx) {
         final cs = Theme.of(ctx).colorScheme;
+        final theme = Theme.of(ctx);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 16),
@@ -459,39 +466,65 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    'Select Aircraft',
-                    style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: cs.primaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.airplanemode_active,
+                          size: 18,
+                          color: cs.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Select Aircraft',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 if (aircraftList.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
-                      vertical: 24,
+                      vertical: 32,
                     ),
                     child: Center(
                       child: Column(
                         children: [
-                          Icon(
-                            Icons.airplanemode_active_outlined,
-                            size: 40,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest.withValues(
+                                alpha: 0.3,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.airplanemode_active_outlined,
+                              size: 48,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                            ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 16),
                           Text(
                             'No aircraft available',
-                            style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Add an aircraft in the Aircraft page first',
-                            style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                             ),
                           ),
@@ -508,15 +541,28 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       children: [
+                        const SizedBox(height: 4),
                         ...aircraftList.map(
                           (aws) => _AircraftPickerTile(
                             aircraft: aws.aircraft,
-                            onTap: () => Navigator.pop(ctx, aws.aircraft),
+                            flightCount: aws.flightCount,
+                            totalFlightTime: aws.totalFlightTime,
+                            isSelected:
+                                currentlySelected?.id == aws.aircraft.id,
+                            onTap: () =>
+                                Navigator.pop(ctx, aws.aircraft),
                           ),
                         ),
-                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Divider(height: 1),
+                        ),
+                        const SizedBox(height: 4),
                         InkWell(
-                          onTap: () => Navigator.pop(ctx),
+                          onTap: () {
+                            didSelectRemove = true;
+                            Navigator.pop(ctx);
+                          },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -526,29 +572,32 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                             child: Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                     color: cs.errorContainer.withValues(
                                       alpha: 0.5,
                                     ),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Icon(
                                     Icons.remove_circle_outline,
-                                    size: 20,
+                                    size: 22,
                                     color: cs.onErrorContainer,
                                   ),
                                 ),
                                 const SizedBox(width: 14),
                                 Text(
                                   'None (remove aircraft)',
-                                  style: Theme.of(ctx).textTheme.bodyLarge
-                                      ?.copyWith(color: cs.onErrorContainer),
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: cs.onErrorContainer,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
                       ],
                     ),
                   ),
@@ -559,21 +608,30 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
       },
     );
 
-    final db = ref.read(databaseProvider);
+    if (aircraft == null && !didSelectRemove) return;
+
     final flightService = ref.read(flightServiceProvider);
-    await db.updateFlightAircraft(flight.flight.id, aircraftId: aircraft?.id);
     await flightService.setFlightAircraft(
       flight.flight.id,
       aircraftId: aircraft?.id,
       aircraft: aircraft,
     );
 
-    setState(() {
-      _flight = flight.copyWith(
-        aircraft: aircraft,
-        removeAircraft: aircraft == null,
-      );
-    });
+    if (aircraft != null) {
+      setState(() {
+        _cachedFlight = flight.copyWith(
+          aircraft: aircraft,
+          removeAircraft: false,
+        );
+      });
+    } else {
+      setState(() {
+        _cachedFlight = flight.copyWith(
+          aircraft: null,
+          removeAircraft: true,
+        );
+      });
+    }
 
     ref.read(flightListProvider.notifier).refresh();
   }
@@ -810,93 +868,179 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
 
 class _AircraftPickerTile extends StatelessWidget {
   final Aircraft aircraft;
+  final int flightCount;
+  final Duration? totalFlightTime;
+  final bool isSelected;
   final VoidCallback onTap;
 
-  const _AircraftPickerTile({required this.aircraft, required this.onTap});
+  const _AircraftPickerTile({
+    required this.aircraft,
+    this.flightCount = 0,
+    this.totalFlightTime,
+    this.isSelected = false,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: cs.secondaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.airplanemode_active,
-                size: 20,
-                color: cs.onSecondaryContainer,
+    final hours = totalFlightTime != null
+        ? '${(totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h'
+        : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Material(
+        color: isSelected
+            ? cs.secondaryContainer.withValues(alpha: 0.4)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isSelected
+                    ? cs.secondary.withValues(alpha: 0.6)
+                    : Colors.transparent,
+                width: isSelected ? 1.5 : 0,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        cs.secondaryContainer,
+                        cs.secondaryContainer.withValues(alpha: 0.6),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isSelected
+                        ? Icons.flight
+                        : Icons.airplanemode_active,
+                    size: 22,
+                    color: cs.onSecondaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          aircraft.type,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              aircraft.type,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (aircraft.tailNumber != null) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: cs.tertiaryContainer,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                aircraft.tailNumber!,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onTertiaryContainer,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (aircraft.model != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          aircraft.model!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      if (aircraft.tailNumber != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.flight_takeoff,
+                            size: 12,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                           ),
-                          decoration: BoxDecoration(
-                            color: cs.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            aircraft.tailNumber!,
+                          const SizedBox(width: 4),
+                          Text(
+                            '$flightCount flights',
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: cs.onTertiaryContainer,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                             ),
                           ),
-                        ),
-                      ],
+                          if (hours != null) ...[
+                            const SizedBox(width: 12),
+                            Icon(
+                              Icons.schedule,
+                              size: 12,
+                              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              hours,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                  if (aircraft.model != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      aircraft.model!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                ),
+                if (isSelected)
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: cs.secondary,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ],
-              ),
+                    child: Icon(
+                      Icons.check,
+                      size: 16,
+                      color: cs.onSecondary,
+                    ),
+                  )
+                else
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ],
+          ),
         ),
       ),
     );

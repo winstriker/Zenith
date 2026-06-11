@@ -301,6 +301,7 @@ class FlightService {
           aircraftId: Value(aircraftId),
         ),
         aircraft: aircraft,
+        removeAircraft: aircraft == null,
       );
     }
     await database.updateFlightAircraft(flightId, aircraftId: aircraftId);
