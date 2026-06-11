@@ -73,10 +73,10 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
               itemCount: aircraftList.length,
               itemBuilder: (context, index) {
                 final aws = aircraftList[index];
-                return GestureDetector(
-                  onLongPress: () => _confirmDelete(aws),
+                return AircraftCard(
+                  aircraft: aws,
                   onTap: () => _showDetailPage(aws),
-                  child: AircraftCard(aircraft: aws),
+                  onLongPress: () => _confirmDelete(aws),
                 );
               },
             ),

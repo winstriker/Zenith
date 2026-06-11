@@ -4,8 +4,9 @@ import 'package:logbook/services/database.dart';
 class AircraftCard extends StatelessWidget {
   final AircraftWithStats aircraft;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
-  const AircraftCard({super.key, required this.aircraft, this.onTap});
+  const AircraftCard({super.key, required this.aircraft, this.onTap, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -21,8 +22,9 @@ class AircraftCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
