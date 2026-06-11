@@ -6,6 +6,7 @@ import '../providers/unit_provider.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
+import 'aircraft_detail_page.dart';
 import 'replay_page.dart';
 
 class FlightDetailPage extends ConsumerStatefulWidget {
@@ -260,6 +261,9 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final cs = theme.colorScheme;
     final aircraftList = ref.watch(aircraftListProvider);
     final displayType = flight.aircraft?.type;
+    final aws = flight.aircraft != null
+        ? aircraftList.where((a) => a.aircraft.id == flight.aircraft!.id).firstOrNull
+        : null;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -307,91 +311,100 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                 ),
               ],
             ),
-            if (displayType != null) ...[
+            if (displayType != null && aws != null) ...[
               const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      cs.secondaryContainer.withValues(alpha: 0.5),
-                      cs.secondaryContainer.withValues(alpha: 0.15),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: cs.outlineVariant.withValues(alpha: 0.3),
+              InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AircraftDetailPage(aircraft: aws),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: cs.secondaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.flight,
-                        size: 24,
-                        color: cs.onSecondaryContainer,
-                      ),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        cs.secondaryContainer.withValues(alpha: 0.5),
+                        cs.secondaryContainer.withValues(alpha: 0.15),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  displayType,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (flight.aircraft?.tailNumber != null) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: cs.tertiaryContainer,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: cs.secondaryContainer,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.flight,
+                          size: 24,
+                          color: cs.onSecondaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
                                   child: Text(
-                                    flight.aircraft!.tailNumber!,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: cs.onTertiaryContainer,
+                                    displayType,
+                                    style: theme.textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.w600,
-                                      letterSpacing: 1,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (flight.aircraft?.tailNumber != null) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cs.tertiaryContainer,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      flight.aircraft!.tailNumber!,
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: cs.onTertiaryContainer,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 1,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
-                            ],
-                          ),
-                          if (flight.aircraft?.model != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              flight.aircraft!.model!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
                             ),
+                            if (flight.aircraft?.model != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                flight.aircraft!.model!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ] else
