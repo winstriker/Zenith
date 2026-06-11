@@ -81,9 +81,9 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   }
 
   Future<void> _showAddDialog() async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _AircraftFormDialog(aircraft: null),
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const _AircraftFormPage()),
     );
     if (result == true) {
       ref.read(aircraftListProvider.notifier).refresh();
@@ -91,9 +91,9 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   }
 
   Future<void> _showEditDialog(AircraftWithStats aws) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => _AircraftFormDialog(aircraft: aws.aircraft),
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => _AircraftFormPage(aircraft: aws.aircraft)),
     );
     if (result == true) {
       ref.read(aircraftListProvider.notifier).refresh();
@@ -101,15 +101,15 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   }
 }
 
-class _AircraftFormDialog extends ConsumerStatefulWidget {
+class _AircraftFormPage extends ConsumerStatefulWidget {
   final Aircraft? aircraft;
-  const _AircraftFormDialog({this.aircraft});
+  const _AircraftFormPage({this.aircraft});
 
   @override
-  ConsumerState<_AircraftFormDialog> createState() => _AircraftFormDialogState();
+  ConsumerState<_AircraftFormPage> createState() => _AircraftFormPageState();
 }
 
-class _AircraftFormDialogState extends ConsumerState<_AircraftFormDialog> {
+class _AircraftFormPageState extends ConsumerState<_AircraftFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _typeController;
   late final TextEditingController _modelController;
@@ -137,75 +137,137 @@ class _AircraftFormDialogState extends ConsumerState<_AircraftFormDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final isEditing = widget.aircraft != null;
 
-    return AlertDialog(
-      title: Text(isEditing ? 'Edit Aircraft' : 'Add Aircraft'),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _typeController,
-                decoration: const InputDecoration(
-                  labelText: 'Type *',
-                  hintText: 'e.g. C172',
-                  prefixIcon: Icon(Icons.airplanemode_active),
-                ),
-                validator: (value) => (value == null || value.trim().isEmpty)
-                    ? 'Type is required'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _modelController,
-                decoration: const InputDecoration(
-                  labelText: 'Model',
-                  hintText: 'e.g. Cessna 172S Skyhawk',
-                  prefixIcon: Icon(Icons.model_training),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _tailController,
-                decoration: const InputDecoration(
-                  labelText: 'Tail Number',
-                  hintText: 'e.g. N123AB',
-                  prefixIcon: Icon(Icons.numbers),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: 'Notes',
-                  hintText: 'Any additional info...',
-                  prefixIcon: Icon(Icons.notes),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? 'Edit Aircraft' : 'Add Aircraft'),
       ),
-      actions: [
-        if (isEditing)
-          TextButton(
-            onPressed: () => _deleteAircraft(),
-            style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
-            child: const Text('Delete'),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  cs.secondaryContainer,
+                  cs.secondaryContainer.withValues(alpha: 0.3),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.secondary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.flight,
+                    size: 40,
+                    color: cs.onSecondaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isEditing ? widget.aircraft!.type : 'New Aircraft',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSecondaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isEditing
+                            ? 'Edit the details below'
+                            : 'Enter the details of your aircraft',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSecondaryContainer.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _save,
-          child: Text(isEditing ? 'Save' : 'Add'),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _typeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Type *',
+                      hintText: 'e.g. C172',
+                      prefixIcon: Icon(Icons.airplanemode_active),
+                    ),
+                    validator: (value) => (value == null || value.trim().isEmpty)
+                        ? 'Type is required'
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _modelController,
+                    decoration: const InputDecoration(
+                      labelText: 'Model',
+                      hintText: 'e.g. Cessna 172S Skyhawk',
+                      prefixIcon: Icon(Icons.model_training),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _tailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Tail Number',
+                      hintText: 'e.g. N123AB',
+                      prefixIcon: Icon(Icons.numbers),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes',
+                      hintText: 'Any additional info...',
+                      prefixIcon: Icon(Icons.notes),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton(
+                    onPressed: _save,
+                    child: Text(isEditing ? 'Save Changes' : 'Add Aircraft'),
+                  ),
+                  if (isEditing) ...[
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: _deleteAircraft,
+                      style: TextButton.styleFrom(
+                        foregroundColor: cs.error,
+                      ),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete Aircraft'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
