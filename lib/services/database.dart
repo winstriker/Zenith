@@ -207,8 +207,8 @@ class FlightWithStats {
     required this.flight,
     required this.dataPoints,
     this.aircraft,
-    this.departureIdent,
-    this.arrivalIdent,
+    this.departure,
+    this.arrival,
   }) {
     duration = flight.arrivalTime?.difference(flight.departureTime);
     maxAltitude = dataPoints.isEmpty
@@ -218,8 +218,8 @@ class FlightWithStats {
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
   final Aircraft? aircraft;
-  final String? departureIdent;
-  final String? arrivalIdent;
+  final Airport? departure;
+  final Airport? arrival;
   Duration? duration;
   int? maxAltitude;
 
@@ -241,8 +241,8 @@ class FlightWithStats {
     Flight? flight,
     List<FlightDataPoint>? dataPoints,
     Aircraft? aircraft,
-    String? departureIdent,
-    String? arrivalIdent,
+    Airport? departure,
+    Airport? arrival,
     Duration? duration,
     int? maxAltitude,
     bool removeAircraft = false,
@@ -250,8 +250,8 @@ class FlightWithStats {
     flight: flight ?? this.flight,
     dataPoints: dataPoints ?? this.dataPoints,
     aircraft: removeAircraft ? null : (aircraft ?? this.aircraft),
-    departureIdent: departureIdent ?? this.departureIdent,
-    arrivalIdent: arrivalIdent ?? this.arrivalIdent,
+    departure: departure ?? this.departure,
+    arrival: arrival ?? this.arrival,
   );
 
   static double _haversine(double lat1, double lon1, double lat2, double lon2) {
@@ -413,16 +413,11 @@ class LogbookDatabase extends _$LogbookDatabase {
       pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
     }
 
-    final airportCache = <int, String?>{};
-    Future<String?> resolveIdent(int? id) async {
+    Future<Airport?> resolveAirport(int? id) async {
       if (id == null) return null;
-      if (airportCache.containsKey(id)) return airportCache[id];
       final query = select(airports)..where((a) => a.id.equals(id));
       final match = await query.getSingleOrNull();
-      final ident =
-          match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
-      airportCache[id] = ident;
-      return ident;
+      return match;
     }
 
     final aircraftCache = <int, Aircraft?>{};
@@ -438,16 +433,16 @@ class LogbookDatabase extends _$LogbookDatabase {
     final results = <FlightWithStats>[];
     for (final flight in recentFlights) {
       final points = pointsByFlight[flight.id] ?? const [];
-      final depIdent = await resolveIdent(flight.departure);
-      final arrIdent = await resolveIdent(flight.arrival);
+      final departure = await resolveAirport(flight.departure);
+      final arrival = await resolveAirport(flight.arrival);
       final aircraft = await resolveAircraft(flight.aircraftId);
       results.add(
         FlightWithStats(
           flight: flight,
           dataPoints: points,
           aircraft: aircraft,
-          departureIdent: depIdent,
-          arrivalIdent: arrIdent,
+          departure: departure,
+          arrival: arrival,
         ),
       );
     }
@@ -575,34 +570,29 @@ class LogbookDatabase extends _$LogbookDatabase {
     for (final point in allPoints) {
       pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
     }
-
-    final airportCache = <int, String?>{};
-    Future<String?> resolveIdent(int? id) async {
+    Future<Airport?> resolveAirport(int? id) async {
       if (id == null) return null;
-      if (airportCache.containsKey(id)) return airportCache[id];
       final query = select(airports)..where((a) => a.id.equals(id));
       final match = await query.getSingleOrNull();
-      final ident =
-          match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
-      airportCache[id] = ident;
-      return ident;
+      return match;
     }
 
-    final aircraft = await (select(aircrafts)
-      ..where((a) => a.id.equals(aircraftId))).getSingleOrNull();
+    final aircraft = await (select(
+      aircrafts,
+    )..where((a) => a.id.equals(aircraftId))).getSingleOrNull();
 
     final results = <FlightWithStats>[];
     for (final flight in flightRows) {
       final points = pointsByFlight[flight.id] ?? const [];
-      final depIdent = await resolveIdent(flight.departure);
-      final arrIdent = await resolveIdent(flight.arrival);
+      final departure = await resolveAirport(flight.departure);
+      final arrival = await resolveAirport(flight.arrival);
       results.add(
         FlightWithStats(
           flight: flight,
           dataPoints: points,
           aircraft: aircraft,
-          departureIdent: depIdent,
-          arrivalIdent: arrIdent,
+          departure: departure,
+          arrival: arrival,
         ),
       );
     }

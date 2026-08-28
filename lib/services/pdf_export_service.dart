@@ -214,9 +214,9 @@ class PdfExportService {
         if (i < pageFlights.length) {
           final flight = pageFlights[i];
           final date = dateFmt.format(flight.flight.departureTime);
-          final depPlace = flight.departureIdent ?? '';
+          final depPlace = flight.departure?.ident ?? '';
           final depTime = timeFmt.format(flight.flight.departureTime);
-          final arrPlace = flight.arrivalIdent ?? '';
+          final arrPlace = flight.arrival?.ident ?? '';
           final arrTime = flight.flight.arrivalTime != null
               ? timeFmt.format(flight.flight.arrivalTime!)
               : '';

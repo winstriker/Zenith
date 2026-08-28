@@ -10,6 +10,14 @@ class FlightService {
   final List<Function> callbacks = [];
   bool _initialized = false;
 
+  Future<Airport?> resolveAirport(int? id) async {
+    if (id == null) return null;
+    final match = await (database.select(
+      database.airports,
+    )..where((a) => a.id.equals(id))).getSingleOrNull();
+    return match;
+  }
+
   FlightService(this.database) {
     _loadSessions();
   }
@@ -39,23 +47,13 @@ class FlightService {
 
     final flightRows = await database.select(database.flights).get();
 
-    final airportCache = <int, String?>{};
-    Future<String?> resolveIdent(int? id) async {
-      if (id == null) return null;
-      if (airportCache.containsKey(id)) return airportCache[id];
-      final match = await (database.select(database.airports)
-        ..where((a) => a.id.equals(id))).getSingleOrNull();
-      final ident = match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
-      airportCache[id] = ident;
-      return ident;
-    }
-
     final aircraftCache = <int, Aircraft?>{};
     Future<Aircraft?> resolveAircraft(int? id) async {
       if (id == null) return null;
       if (aircraftCache.containsKey(id)) return aircraftCache[id];
-      final match = await (database.select(database.aircrafts)
-        ..where((a) => a.id.equals(id))).getSingleOrNull();
+      final match = await (database.select(
+        database.aircrafts,
+      )..where((a) => a.id.equals(id))).getSingleOrNull();
       aircraftCache[id] = match;
       return match;
     }
@@ -67,22 +65,22 @@ class FlightService {
                 ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]))
               .get();
 
-      final depIdent = await resolveIdent(row.departure);
-      final arrIdent = await resolveIdent(row.arrival);
+      final departure = await resolveAirport(row.departure);
+      final arrival = await resolveAirport(row.arrival);
       final aircraft = await resolveAircraft(row.aircraftId);
 
-      _sessions.add(FlightWithStats(
-        flight: row,
-        dataPoints: pointsRows,
-        aircraft: aircraft,
-        departureIdent: depIdent,
-        arrivalIdent: arrIdent,
-      ));
+      _sessions.add(
+        FlightWithStats(
+          flight: row,
+          dataPoints: pointsRows,
+          aircraft: aircraft,
+          departure: departure,
+          arrival: arrival,
+        ),
+      );
     }
 
-    final active = _sessions
-        .where((s) => s.flight.isRecording)
-        .toList();
+    final active = _sessions.where((s) => s.flight.isRecording).toList();
     if (active.isNotEmpty) {
       _activeSessionId = active.first.flight.id;
     }
@@ -124,8 +122,9 @@ class FlightService {
       UnmodifiableListView(_sessions);
 
   List<FlightWithStats> get recordedSessions =>
-      _sessions.where((s) => !s.flight.isRecording).toList()
-        ..sort((a, b) => b.flight.departureTime.compareTo(a.flight.departureTime));
+      _sessions.where((s) => !s.flight.isRecording).toList()..sort(
+        (a, b) => b.flight.departureTime.compareTo(a.flight.departureTime),
+      );
 
   FlightWithStats? get activeSession {
     if (_activeSessionId == null) return null;
@@ -184,8 +183,8 @@ class FlightService {
       flight: flight,
       dataPoints: [],
       aircraft: aircraft,
-      departureIdent: departure,
-      arrivalIdent: arrival,
+      departure: await resolveAirport(departureId),
+      arrival: await resolveAirport(arrivalId),
     );
     _sessions.add(session);
     _activeSessionId = flightId;
@@ -292,14 +291,16 @@ class FlightService {
     _notify();
   }
 
-  Future<void> setFlightAircraft(int flightId, {int? aircraftId, Aircraft? aircraft}) async {
+  Future<void> setFlightAircraft(
+    int flightId, {
+    int? aircraftId,
+    Aircraft? aircraft,
+  }) async {
     final index = _sessions.indexWhere((s) => s.flight.id == flightId);
     if (index != -1) {
       final session = _sessions[index];
       _sessions[index] = session.copyWith(
-        flight: session.flight.copyWith(
-          aircraftId: Value(aircraftId),
-        ),
+        flight: session.flight.copyWith(aircraftId: Value(aircraftId)),
         aircraft: aircraft,
         removeAircraft: aircraft == null,
       );
@@ -330,7 +331,9 @@ class FlightService {
               !s.flight.isRecording,
         )
         .toList()
-      ..sort((a, b) => b.flight.departureTime.compareTo(a.flight.departureTime));
+      ..sort(
+        (a, b) => b.flight.departureTime.compareTo(a.flight.departureTime),
+      );
   }
 
   List<FlightWithStats> searchByDateRange(DateTime start, DateTime end) {
@@ -338,11 +341,15 @@ class FlightService {
         .where(
           (s) =>
               s.flight.departureTime.isAfter(start) &&
-              s.flight.departureTime.isBefore(end.add(const Duration(days: 1))) &&
+              s.flight.departureTime.isBefore(
+                end.add(const Duration(days: 1)),
+              ) &&
               !s.flight.isRecording,
         )
         .toList()
-      ..sort((a, b) => b.flight.departureTime.compareTo(a.flight.departureTime));
+      ..sort(
+        (a, b) => b.flight.departureTime.compareTo(a.flight.departureTime),
+      );
   }
 
   Future<void> addFlight({
@@ -352,19 +359,18 @@ class FlightService {
     required DateTime departureTime,
     DateTime? arrivalTime,
   }) async {
-    final flightId = await database.into(database.flights).insert(
-      FlightsCompanion.insert(
-        title: title,
-        departure: Value(departureId),
-        arrival: Value(arrivalId),
-        departureTime: departureTime,
-        arrivalTime: Value(arrivalTime),
-        isRecording: false,
-      ),
-    );
-
-    final depIdent = await _resolveIdent(departureId);
-    final arrIdent = await _resolveIdent(arrivalId);
+    final flightId = await database
+        .into(database.flights)
+        .insert(
+          FlightsCompanion.insert(
+            title: title,
+            departure: Value(departureId),
+            arrival: Value(arrivalId),
+            departureTime: departureTime,
+            arrivalTime: Value(arrivalTime),
+            isRecording: false,
+          ),
+        );
 
     _sessions.add(
       FlightWithStats(
@@ -378,17 +384,10 @@ class FlightService {
           isRecording: false,
         ),
         dataPoints: [],
-        departureIdent: depIdent,
-        arrivalIdent: arrIdent,
+        departure: await resolveAirport(departureId),
+        arrival: await resolveAirport(arrivalId),
       ),
     );
     _notify();
-  }
-
-  Future<String?> _resolveIdent(int? id) async {
-    if (id == null) return null;
-    final match = await (database.select(database.airports)
-      ..where((a) => a.id.equals(id))).getSingleOrNull();
-    return match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
   }
 }

@@ -456,7 +456,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   Widget _buildRecordingView(ThemeData theme) {
     final session = ref.watch(flightServiceProvider).activeSession;
     final hasRoute =
-        session?.departureIdent != null || session?.arrivalIdent != null;
+        session?.departure?.ident != null || session?.arrival?.ident != null;
     final hasAircraft = session?.aircraft != null;
 
     return Column(
@@ -531,13 +531,13 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                if (session!.departureIdent != null)
+                                if (session!.departure?.ident != null)
                                   _RouteChip(
-                                    label: session.departureIdent!,
+                                    label: session.departure!.ident!,
                                     icon: Icons.flight_takeoff,
                                   ),
-                                if (session.departureIdent != null &&
-                                    session.arrivalIdent != null)
+                                if (session.departure?.ident != null &&
+                                    session.arrival?.ident != null)
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 8,
@@ -548,9 +548,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
-                                if (session.arrivalIdent != null)
+                                if (session.arrival?.ident != null)
                                   _RouteChip(
-                                    label: session.arrivalIdent!,
+                                    label: session.arrival!.ident!,
                                     icon: Icons.flight_land,
                                   ),
                               ],

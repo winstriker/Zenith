@@ -39,7 +39,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
       body: ListView(
         children: [
           _buildHeroSection(context, ref, flight),
-          if (flight.departureIdent != null || flight.arrivalIdent != null)
+          if (flight.departure?.ident != null || flight.arrival?.ident != null)
             _buildRouteSection(context, flight),
           _buildAircraftSection(context, ref, flight),
           _buildAltitudeChart(context, ref, flight),
@@ -213,33 +213,34 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (flight.departureIdent != null)
+            if (flight.departure?.ident != null)
               Expanded(
                 child: Column(
                   children: [
                     Icon(Icons.flight_takeoff, color: cs.primary),
                     const SizedBox(height: 4),
                     Text(
-                      flight.departureIdent!,
+                      flight.departure!.ident!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium,
                     ),
                   ],
                 ),
               ),
-            if (flight.departureIdent != null && flight.arrivalIdent != null)
+            if (flight.departure?.ident != null &&
+                flight.arrival?.ident != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Icon(Icons.arrow_forward, color: cs.onSurfaceVariant),
               ),
-            if (flight.arrivalIdent != null)
+            if (flight.arrival?.ident != null)
               Expanded(
                 child: Column(
                   children: [
                     Icon(Icons.flight_land, color: cs.primary),
                     const SizedBox(height: 4),
                     Text(
-                      flight.arrivalIdent!,
+                      flight.arrival!.ident!,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleMedium,
                     ),
@@ -262,7 +263,9 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final aircraftList = ref.watch(aircraftListProvider);
     final displayType = flight.aircraft?.type;
     final aws = flight.aircraft != null
-        ? aircraftList.where((a) => a.aircraft.id == flight.aircraft!.id).firstOrNull
+        ? aircraftList
+              .where((a) => a.aircraft.id == flight.aircraft!.id)
+              .firstOrNull
         : null;
 
     return Card(
@@ -381,11 +384,12 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                                     ),
                                     child: Text(
                                       flight.aircraft!.tailNumber!,
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: cs.onTertiaryContainer,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 1,
-                                      ),
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: cs.onTertiaryContainer,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -562,8 +566,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                             totalFlightTime: aws.totalFlightTime,
                             isSelected:
                                 currentlySelected?.id == aws.aircraft.id,
-                            onTap: () =>
-                                Navigator.pop(ctx, aws.aircraft),
+                            onTap: () => Navigator.pop(ctx, aws.aircraft),
                           ),
                         ),
                         const Padding(
@@ -639,10 +642,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
       });
     } else {
       setState(() {
-        _cachedFlight = flight.copyWith(
-          aircraft: null,
-          removeAircraft: true,
-        );
+        _cachedFlight = flight.copyWith(aircraft: null, removeAircraft: true);
       });
     }
 
@@ -941,9 +941,7 @@ class _AircraftPickerTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isSelected
-                        ? Icons.flight
-                        : Icons.airplanemode_active,
+                    isSelected ? Icons.flight : Icons.airplanemode_active,
                     size: 22,
                     color: cs.onSecondaryContainer,
                   ),
@@ -1023,7 +1021,9 @@ class _AircraftPickerTile extends StatelessWidget {
                             Text(
                               hours,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
                               ),
                             ),
                           ],
@@ -1039,11 +1039,7 @@ class _AircraftPickerTile extends StatelessWidget {
                       color: cs.secondary,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.check,
-                      size: 16,
-                      color: cs.onSecondary,
-                    ),
+                    child: Icon(Icons.check, size: 16, color: cs.onSecondary),
                   )
                 else
                   Icon(
