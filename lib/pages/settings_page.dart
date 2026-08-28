@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
+import '../services/pdf_export_service.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -46,10 +48,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  void _exportData() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Export coming soon')));
+  void _exportData() async {
+    final flights = ref.read(flightListProvider);
+    if (flights.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No flights to export')),
+      );
+      return;
+    }
+
+    try {
+      final file = await PdfExportService.generateLogbook(flights);
+      await Share.shareXFiles([XFile(file.path)], text: 'Logbook export');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
   }
 
   @override

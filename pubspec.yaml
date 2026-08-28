@@ -1,6 +1,6 @@
 name: logbook
 description: "Pilot Flight Tracker - Track and replay flights in 3D"
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
@@ -23,6 +23,8 @@ dependencies:
   path_provider: ^2.1.5
   drift: ^2.33.0
   drift_flutter: ^0.3.0
+  flutter_native_html_to_pdf: ^3.1.0
+  share_plus: ^10.1.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
