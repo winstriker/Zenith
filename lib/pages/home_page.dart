@@ -7,6 +7,7 @@ import '../services/database.dart';
 import '../widgets/flight_card.dart';
 import 'recording_page.dart';
 import 'flight_detail_page.dart';
+import 'flight_form_page.dart';
 import 'flights_page.dart';
 import 'aircrafts_page.dart';
 import 'aircraft_detail_page.dart';
@@ -257,25 +258,48 @@ class HomePage extends ConsumerWidget {
                 ],
               ),
             )
-          : SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RecordingPage()),
-                ),
-                icon: const Icon(Icons.fiber_manual_record, size: 22),
-                label: const Text('Start Recording'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          : Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RecordingPage()),
+                    ),
+                    icon: const Icon(Icons.fiber_manual_record, size: 22),
+                    label: const Text('Start Recording'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                  textStyle: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FlightFormPage()),
+                    ),
+                    icon: const Icon(Icons.add, size: 22),
+                    label: const Text('Add Flight'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
     );
   }

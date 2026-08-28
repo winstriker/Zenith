@@ -344,4 +344,51 @@ class FlightService {
         .toList()
       ..sort((a, b) => b.flight.departureTime.compareTo(a.flight.departureTime));
   }
+
+  Future<void> addFlight({
+    required int? departureId,
+    required int? arrivalId,
+    required String title,
+    required DateTime departureTime,
+    DateTime? arrivalTime,
+  }) async {
+    final flightId = await database.into(database.flights).insert(
+      FlightsCompanion.insert(
+        title: title,
+        departure: Value(departureId),
+        arrival: Value(arrivalId),
+        departureTime: departureTime,
+        arrivalTime: Value(arrivalTime),
+        isRecording: false,
+      ),
+    );
+
+    final depIdent = await _resolveIdent(departureId);
+    final arrIdent = await _resolveIdent(arrivalId);
+
+    _sessions.add(
+      FlightWithStats(
+        flight: Flight(
+          id: flightId,
+          title: title,
+          departure: departureId,
+          arrival: arrivalId,
+          departureTime: departureTime,
+          arrivalTime: arrivalTime,
+          isRecording: false,
+        ),
+        dataPoints: [],
+        departureIdent: depIdent,
+        arrivalIdent: arrIdent,
+      ),
+    );
+    _notify();
+  }
+
+  Future<String?> _resolveIdent(int? id) async {
+    if (id == null) return null;
+    final match = await (database.select(database.airports)
+      ..where((a) => a.id.equals(id))).getSingleOrNull();
+    return match?.ident ?? match?.icaoCode ?? match?.iataCode ?? match?.name;
+  }
 }
