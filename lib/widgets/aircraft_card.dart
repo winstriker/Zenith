@@ -57,7 +57,7 @@ class AircraftCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      ac.type,
+                      ac.tailNumber ?? ac.type,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -92,22 +92,21 @@ class AircraftCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (ac.tailNumber != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.tertiaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    ac.tailNumber!,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onTertiaryContainer,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  ac.type,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onTertiaryContainer,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
                   ),
                 ),
+              ),
             ],
           ),
         ),

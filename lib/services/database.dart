@@ -174,6 +174,11 @@ class Flights extends Table {
   DateTimeColumn get arrivalTime => dateTime().nullable()();
   BoolColumn get isRecording => boolean()();
   IntColumn get aircraftId => integer().nullable().references(Aircrafts, #id)();
+  TextColumn get approachType => text().nullable()();
+  IntColumn get nightLandings => integer().nullable()();
+  IntColumn get dayLandings => integer().nullable()();
+  TextColumn get flightRules => text().nullable()();
+  TextColumn get remarks => text().nullable()();
 }
 
 class FlightDataPoints extends Table {
@@ -301,7 +306,21 @@ class LogbookDatabase extends _$LogbookDatabase {
     : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(flights, flights.approachType);
+            await m.addColumn(flights, flights.nightLandings);
+            await m.addColumn(flights, flights.dayLandings);
+            await m.addColumn(flights, flights.flightRules);
+            await m.addColumn(flights, flights.remarks);
+          }
+        },
+      );
 
   static QueryExecutor _openConnection() {
     return driftDatabase(

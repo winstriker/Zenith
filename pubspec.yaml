@@ -25,6 +25,7 @@ dependencies:
   drift_flutter: ^0.3.0
   flutter_native_html_to_pdf: ^3.1.0
   share_plus: ^10.1.4
+  country_flags: ^4.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

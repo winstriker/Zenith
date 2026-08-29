@@ -358,6 +358,12 @@ class FlightService {
     required String title,
     required DateTime departureTime,
     DateTime? arrivalTime,
+    int? aircraftId,
+    String? approachType,
+    int? nightLandings,
+    int? dayLandings,
+    String? flightRules,
+    String? remarks,
   }) async {
     final flightId = await database
         .into(database.flights)
@@ -369,6 +375,12 @@ class FlightService {
             departureTime: departureTime,
             arrivalTime: Value(arrivalTime),
             isRecording: false,
+            aircraftId: Value(aircraftId),
+            approachType: Value(approachType),
+            nightLandings: Value(nightLandings),
+            dayLandings: Value(dayLandings),
+            flightRules: Value(flightRules),
+            remarks: Value(remarks),
           ),
         );
 
@@ -382,6 +394,12 @@ class FlightService {
           departureTime: departureTime,
           arrivalTime: arrivalTime,
           isRecording: false,
+          aircraftId: aircraftId,
+          approachType: approachType,
+          nightLandings: nightLandings,
+          dayLandings: dayLandings,
+          flightRules: flightRules,
+          remarks: remarks,
         ),
         dataPoints: [],
         departure: await resolveAirport(departureId),

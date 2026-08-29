@@ -4030,6 +4030,61 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
       'REFERENCES aircrafts (id)',
     ),
   );
+  static const VerificationMeta _approachTypeMeta = const VerificationMeta(
+    'approachType',
+  );
+  @override
+  late final GeneratedColumn<String> approachType = GeneratedColumn<String>(
+    'approach_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nightLandingsMeta = const VerificationMeta(
+    'nightLandings',
+  );
+  @override
+  late final GeneratedColumn<int> nightLandings = GeneratedColumn<int>(
+    'night_landings',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dayLandingsMeta = const VerificationMeta(
+    'dayLandings',
+  );
+  @override
+  late final GeneratedColumn<int> dayLandings = GeneratedColumn<int>(
+    'day_landings',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _flightRulesMeta = const VerificationMeta(
+    'flightRules',
+  );
+  @override
+  late final GeneratedColumn<String> flightRules = GeneratedColumn<String>(
+    'flight_rules',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remarksMeta = const VerificationMeta(
+    'remarks',
+  );
+  @override
+  late final GeneratedColumn<String> remarks = GeneratedColumn<String>(
+    'remarks',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4040,6 +4095,11 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     arrivalTime,
     isRecording,
     aircraftId,
+    approachType,
+    nightLandings,
+    dayLandings,
+    flightRules,
+    remarks,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4113,6 +4173,48 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         aircraftId.isAcceptableOrUnknown(data['aircraft_id']!, _aircraftIdMeta),
       );
     }
+    if (data.containsKey('approach_type')) {
+      context.handle(
+        _approachTypeMeta,
+        approachType.isAcceptableOrUnknown(
+          data['approach_type']!,
+          _approachTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('night_landings')) {
+      context.handle(
+        _nightLandingsMeta,
+        nightLandings.isAcceptableOrUnknown(
+          data['night_landings']!,
+          _nightLandingsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('day_landings')) {
+      context.handle(
+        _dayLandingsMeta,
+        dayLandings.isAcceptableOrUnknown(
+          data['day_landings']!,
+          _dayLandingsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('flight_rules')) {
+      context.handle(
+        _flightRulesMeta,
+        flightRules.isAcceptableOrUnknown(
+          data['flight_rules']!,
+          _flightRulesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remarks')) {
+      context.handle(
+        _remarksMeta,
+        remarks.isAcceptableOrUnknown(data['remarks']!, _remarksMeta),
+      );
+    }
     return context;
   }
 
@@ -4154,6 +4256,26 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.int,
         data['${effectivePrefix}aircraft_id'],
       ),
+      approachType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}approach_type'],
+      ),
+      nightLandings: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}night_landings'],
+      ),
+      dayLandings: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}day_landings'],
+      ),
+      flightRules: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}flight_rules'],
+      ),
+      remarks: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remarks'],
+      ),
     );
   }
 
@@ -4172,6 +4294,11 @@ class Flight extends DataClass implements Insertable<Flight> {
   final DateTime? arrivalTime;
   final bool isRecording;
   final int? aircraftId;
+  final String? approachType;
+  final int? nightLandings;
+  final int? dayLandings;
+  final String? flightRules;
+  final String? remarks;
   const Flight({
     required this.id,
     required this.title,
@@ -4181,6 +4308,11 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.arrivalTime,
     required this.isRecording,
     this.aircraftId,
+    this.approachType,
+    this.nightLandings,
+    this.dayLandings,
+    this.flightRules,
+    this.remarks,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4200,6 +4332,21 @@ class Flight extends DataClass implements Insertable<Flight> {
     map['is_recording'] = Variable<bool>(isRecording);
     if (!nullToAbsent || aircraftId != null) {
       map['aircraft_id'] = Variable<int>(aircraftId);
+    }
+    if (!nullToAbsent || approachType != null) {
+      map['approach_type'] = Variable<String>(approachType);
+    }
+    if (!nullToAbsent || nightLandings != null) {
+      map['night_landings'] = Variable<int>(nightLandings);
+    }
+    if (!nullToAbsent || dayLandings != null) {
+      map['day_landings'] = Variable<int>(dayLandings);
+    }
+    if (!nullToAbsent || flightRules != null) {
+      map['flight_rules'] = Variable<String>(flightRules);
+    }
+    if (!nullToAbsent || remarks != null) {
+      map['remarks'] = Variable<String>(remarks);
     }
     return map;
   }
@@ -4222,6 +4369,21 @@ class Flight extends DataClass implements Insertable<Flight> {
       aircraftId: aircraftId == null && nullToAbsent
           ? const Value.absent()
           : Value(aircraftId),
+      approachType: approachType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(approachType),
+      nightLandings: nightLandings == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nightLandings),
+      dayLandings: dayLandings == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dayLandings),
+      flightRules: flightRules == null && nullToAbsent
+          ? const Value.absent()
+          : Value(flightRules),
+      remarks: remarks == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remarks),
     );
   }
 
@@ -4239,6 +4401,11 @@ class Flight extends DataClass implements Insertable<Flight> {
       arrivalTime: serializer.fromJson<DateTime?>(json['arrivalTime']),
       isRecording: serializer.fromJson<bool>(json['isRecording']),
       aircraftId: serializer.fromJson<int?>(json['aircraftId']),
+      approachType: serializer.fromJson<String?>(json['approachType']),
+      nightLandings: serializer.fromJson<int?>(json['nightLandings']),
+      dayLandings: serializer.fromJson<int?>(json['dayLandings']),
+      flightRules: serializer.fromJson<String?>(json['flightRules']),
+      remarks: serializer.fromJson<String?>(json['remarks']),
     );
   }
   @override
@@ -4253,6 +4420,11 @@ class Flight extends DataClass implements Insertable<Flight> {
       'arrivalTime': serializer.toJson<DateTime?>(arrivalTime),
       'isRecording': serializer.toJson<bool>(isRecording),
       'aircraftId': serializer.toJson<int?>(aircraftId),
+      'approachType': serializer.toJson<String?>(approachType),
+      'nightLandings': serializer.toJson<int?>(nightLandings),
+      'dayLandings': serializer.toJson<int?>(dayLandings),
+      'flightRules': serializer.toJson<String?>(flightRules),
+      'remarks': serializer.toJson<String?>(remarks),
     };
   }
 
@@ -4265,6 +4437,11 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<DateTime?> arrivalTime = const Value.absent(),
     bool? isRecording,
     Value<int?> aircraftId = const Value.absent(),
+    Value<String?> approachType = const Value.absent(),
+    Value<int?> nightLandings = const Value.absent(),
+    Value<int?> dayLandings = const Value.absent(),
+    Value<String?> flightRules = const Value.absent(),
+    Value<String?> remarks = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -4274,6 +4451,13 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrivalTime: arrivalTime.present ? arrivalTime.value : this.arrivalTime,
     isRecording: isRecording ?? this.isRecording,
     aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
+    approachType: approachType.present ? approachType.value : this.approachType,
+    nightLandings: nightLandings.present
+        ? nightLandings.value
+        : this.nightLandings,
+    dayLandings: dayLandings.present ? dayLandings.value : this.dayLandings,
+    flightRules: flightRules.present ? flightRules.value : this.flightRules,
+    remarks: remarks.present ? remarks.value : this.remarks,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
@@ -4293,6 +4477,19 @@ class Flight extends DataClass implements Insertable<Flight> {
       aircraftId: data.aircraftId.present
           ? data.aircraftId.value
           : this.aircraftId,
+      approachType: data.approachType.present
+          ? data.approachType.value
+          : this.approachType,
+      nightLandings: data.nightLandings.present
+          ? data.nightLandings.value
+          : this.nightLandings,
+      dayLandings: data.dayLandings.present
+          ? data.dayLandings.value
+          : this.dayLandings,
+      flightRules: data.flightRules.present
+          ? data.flightRules.value
+          : this.flightRules,
+      remarks: data.remarks.present ? data.remarks.value : this.remarks,
     );
   }
 
@@ -4306,7 +4503,12 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
           ..write('isRecording: $isRecording, ')
-          ..write('aircraftId: $aircraftId')
+          ..write('aircraftId: $aircraftId, ')
+          ..write('approachType: $approachType, ')
+          ..write('nightLandings: $nightLandings, ')
+          ..write('dayLandings: $dayLandings, ')
+          ..write('flightRules: $flightRules, ')
+          ..write('remarks: $remarks')
           ..write(')'))
         .toString();
   }
@@ -4321,6 +4523,11 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrivalTime,
     isRecording,
     aircraftId,
+    approachType,
+    nightLandings,
+    dayLandings,
+    flightRules,
+    remarks,
   );
   @override
   bool operator ==(Object other) =>
@@ -4333,7 +4540,12 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.departureTime == this.departureTime &&
           other.arrivalTime == this.arrivalTime &&
           other.isRecording == this.isRecording &&
-          other.aircraftId == this.aircraftId);
+          other.aircraftId == this.aircraftId &&
+          other.approachType == this.approachType &&
+          other.nightLandings == this.nightLandings &&
+          other.dayLandings == this.dayLandings &&
+          other.flightRules == this.flightRules &&
+          other.remarks == this.remarks);
 }
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
@@ -4345,6 +4557,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<DateTime?> arrivalTime;
   final Value<bool> isRecording;
   final Value<int?> aircraftId;
+  final Value<String?> approachType;
+  final Value<int?> nightLandings;
+  final Value<int?> dayLandings;
+  final Value<String?> flightRules;
+  final Value<String?> remarks;
   const FlightsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -4354,6 +4571,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrivalTime = const Value.absent(),
     this.isRecording = const Value.absent(),
     this.aircraftId = const Value.absent(),
+    this.approachType = const Value.absent(),
+    this.nightLandings = const Value.absent(),
+    this.dayLandings = const Value.absent(),
+    this.flightRules = const Value.absent(),
+    this.remarks = const Value.absent(),
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
@@ -4364,6 +4586,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrivalTime = const Value.absent(),
     required bool isRecording,
     this.aircraftId = const Value.absent(),
+    this.approachType = const Value.absent(),
+    this.nightLandings = const Value.absent(),
+    this.dayLandings = const Value.absent(),
+    this.flightRules = const Value.absent(),
+    this.remarks = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
        isRecording = Value(isRecording);
@@ -4376,6 +4603,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<DateTime>? arrivalTime,
     Expression<bool>? isRecording,
     Expression<int>? aircraftId,
+    Expression<String>? approachType,
+    Expression<int>? nightLandings,
+    Expression<int>? dayLandings,
+    Expression<String>? flightRules,
+    Expression<String>? remarks,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4386,6 +4618,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (arrivalTime != null) 'arrival_time': arrivalTime,
       if (isRecording != null) 'is_recording': isRecording,
       if (aircraftId != null) 'aircraft_id': aircraftId,
+      if (approachType != null) 'approach_type': approachType,
+      if (nightLandings != null) 'night_landings': nightLandings,
+      if (dayLandings != null) 'day_landings': dayLandings,
+      if (flightRules != null) 'flight_rules': flightRules,
+      if (remarks != null) 'remarks': remarks,
     });
   }
 
@@ -4398,6 +4635,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<DateTime?>? arrivalTime,
     Value<bool>? isRecording,
     Value<int?>? aircraftId,
+    Value<String?>? approachType,
+    Value<int?>? nightLandings,
+    Value<int?>? dayLandings,
+    Value<String?>? flightRules,
+    Value<String?>? remarks,
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
@@ -4408,6 +4650,11 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       arrivalTime: arrivalTime ?? this.arrivalTime,
       isRecording: isRecording ?? this.isRecording,
       aircraftId: aircraftId ?? this.aircraftId,
+      approachType: approachType ?? this.approachType,
+      nightLandings: nightLandings ?? this.nightLandings,
+      dayLandings: dayLandings ?? this.dayLandings,
+      flightRules: flightRules ?? this.flightRules,
+      remarks: remarks ?? this.remarks,
     );
   }
 
@@ -4438,6 +4685,21 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (aircraftId.present) {
       map['aircraft_id'] = Variable<int>(aircraftId.value);
     }
+    if (approachType.present) {
+      map['approach_type'] = Variable<String>(approachType.value);
+    }
+    if (nightLandings.present) {
+      map['night_landings'] = Variable<int>(nightLandings.value);
+    }
+    if (dayLandings.present) {
+      map['day_landings'] = Variable<int>(dayLandings.value);
+    }
+    if (flightRules.present) {
+      map['flight_rules'] = Variable<String>(flightRules.value);
+    }
+    if (remarks.present) {
+      map['remarks'] = Variable<String>(remarks.value);
+    }
     return map;
   }
 
@@ -4451,7 +4713,12 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
           ..write('isRecording: $isRecording, ')
-          ..write('aircraftId: $aircraftId')
+          ..write('aircraftId: $aircraftId, ')
+          ..write('approachType: $approachType, ')
+          ..write('nightLandings: $nightLandings, ')
+          ..write('dayLandings: $dayLandings, ')
+          ..write('flightRules: $flightRules, ')
+          ..write('remarks: $remarks')
           ..write(')'))
         .toString();
   }
@@ -8156,6 +8423,11 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<DateTime?> arrivalTime,
       required bool isRecording,
       Value<int?> aircraftId,
+      Value<String?> approachType,
+      Value<int?> nightLandings,
+      Value<int?> dayLandings,
+      Value<String?> flightRules,
+      Value<String?> remarks,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
@@ -8167,6 +8439,11 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<DateTime?> arrivalTime,
       Value<bool> isRecording,
       Value<int?> aircraftId,
+      Value<String?> approachType,
+      Value<int?> nightLandings,
+      Value<int?> dayLandings,
+      Value<String?> flightRules,
+      Value<String?> remarks,
     });
 
 final class $$FlightsTableReferences
@@ -8282,6 +8559,31 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<bool> get isRecording => $composableBuilder(
     column: $table.isRecording,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get approachType => $composableBuilder(
+    column: $table.approachType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nightLandings => $composableBuilder(
+    column: $table.nightLandings,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dayLandings => $composableBuilder(
+    column: $table.dayLandings,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get flightRules => $composableBuilder(
+    column: $table.flightRules,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remarks => $composableBuilder(
+    column: $table.remarks,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8414,6 +8716,31 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get approachType => $composableBuilder(
+    column: $table.approachType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nightLandings => $composableBuilder(
+    column: $table.nightLandings,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dayLandings => $composableBuilder(
+    column: $table.dayLandings,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get flightRules => $composableBuilder(
+    column: $table.flightRules,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remarks => $composableBuilder(
+    column: $table.remarks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AirportsTableOrderingComposer get departure {
     final $$AirportsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8513,6 +8840,29 @@ class $$FlightsTableAnnotationComposer
     column: $table.isRecording,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get approachType => $composableBuilder(
+    column: $table.approachType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nightLandings => $composableBuilder(
+    column: $table.nightLandings,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dayLandings => $composableBuilder(
+    column: $table.dayLandings,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get flightRules => $composableBuilder(
+    column: $table.flightRules,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remarks =>
+      $composableBuilder(column: $table.remarks, builder: (column) => column);
 
   $$AirportsTableAnnotationComposer get departure {
     final $$AirportsTableAnnotationComposer composer = $composerBuilder(
@@ -8650,6 +9000,11 @@ class $$FlightsTableTableManager
                 Value<DateTime?> arrivalTime = const Value.absent(),
                 Value<bool> isRecording = const Value.absent(),
                 Value<int?> aircraftId = const Value.absent(),
+                Value<String?> approachType = const Value.absent(),
+                Value<int?> nightLandings = const Value.absent(),
+                Value<int?> dayLandings = const Value.absent(),
+                Value<String?> flightRules = const Value.absent(),
+                Value<String?> remarks = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
                 title: title,
@@ -8659,6 +9014,11 @@ class $$FlightsTableTableManager
                 arrivalTime: arrivalTime,
                 isRecording: isRecording,
                 aircraftId: aircraftId,
+                approachType: approachType,
+                nightLandings: nightLandings,
+                dayLandings: dayLandings,
+                flightRules: flightRules,
+                remarks: remarks,
               ),
           createCompanionCallback:
               ({
@@ -8670,6 +9030,11 @@ class $$FlightsTableTableManager
                 Value<DateTime?> arrivalTime = const Value.absent(),
                 required bool isRecording,
                 Value<int?> aircraftId = const Value.absent(),
+                Value<String?> approachType = const Value.absent(),
+                Value<int?> nightLandings = const Value.absent(),
+                Value<int?> dayLandings = const Value.absent(),
+                Value<String?> flightRules = const Value.absent(),
+                Value<String?> remarks = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
                 title: title,
@@ -8679,6 +9044,11 @@ class $$FlightsTableTableManager
                 arrivalTime: arrivalTime,
                 isRecording: isRecording,
                 aircraftId: aircraftId,
+                approachType: approachType,
+                nightLandings: nightLandings,
+                dayLandings: dayLandings,
+                flightRules: flightRules,
+                remarks: remarks,
               ),
           withReferenceMapper: (p0) => p0
               .map(

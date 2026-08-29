@@ -1,3 +1,4 @@
+import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database.dart';
@@ -82,7 +83,7 @@ class FlightCard extends StatelessWidget {
   }) {
     final code = airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
     final name = airport?.name ?? '';
-    final countryFlag = _countryFlag(airport?.isoCountry);
+    final countryCode = airport?.isoCountry;
     final tzAbbr = _tzAbbreviation(airport?.longitudeDeg);
     final utcOffset = _utcOffsetHours(airport?.longitudeDeg);
     final displayTime = time;
@@ -105,8 +106,15 @@ class FlightCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (countryFlag != null) ...[
-              Text(countryFlag, style: const TextStyle(fontSize: 18)),
+            if (countryCode != null && countryCode.length == 2) ...[
+              SizedBox(
+                width: 26,
+                height: 18,
+                child: CountryFlag.fromCountryCode(
+                  countryCode,
+                  theme: const ImageTheme(shape: RoundedRectangle(3)),
+                ),
+              ),
               const SizedBox(width: 6),
             ],
             Flexible(
@@ -201,13 +209,6 @@ class FlightCard extends StatelessWidget {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     return '$h:${m.toString().padLeft(2, '0')}';
-  }
-
-  static String? _countryFlag(String? isoCode) {
-    if (isoCode == null || isoCode.length != 2) return null;
-    final c1 = isoCode.codeUnitAt(0) - 0x41 + 0x1F1E6;
-    final c2 = isoCode.codeUnitAt(1) - 0x41 + 0x1F1E6;
-    return String.fromCharCode(c1) + String.fromCharCode(c2);
   }
 
   static int? _utcOffsetHours(double? longitude) {
