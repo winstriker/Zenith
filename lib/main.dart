@@ -4,9 +4,7 @@ import 'package:logbook/services/database.dart';
 import 'app.dart';
 
 final databaseProvider = Provider<LogbookDatabase>((ref) {
-  final db = LogbookDatabase();
-  ref.onDispose(() => db.close());
-  return db;
+  return LogbookDatabase();
 });
 
 void main() {

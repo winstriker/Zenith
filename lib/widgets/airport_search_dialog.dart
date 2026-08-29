@@ -35,16 +35,12 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
 
   Future<void> _loadRecent() async {
     final db = LogbookDatabase();
-    try {
-      final recent = await db.getRecentAirports(limit: 8);
-      if (mounted) {
-        setState(() {
-          _recent = recent;
-          _loadingRecent = false;
-        });
-      }
-    } finally {
-      db.close();
+    final recent = await db.getRecentAirports(limit: 8);
+    if (mounted) {
+      setState(() {
+        _recent = recent;
+        _loadingRecent = false;
+      });
     }
   }
 
@@ -56,12 +52,8 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
     }
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       final db = LogbookDatabase();
-      try {
-        final results = await db.searchAirports(query: query.trim(), limit: 15);
-        if (mounted) setState(() => _results = results);
-      } finally {
-        db.close();
-      }
+      final results = await db.searchAirports(query: query.trim(), limit: 15);
+      if (mounted) setState(() => _results = results);
     });
   }
 

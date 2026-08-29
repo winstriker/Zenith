@@ -302,8 +302,17 @@ class AircraftWithStats {
   ],
 )
 class LogbookDatabase extends _$LogbookDatabase {
-  LogbookDatabase([QueryExecutor? executor])
-    : super(executor ?? _openConnection());
+  static LogbookDatabase? _instance;
+
+  LogbookDatabase._(QueryExecutor executor) : super(executor);
+
+  factory LogbookDatabase([QueryExecutor? executor]) {
+    if (executor != null) {
+      return LogbookDatabase._(executor);
+    }
+    _instance ??= LogbookDatabase._(_openConnection());
+    return _instance!;
+  }
 
   @override
   int get schemaVersion => 2;
