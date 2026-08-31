@@ -52,7 +52,7 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
     setState(() => _isLoading = true);
     final db = ref.read(databaseProvider);
     final flights = await db.getFlightsForAircraft(
-      _aircraft.aircraft.id,
+      _aircraft.id,
       limit: _pageSize,
       offset: _offset,
     );
@@ -68,22 +68,19 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
   Future<void> _onEdit() async {
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (_) => AircraftFormPage(aircraft: _aircraft.aircraft),
-      ),
+      MaterialPageRoute(builder: (_) => AircraftFormPage(aircraft: _aircraft)),
     );
     if (result == true && mounted) {
       final db = ref.read(databaseProvider);
-      final updated = await db.getAircraft(_aircraft.aircraft.id);
+      final updated = await db.getAircraft(_aircraft.id);
       final stats = await db.getAircraftsWithStats();
-      final match =
-          stats.where((s) => s.aircraft.id == _aircraft.aircraft.id).firstOrNull;
+      final match = stats.where((s) => s.id == _aircraft.id).firstOrNull;
       if (updated != null && match != null) {
         setState(() {
           _aircraft = AircraftWithStats(
-            updated,
-            match.flightCount,
-            match.totalFlightTime,
+            aircraft: updated,
+            flightCount: match.flightCount,
+            totalFlightTime: match.totalFlightTime,
           );
         });
       }
@@ -98,7 +95,7 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final ac = _aircraft.aircraft;
+    final ac = _aircraft;
     final hours = _aircraft.totalFlightTime != null
         ? '${(_aircraft.totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h'
         : null;
@@ -164,8 +161,9 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
                               Text(
                                 ac.model!,
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: cs.onSecondaryContainer
-                                      .withValues(alpha: 0.7),
+                                  color: cs.onSecondaryContainer.withValues(
+                                    alpha: 0.7,
+                                  ),
                                 ),
                               ),
                             ],
@@ -197,10 +195,14 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
                   if (ac.tailNumber != null) ...[
                     const SizedBox(height: 12),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                        color: cs.surfaceContainerHighest.withValues(
+                          alpha: 0.5,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -260,29 +262,26 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
             )
           else
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  if (index >= _flights.length) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  return FlightCard(
-                    flight: _flights[index],
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              FlightDetailPage(flight: _flights[index]),
-                        ),
-                      );
-                    },
+              delegate: SliverChildBuilderDelegate((context, index) {
+                if (index >= _flights.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
                   );
-                },
-                childCount: _flights.length + (_isLoading ? 1 : 0),
-              ),
+                }
+                return FlightCard(
+                  flight: _flights[index],
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            FlightDetailPage(flight: _flights[index]),
+                      ),
+                    );
+                  },
+                );
+              }, childCount: _flights.length + (_isLoading ? 1 : 0)),
             ),
         ],
       ),

@@ -282,11 +282,21 @@ class AirportWithDistance {
   AirportWithDistance(this.airport, this.distance);
 }
 
-class AircraftWithStats {
-  final Aircraft aircraft;
+class AircraftWithStats extends Aircraft {
   final int flightCount;
   final Duration? totalFlightTime;
-  AircraftWithStats(this.aircraft, this.flightCount, this.totalFlightTime);
+  AircraftWithStats({
+    required Aircraft aircraft,
+    required this.flightCount,
+    this.totalFlightTime,
+  }) : super(
+         id: aircraft.id,
+         type: aircraft.type,
+         createdAt: aircraft.createdAt,
+         model: aircraft.model,
+         notes: aircraft.notes,
+         tailNumber: aircraft.tailNumber,
+       );
 }
 
 @DriftDatabase(
@@ -319,17 +329,17 @@ class LogbookDatabase extends _$LogbookDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await m.addColumn(flights, flights.approachType);
-            await m.addColumn(flights, flights.nightLandings);
-            await m.addColumn(flights, flights.dayLandings);
-            await m.addColumn(flights, flights.flightRules);
-            await m.addColumn(flights, flights.remarks);
-          }
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(flights, flights.approachType);
+        await m.addColumn(flights, flights.nightLandings);
+        await m.addColumn(flights, flights.dayLandings);
+        await m.addColumn(flights, flights.flightRules);
+        await m.addColumn(flights, flights.remarks);
+      }
+    },
+  );
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
@@ -552,7 +562,13 @@ class LogbookDatabase extends _$LogbookDatabase {
           totalTime = (totalTime ?? Duration.zero) + dur;
         }
       }
-      result.add(AircraftWithStats(ac, flightRows.length, totalTime));
+      result.add(
+        AircraftWithStats(
+          aircraft: ac,
+          flightCount: flightRows.length,
+          totalFlightTime: totalTime,
+        ),
+      );
     }
     return result;
   }

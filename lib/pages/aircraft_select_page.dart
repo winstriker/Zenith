@@ -30,9 +30,9 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
         ? aircraftList
         : aircraftList.where((aws) {
             final q = _query.toLowerCase();
-            return aws.aircraft.type.toLowerCase().contains(q) ||
-                (aws.aircraft.model?.toLowerCase().contains(q) ?? false) ||
-                (aws.aircraft.tailNumber?.toLowerCase().contains(q) ?? false);
+            return aws.type.toLowerCase().contains(q) ||
+                (aws.model?.toLowerCase().contains(q) ?? false) ||
+                (aws.tailNumber?.toLowerCase().contains(q) ?? false);
           }).toList();
 
     return Scaffold(
@@ -57,8 +57,13 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
                 hintText: 'Search aircraft...',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onChanged: (v) => setState(() => _query = v.trim()),
             ),
@@ -68,7 +73,8 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
                 ? EmptyState(
                     icon: Icons.airplanemode_active,
                     title: 'No aircraft yet',
-                    subtitle: 'Add your first aircraft to start tracking flights.',
+                    subtitle:
+                        'Add your first aircraft to start tracking flights.',
                     action: FilledButton.icon(
                       onPressed: () => _addAircraft(),
                       icon: const Icon(Icons.add),
@@ -76,28 +82,29 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
                     ),
                   )
                 : filtered.isEmpty
-                    ? EmptyState(
-                        icon: Icons.search_off,
-                        iconSize: 48,
-                        iconOpacity: 0.4,
-                        title: 'No aircraft match "$_query"',
-                        action: OutlinedButton.icon(
-                          onPressed: () => _addAircraft(),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add New Aircraft'),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(top: 4, bottom: 80),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final aws = filtered[index];
-                          return AircraftCard(
-                            aircraft: aws,
-                            onTap: () => Navigator.pop(context, aws.aircraft),
-                          );
-                        },
-                      ),
+                ? EmptyState(
+                    icon: Icons.search_off,
+                    iconSize: 48,
+                    iconOpacity: 0.4,
+                    title: 'No aircraft match "$_query"',
+                    action: OutlinedButton.icon(
+                      onPressed: () => _addAircraft(),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add New Aircraft'),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 80),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final aws = filtered[index];
+                      return AircraftCard(
+                        aircraft: aws,
+                        onTap: () => Navigator.pop(context, aws),
+                        showStats: true,
+                      );
+                    },
+                  ),
           ),
         ],
       ),

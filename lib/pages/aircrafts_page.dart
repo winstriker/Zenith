@@ -82,9 +82,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Aircraft'),
-        content: Text(
-          'Are you sure you want to delete "${aws.aircraft.type}"?',
-        ),
+        content: Text('Are you sure you want to delete "${aws.type}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -102,7 +100,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     );
     if (confirmed == true) {
       final db = ref.read(databaseProvider);
-      await db.deleteAircraft(aws.aircraft.id);
+      await db.deleteAircraft(aws.id);
       ref.read(aircraftListProvider.notifier).refresh();
     }
   }

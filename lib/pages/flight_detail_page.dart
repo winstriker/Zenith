@@ -313,8 +313,6 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     });
   }
 
-
-
   // ---------------------------------------------------------------------------
   // 3. Aircraft Card (display-only, form page style)
   // ---------------------------------------------------------------------------
@@ -328,16 +326,14 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final aircraftList = ref.watch(aircraftListProvider);
     final aircraft = flight.aircraft;
     final aws = aircraft != null
-        ? aircraftList.where((a) => a.aircraft.id == aircraft.id).firstOrNull
+        ? aircraftList.where((a) => a.id == aircraft.id).firstOrNull
         : null;
 
     if (aircraft != null && aws != null) {
       return GradientCard(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => AircraftDetailPage(aircraft: aws),
-          ),
+          MaterialPageRoute(builder: (_) => AircraftDetailPage(aircraft: aws)),
         ),
         child: Row(
           children: [
@@ -830,7 +826,6 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     );
   }
 
-
   // ---------------------------------------------------------------------------
   // 7. Conditional: View Replay Button
   // ---------------------------------------------------------------------------
@@ -971,10 +966,9 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                         const SizedBox(height: 4),
                         ...aircraftList.map(
                           (aws) => _AircraftPickerTile(
-                            aircraft: aws.aircraft,
-                            isSelected:
-                                currentlySelected?.id == aws.aircraft.id,
-                            onTap: () => Navigator.pop(ctx, aws.aircraft),
+                            aircraft: aws,
+                            isSelected: currentlySelected?.id == aws.id,
+                            onTap: () => Navigator.pop(ctx, aws),
                           ),
                         ),
                         const Padding(
@@ -1056,7 +1050,6 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
 
     ref.read(flightListProvider.notifier).refresh();
   }
-
 }
 
 // ---------------------------------------------------------------------------

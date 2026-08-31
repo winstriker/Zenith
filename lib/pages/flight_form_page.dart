@@ -3,6 +3,7 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logbook/widgets/aircraft_card.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import '../widgets/airport_search_dialog.dart';
@@ -91,7 +92,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     );
     if (airport != null) {
       setState(() {
-        final code = airport.ident ?? airport.icaoCode ?? airport.iataCode ?? airport.name ?? '';
+        final code =
+            airport.ident ??
+            airport.icaoCode ??
+            airport.iataCode ??
+            airport.name ??
+            '';
         if (isDeparture) {
           _selectedDeparture = airport;
           _departureController.text = code;
@@ -104,7 +110,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   }
 
   Future<void> _pickDate({required bool isDeparture}) async {
-    final current = isDeparture ? _departureDate : (_arrivalDate ?? _departureDate);
+    final current = isDeparture
+        ? _departureDate
+        : (_arrivalDate ?? _departureDate);
     final picked = await showDatePicker(
       context: context,
       initialDate: current,
@@ -129,7 +137,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   TimeOfDay _parseHHmm(String text) {
     final cleaned = text.replaceAll(':', '').trim();
     if (cleaned.isEmpty) return TimeOfDay.now();
-    final h = int.tryParse(cleaned.substring(0, cleaned.length.clamp(0, 2))) ?? 0;
+    final h =
+        int.tryParse(cleaned.substring(0, cleaned.length.clamp(0, 2))) ?? 0;
     final m = cleaned.length > 2
         ? (int.tryParse(cleaned.substring(2, cleaned.length.clamp(2, 4))) ?? 0)
         : 0;
@@ -161,7 +170,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   }
 
   static String _tzFromCountryAndLon(String countryCode, double? longitude) {
-    final offset = longitude != null ? (longitude / 15).round().clamp(-12, 14) : 0;
+    final offset = longitude != null
+        ? (longitude / 15).round().clamp(-12, 14)
+        : 0;
     const tzByCountry = {
       'IT': {1: 'CET', 2: 'CEST'},
       'DE': {1: 'CET', 2: 'CEST'},
@@ -183,7 +194,14 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       'BY': {3: 'MSK'},
       'RU': {3: 'MSK'},
       'TR': {3: 'TRT'},
-      'US': {-5: 'EST', -6: 'CST', -7: 'MST', -8: 'PST', -9: 'AKST', -10: 'HST'},
+      'US': {
+        -5: 'EST',
+        -6: 'CST',
+        -7: 'MST',
+        -8: 'PST',
+        -9: 'AKST',
+        -10: 'HST',
+      },
       'CA': {-5: 'EST', -6: 'CST', -7: 'MST', -8: 'PST', -9: 'NST', -3: 'ADT'},
       'BR': {-3: 'BRT', -4: 'AMT'},
       'AR': {-3: 'ART'},
@@ -248,7 +266,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Text(
                   'Select Timezone',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               ListTile(
@@ -298,16 +318,39 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   void _showIanaTzSearch({required bool isDeparture}) {
     final controller = TextEditingController();
     final commonTzs = [
-      'UTC', 'US/Eastern', 'US/Central', 'US/Mountain', 'US/Pacific',
-      'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome',
-      'Europe/Madrid', 'Europe/Amsterdam', 'Europe/Zurich', 'Europe/Vienna',
-      'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Kolkata', 'Asia/Dubai',
-      'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Seoul',
-      'Australia/Sydney', 'Australia/Melbourne', 'Australia/Brisbane',
-      'Pacific/Auckland', 'Pacific/Honolulu',
-      'America/Sao_Paulo', 'America/Argentina/Buenos_Aires',
-      'America/Mexico_City', 'America/Bogota', 'America/Lima',
-      'Africa/Cairo', 'Africa/Johannesburg', 'Africa/Lagos',
+      'UTC',
+      'US/Eastern',
+      'US/Central',
+      'US/Mountain',
+      'US/Pacific',
+      'Europe/London',
+      'Europe/Paris',
+      'Europe/Berlin',
+      'Europe/Rome',
+      'Europe/Madrid',
+      'Europe/Amsterdam',
+      'Europe/Zurich',
+      'Europe/Vienna',
+      'Asia/Tokyo',
+      'Asia/Shanghai',
+      'Asia/Kolkata',
+      'Asia/Dubai',
+      'Asia/Singapore',
+      'Asia/Hong_Kong',
+      'Asia/Seoul',
+      'Australia/Sydney',
+      'Australia/Melbourne',
+      'Australia/Brisbane',
+      'Pacific/Auckland',
+      'Pacific/Honolulu',
+      'America/Sao_Paulo',
+      'America/Argentina/Buenos_Aires',
+      'America/Mexico_City',
+      'America/Bogota',
+      'America/Lima',
+      'Africa/Cairo',
+      'Africa/Johannesburg',
+      'Africa/Lagos',
     ];
     List<String> filtered = List.from(commonTzs);
 
@@ -330,7 +373,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                       child: Text(
                         'World Timezones',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     Padding(
@@ -345,7 +390,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                         onChanged: (v) {
                           setModalState(() {
                             filtered = commonTzs
-                                .where((tz) => tz.toLowerCase().contains(v.toLowerCase()))
+                                .where(
+                                  (tz) => tz.toLowerCase().contains(
+                                    v.toLowerCase(),
+                                  ),
+                                )
                                 .toList();
                           });
                         },
@@ -390,21 +439,28 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final flightService = ref.read(flightServiceProvider);
-    final depCode = _selectedDeparture?.ident ?? _departureController.text.trim();
+    final depCode =
+        _selectedDeparture?.ident ?? _departureController.text.trim();
     final arrCode = _selectedArrival?.ident ?? _arrivalController.text.trim();
 
     final depTime = _parseHHmm(_depTimeController.text);
     final depDateTime = DateTime(
-      _departureDate.year, _departureDate.month, _departureDate.day,
-      depTime.hour, depTime.minute,
+      _departureDate.year,
+      _departureDate.month,
+      _departureDate.day,
+      depTime.hour,
+      depTime.minute,
     );
 
     DateTime? arrDateTime;
     if (_arrTimeController.text.isNotEmpty && _arrivalDate != null) {
       final arrTime = _parseHHmm(_arrTimeController.text);
       arrDateTime = DateTime(
-        _arrivalDate!.year, _arrivalDate!.month, _arrivalDate!.day,
-        arrTime.hour, arrTime.minute,
+        _arrivalDate!.year,
+        _arrivalDate!.month,
+        _arrivalDate!.day,
+        arrTime.hour,
+        arrTime.minute,
       );
     }
 
@@ -435,11 +491,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     final cs = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Log Flight'),
-        actions: [
-          TextButton(onPressed: _save, child: const Text('Save')),
-        ],
+      appBar: AppBar(title: const Text('Log Flight'), centerTitle: true),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _save,
+        icon: const Icon(Icons.save),
+        label: const Text('Save'),
       ),
       body: Form(
         key: _formKey,
@@ -455,7 +511,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             _buildFlightRulesCard(theme, cs),
             const SizedBox(height: 16),
             _buildRemarksCard(theme, cs),
-            const SizedBox(height: 32),
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -494,13 +550,34 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _buildDateButton(theme, _departureDate, () => _pickDate(isDeparture: true))),
+                Expanded(
+                  child: _buildDateButton(
+                    theme,
+                    _departureDate,
+                    () => _pickDate(isDeparture: true),
+                  ),
+                ),
                 const SizedBox(width: 8),
-                _buildTzChip(theme, _tzLabel(_depTzMode, _depIanaTz, _selectedDeparture), () => _showTzPicker(isDeparture: true)),
+                _buildTzChip(
+                  theme,
+                  _tzLabel(_depTzMode, _depIanaTz, _selectedDeparture),
+                  () => _showTzPicker(isDeparture: true),
+                ),
                 const SizedBox(width: 8),
-                _buildTzChip(theme, _tzLabel(_arrTzMode, _arrIanaTz, _selectedArrival), () => _showTzPicker(isDeparture: false)),
+                _buildTzChip(
+                  theme,
+                  _tzLabel(_arrTzMode, _arrIanaTz, _selectedArrival),
+                  () => _showTzPicker(isDeparture: false),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: _buildDateButton(theme, _arrivalDate ?? _departureDate, () => _pickDate(isDeparture: false), textAlign: TextAlign.end)),
+                Expanded(
+                  child: _buildDateButton(
+                    theme,
+                    _arrivalDate ?? _departureDate,
+                    () => _pickDate(isDeparture: false),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -517,7 +594,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.flight, color: cs.onSurfaceVariant, size: 20),
+                  child: Icon(
+                    Icons.flight,
+                    color: cs.onSurfaceVariant,
+                    size: 20,
+                  ),
                 ),
                 Expanded(
                   child: _buildAirportField(
@@ -531,14 +612,17 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 ),
               ],
             ),
-            if (_selectedDeparture?.name != null || _selectedArrival?.name != null) ...[
+            if (_selectedDeparture?.name != null ||
+                _selectedArrival?.name != null) ...[
               const SizedBox(height: 4),
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       _selectedDeparture?.name ?? '',
-                      style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -547,7 +631,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   Expanded(
                     child: Text(
                       _selectedArrival?.name ?? '',
-                      style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.end,
@@ -563,11 +649,19 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   child: _buildTimeInput(theme, _depTimeController, 'HH:mm'),
                 ),
                 const SizedBox(width: 8),
-                _buildTzChip(theme, _tzLabel(_depTzMode, _depIanaTz, _selectedDeparture), null),
+                _buildTzChip(
+                  theme,
+                  _tzLabel(_depTzMode, _depIanaTz, _selectedDeparture),
+                  null,
+                ),
                 const SizedBox(width: 8),
                 _buildBlockTimePill(theme, cs),
                 const SizedBox(width: 8),
-                _buildTzChip(theme, _tzLabel(_arrTzMode, _arrIanaTz, _selectedArrival), null),
+                _buildTzChip(
+                  theme,
+                  _tzLabel(_arrTzMode, _arrIanaTz, _selectedArrival),
+                  null,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _buildTimeInput(theme, _arrTimeController, 'HH:mm'),
@@ -598,13 +692,17 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
-          mainAxisAlignment: isArrival ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment: isArrival
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             if (code.isNotEmpty)
               Text(
                 code,
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               )
             else
               Text(
@@ -630,7 +728,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     );
   }
 
-  Widget _buildDateButton(ThemeData theme, DateTime date, VoidCallback onTap, {TextAlign textAlign = TextAlign.left}) {
+  Widget _buildDateButton(
+    ThemeData theme,
+    DateTime date,
+    VoidCallback onTap, {
+    TextAlign textAlign = TextAlign.left,
+  }) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -638,7 +741,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
           _formatDisplayDate(date),
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
           textAlign: textAlign,
         ),
       ),
@@ -651,12 +756,16 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
-          style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
@@ -704,13 +813,15 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     );
   }
 
-  Widget _buildTimeInput(ThemeData theme, TextEditingController controller, String hint) {
+  Widget _buildTimeInput(
+    ThemeData theme,
+    TextEditingController controller,
+    String hint,
+  ) {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
-      inputFormatters: [
-        _TimeInputFormatter(),
-      ],
+      inputFormatters: [_TimeInputFormatter()],
       textAlign: TextAlign.center,
       decoration: InputDecoration(
         hintText: hint,
@@ -731,12 +842,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   }
 
   Widget _buildAircraftCard(ThemeData theme, ColorScheme cs) {
-    return GradientCard(
-      onTap: _pickAircraft,
-      child: _selectedAircraft != null
-          ? AircraftDisplayRow(aircraft: _selectedAircraft, showChevron: true)
-          : const AircraftDisplayRow(aircraft: null, showChevron: true),
-    );
+    return AircraftCard(aircraft: _selectedAircraft, onTap: _pickAircraft);
   }
 
   Future<void> _pickAircraft() async {
@@ -775,7 +881,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                       isDense: true,
                       isExpanded: true,
                       items: const [
-                        DropdownMenuItem(value: 'VISUAL', child: Text('VISUAL')),
+                        DropdownMenuItem(
+                          value: 'VISUAL',
+                          child: Text('VISUAL'),
+                        ),
                         DropdownMenuItem(value: 'ILS', child: Text('ILS')),
                         DropdownMenuItem(value: 'VOR', child: Text('VOR')),
                         DropdownMenuItem(value: 'NDB', child: Text('NDB')),
@@ -784,7 +893,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                         DropdownMenuItem(value: 'LOC', child: Text('LOC')),
                         DropdownMenuItem(value: 'TACAN', child: Text('TACAN')),
                       ],
-                      onChanged: (v) => setState(() => _approachType = v ?? 'VISUAL'),
+                      onChanged: (v) =>
+                          setState(() => _approachType = v ?? 'VISUAL'),
                     ),
                   ),
                 ],
@@ -804,7 +914,13 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     );
   }
 
-  Widget _buildLandingCounter(ThemeData theme, ColorScheme cs, String label, int value, ValueChanged<int> onChanged) {
+  Widget _buildLandingCounter(
+    ThemeData theme,
+    ColorScheme cs,
+    String label,
+    int value,
+    ValueChanged<int> onChanged,
+  ) {
     return Column(
       children: [
         Text(
@@ -834,7 +950,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
                 '$value',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             GestureDetector(
@@ -883,11 +1001,21 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                       items: const [
                         DropdownMenuItem(value: 'VFR', child: Text('VFR')),
                         DropdownMenuItem(value: 'IFR', child: Text('IFR')),
-                        DropdownMenuItem(value: 'Y', child: Text('Y - IFR/VFR')),
-                        DropdownMenuItem(value: 'Z', child: Text('Z - VFR/IFR')),
-                        DropdownMenuItem(value: 'Z2', child: Text('Z2 - VFR/IFR')),
+                        DropdownMenuItem(
+                          value: 'Y',
+                          child: Text('Y - IFR/VFR'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Z',
+                          child: Text('Z - VFR/IFR'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Z2',
+                          child: Text('Z2 - VFR/IFR'),
+                        ),
                       ],
-                      onChanged: (v) => setState(() => _flightRules = v ?? 'VFR'),
+                      onChanged: (v) =>
+                          setState(() => _flightRules = v ?? 'VFR'),
                     ),
                   ),
                 ],

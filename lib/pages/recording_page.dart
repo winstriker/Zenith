@@ -285,11 +285,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                   items: aircraftList
                       .map(
                         (aws) => DropdownMenuItem(
-                          value: aws.aircraft,
+                          value: aws,
                           child: Text(
-                            aws.aircraft.tailNumber != null
-                                ? '${aws.aircraft.type} (${aws.aircraft.tailNumber})'
-                                : aws.aircraft.type,
+                            aws.tailNumber != null
+                                ? '${aws.type} (${aws.tailNumber})'
+                                : aws.type,
                           ),
                         ),
                       )
@@ -532,8 +532,10 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                   InfoChip(
                                     label: session.departure!.ident!,
                                     icon: Icons.flight_takeoff,
-                                    backgroundColor: theme.colorScheme.tertiaryContainer,
-                                    textColor: theme.colorScheme.onTertiaryContainer,
+                                    backgroundColor:
+                                        theme.colorScheme.tertiaryContainer,
+                                    textColor:
+                                        theme.colorScheme.onTertiaryContainer,
                                   ),
                                 if (session.departure?.ident != null &&
                                     session.arrival?.ident != null)
@@ -551,8 +553,10 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                   InfoChip(
                                     label: session.arrival!.ident!,
                                     icon: Icons.flight_land,
-                                    backgroundColor: theme.colorScheme.tertiaryContainer,
-                                    textColor: theme.colorScheme.onTertiaryContainer,
+                                    backgroundColor:
+                                        theme.colorScheme.tertiaryContainer,
+                                    textColor:
+                                        theme.colorScheme.onTertiaryContainer,
                                   ),
                               ],
                             ),

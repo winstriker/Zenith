@@ -589,7 +589,7 @@ class HomePage extends ConsumerWidget {
                     );
                   }
                   final aws = displayAircraft[index];
-                  final ac = aws.aircraft;
+                  final ac = aws;
                   final hours = aws.totalFlightTime != null
                       ? '${(aws.totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h'
                       : null;
@@ -622,16 +622,14 @@ class HomePage extends ConsumerWidget {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color:
-                                        theme.colorScheme.tertiaryContainer,
+                                    color: theme.colorScheme.tertiaryContainer,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     ac.tailNumber!,
-                                    style: theme.textTheme.labelSmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -677,12 +675,9 @@ class HomePage extends ConsumerWidget {
                                 const SizedBox(width: 4),
                                 Text(
                                   hours,
-                                  style: theme.textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: theme
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                      ),
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ],
@@ -771,12 +766,9 @@ class HomePage extends ConsumerWidget {
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: theme
-                                            .colorScheme
-                                            .tertiaryContainer,
-                                        borderRadius: BorderRadius.circular(
-                                          4,
-                                        ),
+                                        color:
+                                            theme.colorScheme.tertiaryContainer,
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         airport.ident!,
@@ -801,12 +793,9 @@ class HomePage extends ConsumerWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   airport.municipality!,
-                                  style: theme.textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: theme
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                      ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ],
                             ],
