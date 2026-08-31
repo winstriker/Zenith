@@ -8,7 +8,12 @@ class FlightCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
 
-  const FlightCard({super.key, required this.flight, this.onTap, this.onLongPress});
+  const FlightCard({
+    super.key,
+    required this.flight,
+    this.onTap,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +35,9 @@ class FlightCard extends StatelessWidget {
             gradient: LinearGradient(
               colors: [
                 theme.colorScheme.surface,
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -58,7 +65,8 @@ class FlightCard extends StatelessWidget {
                 child: _buildSide(
                   theme: theme,
                   airport: flight.arrival,
-                  time: flight.flight.arrivalTime ?? flight.flight.departureTime,
+                  time:
+                      flight.flight.arrivalTime ?? flight.flight.departureTime,
                   dateFormat: dateFormat,
                   timeFormat: timeFormat,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -81,7 +89,8 @@ class FlightCard extends StatelessWidget {
     required CrossAxisAlignment crossAxisAlignment,
     required TextAlign timeAlignment,
   }) {
-    final code = airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
+    final code =
+        airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
     final name = airport?.name ?? '';
     final countryCode = airport?.isoCountry;
     final tzAbbr = _tzAbbreviation(airport?.longitudeDeg);
@@ -152,7 +161,9 @@ class FlightCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(
+                alpha: 0.7,
+              ),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -172,14 +183,12 @@ class FlightCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         children: [
-          Icon(
-            Icons.flight,
-            size: 20,
-            color: theme.colorScheme.primary,
-          ),
+          Icon(Icons.flight, size: 20, color: theme.colorScheme.primary),
           const SizedBox(height: 4),
           Text(
-            flight.duration != null ? _formatDuration(flight.duration!) : '--:--',
+            flight.duration != null
+                ? _formatDuration(flight.duration!)
+                : '--:--',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -192,14 +201,14 @@ class FlightCard extends StatelessWidget {
                 color: theme.colorScheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(6),
               ),
-            child: Text(
-              flight.aircraft!.tailNumber!,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSecondaryContainer,
-                fontWeight: FontWeight.w600,
+              child: Text(
+                flight.aircraft!.tailNumber!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -220,11 +229,31 @@ class FlightCard extends StatelessWidget {
     final offset = _utcOffsetHours(longitude);
     if (offset == null || offset == 0) return null;
     const zones = {
-      -12: 'UTC-12', -11: 'UTC-11', -10: 'HST', -9: 'AKST', -8: 'PST',
-      -7: 'MST', -6: 'CST', -5: 'EST', -4: 'AST', -3: 'BRT',
-      -2: 'UTC-2', -1: 'UTC-1', 1: 'CET', 2: 'EET', 3: 'MSK',
-      4: 'UTC+4', 5: 'UTC+5', 6: 'UTC+6', 7: 'UTC+7', 8: 'CST',
-      9: 'JST', 10: 'AEST', 11: 'UTC+11', 12: 'NZST', 13: 'UTC+13',
+      -12: 'UTC-12',
+      -11: 'UTC-11',
+      -10: 'HST',
+      -9: 'AKST',
+      -8: 'PST',
+      -7: 'MST',
+      -6: 'CST',
+      -5: 'EST',
+      -4: 'AST',
+      -3: 'BRT',
+      -2: 'UTC-2',
+      -1: 'UTC-1',
+      1: 'CET',
+      2: 'EET',
+      3: 'MSK',
+      4: 'UTC+4',
+      5: 'UTC+5',
+      6: 'UTC+6',
+      7: 'UTC+7',
+      8: 'CST',
+      9: 'JST',
+      10: 'AEST',
+      11: 'UTC+11',
+      12: 'NZST',
+      13: 'UTC+13',
       14: 'UTC+14',
     };
     return zones[offset] ?? 'UTC${offset > 0 ? '+' : ''}$offset';
