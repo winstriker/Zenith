@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import 'flight_detail_page.dart';
 
@@ -69,7 +70,6 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
   @override
   Widget build(BuildContext context) {
     final flights = _filteredFlights;
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -91,38 +91,14 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
         ],
       ),
       body: flights.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _selectedDate != null ? Icons.search_off : Icons.flight,
-                      size: 64,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      _selectedDate != null
-                          ? 'No flights on this date'
-                          : 'No flights yet',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _selectedDate != null
-                          ? 'Try selecting a different date'
-                          : 'Start recording your first flight!',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          ? EmptyState(
+              icon: _selectedDate != null ? Icons.search_off : Icons.flight,
+              title: _selectedDate != null
+                  ? 'No flights on this date'
+                  : 'No flights yet',
+              subtitle: _selectedDate != null
+                  ? 'Try selecting a different date'
+                  : 'Start recording your first flight!',
             )
           : ListView.builder(
               padding: const EdgeInsets.only(top: 8, bottom: 80),

@@ -7,6 +7,9 @@ import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import '../widgets/airport_search_dialog.dart';
 import 'aircraft_select_page.dart';
+import '../widgets/gradient_card.dart';
+import '../widgets/aircraft_display_row.dart';
+import '../widgets/section_header.dart';
 
 enum TimezoneMode { utc, local, iana }
 
@@ -469,8 +472,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'DEP',
+                  child: SectionHeader(
+                    title: 'DEP',
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -478,13 +481,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   ),
                 ),
                 Expanded(
-                  child: Text(
-                    'LDG',
+                  child: SectionHeader(
+                    title: 'LDG',
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
-                    textAlign: TextAlign.end,
                   ),
                 ),
               ],
@@ -690,8 +692,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               color: cs.onPrimaryContainer,
             ),
           ),
-          Text(
-            'BLOCK TIME',
+          SectionHeader(
+            title: 'BLOCK TIME',
             style: theme.textTheme.labelSmall?.copyWith(
               color: cs.onPrimaryContainer.withValues(alpha: 0.7),
               fontSize: 8,
@@ -729,120 +731,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   }
 
   Widget _buildAircraftCard(ThemeData theme, ColorScheme cs) {
-    return Card(
-      child: InkWell(
-        onTap: _pickAircraft,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                cs.surface,
-                cs.surfaceContainerHighest.withValues(alpha: 0.5),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: _selectedAircraft != null
-              ? _buildSelectedAircraft(theme, cs)
-              : _buildAircraftPlaceholder(theme, cs),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSelectedAircraft(ThemeData theme, ColorScheme cs) {
-    final ac = _selectedAircraft!;
-    return Row(
-      children: [
-        Container(
-          width: 100,
-          height: 70,
-          decoration: BoxDecoration(
-            color: cs.secondaryContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Icon(
-            Icons.airplanemode_active,
-            color: cs.onSecondaryContainer,
-            size: 32,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                ac.tailNumber ?? ac.type,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (ac.model != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  ac.model!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: cs.tertiaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            ac.type,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: cs.onTertiaryContainer,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-      ],
-    );
-  }
-
-  Widget _buildAircraftPlaceholder(ThemeData theme, ColorScheme cs) {
-    return Row(
-      children: [
-        Container(
-          width: 100,
-          height: 70,
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.airplanemode_active,
-            color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-            size: 32,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Text(
-            'Select Aircraft',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-      ],
+    return GradientCard(
+      onTap: _pickAircraft,
+      child: _selectedAircraft != null
+          ? AircraftDisplayRow(aircraft: _selectedAircraft, showChevron: true)
+          : const AircraftDisplayRow(aircraft: null, showChevron: true),
     );
   }
 
@@ -868,8 +761,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'APPROACH',
+                  SectionHeader(
+                    title: 'APPROACH',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -974,8 +867,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'FLIGHT RULES',
+                  SectionHeader(
+                    title: 'FLIGHT RULES',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -1017,8 +910,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               children: [
                 Icon(Icons.notes, color: cs.onSurfaceVariant, size: 20),
                 const SizedBox(width: 12),
-                Text(
-                  'REMARKS & ENDORSEMENTS',
+                SectionHeader(
+                  title: 'REMARKS & ENDORSEMENTS',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w600,

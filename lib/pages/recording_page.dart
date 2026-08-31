@@ -8,6 +8,10 @@ import '../providers/aircraft_providers.dart';
 import '../providers/unit_provider.dart';
 import '../services/database.dart';
 import '../services/location_service.dart';
+import '../widgets/pulsing_dot.dart';
+import '../widgets/info_chip.dart';
+import '../widgets/info_row.dart';
+import '../utils/duration_formatter.dart';
 
 class RecordingPage extends ConsumerStatefulWidget {
   const RecordingPage({super.key});
@@ -214,13 +218,6 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
-  }
-
-  String _formatDuration(Duration d) {
-    final hours = d.inHours.toString().padLeft(2, '0');
-    final minutes = (d.inMinutes % 60).toString().padLeft(2, '0');
-    final seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$hours:$minutes:$seconds';
   }
 
   @override
@@ -467,7 +464,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const _PulsingRecordingDot(),
+              const PulsingDot(),
               const SizedBox(width: 10),
               Text(
                 'RECORDING',
@@ -487,7 +484,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               children: [
                 const SizedBox(height: 16),
                 Text(
-                  _formatDuration(_elapsed),
+                  DurationFormatter.hms(_elapsed),
                   style: theme.textTheme.displayLarge?.copyWith(
                     fontWeight: FontWeight.w200,
                     fontFamily: 'monospace',
@@ -532,9 +529,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 if (session!.departure?.ident != null)
-                                  _RouteChip(
+                                  InfoChip(
                                     label: session.departure!.ident!,
                                     icon: Icons.flight_takeoff,
+                                    backgroundColor: theme.colorScheme.tertiaryContainer,
+                                    textColor: theme.colorScheme.onTertiaryContainer,
                                   ),
                                 if (session.departure?.ident != null &&
                                     session.arrival?.ident != null)
@@ -549,9 +548,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                     ),
                                   ),
                                 if (session.arrival?.ident != null)
-                                  _RouteChip(
+                                  InfoChip(
                                     label: session.arrival!.ident!,
                                     icon: Icons.flight_land,
+                                    backgroundColor: theme.colorScheme.tertiaryContainer,
+                                    textColor: theme.colorScheme.onTertiaryContainer,
                                   ),
                               ],
                             ),
@@ -623,155 +624,38 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               ],
             ),
             const SizedBox(height: 16),
-            _GpsRow(
+            InfoRow(
               label: 'Latitude',
               value: _latitude.toStringAsFixed(6),
-              icon: Icons.explore,
+              labelWidth: 90,
+              isMonospace: true,
             ),
-            const SizedBox(height: 12),
-            _GpsRow(
+            InfoRow(
               label: 'Longitude',
               value: _longitude.toStringAsFixed(6),
-              icon: Icons.explore,
+              labelWidth: 90,
+              isMonospace: true,
             ),
-            const SizedBox(height: 12),
-            _GpsRow(
+            InfoRow(
               label: 'Altitude',
               value: '${altValue.toStringAsFixed(1)} $altUnit',
-              icon: Icons.height,
+              labelWidth: 90,
+              isMonospace: true,
             ),
-            const SizedBox(height: 12),
-            _GpsRow(
+            InfoRow(
               label: 'Speed',
               value: '${speedValue.toStringAsFixed(1)} $speedUnit',
-              icon: Icons.speed,
+              labelWidth: 90,
+              isMonospace: true,
             ),
-            const SizedBox(height: 12),
-            _GpsRow(
+            InfoRow(
               label: 'Heading',
               value: '${_heading.toStringAsFixed(1)}\u00B0',
-              icon: Icons.navigation,
+              labelWidth: 90,
+              isMonospace: true,
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _PulsingRecordingDot extends StatefulWidget {
-  const _PulsingRecordingDot();
-
-  @override
-  State<_PulsingRecordingDot> createState() => _PulsingRecordingDotState();
-}
-
-class _PulsingRecordingDotState extends State<_PulsingRecordingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    );
-    _animation = Tween<double>(
-      begin: 1.0,
-      end: 0.3,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-    _controller.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: Container(
-        width: 12,
-        height: 12,
-        decoration: const BoxDecoration(
-          color: Colors.red,
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
-  }
-}
-
-class _GpsRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _GpsRow({required this.label, required this.value, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RouteChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-
-  const _RouteChip({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.tertiaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.onTertiaryContainer),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onTertiaryContainer,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }

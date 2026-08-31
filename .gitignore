@@ -10,6 +10,12 @@
 .history
 .svn/
 .swiftpm/
+.opencode/
+.config/
+.slim/
+linux/
+macos/
+windows/
 migrate_working_dir/
 
 # IntelliJ related

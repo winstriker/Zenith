@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../services/database.dart';
 import '../providers/unit_provider.dart';
+import '../utils/duration_formatter.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
   final FlightWithStats flight;
@@ -242,15 +243,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
       _progress = value;
       _updateCurrentPoint(value);
     });
-  }
-
-  String _formatDuration(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) return '${h}h ${m}m ${s}s';
-    if (m > 0) return '${m}m ${s}s';
-    return '${s}s';
   }
 
   String _formatAltitude(double meters, bool isMetric) {
@@ -597,7 +589,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                   ),
                   _StatTile(
                     label: 'TIME',
-                    value: _formatDuration(elapsed),
+                    value: DurationFormatter.hms(elapsed),
                     icon: Icons.timer_outlined,
                   ),
                 ],

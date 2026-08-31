@@ -5,6 +5,7 @@ import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../services/pdf_export_service.dart';
+import '../widgets/section_header.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -80,7 +81,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          const _SectionHeader(title: 'Preferences'),
+          const SectionHeader(title: 'Preferences', uppercase: true),
           Card(
             child: Column(
               children: [
@@ -191,7 +192,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
           const SizedBox(height: 8),
-          _SectionHeader(title: 'Data Management'),
+          const SectionHeader(title: 'Data Management', uppercase: true),
           Card(
             child: Column(
               children: [
@@ -214,7 +215,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
           const SizedBox(height: 8),
-          _SectionHeader(title: 'About'),
+          const SectionHeader(title: 'About', uppercase: true),
           Card(
             child: Column(
               children: [
@@ -243,27 +244,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: 80),
         ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-      child: Text(
-        title.toUpperCase(),
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
       ),
     );
   }

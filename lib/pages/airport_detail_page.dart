@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
+import '../widgets/info_row.dart';
 import 'airport_map_page.dart';
 
 class _FrequenciesSection extends ConsumerWidget {
@@ -339,7 +340,6 @@ class AirportDetailPage extends ConsumerWidget {
     Region? region,
   ) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -351,43 +351,42 @@ class AirportDetailPage extends ConsumerWidget {
             Text('Information', style: theme.textTheme.titleMedium),
             const SizedBox(height: 16),
             if (airport.ident != null)
-              _infoRow(theme, cs, 'Ident', airport.ident!),
+              InfoRow(label: 'Ident', value: airport.ident!, labelWidth: 120),
             if (airport.icaoCode != null)
-              _infoRow(theme, cs, 'ICAO', airport.icaoCode!),
+              InfoRow(label: 'ICAO', value: airport.icaoCode!, labelWidth: 120),
             if (airport.iataCode != null)
-              _infoRow(theme, cs, 'IATA', airport.iataCode!),
+              InfoRow(label: 'IATA', value: airport.iataCode!, labelWidth: 120),
             if (airport.municipality != null)
-              _infoRow(theme, cs, 'Municipality', airport.municipality!),
-            if (country != null) _infoRow(theme, cs, 'Country', country.name),
-            if (region != null) _infoRow(theme, cs, 'Region', region.name),
-            _infoRow(theme, cs, 'Continent', airport.continent),
+              InfoRow(label: 'Municipality', value: airport.municipality!, labelWidth: 120),
+            if (country != null)
+              InfoRow(label: 'Country', value: country.name, labelWidth: 120),
+            if (region != null)
+              InfoRow(label: 'Region', value: region.name, labelWidth: 120),
+            InfoRow(label: 'Continent', value: airport.continent, labelWidth: 120),
             if (airport.latitudeDeg != null)
-              _infoRow(
-                theme,
-                cs,
-                'Latitude',
-                airport.latitudeDeg!.toStringAsFixed(6),
+              InfoRow(
+                label: 'Latitude',
+                value: airport.latitudeDeg!.toStringAsFixed(6),
+                labelWidth: 120,
               ),
             if (airport.longitudeDeg != null)
-              _infoRow(
-                theme,
-                cs,
-                'Longitude',
-                airport.longitudeDeg!.toStringAsFixed(6),
+              InfoRow(
+                label: 'Longitude',
+                value: airport.longitudeDeg!.toStringAsFixed(6),
+                labelWidth: 120,
               ),
             if (airport.elevationFt != null)
-              _infoRow(
-                theme,
-                cs,
-                'Elevation',
-                '${airport.elevationFt!.toStringAsFixed(0)} ft',
+              InfoRow(
+                label: 'Elevation',
+                value: '${airport.elevationFt!.toStringAsFixed(0)} ft',
+                labelWidth: 120,
               ),
             if (airport.gpsCode != null)
-              _infoRow(theme, cs, 'GPS Code', airport.gpsCode!),
+              InfoRow(label: 'GPS Code', value: airport.gpsCode!, labelWidth: 120),
             if (airport.localCode != null)
-              _infoRow(theme, cs, 'Local Code', airport.localCode!),
+              InfoRow(label: 'Local Code', value: airport.localCode!, labelWidth: 120),
             if (airport.homeLink != null)
-              _infoRow(theme, cs, 'Website', airport.homeLink!),
+              InfoRow(label: 'Website', value: airport.homeLink!, labelWidth: 120),
           ],
         ),
       ),
@@ -432,27 +431,6 @@ class AirportDetailPage extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _infoRow(ThemeData theme, ColorScheme cs, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
-        ],
       ),
     );
   }

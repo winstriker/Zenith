@@ -11,6 +11,9 @@ import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import 'aircraft_detail_page.dart';
 import 'replay_page.dart';
+import '../widgets/info_row.dart';
+import '../widgets/section_header.dart';
+import '../widgets/gradient_card.dart';
 
 class FlightDetailPage extends ConsumerStatefulWidget {
   final FlightWithStats flight;
@@ -310,138 +313,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     });
   }
 
-  // ---------------------------------------------------------------------------
-  // 2. Flight Card (local build, no tail number badge, no horizontal margin)
-  // ---------------------------------------------------------------------------
-  Widget _buildFlightCard(BuildContext context, FlightWithStats flight) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final dateFormat = DateFormat('dd MMM yyyy');
-    final timeFormat = DateFormat('HH:mm');
 
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              cs.surface,
-              cs.surfaceContainerHighest.withValues(alpha: 0.5),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildFlightSide(
-                theme: theme,
-                airport: flight.departure,
-                time: flight.flight.departureTime,
-                dateFormat: dateFormat,
-                timeFormat: timeFormat,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                timeAlignment: TextAlign.left,
-              ),
-            ),
-            const SizedBox(width: 12),
-            _buildFlightCenter(theme, flight),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildFlightSide(
-                theme: theme,
-                airport: flight.arrival,
-                time: flight.flight.arrivalTime ?? flight.flight.departureTime,
-                dateFormat: dateFormat,
-                timeFormat: timeFormat,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                timeAlignment: TextAlign.right,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFlightSide({
-    required ThemeData theme,
-    required Airport? airport,
-    required DateTime time,
-    required DateFormat dateFormat,
-    required DateFormat timeFormat,
-    required CrossAxisAlignment crossAxisAlignment,
-    required TextAlign timeAlignment,
-  }) {
-    final code =
-        airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
-    final name = airport?.name ?? '';
-
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
-      children: [
-        Text(
-          dateFormat.format(time),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          code,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (name.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            name,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-        const SizedBox(height: 4),
-        Text(
-          timeFormat.format(time),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          textAlign: timeAlignment,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFlightCenter(ThemeData theme, FlightWithStats flight) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        children: [
-          Icon(Icons.flight, size: 20, color: theme.colorScheme.primary),
-          const SizedBox(height: 4),
-          Text(
-            flight.duration != null
-                ? _formatDuration(flight.duration!)
-                : '--:--',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // 3. Aircraft Card (display-only, form page style)
@@ -460,141 +332,107 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         : null;
 
     if (aircraft != null && aws != null) {
-      return Card(
-        child: InkWell(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AircraftDetailPage(aircraft: aws),
-            ),
+      return GradientCard(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AircraftDetailPage(aircraft: aws),
           ),
-          borderRadius: BorderRadius.circular(16),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: LinearGradient(
-                colors: [
-                  cs.surface,
-                  cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 100,
+              height: 70,
+              decoration: BoxDecoration(
+                color: cs.secondaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Icon(
+                Icons.airplanemode_active,
+                color: cs.onSecondaryContainer,
+                size: 32,
               ),
             ),
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 100,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: cs.secondaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Icon(
-                    Icons.airplanemode_active,
-                    color: cs.onSecondaryContainer,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        aircraft.type,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (aircraft.model != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          aircraft.model!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (aircraft.tailNumber != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    aircraft.type,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                    decoration: BoxDecoration(
-                      color: cs.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      aircraft.tailNumber!,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onTertiaryContainer,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
+                  ),
+                  if (aircraft.model != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      aircraft.model!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-              ],
+                  ],
+                ],
+              ),
             ),
-          ),
+            if (aircraft.tailNumber != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: cs.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  aircraft.tailNumber!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onTertiaryContainer,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+          ],
         ),
       );
     }
 
     // No aircraft assigned
-    return Card(
-      child: InkWell(
-        onTap: () => _showAircraftPicker(flight, aircraftList),
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                cs.surface,
-                cs.surfaceContainerHighest.withValues(alpha: 0.5),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return GradientCard(
+      onTap: () => _showAircraftPicker(flight, aircraftList),
+      child: Row(
+        children: [
+          Container(
+            width: 100,
+            height: 70,
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.airplanemode_active,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              size: 32,
             ),
           ),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 100,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.airplanemode_active,
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  size: 32,
-                ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Select Aircraft',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  'Select Aircraft',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
-            ],
+            ),
           ),
-        ),
+          Icon(Icons.chevron_right, size: 20, color: cs.onSurfaceVariant),
+        ],
       ),
     );
   }
@@ -620,8 +458,8 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'APPROACH',
+                  SectionHeader(
+                    title: 'APPROACH',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -701,8 +539,8 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'FLIGHT RULES',
+                  SectionHeader(
+                    title: 'FLIGHT RULES',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
@@ -742,8 +580,8 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
               children: [
                 Icon(Icons.notes, color: cs.onSurfaceVariant, size: 20),
                 const SizedBox(width: 12),
-                Text(
-                  'REMARKS & ENDORSEMENTS',
+                SectionHeader(
+                  title: 'REMARKS & ENDORSEMENTS',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -829,8 +667,8 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'ALTITUDE PROFILE',
+                SectionHeader(
+                  title: 'ALTITUDE PROFILE',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -951,8 +789,8 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'FLIGHT DETAILS',
+                SectionHeader(
+                  title: 'FLIGHT DETAILS',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -961,61 +799,37 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
               ],
             ),
             const SizedBox(height: 16),
-            _detailRow(
-              theme,
-              cs,
-              'Start',
-              DateFormat(
+            InfoRow(
+              label: 'Start',
+              value: DateFormat(
                 'MMM d, y \u2013 HH:mm',
               ).format(flight.flight.departureTime),
+              labelWidth: 100,
             ),
             if (flight.flight.arrivalTime != null)
-              _detailRow(
-                theme,
-                cs,
-                'End',
-                DateFormat(
+              InfoRow(
+                label: 'End',
+                value: DateFormat(
                   'MMM d, y \u2013 HH:mm',
                 ).format(flight.flight.arrivalTime!),
+                labelWidth: 100,
               ),
-            _detailRow(
-              theme,
-              cs,
-              'Status',
-              flight.flight.isRecording ? 'In Progress' : 'Recorded',
+            InfoRow(
+              label: 'Status',
+              value: flight.flight.isRecording ? 'In Progress' : 'Recorded',
+              labelWidth: 100,
             ),
-            _detailRow(theme, cs, 'Data Points', '${flight.dataPoints.length}'),
+            InfoRow(
+              label: 'Data Points',
+              value: '${flight.dataPoints.length}',
+              labelWidth: 100,
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _detailRow(
-    ThemeData theme,
-    ColorScheme cs,
-    String label,
-    String value,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
-        ],
-      ),
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // 7. Conditional: View Replay Button
@@ -1243,17 +1057,6 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     ref.read(flightListProvider.notifier).refresh();
   }
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    }
-    return '${minutes}m';
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
 import '../widgets/airport_card.dart';
+import '../widgets/empty_state.dart';
 import 'airport_detail_page.dart';
 
 class AirportsPage extends ConsumerStatefulWidget {
@@ -55,7 +56,6 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   Widget build(BuildContext context) {
     ref.watch(airportLoadProvider);
     final service = ref.read(airportServiceProvider);
-    final theme = Theme.of(context);
 
     final isFiltering =
         _searchQuery.isNotEmpty ||
@@ -148,40 +148,14 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               if (_showFilters) _buildFilters(context, service),
               Expanded(
                 child: snapshot.data == null || snapshot.data!.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                isFiltering ? Icons.search_off : Icons.flight,
-                                size: 64,
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                isFiltering
-                                    ? 'No airports match your filters'
-                                    : 'No airports found',
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                isFiltering
-                                    ? 'Try adjusting your search or filters'
-                                    : 'Data may still be loading',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    ? EmptyState(
+                        icon: isFiltering ? Icons.search_off : Icons.flight,
+                        title: isFiltering
+                            ? 'No airports match your filters'
+                            : 'No airports found',
+                        subtitle: isFiltering
+                            ? 'Try adjusting your search or filters'
+                            : 'Data may still be loading',
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.only(top: 8, bottom: 80),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logbook/main.dart';
 import '../services/database.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/info_chip.dart';
 import 'aircraft_form_page.dart';
 import 'flight_detail_page.dart';
 
@@ -176,18 +177,18 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _StatChip(
+                      InfoChip(
                         icon: Icons.flight,
                         label: '${_aircraft.flightCount} flights',
-                        color: cs.primaryContainer,
+                        backgroundColor: cs.primaryContainer,
                         textColor: cs.onPrimaryContainer,
                       ),
                       if (hours != null) ...[
                         const SizedBox(width: 12),
-                        _StatChip(
+                        InfoChip(
                           icon: Icons.schedule,
                           label: hours,
-                          color: cs.tertiaryContainer,
+                          backgroundColor: cs.tertiaryContainer,
                           textColor: cs.onTertiaryContainer,
                         ),
                       ],
@@ -283,45 +284,6 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
                 childCount: _flights.length + (_isLoading ? 1 : 0),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final Color textColor;
-
-  const _StatChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.textColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: textColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
     );

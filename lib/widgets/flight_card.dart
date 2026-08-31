@@ -2,6 +2,8 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/database.dart';
+import '../utils/duration_formatter.dart';
+import 'gradient_card.dart';
 
 class FlightCard extends StatelessWidget {
   final FlightWithStats flight;
@@ -21,60 +23,41 @@ class FlightCard extends StatelessWidget {
     final dateFormat = DateFormat('dd MMM yyyy');
     final timeFormat = DateFormat('HH:mm');
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: GradientCard(
         onTap: onTap,
         onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.surface,
-                theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildSide(
+                theme: theme,
+                airport: flight.departure,
+                time: flight.flight.departureTime,
+                dateFormat: dateFormat,
+                timeFormat: timeFormat,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                timeAlignment: TextAlign.left,
+              ),
             ),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildSide(
-                  theme: theme,
-                  airport: flight.departure,
-                  time: flight.flight.departureTime,
-                  dateFormat: dateFormat,
-                  timeFormat: timeFormat,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  timeAlignment: TextAlign.left,
-                ),
+            const SizedBox(width: 12),
+            _buildCenterSection(theme),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSide(
+                theme: theme,
+                airport: flight.arrival,
+                time:
+                    flight.flight.arrivalTime ?? flight.flight.departureTime,
+                dateFormat: dateFormat,
+                timeFormat: timeFormat,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                timeAlignment: TextAlign.right,
               ),
-              const SizedBox(width: 12),
-              _buildCenterSection(theme),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildSide(
-                  theme: theme,
-                  airport: flight.arrival,
-                  time:
-                      flight.flight.arrivalTime ?? flight.flight.departureTime,
-                  dateFormat: dateFormat,
-                  timeFormat: timeFormat,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  timeAlignment: TextAlign.right,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -187,7 +170,7 @@ class FlightCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             flight.duration != null
-                ? _formatDuration(flight.duration!)
+                ? DurationFormatter.compact(flight.duration!)
                 : '--:--',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
@@ -212,12 +195,6 @@ class FlightCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    return '$h:${m.toString().padLeft(2, '0')}';
   }
 
   static int? _utcOffsetHours(double? longitude) {

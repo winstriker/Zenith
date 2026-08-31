@@ -12,6 +12,9 @@ import 'flights_page.dart';
 import 'aircrafts_page.dart';
 import 'aircraft_detail_page.dart';
 import 'aircraft_form_page.dart';
+import '../widgets/pulsing_dot.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/gradient_card.dart';
 
 final _recentAirportsProvider = FutureProvider<List<Airport>>((ref) {
   final db = ref.read(databaseProvider);
@@ -220,7 +223,7 @@ class HomePage extends ConsumerWidget {
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
-                    child: const _PulsingDot(),
+                    child: const PulsingDot(),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -431,30 +434,13 @@ class HomePage extends ConsumerWidget {
   }
 
   Widget _buildEmptyFlights(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      child: Column(
-        children: [
-          Icon(
-            Icons.flight,
-            size: 48,
-            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'No flights yet',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Start recording your first flight!',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      child: EmptyState(
+        icon: Icons.flight,
+        title: 'No flights yet',
+        subtitle: 'Start recording your first flight!',
+        iconSize: 48,
       ),
     );
   }
@@ -609,119 +595,99 @@ class HomePage extends ConsumerWidget {
                       : null;
                   return SizedBox(
                     width: 160,
-                    child: Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AircraftDetailPage(aircraft: aws),
-                          ),
+                    child: GradientCard(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AircraftDetailPage(aircraft: aws),
                         ),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: LinearGradient(
-                              colors: [
-                                theme.colorScheme.surface,
-                                theme.colorScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.5),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      borderRadius: 14,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.airplanemode_active,
-                                    size: 18,
-                                    color: theme.colorScheme.secondary,
-                                  ),
-                                  const Spacer(),
-                                  if (ac.tailNumber != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            theme.colorScheme.tertiaryContainer,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        ac.tailNumber!,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ),
-                                ],
+                              Icon(
+                                Icons.airplanemode_active,
+                                size: 18,
+                                color: theme.colorScheme.secondary,
                               ),
                               const Spacer(),
-                              Text(
-                                ac.type,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              if (ac.tailNumber != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        theme.colorScheme.tertiaryContainer,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    ac.tailNumber!,
+                                    style: theme.textTheme.labelSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
                                 ),
-                              ),
-                              if (ac.model != null)
-                                Text(
-                                  ac.model!,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.flight,
-                                    size: 12,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${aws.flightCount} flights',
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  if (hours != null) ...[
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.schedule,
-                                      size: 12,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      hours,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ],
-                                ],
-                              ),
                             ],
                           ),
-                        ),
+                          const Spacer(),
+                          Text(
+                            ac.type,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (ac.model != null)
+                            Text(
+                              ac.model!,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.flight,
+                                size: 12,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${aws.flightCount} flights',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              if (hours != null) ...[
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.schedule,
+                                  size: 12,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  hours,
+                                  style: theme.textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -783,87 +749,67 @@ class HomePage extends ConsumerWidget {
                       final airport = displayAirports[index];
                       return SizedBox(
                         width: 180,
-                        child: Card(
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: InkWell(
-                            onTap: () {},
-                            borderRadius: BorderRadius.circular(14),
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    theme.colorScheme.surface,
-                                    theme.colorScheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.5),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        child: GradientCard(
+                          onTap: () {},
+                          padding: const EdgeInsets.all(14),
+                          borderRadius: 14,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.local_airport,
-                                        size: 18,
-                                        color: theme.colorScheme.secondary,
-                                      ),
-                                      const Spacer(),
-                                      if (airport.ident != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: theme
-                                                .colorScheme
-                                                .tertiaryContainer,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            airport.ident!,
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ),
-                                    ],
+                                  Icon(
+                                    Icons.local_airport,
+                                    size: 18,
+                                    color: theme.colorScheme.secondary,
                                   ),
                                   const Spacer(),
-                                  Text(
-                                    airport.name ?? '',
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                  if (airport.ident != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: theme
+                                            .colorScheme
+                                            .tertiaryContainer,
+                                        borderRadius: BorderRadius.circular(
+                                          4,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        airport.ident!,
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
                                     ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (airport.municipality != null) ...[
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      airport.municipality!,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ],
                                 ],
                               ),
-                            ),
+                              const Spacer(),
+                              Text(
+                                airport.name ?? '',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (airport.municipality != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  airport.municipality!,
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       );
@@ -877,53 +823,6 @@ class HomePage extends ConsumerWidget {
       },
       loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
       error: (_, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-    );
-  }
-}
-
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot();
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    );
-    _animation = Tween<double>(
-      begin: 1.0,
-      end: 0.3,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-    _controller.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: Container(
-        width: 12,
-        height: 12,
-        decoration: const BoxDecoration(
-          color: Colors.red,
-          shape: BoxShape.circle,
-        ),
-      ),
     );
   }
 }
