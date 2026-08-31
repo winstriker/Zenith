@@ -19,7 +19,8 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final effectiveStyle = style ??
+    final effectiveStyle =
+        style ??
         theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
@@ -27,7 +28,11 @@ class SectionHeader extends StatelessWidget {
 
     final displayTitle = uppercase ? title.toUpperCase() : title;
 
-    final text = Text(displayTitle, style: effectiveStyle);
+    final text = Text(
+      displayTitle,
+      style: effectiveStyle,
+      textAlign: TextAlign.center,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),

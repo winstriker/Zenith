@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logbook/services/database.dart';
+import '../core/spacing.dart';
 import 'gradient_card.dart';
 import 'info_chip.dart';
 
@@ -21,8 +22,8 @@ class AirportCard extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: GradientCard(
+      padding: AppSpacing.cardPadding,
+      child: BaseCard(
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -135,7 +135,7 @@ class HomePage extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
+                padding: const EdgeInsets.fromLTRB(16, 60, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -203,7 +203,7 @@ class HomePage extends ConsumerWidget {
     bool isRecording,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: isRecording
           ? Container(
               padding: const EdgeInsets.all(16),
@@ -329,7 +329,7 @@ class HomePage extends ConsumerWidget {
     int aircraftCount,
   ) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Row(
         children: [
           _statCard(
@@ -413,7 +413,7 @@ class HomePage extends ConsumerWidget {
   ) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
         child: Row(
           children: [
             Icon(icon, size: 20, color: theme.colorScheme.primary),
@@ -435,7 +435,7 @@ class HomePage extends ConsumerWidget {
 
   Widget _buildEmptyFlights(ThemeData theme) {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 40),
       child: EmptyState(
         icon: Icons.flight,
         title: 'No flights yet',
@@ -453,7 +453,7 @@ class HomePage extends ConsumerWidget {
     if (aircraftList.isEmpty) {
       return SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -503,7 +503,7 @@ class HomePage extends ConsumerWidget {
     final displayAircraft = aircraftList.take(5).toList();
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -595,7 +595,7 @@ class HomePage extends ConsumerWidget {
                       : null;
                   return SizedBox(
                     width: 160,
-                    child: GradientCard(
+                    child: BaseCard(
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -710,7 +710,7 @@ class HomePage extends ConsumerWidget {
         final displayAirports = airports.take(5).toList();
         return SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -744,7 +744,7 @@ class HomePage extends ConsumerWidget {
                       final airport = displayAirports[index];
                       return SizedBox(
                         width: 180,
-                        child: GradientCard(
+                        child: BaseCard(
                           onTap: () {},
                           padding: const EdgeInsets.all(14),
                           borderRadius: 14,

@@ -259,7 +259,7 @@ class AirportDetailPage extends ConsumerWidget {
     final cs = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [cs.primary, cs.tertiary],

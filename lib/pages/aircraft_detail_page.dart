@@ -116,7 +116,7 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
         slivers: [
           SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -227,7 +227,7 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
           ),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
               child: Text(
                 'Flights',
                 style: theme.textTheme.titleLarge?.copyWith(

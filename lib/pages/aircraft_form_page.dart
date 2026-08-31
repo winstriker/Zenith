@@ -50,7 +50,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
         padding: EdgeInsets.zero,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -103,7 +103,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
             child: Form(
               key: _formKey,
               child: Column(

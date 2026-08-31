@@ -44,7 +44,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         children: [
           _buildMapCard(context, flight),
           const SizedBox(height: 12),
-          FlightCard(flight: flight),
+          FlightCard(flight: flight, useOuterPadding: false),
           const SizedBox(height: 12),
           _buildAircraftCard(context, ref, flight),
           const SizedBox(height: 12),
@@ -81,6 +81,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
 
     if (depLat == null || depLon == null) {
       return Card(
+        margin: EdgeInsets.all(0),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: SizedBox(
@@ -112,6 +113,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final hasData = points.isNotEmpty;
 
     return Card(
+      margin: EdgeInsets.all(0),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
@@ -330,7 +332,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         : null;
 
     if (aircraft != null && aws != null) {
-      return GradientCard(
+      return BaseCard(
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => AircraftDetailPage(aircraft: aws)),
@@ -401,7 +403,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     }
 
     // No aircraft assigned
-    return GradientCard(
+    return BaseCard(
       onTap: () => _showAircraftPicker(flight, aircraftList),
       child: Row(
         children: [
@@ -444,6 +446,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final dayLandings = flight.flight.dayLandings ?? 1;
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -525,6 +528,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final flightRules = flight.flight.flightRules ?? 'VFR';
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -567,6 +571,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final remarks = flight.flight.remarks;
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

@@ -1,6 +1,7 @@
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import 'gradient_card.dart';
@@ -9,12 +10,14 @@ class FlightCard extends StatelessWidget {
   final FlightWithStats flight;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final bool useOuterPadding;
 
   const FlightCard({
     super.key,
     required this.flight,
     this.onTap,
     this.onLongPress,
+    this.useOuterPadding = true,
   });
 
   @override
@@ -23,44 +26,43 @@ class FlightCard extends StatelessWidget {
     final dateFormat = DateFormat('dd MMM yyyy');
     final timeFormat = DateFormat('HH:mm');
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: GradientCard(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _buildSide(
-                theme: theme,
-                airport: flight.departure,
-                time: flight.flight.departureTime,
-                dateFormat: dateFormat,
-                timeFormat: timeFormat,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                timeAlignment: TextAlign.left,
-              ),
+    final card = BaseCard(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _buildSide(
+              theme: theme,
+              airport: flight.departure,
+              time: flight.flight.departureTime,
+              dateFormat: dateFormat,
+              timeFormat: timeFormat,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              timeAlignment: TextAlign.left,
             ),
-            const SizedBox(width: 12),
-            _buildCenterSection(theme),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildSide(
-                theme: theme,
-                airport: flight.arrival,
-                time:
-                    flight.flight.arrivalTime ?? flight.flight.departureTime,
-                dateFormat: dateFormat,
-                timeFormat: timeFormat,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                timeAlignment: TextAlign.right,
-              ),
+          ),
+          const SizedBox(width: 12),
+          _buildCenterSection(theme),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildSide(
+              theme: theme,
+              airport: flight.arrival,
+              time: flight.flight.arrivalTime ?? flight.flight.departureTime,
+              dateFormat: dateFormat,
+              timeFormat: timeFormat,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              timeAlignment: TextAlign.right,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    if (!useOuterPadding) return card;
+    return Padding(padding: AppSpacing.cardPadding, child: card);
   }
 
   Widget _buildSide({

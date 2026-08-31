@@ -263,7 +263,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Text(
                   'Select Timezone',
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -370,7 +370,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 return Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text(
                         'World Timezones',
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -379,7 +379,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: TextField(
                         controller: controller,
                         autofocus: true,
@@ -520,6 +520,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
   Widget _buildFlightDetailsCard(ThemeData theme, ColorScheme cs) {
     return Card(
+      margin: EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -842,7 +843,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   }
 
   Widget _buildAircraftCard(ThemeData theme, ColorScheme cs) {
-    return AircraftCard(aircraft: _selectedAircraft, onTap: _pickAircraft);
+    return AircraftCard(
+      aircraft: _selectedAircraft,
+      onTap: _pickAircraft,
+      useOuterPadding: false,
+    );
   }
 
   Future<void> _pickAircraft() async {
@@ -857,6 +862,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
   Widget _buildLandingsCard(ThemeData theme, ColorScheme cs) {
     return Card(
+      margin: EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -975,6 +981,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
   Widget _buildFlightRulesCard(ThemeData theme, ColorScheme cs) {
     return Card(
+      margin: EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Row(
@@ -1029,6 +1036,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
   Widget _buildRemarksCard(ThemeData theme, ColorScheme cs) {
     return Card(
+      margin: EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1048,26 +1056,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               ],
             ),
             const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: TextField(
-                controller: _remarksController,
-                maxLines: 3,
-                style: theme.textTheme.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: 'Add notes, endorsements, or remarks...',
-                  hintStyle: TextStyle(
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
+            TextFormField(
+              controller: _remarksController,
+              maxLines: 3,
+              style: theme.textTheme.bodyMedium,
+              decoration: const InputDecoration(
+                hintText: 'Add notes, endorsements, or remarks...',
               ),
             ),
           ],

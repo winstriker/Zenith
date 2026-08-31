@@ -237,7 +237,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     final aircraftList = ref.watch(aircraftListProvider);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -479,7 +479,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 const SizedBox(height: 16),
@@ -572,7 +572,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
         ),
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: FilledButton.icon(
               onPressed: _stopRecording,
               icon: const Icon(Icons.stop, size: 22),
