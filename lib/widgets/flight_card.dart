@@ -55,6 +55,7 @@ class FlightCard extends StatelessWidget {
               timeFormat: timeFormat,
               crossAxisAlignment: CrossAxisAlignment.end,
               timeAlignment: TextAlign.right,
+              right: true,
             ),
           ),
         ],
@@ -73,6 +74,7 @@ class FlightCard extends StatelessWidget {
     required DateFormat timeFormat,
     required CrossAxisAlignment crossAxisAlignment,
     required TextAlign timeAlignment,
+    bool right = false,
   }) {
     final code =
         airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
@@ -100,7 +102,19 @@ class FlightCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (right) ...[
+              Flexible(
+                child: Text(
+                  code,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
             if (countryCode != null && countryCode.length == 2) ...[
+              if (right) ...[const SizedBox(width: 6)],
               SizedBox(
                 width: 26,
                 height: 18,
@@ -109,24 +123,26 @@ class FlightCard extends StatelessWidget {
                   theme: const ImageTheme(shape: RoundedRectangle(3)),
                 ),
               ),
-              const SizedBox(width: 6),
+              if (!right) ...[const SizedBox(width: 6)],
             ],
-            Flexible(
-              child: Text(
-                code,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+            if (!right) ...[
+              Flexible(
+                child: Text(
+                  code,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
+            ],
           ],
         ),
         if (name.isNotEmpty) ...[
           const SizedBox(height: 2),
           Text(
             name,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
             maxLines: 1,
