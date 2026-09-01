@@ -38,29 +38,41 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final flight = liveFlight ?? _flight;
 
     return Scaffold(
-      appBar: AppBar(title: Text(flight.flight.title)),
+      //appBar: AppBar(title: Text(flight.flight.title)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(0),
         children: [
-          _buildMapCard(context, flight),
-          const SizedBox(height: 12),
-          FlightCard(flight: flight, useOuterPadding: false),
-          const SizedBox(height: 12),
-          _buildAircraftCard(context, ref, flight),
-          const SizedBox(height: 12),
-          _buildApproachCard(context, flight),
-          const SizedBox(height: 12),
-          _buildFlightRulesCard(context, flight),
-          const SizedBox(height: 12),
-          _buildRemarksCard(context, flight),
-          if (flight.dataPoints.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _buildAltitudeChart(context, ref, flight),
-            const SizedBox(height: 12),
-            _buildDetailsSection(context, flight),
-            const SizedBox(height: 12),
-            _buildReplayButton(context, flight),
-          ],
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _buildMapCard(context, flight),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 270),
+                    FlightCard(flight: flight, useOuterPadding: false),
+                    const SizedBox(height: 12),
+                    _buildAircraftCard(context, ref, flight),
+                    const SizedBox(height: 12),
+                    _buildApproachCard(context, flight),
+                    const SizedBox(height: 12),
+                    _buildFlightRulesCard(context, flight),
+                    const SizedBox(height: 12),
+                    _buildRemarksCard(context, flight),
+                    if (flight.dataPoints.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _buildAltitudeChart(context, ref, flight),
+                      const SizedBox(height: 12),
+                      _buildDetailsSection(context, flight),
+                      const SizedBox(height: 12),
+                      _buildReplayButton(context, flight),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 32),
         ],
       ),
@@ -85,7 +97,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: SizedBox(
-          height: 200,
+          height: 350,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -117,7 +129,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
-        height: 200,
+        height: 350,
         child: FlutterMap(
           mapController: _mapController,
           options: MapOptions(
@@ -134,7 +146,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.logbook.app',
+              userAgentPackageName: 'com.zenith.app',
             ),
             // Route polyline
             if (hasData && points.length >= 2)
