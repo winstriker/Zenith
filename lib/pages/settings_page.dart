@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
+import '../providers/carto_provider.dart';
 import '../services/pdf_export_service.dart';
 import '../widgets/section_header.dart';
 
@@ -70,11 +71,50 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  void _editApiKey(String? currentKey) {
+    final controller = TextEditingController(text: currentKey ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('CARTO API Key'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'Paste your API key',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          if (currentKey != null)
+            TextButton(
+              onPressed: () {
+                ref.read(cartoApiKeyProvider.notifier).clearKey();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Remove'),
+            ),
+          FilledButton(
+            onPressed: () {
+              ref.read(cartoApiKeyProvider.notifier).setKey(controller.text);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
     final unitMode = ref.watch(unitProvider);
+    final cartoKey = ref.watch(cartoApiKeyProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings'), centerTitle: true),
@@ -184,6 +224,52 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                 .setUnit(newSelection.first);
                           },
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, indent: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.map,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Map API Key',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              cartoKey != null
+                                  ? '${cartoKey.substring(0, cartoKey.length > 8 ? 8 : cartoKey.length)}...'
+                                  : 'Not set',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: cartoKey != null
+                                    ? theme.colorScheme.onSurfaceVariant
+                                    : theme.colorScheme.error,
+                              ),
+                            ),
+                          ),
+                          FilledButton.tonal(
+                            onPressed: () => _editApiKey(cartoKey),
+                            child: Text(cartoKey != null ? 'Change' : 'Add'),
+                          ),
+                        ],
                       ),
                     ],
                   ),

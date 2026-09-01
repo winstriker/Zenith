@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
+import '../providers/carto_provider.dart';
 import 'airport_detail_page.dart';
 
 class AirportMapPage extends ConsumerStatefulWidget {
@@ -97,6 +99,7 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final cartoStyle = ref.watch(cartoStyleProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -125,81 +128,96 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
             ),
         ],
       ),
-      body: FlutterMap(
-        mapController: _mapController,
-        options: MapOptions(
-          initialCenter: LatLng(widget.latitude, widget.longitude),
-          initialZoom: 11.0,
-          onMapEvent: (MapEvent event) {
-            if (event is MapEventMoveEnd ||
-                event is MapEventFlingAnimationEnd) {
-              _refreshAirports();
-            }
-          },
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.logbook.app',
+      body: cartoStyle.when(
+        data: (style) => FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: LatLng(widget.latitude, widget.longitude),
+            initialZoom: 11.0,
+            onMapEvent: (MapEvent event) {
+              if (event is MapEventMoveEnd ||
+                  event is MapEventFlingAnimationEnd) {
+                _refreshAirports();
+              }
+            },
           ),
-          MarkerLayer(
-            markers: _airports.map((airport) {
-              final isCenter =
-                  airport.latitudeDeg == widget.latitude &&
-                  airport.longitudeDeg == widget.longitude;
-              return Marker(
-                point: LatLng(airport.latitudeDeg!, airport.longitudeDeg!),
-                width: 140,
-                height: 48,
-                alignment: Alignment.topCenter,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            AirportDetailPage(airportId: airport.id),
-                      ),
-                    );
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+          children: [
+            VectorTileLayer(
+              tileProviders: style!.providers,
+              theme: style.theme,
+              tileOffset: TileOffset.DEFAULT,
+              concurrency: 4,
+              fileCacheTtl: const Duration(days: 30),
+              fileCacheMaximumSizeInBytes: 50 * 1024 * 1024,
+            ),
+            MarkerLayer(
+              markers: _airports.map((airport) {
+                final isCenter =
+                    airport.latitudeDeg == widget.latitude &&
+                    airport.longitudeDeg == widget.longitude;
+                return Marker(
+                  point: LatLng(airport.latitudeDeg!, airport.longitudeDeg!),
+                  width: 140,
+                  height: 48,
+                  alignment: Alignment.topCenter,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AirportDetailPage(airportId: airport.id),
                         ),
-                        decoration: BoxDecoration(
-                          color: isCenter ? cs.primary : cs.primaryContainer,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: isCenter ? cs.onPrimary : cs.primary,
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isCenter ? cs.primary : cs.primaryContainer,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: isCenter ? cs.onPrimary : cs.primary,
+                            ),
+                          ),
+                          child: Text(
+                            airport.ident ?? airport.name ?? '',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: isCenter
+                                  ? cs.onPrimary
+                                  : cs.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          airport.ident ?? airport.name ?? '',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: isCenter
-                                ? cs.onPrimary
-                                : cs.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
-                          ),
+                        Icon(
+                          isCenter ? Icons.flight : Icons.location_on,
+                          color: cs.primary,
+                          size: 24,
                         ),
-                      ),
-                      Icon(
-                        isCenter ? Icons.flight : Icons.location_on,
-                        color: cs.primary,
-                        size: 24,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Text(
+            'Failed to load map style',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
-        ],
+        ),
       ),
     );
   }

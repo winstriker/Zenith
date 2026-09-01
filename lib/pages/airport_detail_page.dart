@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
+import '../providers/carto_provider.dart';
 import '../widgets/info_row.dart';
 import 'airport_map_page.dart';
 
@@ -220,6 +222,7 @@ class AirportDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final service = ref.read(airportServiceProvider);
     final airport = service.getCompleteAirportData(airportId);
+    final cartoStyle = ref.watch(cartoStyleProvider);
     return Scaffold(
       appBar: AppBar(title: Text('Airport Details')),
       body: FutureBuilder(
@@ -243,7 +246,7 @@ class AirportDetailPage extends ConsumerWidget {
                 snapshot.data!.country,
                 snapshot.data!.region,
               ),
-              _buildMapSection(context, snapshot.data!.airport),
+              _buildMapSection(context, snapshot.data!.airport, cartoStyle),
               _FrequenciesSection(frequencies: snapshot.data!.frequencies),
               _RunwaysSection(runways: snapshot.data!.runways),
               const SizedBox(height: 32),
@@ -393,7 +396,11 @@ class AirportDetailPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildMapSection(BuildContext context, Airport airport) {
+  Widget _buildMapSection(
+    BuildContext context,
+    Airport airport,
+    AsyncValue<Style?> cartoStyle,
+  ) {
     final lat = airport.latitudeDeg;
     final lng = airport.longitudeDeg;
     if (lat == null || lng == null) return const SizedBox.shrink();
@@ -403,33 +410,40 @@ class AirportDetailPage extends ConsumerWidget {
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         height: 200,
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: LatLng(lat, lng),
-            initialZoom: 13.0,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.none,
-            ),
-            onTap: (tap, point) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AirportMapPage(
-                    latitude: lat,
-                    longitude: lng,
-                    airportName: airport.name ?? '',
+        child: cartoStyle.when(
+          data: (style) => FlutterMap(
+            options: MapOptions(
+              initialCenter: LatLng(lat, lng),
+              initialZoom: 13.0,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.none,
+              ),
+              onTap: (tap, point) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AirportMapPage(
+                      latitude: lat,
+                      longitude: lng,
+                      airportName: airport.name ?? '',
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.logbook.app',
+                );
+              },
             ),
-          ],
+            children: [
+              VectorTileLayer(
+                tileProviders: style!.providers,
+                theme: style.theme,
+                tileOffset: TileOffset.DEFAULT,
+                concurrency: 4,
+                fileCacheTtl: const Duration(days: 30),
+                fileCacheMaximumSizeInBytes: 50 * 1024 * 1024,
+              ),
+            ],
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => const SizedBox.shrink(),
         ),
       ),
     );

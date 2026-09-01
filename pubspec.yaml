@@ -15,8 +15,9 @@ dependencies:
   shared_preferences: ^2.3.4
   uuid: ^4.5.1
   intl: ^0.20.2
-  latlong2: ^0.9.1
+  latlong2: ^0.10.1
   flutter_map: ^8.3.0
+  vector_map_tiles: 9.0.0-beta.11
   fl_chart: ^1.2.0
   google_fonts: ^8.1.0
   http: ^1.2.0
@@ -26,6 +27,7 @@ dependencies:
   flutter_native_html_to_pdf: ^3.1.0
   share_plus: ^10.1.4
   country_flags: ^4.1.1
+  vector_tile_renderer: 6.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

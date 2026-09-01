@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 
 import '../services/database.dart';
 import '../providers/unit_provider.dart';
+import '../providers/carto_provider.dart';
 import '../utils/duration_formatter.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
@@ -280,55 +282,63 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     final points = widget.flight.dataPoints;
     final unitMode = ref.watch(unitProvider);
     final isMetric = unitMode == MeasurementUnit.metric;
+    final cartoStyle = ref.watch(cartoStyleProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: points.isNotEmpty
-                  ? LatLng(points.first.latitude, points.first.longitude)
-                  : const LatLng(51.5, -0.09),
-              initialZoom: 10.0,
-              onMapReady: _onMapReady,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.logbook.app',
+          cartoStyle.when(
+            data: (style) => FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: points.isNotEmpty
+                    ? LatLng(points.first.latitude, points.first.longitude)
+                    : const LatLng(51.5, -0.09),
+                initialZoom: 10.0,
+                onMapReady: _onMapReady,
               ),
-              if (_pathPoints.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: _pathPoints,
-                      strokeWidth: 3,
-                      color: cs.primary.withValues(alpha: 0.25),
-                    ),
-                    if (_progress > 0 && _currentPosition != null)
+              children: [
+                VectorTileLayer(
+                  tileProviders: style!.providers,
+                  theme: style.theme,
+                  tileOffset: TileOffset.DEFAULT,
+                  concurrency: 4,
+                  fileCacheTtl: const Duration(days: 30),
+                  fileCacheMaximumSizeInBytes: 50 * 1024 * 1024,
+                ),
+                if (_pathPoints.length >= 2)
+                  PolylineLayer(
+                    polylines: [
                       Polyline(
-                        points: _buildTrailPoints(),
-                        strokeWidth: 4,
-                        color: cs.primary,
+                        points: _pathPoints,
+                        strokeWidth: 3,
+                        color: cs.primary.withValues(alpha: 0.25),
                       ),
-                  ],
-                ),
-              if (_currentPosition != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _currentPosition!,
-                      width: 48,
-                      height: 48,
-                      alignment: Alignment.center,
-                      child: _buildPlaneMarker(cs),
-                    ),
-                  ],
-                ),
-            ],
+                      if (_progress > 0 && _currentPosition != null)
+                        Polyline(
+                          points: _buildTrailPoints(),
+                          strokeWidth: 4,
+                          color: cs.primary,
+                        ),
+                    ],
+                  ),
+                if (_currentPosition != null)
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: _currentPosition!,
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        child: _buildPlaneMarker(cs),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => const Center(child: Text('Failed to load map')),
           ),
 
           Positioned(

@@ -4,10 +4,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'package:logbook/widgets/flight_card.dart';
 import '../providers/unit_provider.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
+import '../providers/carto_provider.dart';
 import '../services/database.dart';
 import 'aircraft_detail_page.dart';
 import 'replay_page.dart';
@@ -85,6 +87,7 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
   Widget _buildMapCard(BuildContext context, FlightWithStats flight) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final cartoStyle = ref.watch(cartoStyleProvider);
 
     final depLat = flight.departure?.latitudeDeg;
     final depLon = flight.departure?.longitudeDeg;
@@ -130,84 +133,63 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         height: 350,
-        child: FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: LatLng(depLat, depLon),
-            initialZoom: 10.0,
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
-            ),
-            onMapReady: () {
-              _mapReady = true;
-              _fitMapBounds(flight, hasData);
-            },
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.zenith.app',
-            ),
-            // Route polyline
-            if (hasData && points.length >= 2)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: points
-                        .map((p) => LatLng(p.latitude, p.longitude))
-                        .toList(),
-                    strokeWidth: 3,
-                    color: cs.primary,
-                  ),
-                ],
-              )
-            else if (!hasData && arrLat != null && arrLon != null)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: [LatLng(depLat, depLon), LatLng(arrLat, arrLon)],
-                    strokeWidth: 3,
-                    color: cs.primary,
-                  ),
-                ],
+        child: cartoStyle.when(
+          data: (style) => FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: LatLng(depLat, depLon),
+              initialZoom: 10.0,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
               ),
-            // Departure / Arrival markers
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: LatLng(depLat, depLon),
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  child: Container(
-                    decoration: BoxDecoration(
+              onMapReady: () {
+                _mapReady = true;
+                _fitMapBounds(flight, hasData);
+              },
+            ),
+            children: [
+              VectorTileLayer(
+                tileProviders: style!.providers,
+                theme: style.theme,
+                tileOffset: TileOffset.DEFAULT,
+                concurrency: 4,
+                fileCacheTtl: const Duration(days: 30),
+                fileCacheMaximumSizeInBytes: 50 * 1024 * 1024,
+              ),
+              // Route polyline
+              if (hasData && points.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: points
+                          .map((p) => LatLng(p.latitude, p.longitude))
+                          .toList(),
+                      strokeWidth: 3,
                       color: cs.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
-                    child: Icon(
-                      Icons.flight_takeoff,
-                      size: 12,
-                      color: cs.onPrimary,
+                  ],
+                )
+              else if (!hasData && arrLat != null && arrLon != null)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: [LatLng(depLat, depLon), LatLng(arrLat, arrLon)],
+                      strokeWidth: 3,
+                      color: cs.primary,
                     ),
-                  ),
+                  ],
                 ),
-                if (arrLat != null && arrLon != null)
+              // Departure / Arrival markers
+              MarkerLayer(
+                markers: [
                   Marker(
-                    point: LatLng(arrLat, arrLon),
+                    point: LatLng(depLat, depLon),
                     width: 24,
                     height: 24,
                     alignment: Alignment.center,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: cs.error,
+                        color: cs.primary,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
@@ -219,15 +201,51 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
                         ],
                       ),
                       child: Icon(
-                        Icons.flight_land,
+                        Icons.flight_takeoff,
                         size: 12,
-                        color: Colors.white,
+                        color: cs.onPrimary,
                       ),
                     ),
                   ),
-              ],
+                  if (arrLat != null && arrLon != null)
+                    Marker(
+                      point: LatLng(arrLat, arrLon),
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: cs.error,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.flight_land,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: Text(
+              'Failed to load map style',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -236,40 +254,13 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
   void _fitMapBounds(FlightWithStats flight, bool hasData) {
     if (!_mapReady) return;
 
-    LatLng center;
-    double zoom;
+    LatLngBounds bounds;
 
     if (hasData && flight.dataPoints.length >= 2) {
       final points = flight.dataPoints
           .map((p) => LatLng(p.latitude, p.longitude))
           .toList();
-      final bounds = LatLngBounds.fromPoints(points);
-      center = bounds.center;
-      // Compute zoom to fit bounds with padding
-      final latSpan = bounds.northEast.latitude - bounds.southWest.latitude;
-      final lonSpan = bounds.northEast.longitude - bounds.southWest.longitude;
-      final maxSpan = latSpan > lonSpan ? latSpan : lonSpan;
-      if (maxSpan > 20) {
-        zoom = 3.0;
-      } else if (maxSpan > 10) {
-        zoom = 4.0;
-      } else if (maxSpan > 5) {
-        zoom = 5.0;
-      } else if (maxSpan > 2) {
-        zoom = 6.0;
-      } else if (maxSpan > 1) {
-        zoom = 7.0;
-      } else if (maxSpan > 0.5) {
-        zoom = 8.0;
-      } else if (maxSpan > 0.2) {
-        zoom = 9.0;
-      } else if (maxSpan > 0.1) {
-        zoom = 10.0;
-      } else if (maxSpan > 0.05) {
-        zoom = 11.0;
-      } else {
-        zoom = 12.0;
-      }
+      bounds = LatLngBounds.fromPoints(points);
     } else {
       final depLat = flight.departure?.latitudeDeg;
       final depLon = flight.departure?.longitudeDeg;
@@ -280,51 +271,27 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
           depLon != null &&
           arrLat != null &&
           arrLon != null) {
-        final bounds = LatLngBounds(
-          LatLng(depLat, depLon),
-          LatLng(arrLat, arrLon),
-        );
-        center = bounds.center;
-        final latSpan = (arrLat - depLat).abs();
-        final lonSpan = (arrLon - depLon).abs();
-        final maxSpan = latSpan > lonSpan ? latSpan : lonSpan;
-        if (maxSpan > 20) {
-          zoom = 3.0;
-        } else if (maxSpan > 10) {
-          zoom = 4.0;
-        } else if (maxSpan > 5) {
-          zoom = 5.0;
-        } else if (maxSpan > 2) {
-          zoom = 6.0;
-        } else if (maxSpan > 1) {
-          zoom = 7.0;
-        } else if (maxSpan > 0.5) {
-          zoom = 8.0;
-        } else if (maxSpan > 0.2) {
-          zoom = 9.0;
-        } else {
-          zoom = 10.0;
-        }
+        bounds = LatLngBounds(LatLng(depLat, depLon), LatLng(arrLat, arrLon));
       } else {
-        center = LatLng(
-          flight.departure!.latitudeDeg!,
-          flight.departure!.longitudeDeg!,
+        bounds = LatLngBounds(
+          LatLng(
+            flight.departure!.latitudeDeg!,
+            flight.departure!.longitudeDeg!,
+          ),
+          LatLng(
+            flight.departure!.latitudeDeg!,
+            flight.departure!.longitudeDeg!,
+          ),
         );
-        zoom = 10.0;
       }
     }
 
-    _mapController.move(center, zoom);
-
-    // Nudge to force tile refresh
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _mapController.move(
-          _mapController.camera.center,
-          _mapController.camera.zoom + 0.000001,
-        );
-      }
-    });
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(48),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
