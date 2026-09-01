@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vector_map_tiles/vector_map_tiles.dart';
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart' hide Theme;
 import 'package:logbook/widgets/flight_card.dart';
 import '../providers/unit_provider.dart';
 import '../providers/aircraft_providers.dart';
@@ -151,10 +151,10 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
               VectorTileLayer(
                 tileProviders: style!.providers,
                 theme: style.theme,
-                tileOffset: TileOffset.DEFAULT,
+                tileOffset: TileOffset.maplibre,
                 concurrency: 4,
-                fileCacheTtl: const Duration(days: 30),
-                fileCacheMaximumSizeInBytes: 50 * 1024 * 1024,
+                diskCacheTtl: const Duration(days: 30),
+                diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
               ),
               // Route polyline
               if (hasData && points.length >= 2)

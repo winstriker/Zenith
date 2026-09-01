@@ -1,12 +1,6 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vector_map_tiles/vector_map_tiles.dart';
-import 'package:vector_tile_renderer/vector_tile_renderer.dart' hide Theme;
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart';
 
 // ---------------------------------------------------------------------------
 // API Key persistence
@@ -43,56 +37,15 @@ class CartoApiKeyNotifier extends Notifier<String?> {
   }
 }
 
-final cartoApiKeyProvider =
-    NotifierProvider<CartoApiKeyNotifier, String?>(CartoApiKeyNotifier.new);
+final cartoApiKeyProvider = NotifierProvider<CartoApiKeyNotifier, String?>(
+  CartoApiKeyNotifier.new,
+);
 
 // ---------------------------------------------------------------------------
-// CARTO Voyager style with disk cache via ephemeral local server
+// CARTO Voyager style (disk-cache handled by StyleReader)
 // ---------------------------------------------------------------------------
 const _styleUrl =
     'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-const _cacheFileName = 'carto_style_cache.json';
-const _cacheMaxAge = Duration(hours: 24);
-
-Future<File> _getCacheFile() async {
-  final dir = await getApplicationDocumentsDirectory();
-  return File('${dir.path}/$_cacheFileName');
-}
-
-Future<bool> _isCacheFresh(File file) async {
-  if (!await file.exists()) return false;
-  try {
-    final modified = await file.lastModified();
-    return DateTime.now().difference(modified) < _cacheMaxAge;
-  } catch (_) {
-    return false;
-  }
-}
-
-/// Starts an ephemeral HTTP server on localhost that serves [bytes] as JSON,
-/// calls [reader] with the server URL, then closes the server.
-Future<T> _serveCached<T>(
-  List<int> bytes,
-  Future<T> Function(String url) reader,
-) async {
-  HttpServer? server;
-  try {
-    server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    final port = server.port;
-
-    server.listen((request) {
-      request.response
-        ..headers.contentType = ContentType.json
-        ..headers.contentLength = bytes.length
-        ..add(bytes)
-        ..close();
-    });
-
-    return await reader('http://127.0.0.1:$port/style.json');
-  } finally {
-    await server?.close(force: true);
-  }
-}
 
 class CartoStyleNotifier extends Notifier<AsyncValue<Style?>> {
   @override
@@ -108,53 +61,20 @@ class CartoStyleNotifier extends Notifier<AsyncValue<Style?>> {
   Future<void> _loadStyle(String apiKey) async {
     state = const AsyncLoading();
     try {
-      final cacheFile = await _getCacheFile();
-      Style? style;
-
-      // Try disk cache first
-      if (await _isCacheFresh(cacheFile)) {
-        try {
-          final bytes = await cacheFile.readAsBytes();
-          style = await _serveCached(bytes, (url) async {
-            return StyleReader(
-              uri: '$url?key=$apiKey',
-              apiKey: apiKey,
-              logger: const Logger.console(),
-            ).read();
-          });
-        } catch (_) {
-          // Cache corrupted or server failed, fetch fresh
-          style = null;
-        }
-      }
-
-      // Network fetch
-      style ??= await _fetchAndCacheStyle(apiKey, cacheFile);
+      final style = await StyleReader(
+        uri: '$_styleUrl?key={key}',
+        apiKey: apiKey,
+        logger: const Logger.console(),
+      ).read();
 
       state = AsyncData(style);
     } catch (e, st) {
       state = AsyncError(e, st);
     }
   }
-
-  Future<Style> _fetchAndCacheStyle(String apiKey, File cacheFile) async {
-    final url = '$_styleUrl?key=$apiKey';
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch CARTO style: ${response.statusCode}');
-    }
-    // Persist to disk
-    await cacheFile.writeAsBytes(response.bodyBytes);
-    // Parse from the network URL (StyleReader handles it natively)
-    return StyleReader(
-      uri: url,
-      apiKey: apiKey,
-      logger: const Logger.console(),
-    ).read();
-  }
 }
 
 final cartoStyleProvider =
     NotifierProvider<CartoStyleNotifier, AsyncValue<Style?>>(
-  CartoStyleNotifier.new,
-);
+      CartoStyleNotifier.new,
+    );

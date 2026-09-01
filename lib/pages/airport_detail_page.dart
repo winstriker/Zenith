@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:vector_map_tiles/vector_map_tiles.dart';
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart' hide Theme;
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
@@ -435,10 +435,10 @@ class AirportDetailPage extends ConsumerWidget {
               VectorTileLayer(
                 tileProviders: style!.providers,
                 theme: style.theme,
-                tileOffset: TileOffset.DEFAULT,
+                tileOffset: TileOffset.maplibre,
                 concurrency: 4,
-                fileCacheTtl: const Duration(days: 30),
-                fileCacheMaximumSizeInBytes: 50 * 1024 * 1024,
+                diskCacheTtl: const Duration(days: 30),
+                diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
               ),
             ],
           ),

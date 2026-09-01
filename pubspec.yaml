@@ -17,7 +17,7 @@ dependencies:
   intl: ^0.20.2
   latlong2: ^0.9.1
   flutter_map: ^8.3.0
-  vector_map_tiles: 10.0.0-beta.2
+  flutter_map_vector_tiles: ^2.8.1
   fl_chart: ^1.2.0
   google_fonts: ^8.1.0
   http: ^1.2.0
@@ -27,7 +27,10 @@ dependencies:
   flutter_native_html_to_pdf: ^3.1.0
   share_plus: ^10.1.4
   country_flags: ^4.1.1
-  vector_tile_renderer: 7.0.0-beta.1
+dependency_overrides:
+  flutter_map_vector_tiles:
+    path: packages/flutter_map_vector_tiles
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
