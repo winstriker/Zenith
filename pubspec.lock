@@ -326,6 +326,19 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_gpu:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
+  flutter_gpu_shaders:
+    dependency: transitive
+    description:
+      name: flutter_gpu_shaders
+      sha256: "98ff2396cd4543883bd4b693a782f9fcbda27e9bf5b3b92475332d36be3bfec6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -358,6 +371,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.3.1"
+  flutter_scene:
+    dependency: transitive
+    description:
+      name: flutter_scene
+      sha256: "9a3a427e902b81c6a901113a7e9428b3b29a2643a52ecbc6592cb051ab37c7e8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.2-0"
+  flutter_scene_importer:
+    dependency: transitive
+    description:
+      name: flutter_scene_importer
+      sha256: "81c544627dcbfc7227625b41abeaf23054fec5c36c57d2d6cb61518b3bd8a6cd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.0-0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -504,14 +533,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
-  idb_shim:
-    dependency: transitive
-    description:
-      name: idb_shim
-      sha256: e36a748165663a165e1f292e9d85af6e3aa087f6e2291d16f86b2035103b2950
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.9.8"
   intl:
     dependency: "direct main"
     description:
@@ -572,10 +593,10 @@ packages:
     dependency: "direct main"
     description:
       name: latlong2
-      sha256: "84b776b100a84a684a0aaa3fa4dc2c9b1931c658de533701ee4e09bfa991f8dc"
+      sha256: "98227922caf49e6056f91b6c56945ea1c7b166f28ffcd5fb8e72fc0b453cc8fe"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.1"
+    version: "0.9.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -656,6 +677,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  native_assets_cli:
+    dependency: transitive
+    description:
+      name: native_assets_cli
+      sha256: "0907c5b85a21ae08dcdd0d2b75061cc614939911c2cab5ac903f35a9fbb2a50b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.13.0"
   native_toolchain_c:
     dependency: transitive
     description:
@@ -856,14 +885,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.1"
-  sembast:
-    dependency: transitive
-    description:
-      name: sembast
-      sha256: a58b26925e23071cf0f4754d8449aabe829e9a9930a872fb18e6ae4c2c88e025
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.8.9+1"
   share_plus:
     dependency: "direct main"
     description:
@@ -1053,6 +1074,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.12.1"
+  stash:
+    dependency: transitive
+    description:
+      name: stash
+      sha256: c1482f64dcaa9b2d9eb112106ef018aad49adb284e1ba371c892c2ad9f99fc12
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.0"
+  stash_file:
+    dependency: transitive
+    description:
+      name: stash_file
+      sha256: f2a68f2e7dcf7ca8f2b617959fca305983d5557355ede43cb15601e9533b495b
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.0"
+  stash_memory:
+    dependency: transitive
+    description:
+      name: stash_memory
+      sha256: "84ffcc108d345909dc40bd11d43e3fe87a115c30b157ca2bfa8e84c0e313d5c4"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.0"
   state_notifier:
     dependency: transitive
     description:
@@ -1085,14 +1130,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
-  synchronized:
-    dependency: transitive
-    description:
-      name: synchronized
-      sha256: "3a7b5d17422dd0f8d5c6c14feaa5a1c65638b9455f871a96f08437562c046931"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.4.1+2"
   term_glyph:
     dependency: transitive
     description:
@@ -1185,10 +1222,10 @@ packages:
     dependency: "direct main"
     description:
       name: vector_map_tiles
-      sha256: "0f90e47c57c62c96dc6d14ee5bf87b1ae4646ca4c4b02f6b0ba5d072ff3f5979"
+      sha256: abdfd5a134dbe3b7d5ab31c6f0408794eaa41bac3298843679261c11064f1ef4
       url: "https://pub.dev"
     source: hosted
-    version: "9.0.0-beta.11"
+    version: "10.0.0-beta.2"
   vector_math:
     dependency: transitive
     description:
@@ -1209,10 +1246,10 @@ packages:
     dependency: "direct main"
     description:
       name: vector_tile_renderer
-      sha256: "982ae5d8f0ab285463a4cd62e711c8f9a36b9b3112b5a471ae8d4f4838f31537"
+      sha256: "0e9a2497925be4741211ff7b44b5bee0ae60fe0a225c5d6eb48963f62b65bd64"
       url: "https://pub.dev"
     source: hosted
-    version: "6.1.0"
+    version: "7.0.0-beta.1"
   vm_service:
     dependency: transitive
     description:
