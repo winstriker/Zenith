@@ -18,6 +18,14 @@ class FlightService {
     return match;
   }
 
+  Future<Aircraft?> resolveAircraft(int? id) async {
+    if (id == null) return null;
+    final match = await (database.select(
+      database.aircrafts,
+    )..where((a) => a.id.equals(id))).getSingleOrNull();
+    return match;
+  }
+
   FlightService(this.database) {
     _loadSessions();
   }
@@ -412,6 +420,74 @@ class FlightService {
         arrival: await resolveAirport(arrivalId),
       ),
     );
+    _notify();
+  }
+
+  Future<void> updateFlight({
+    required int flightId,
+    required int? departureId,
+    required int? arrivalId,
+    required String title,
+    required DateTime departureTime,
+    DateTime? arrivalTime,
+    int? aircraftId,
+    String? approachType,
+    int? nightLandings,
+    int? dayLandings,
+    String? flightRules,
+    String? remarks,
+    String? departureIanaLocation,
+    String? arrivalIanaLocation,
+    bool isRecording = false,
+  }) async {
+    await database
+        .update(database.flights)
+        .replace(
+          FlightsCompanion(
+            id: Value(flightId),
+            title: Value(title),
+            departure: Value(departureId),
+            arrival: Value(arrivalId),
+            departureTime: Value(departureTime),
+            arrivalTime: Value(arrivalTime),
+            departureIanaLocation: Value(departureIanaLocation),
+            arrivalIanaLocation: Value(arrivalIanaLocation),
+            aircraftId: Value(aircraftId),
+            approachType: Value(approachType),
+            nightLandings: Value(nightLandings),
+            dayLandings: Value(dayLandings),
+            flightRules: Value(flightRules),
+            remarks: Value(remarks),
+            isRecording: Value(isRecording),
+          ),
+        );
+
+    // Update local state
+    final index = _sessions.indexWhere((f) => f.flight.id == flightId);
+    if (index != -1) {
+      _sessions[index] = FlightWithStats(
+        flight: Flight(
+          id: flightId,
+          title: title,
+          departure: departureId,
+          arrival: arrivalId,
+          departureTime: departureTime,
+          arrivalTime: arrivalTime,
+          departureIanaLocation: departureIanaLocation,
+          arrivalIanaLocation: arrivalIanaLocation,
+          isRecording: false,
+          aircraftId: aircraftId,
+          approachType: approachType,
+          nightLandings: nightLandings,
+          dayLandings: dayLandings,
+          flightRules: flightRules,
+          remarks: remarks,
+        ),
+        dataPoints: _sessions[index].dataPoints,
+        departure: await resolveAirport(departureId),
+        arrival: await resolveAirport(arrivalId),
+      );
+    }
     _notify();
   }
 }

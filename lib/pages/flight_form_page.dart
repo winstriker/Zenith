@@ -14,7 +14,11 @@ import '../utils/tz_datetime.dart';
 import 'aircraft_select_page.dart';
 
 class FlightFormPage extends ConsumerStatefulWidget {
-  const FlightFormPage({super.key});
+  final FlightWithStats? flightToEdit;
+
+  const FlightFormPage({super.key, this.flightToEdit});
+
+  bool get isEditing => flightToEdit != null;
 
   @override
   ConsumerState<FlightFormPage> createState() => _FlightFormPageState();
@@ -24,12 +28,88 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   final _formKey = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _populateFromFlight(widget.flightToEdit!);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!widget.isEditing) {
+      ref.read(flightFormProvider.notifier).reset();
+    }
+    super.dispose();
+  }
+
+  void _populateFromFlight(FlightWithStats flight) async {
+    final notifier = ref.read(flightFormProvider.notifier);
+    final flightService = ref.read(flightServiceProvider);
+    final f = flight.flight;
+
+    // Fetch airports from the database
+    final depAirport = f.departure != null
+        ? await flightService.resolveAirport(f.departure)
+        : null;
+    final arrAirport = f.arrival != null
+        ? await flightService.resolveAirport(f.arrival)
+        : null;
+    final aircraft = f.aircraftId != null
+        ? await flightService.resolveAircraft(f.aircraftId!)
+        : null;
+
+    notifier.setDepartureDate(f.departureTime);
+    notifier.setArrivalDate(f.arrivalTime);
+    notifier.setDepTime(
+      TZDateTimeParser.formatHHmmInTimezone(
+        f.departureTime,
+        f.departureIanaLocation,
+      ),
+    );
+    notifier.setArrTime(
+      f.arrivalTime != null
+          ? TZDateTimeParser.formatHHmmInTimezone(
+              f.arrivalTime!,
+              f.arrivalIanaLocation,
+            )
+          : '',
+    );
+    notifier.setRemarks(f.remarks ?? '');
+    notifier.setApproachType(f.approachType ?? 'VISUAL');
+    notifier.setNightLandings(f.nightLandings ?? 0);
+    notifier.setDayLandings(f.dayLandings ?? 1);
+    notifier.setFlightRules(f.flightRules ?? 'VFR');
+
+    if (depAirport != null) {
+      notifier.setSelectedDeparture(depAirport);
+    } else if (f.departureIanaLocation != null) {
+      notifier.setDepartureCode(f.departureIanaLocation!);
+      notifier.setDepIanaLocation(f.departureIanaLocation);
+    }
+    if (arrAirport != null) {
+      notifier.setSelectedArrival(arrAirport);
+    } else if (f.arrivalIanaLocation != null) {
+      notifier.setArrivalCode(f.arrivalIanaLocation!);
+      notifier.setArrIanaLocation(f.arrivalIanaLocation);
+    }
+    if (aircraft != null) {
+      notifier.setSelectedAircraft(aircraft);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final form = ref.watch(flightFormProvider);
     final notifier = ref.read(flightFormProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Log Flight'), centerTitle: true),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit Flight' : 'Log Flight'),
+        centerTitle: true,
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: form.isValid ? () => _save(notifier) : null,
         icon: const Icon(Icons.save),
@@ -89,7 +169,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             ),
             const SizedBox(height: 16),
             RemarksCard(
-              initialValue: form.remarks,
+              initialValue: widget.flightToEdit?.flight.remarks ?? form.remarks,
               onChanged: notifier.setRemarks,
             ),
             const SizedBox(height: 80),
@@ -194,21 +274,40 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     final depDateTime = form.depTZDateTime;
     final arrDateTime = form.arrTZDateTime;
 
-    await flightService.addFlight(
-      departureId: form.selectedDeparture?.id,
-      arrivalId: form.selectedArrival?.id,
-      title: '$depCode → $arrCode',
-      departureTime: depDateTime,
-      arrivalTime: arrDateTime,
-      aircraftId: form.selectedAircraft?.id,
-      approachType: form.approachType,
-      nightLandings: form.nightLandings,
-      dayLandings: form.dayLandings,
-      flightRules: form.flightRules,
-      remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
-      departureIanaLocation: form.depIanaLocation,
-      arrivalIanaLocation: form.arrIanaLocation,
-    );
+    if (widget.isEditing) {
+      await flightService.updateFlight(
+        flightId: widget.flightToEdit!.flight.id,
+        departureId: form.selectedDeparture?.id,
+        arrivalId: form.selectedArrival?.id,
+        title: '$depCode → $arrCode',
+        departureTime: depDateTime,
+        arrivalTime: arrDateTime,
+        aircraftId: form.selectedAircraft?.id,
+        approachType: form.approachType,
+        nightLandings: form.nightLandings,
+        dayLandings: form.dayLandings,
+        flightRules: form.flightRules,
+        remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
+        departureIanaLocation: form.depIanaLocation,
+        arrivalIanaLocation: form.arrIanaLocation,
+      );
+    } else {
+      await flightService.addFlight(
+        departureId: form.selectedDeparture?.id,
+        arrivalId: form.selectedArrival?.id,
+        title: '$depCode → $arrCode',
+        departureTime: depDateTime,
+        arrivalTime: arrDateTime,
+        aircraftId: form.selectedAircraft?.id,
+        approachType: form.approachType,
+        nightLandings: form.nightLandings,
+        dayLandings: form.dayLandings,
+        flightRules: form.flightRules,
+        remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
+        departureIanaLocation: form.depIanaLocation,
+        arrivalIanaLocation: form.arrIanaLocation,
+      );
+    }
 
     ref.read(flightListProvider.notifier).refresh();
     notifier.reset();

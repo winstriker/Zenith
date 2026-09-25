@@ -102,4 +102,13 @@ class TZDateTimeParser {
     final m = totalMinutes % 60;
     return '$h:${m.toString().padLeft(2, '0')}';
   }
+
+  /// Formats a UTC DateTime as HH:mm in the given IANA timezone
+  static String formatHHmmInTimezone(DateTime utcTime, String? ianaLocation) {
+    final location = ianaLocation != null
+        ? tz.getLocation(ianaLocation)
+        : tz.local;
+    final local = tz.TZDateTime.from(utcTime, location);
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 }

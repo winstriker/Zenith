@@ -15,6 +15,7 @@ import '../providers/unit_provider.dart';
 import '../providers/carto_provider.dart';
 import '../services/database.dart';
 import 'replay_page.dart';
+import 'flight_form_page.dart';
 import '../widgets/info_row.dart';
 import '../widgets/section_header.dart';
 
@@ -38,6 +39,17 @@ class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
     final flight = _flight;
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => FlightFormPage(flightToEdit: flight),
+            ),
+          );
+        },
+        icon: const Icon(Icons.edit),
+        label: const Text('Edit'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(0),
         children: [
