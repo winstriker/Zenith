@@ -3,13 +3,9 @@ import 'package:logbook/widgets/section_header.dart';
 
 class RemarksCard extends StatelessWidget {
   final String initialValue;
-  final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onChanged;
 
-  const RemarksCard({
-    super.key,
-    required this.initialValue,
-    required this.onChanged,
-  });
+  const RemarksCard({super.key, required this.initialValue, this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +35,7 @@ class RemarksCard extends StatelessWidget {
             const SizedBox(height: 8),
             TextFormField(
               initialValue: initialValue,
+              enabled: onChanged != null,
               maxLines: 3,
               style: theme.textTheme.bodyMedium,
               decoration: const InputDecoration(

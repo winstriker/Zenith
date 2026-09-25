@@ -1,6 +1,7 @@
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
@@ -36,7 +37,10 @@ class FlightCard extends StatelessWidget {
             child: _buildSide(
               theme: theme,
               airport: flight.departure,
-              time: flight.flight.departureTime,
+              departureTime: flight.flight.departureTime,
+              arrivalTime: flight.flight.arrivalTime,
+              departureIanaLocation: flight.flight.departureIanaLocation,
+              arrivalIanaLocation: flight.flight.arrivalIanaLocation,
               dateFormat: dateFormat,
               timeFormat: timeFormat,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,7 +54,10 @@ class FlightCard extends StatelessWidget {
             child: _buildSide(
               theme: theme,
               airport: flight.arrival,
-              time: flight.flight.arrivalTime ?? flight.flight.departureTime,
+              departureTime: flight.flight.departureTime,
+              arrivalTime: flight.flight.arrivalTime,
+              departureIanaLocation: flight.flight.departureIanaLocation,
+              arrivalIanaLocation: flight.flight.arrivalIanaLocation,
               dateFormat: dateFormat,
               timeFormat: timeFormat,
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -69,7 +76,10 @@ class FlightCard extends StatelessWidget {
   Widget _buildSide({
     required ThemeData theme,
     required Airport? airport,
-    required DateTime time,
+    required DateTime departureTime,
+    required DateTime? arrivalTime,
+    required String? departureIanaLocation,
+    required String? arrivalIanaLocation,
     required DateFormat dateFormat,
     required DateFormat timeFormat,
     required CrossAxisAlignment crossAxisAlignment,
@@ -80,19 +90,27 @@ class FlightCard extends StatelessWidget {
         airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
     final name = airport?.name ?? '';
     final countryCode = airport?.isoCountry;
-    final tzAbbr = _tzAbbreviation(airport?.longitudeDeg);
-    final utcOffset = _utcOffsetHours(airport?.longitudeDeg);
-    final displayTime = time;
 
-    final localTz = tzAbbr ?? 'UTC';
-    final isUtc = utcOffset == 0;
-    final utcTime = isUtc ? null : displayTime.toUtc();
+    // Reconstruct TZDateTime using stored IANA locations
+    final depLocal = _toLocalTZDateTime(departureTime, departureIanaLocation);
+    final arrLocal = arrivalTime != null
+        ? _toLocalTZDateTime(arrivalTime, arrivalIanaLocation)
+        : null;
+
+    final isDeparture = !right;
+    final localTime = isDeparture ? depLocal : (arrLocal ?? depLocal);
+    final localTz = isDeparture
+        ? (depLocal.timeZone.abbreviation)
+        : (arrLocal?.timeZone.abbreviation ?? depLocal.timeZone.abbreviation);
+
+    final utcTime = localTime.toUtc();
+    final showUtc = localTime.timeZoneOffset != Duration.zero;
 
     return Column(
       crossAxisAlignment: crossAxisAlignment,
       children: [
         Text(
-          '${dateFormat.format(displayTime)} $localTz',
+          '${dateFormat.format(localTime)} $localTz',
           style: theme.textTheme.labelSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -151,13 +169,13 @@ class FlightCard extends StatelessWidget {
         ],
         const SizedBox(height: 4),
         Text(
-          '${timeFormat.format(displayTime)} $localTz',
+          '${timeFormat.format(localTime)} $localTz',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
           textAlign: timeAlignment,
         ),
-        if (utcTime != null) ...[
+        if (showUtc) ...[
           const SizedBox(height: 2),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -177,6 +195,16 @@ class FlightCard extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  static tz.TZDateTime _toLocalTZDateTime(
+    DateTime utcTime,
+    String? ianaLocation,
+  ) {
+    final location = ianaLocation != null
+        ? tz.getLocation(ianaLocation)
+        : tz.local;
+    return tz.TZDateTime.from(utcTime, location);
   }
 
   Widget _buildCenterSection(ThemeData theme) {
@@ -213,44 +241,5 @@ class FlightCard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static int? _utcOffsetHours(double? longitude) {
-    if (longitude == null) return 0;
-    return (longitude / 15).round().clamp(-12, 14);
-  }
-
-  static String? _tzAbbreviation(double? longitude) {
-    final offset = _utcOffsetHours(longitude);
-    if (offset == null || offset == 0) return null;
-    const zones = {
-      -12: 'UTC-12',
-      -11: 'UTC-11',
-      -10: 'HST',
-      -9: 'AKST',
-      -8: 'PST',
-      -7: 'MST',
-      -6: 'CST',
-      -5: 'EST',
-      -4: 'AST',
-      -3: 'BRT',
-      -2: 'UTC-2',
-      -1: 'UTC-1',
-      1: 'CET',
-      2: 'EET',
-      3: 'MSK',
-      4: 'UTC+4',
-      5: 'UTC+5',
-      6: 'UTC+6',
-      7: 'UTC+7',
-      8: 'CST',
-      9: 'JST',
-      10: 'AEST',
-      11: 'UTC+11',
-      12: 'NZST',
-      13: 'UTC+13',
-      14: 'UTC+14',
-    };
-    return zones[offset] ?? 'UTC${offset > 0 ? '+' : ''}$offset';
   }
 }

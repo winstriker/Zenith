@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:logbook/widgets/landing_counter.dart';
-import 'package:logbook/widgets/section_header.dart';
 
 class LandingsCard extends StatelessWidget {
   final String approachType;
-  final ValueChanged<String> onApproachTypeChanged;
+  final ValueChanged<String>? onApproachTypeChanged;
   final int nightLandings;
-  final ValueChanged<int> onNightLandingsChanged;
+  final ValueChanged<int>? onNightLandingsChanged;
   final int dayLandings;
-  final ValueChanged<int> onDayLandingsChanged;
+  final ValueChanged<int>? onDayLandingsChanged;
 
   const LandingsCard({
     super.key,
     required this.approachType,
-    required this.onApproachTypeChanged,
+    this.onApproachTypeChanged,
     required this.nightLandings,
-    required this.onNightLandingsChanged,
+    this.onNightLandingsChanged,
     required this.dayLandings,
-    required this.onDayLandingsChanged,
+    this.onDayLandingsChanged,
   });
 
   @override
@@ -45,27 +44,40 @@ class LandingsCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: approachType,
-                      isDense: true,
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'VISUAL',
-                          child: Text('VISUAL'),
-                        ),
-                        DropdownMenuItem(value: 'ILS', child: Text('ILS')),
-                        DropdownMenuItem(value: 'VOR', child: Text('VOR')),
-                        DropdownMenuItem(value: 'NDB', child: Text('NDB')),
-                        DropdownMenuItem(value: 'RNAV', child: Text('RNAV')),
-                        DropdownMenuItem(value: 'GPS', child: Text('GPS')),
-                        DropdownMenuItem(value: 'LOC', child: Text('LOC')),
-                        DropdownMenuItem(value: 'TACAN', child: Text('TACAN')),
-                      ],
-                      onChanged: (v) => onApproachTypeChanged(v ?? 'VISUAL'),
+                  if (onApproachTypeChanged == null) ...[
+                    Text(
+                      approachType,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: approachType,
+                        isDense: true,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'VISUAL',
+                            child: Text('VISUAL'),
+                          ),
+                          DropdownMenuItem(value: 'ILS', child: Text('ILS')),
+                          DropdownMenuItem(value: 'VOR', child: Text('VOR')),
+                          DropdownMenuItem(value: 'NDB', child: Text('NDB')),
+                          DropdownMenuItem(value: 'RNAV', child: Text('RNAV')),
+                          DropdownMenuItem(value: 'GPS', child: Text('GPS')),
+                          DropdownMenuItem(value: 'LOC', child: Text('LOC')),
+                          DropdownMenuItem(
+                            value: 'TACAN',
+                            child: Text('TACAN'),
+                          ),
+                        ],
+                        onChanged: (v) => onApproachTypeChanged!(v ?? 'VISUAL'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

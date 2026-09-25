@@ -3,12 +3,12 @@ import 'package:logbook/widgets/section_header.dart';
 
 class FlightRulesCard extends StatelessWidget {
   final String flightRules;
-  final ValueChanged<String> onFlightRulesChanged;
+  final ValueChanged<String>? onFlightRulesChanged;
 
   const FlightRulesCard({
     super.key,
     required this.flightRules,
-    required this.onFlightRulesChanged,
+    this.onFlightRulesChanged,
   });
 
   @override
@@ -36,30 +36,40 @@ class FlightRulesCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: flightRules,
-                      isDense: true,
-                      isExpanded: true,
-                      items: const [
-                        DropdownMenuItem(value: 'VFR', child: Text('VFR')),
-                        DropdownMenuItem(value: 'IFR', child: Text('IFR')),
-                        DropdownMenuItem(
-                          value: 'Y',
-                          child: Text('Y - IFR/VFR'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Z',
-                          child: Text('Z - VFR/IFR'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Z2',
-                          child: Text('Z2 - VFR/IFR'),
-                        ),
-                      ],
-                      onChanged: (v) => onFlightRulesChanged(v ?? 'VFR'),
+                  if (onFlightRulesChanged == null) ...[
+                    Text(
+                      flightRules,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: flightRules,
+                        isDense: true,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(value: 'VFR', child: Text('VFR')),
+                          DropdownMenuItem(value: 'IFR', child: Text('IFR')),
+                          DropdownMenuItem(
+                            value: 'Y',
+                            child: Text('Y - IFR/VFR'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Z',
+                            child: Text('Z - VFR/IFR'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Z2',
+                            child: Text('Z2 - VFR/IFR'),
+                          ),
+                        ],
+                        onChanged: (v) => onFlightRulesChanged!(v ?? 'VFR'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

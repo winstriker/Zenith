@@ -108,7 +108,7 @@ class FlightDetailsCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DateButton(
-                    date: arrivalDate ?? departureDate,
+                    date: arrivalDate,
                     onTap: onArrivalDateTap,
                     textAlign: TextAlign.end,
                   ),

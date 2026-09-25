@@ -172,6 +172,8 @@ class Flights extends Table {
   IntColumn get arrival => integer().nullable().references(Airports, #id)();
   DateTimeColumn get departureTime => dateTime()();
   DateTimeColumn get arrivalTime => dateTime().nullable()();
+  TextColumn get departureIanaLocation => text().nullable()();
+  TextColumn get arrivalIanaLocation => text().nullable()();
   BoolColumn get isRecording => boolean()();
   IntColumn get aircraftId => integer().nullable().references(Aircrafts, #id)();
   TextColumn get approachType => text().nullable()();

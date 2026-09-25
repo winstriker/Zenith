@@ -4002,6 +4002,28 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _departureIanaLocationMeta =
+      const VerificationMeta('departureIanaLocation');
+  @override
+  late final GeneratedColumn<String> departureIanaLocation =
+      GeneratedColumn<String>(
+        'departure_iana_location',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _arrivalIanaLocationMeta =
+      const VerificationMeta('arrivalIanaLocation');
+  @override
+  late final GeneratedColumn<String> arrivalIanaLocation =
+      GeneratedColumn<String>(
+        'arrival_iana_location',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _isRecordingMeta = const VerificationMeta(
     'isRecording',
   );
@@ -4093,6 +4115,8 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     arrival,
     departureTime,
     arrivalTime,
+    departureIanaLocation,
+    arrivalIanaLocation,
     isRecording,
     aircraftId,
     approachType,
@@ -4153,6 +4177,24 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         arrivalTime.isAcceptableOrUnknown(
           data['arrival_time']!,
           _arrivalTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('departure_iana_location')) {
+      context.handle(
+        _departureIanaLocationMeta,
+        departureIanaLocation.isAcceptableOrUnknown(
+          data['departure_iana_location']!,
+          _departureIanaLocationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('arrival_iana_location')) {
+      context.handle(
+        _arrivalIanaLocationMeta,
+        arrivalIanaLocation.isAcceptableOrUnknown(
+          data['arrival_iana_location']!,
+          _arrivalIanaLocationMeta,
         ),
       );
     }
@@ -4248,6 +4290,14 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}arrival_time'],
       ),
+      departureIanaLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}departure_iana_location'],
+      ),
+      arrivalIanaLocation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}arrival_iana_location'],
+      ),
       isRecording: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_recording'],
@@ -4292,6 +4342,8 @@ class Flight extends DataClass implements Insertable<Flight> {
   final int? arrival;
   final DateTime departureTime;
   final DateTime? arrivalTime;
+  final String? departureIanaLocation;
+  final String? arrivalIanaLocation;
   final bool isRecording;
   final int? aircraftId;
   final String? approachType;
@@ -4306,6 +4358,8 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.arrival,
     required this.departureTime,
     this.arrivalTime,
+    this.departureIanaLocation,
+    this.arrivalIanaLocation,
     required this.isRecording,
     this.aircraftId,
     this.approachType,
@@ -4328,6 +4382,12 @@ class Flight extends DataClass implements Insertable<Flight> {
     map['departure_time'] = Variable<DateTime>(departureTime);
     if (!nullToAbsent || arrivalTime != null) {
       map['arrival_time'] = Variable<DateTime>(arrivalTime);
+    }
+    if (!nullToAbsent || departureIanaLocation != null) {
+      map['departure_iana_location'] = Variable<String>(departureIanaLocation);
+    }
+    if (!nullToAbsent || arrivalIanaLocation != null) {
+      map['arrival_iana_location'] = Variable<String>(arrivalIanaLocation);
     }
     map['is_recording'] = Variable<bool>(isRecording);
     if (!nullToAbsent || aircraftId != null) {
@@ -4365,6 +4425,12 @@ class Flight extends DataClass implements Insertable<Flight> {
       arrivalTime: arrivalTime == null && nullToAbsent
           ? const Value.absent()
           : Value(arrivalTime),
+      departureIanaLocation: departureIanaLocation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(departureIanaLocation),
+      arrivalIanaLocation: arrivalIanaLocation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(arrivalIanaLocation),
       isRecording: Value(isRecording),
       aircraftId: aircraftId == null && nullToAbsent
           ? const Value.absent()
@@ -4399,6 +4465,12 @@ class Flight extends DataClass implements Insertable<Flight> {
       arrival: serializer.fromJson<int?>(json['arrival']),
       departureTime: serializer.fromJson<DateTime>(json['departureTime']),
       arrivalTime: serializer.fromJson<DateTime?>(json['arrivalTime']),
+      departureIanaLocation: serializer.fromJson<String?>(
+        json['departureIanaLocation'],
+      ),
+      arrivalIanaLocation: serializer.fromJson<String?>(
+        json['arrivalIanaLocation'],
+      ),
       isRecording: serializer.fromJson<bool>(json['isRecording']),
       aircraftId: serializer.fromJson<int?>(json['aircraftId']),
       approachType: serializer.fromJson<String?>(json['approachType']),
@@ -4418,6 +4490,10 @@ class Flight extends DataClass implements Insertable<Flight> {
       'arrival': serializer.toJson<int?>(arrival),
       'departureTime': serializer.toJson<DateTime>(departureTime),
       'arrivalTime': serializer.toJson<DateTime?>(arrivalTime),
+      'departureIanaLocation': serializer.toJson<String?>(
+        departureIanaLocation,
+      ),
+      'arrivalIanaLocation': serializer.toJson<String?>(arrivalIanaLocation),
       'isRecording': serializer.toJson<bool>(isRecording),
       'aircraftId': serializer.toJson<int?>(aircraftId),
       'approachType': serializer.toJson<String?>(approachType),
@@ -4435,6 +4511,8 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<int?> arrival = const Value.absent(),
     DateTime? departureTime,
     Value<DateTime?> arrivalTime = const Value.absent(),
+    Value<String?> departureIanaLocation = const Value.absent(),
+    Value<String?> arrivalIanaLocation = const Value.absent(),
     bool? isRecording,
     Value<int?> aircraftId = const Value.absent(),
     Value<String?> approachType = const Value.absent(),
@@ -4449,6 +4527,12 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrival: arrival.present ? arrival.value : this.arrival,
     departureTime: departureTime ?? this.departureTime,
     arrivalTime: arrivalTime.present ? arrivalTime.value : this.arrivalTime,
+    departureIanaLocation: departureIanaLocation.present
+        ? departureIanaLocation.value
+        : this.departureIanaLocation,
+    arrivalIanaLocation: arrivalIanaLocation.present
+        ? arrivalIanaLocation.value
+        : this.arrivalIanaLocation,
     isRecording: isRecording ?? this.isRecording,
     aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
     approachType: approachType.present ? approachType.value : this.approachType,
@@ -4471,6 +4555,12 @@ class Flight extends DataClass implements Insertable<Flight> {
       arrivalTime: data.arrivalTime.present
           ? data.arrivalTime.value
           : this.arrivalTime,
+      departureIanaLocation: data.departureIanaLocation.present
+          ? data.departureIanaLocation.value
+          : this.departureIanaLocation,
+      arrivalIanaLocation: data.arrivalIanaLocation.present
+          ? data.arrivalIanaLocation.value
+          : this.arrivalIanaLocation,
       isRecording: data.isRecording.present
           ? data.isRecording.value
           : this.isRecording,
@@ -4502,6 +4592,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('arrival: $arrival, ')
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
+          ..write('departureIanaLocation: $departureIanaLocation, ')
+          ..write('arrivalIanaLocation: $arrivalIanaLocation, ')
           ..write('isRecording: $isRecording, ')
           ..write('aircraftId: $aircraftId, ')
           ..write('approachType: $approachType, ')
@@ -4521,6 +4613,8 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrival,
     departureTime,
     arrivalTime,
+    departureIanaLocation,
+    arrivalIanaLocation,
     isRecording,
     aircraftId,
     approachType,
@@ -4539,6 +4633,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.arrival == this.arrival &&
           other.departureTime == this.departureTime &&
           other.arrivalTime == this.arrivalTime &&
+          other.departureIanaLocation == this.departureIanaLocation &&
+          other.arrivalIanaLocation == this.arrivalIanaLocation &&
           other.isRecording == this.isRecording &&
           other.aircraftId == this.aircraftId &&
           other.approachType == this.approachType &&
@@ -4555,6 +4651,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<int?> arrival;
   final Value<DateTime> departureTime;
   final Value<DateTime?> arrivalTime;
+  final Value<String?> departureIanaLocation;
+  final Value<String?> arrivalIanaLocation;
   final Value<bool> isRecording;
   final Value<int?> aircraftId;
   final Value<String?> approachType;
@@ -4569,6 +4667,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrival = const Value.absent(),
     this.departureTime = const Value.absent(),
     this.arrivalTime = const Value.absent(),
+    this.departureIanaLocation = const Value.absent(),
+    this.arrivalIanaLocation = const Value.absent(),
     this.isRecording = const Value.absent(),
     this.aircraftId = const Value.absent(),
     this.approachType = const Value.absent(),
@@ -4584,6 +4684,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrival = const Value.absent(),
     required DateTime departureTime,
     this.arrivalTime = const Value.absent(),
+    this.departureIanaLocation = const Value.absent(),
+    this.arrivalIanaLocation = const Value.absent(),
     required bool isRecording,
     this.aircraftId = const Value.absent(),
     this.approachType = const Value.absent(),
@@ -4601,6 +4703,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<int>? arrival,
     Expression<DateTime>? departureTime,
     Expression<DateTime>? arrivalTime,
+    Expression<String>? departureIanaLocation,
+    Expression<String>? arrivalIanaLocation,
     Expression<bool>? isRecording,
     Expression<int>? aircraftId,
     Expression<String>? approachType,
@@ -4616,6 +4720,10 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (arrival != null) 'arrival': arrival,
       if (departureTime != null) 'departure_time': departureTime,
       if (arrivalTime != null) 'arrival_time': arrivalTime,
+      if (departureIanaLocation != null)
+        'departure_iana_location': departureIanaLocation,
+      if (arrivalIanaLocation != null)
+        'arrival_iana_location': arrivalIanaLocation,
       if (isRecording != null) 'is_recording': isRecording,
       if (aircraftId != null) 'aircraft_id': aircraftId,
       if (approachType != null) 'approach_type': approachType,
@@ -4633,6 +4741,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<int?>? arrival,
     Value<DateTime>? departureTime,
     Value<DateTime?>? arrivalTime,
+    Value<String?>? departureIanaLocation,
+    Value<String?>? arrivalIanaLocation,
     Value<bool>? isRecording,
     Value<int?>? aircraftId,
     Value<String?>? approachType,
@@ -4648,6 +4758,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       arrival: arrival ?? this.arrival,
       departureTime: departureTime ?? this.departureTime,
       arrivalTime: arrivalTime ?? this.arrivalTime,
+      departureIanaLocation:
+          departureIanaLocation ?? this.departureIanaLocation,
+      arrivalIanaLocation: arrivalIanaLocation ?? this.arrivalIanaLocation,
       isRecording: isRecording ?? this.isRecording,
       aircraftId: aircraftId ?? this.aircraftId,
       approachType: approachType ?? this.approachType,
@@ -4678,6 +4791,16 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     }
     if (arrivalTime.present) {
       map['arrival_time'] = Variable<DateTime>(arrivalTime.value);
+    }
+    if (departureIanaLocation.present) {
+      map['departure_iana_location'] = Variable<String>(
+        departureIanaLocation.value,
+      );
+    }
+    if (arrivalIanaLocation.present) {
+      map['arrival_iana_location'] = Variable<String>(
+        arrivalIanaLocation.value,
+      );
     }
     if (isRecording.present) {
       map['is_recording'] = Variable<bool>(isRecording.value);
@@ -4712,6 +4835,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('arrival: $arrival, ')
           ..write('departureTime: $departureTime, ')
           ..write('arrivalTime: $arrivalTime, ')
+          ..write('departureIanaLocation: $departureIanaLocation, ')
+          ..write('arrivalIanaLocation: $arrivalIanaLocation, ')
           ..write('isRecording: $isRecording, ')
           ..write('aircraftId: $aircraftId, ')
           ..write('approachType: $approachType, ')
@@ -8421,6 +8546,8 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<int?> arrival,
       required DateTime departureTime,
       Value<DateTime?> arrivalTime,
+      Value<String?> departureIanaLocation,
+      Value<String?> arrivalIanaLocation,
       required bool isRecording,
       Value<int?> aircraftId,
       Value<String?> approachType,
@@ -8437,6 +8564,8 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<int?> arrival,
       Value<DateTime> departureTime,
       Value<DateTime?> arrivalTime,
+      Value<String?> departureIanaLocation,
+      Value<String?> arrivalIanaLocation,
       Value<bool> isRecording,
       Value<int?> aircraftId,
       Value<String?> approachType,
@@ -8554,6 +8683,16 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<DateTime> get arrivalTime => $composableBuilder(
     column: $table.arrivalTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get departureIanaLocation => $composableBuilder(
+    column: $table.departureIanaLocation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get arrivalIanaLocation => $composableBuilder(
+    column: $table.arrivalIanaLocation,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8711,6 +8850,16 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get departureIanaLocation => $composableBuilder(
+    column: $table.departureIanaLocation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get arrivalIanaLocation => $composableBuilder(
+    column: $table.arrivalIanaLocation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isRecording => $composableBuilder(
     column: $table.isRecording,
     builder: (column) => ColumnOrderings(column),
@@ -8833,6 +8982,16 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get arrivalTime => $composableBuilder(
     column: $table.arrivalTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get departureIanaLocation => $composableBuilder(
+    column: $table.departureIanaLocation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get arrivalIanaLocation => $composableBuilder(
+    column: $table.arrivalIanaLocation,
     builder: (column) => column,
   );
 
@@ -8998,6 +9157,8 @@ class $$FlightsTableTableManager
                 Value<int?> arrival = const Value.absent(),
                 Value<DateTime> departureTime = const Value.absent(),
                 Value<DateTime?> arrivalTime = const Value.absent(),
+                Value<String?> departureIanaLocation = const Value.absent(),
+                Value<String?> arrivalIanaLocation = const Value.absent(),
                 Value<bool> isRecording = const Value.absent(),
                 Value<int?> aircraftId = const Value.absent(),
                 Value<String?> approachType = const Value.absent(),
@@ -9012,6 +9173,8 @@ class $$FlightsTableTableManager
                 arrival: arrival,
                 departureTime: departureTime,
                 arrivalTime: arrivalTime,
+                departureIanaLocation: departureIanaLocation,
+                arrivalIanaLocation: arrivalIanaLocation,
                 isRecording: isRecording,
                 aircraftId: aircraftId,
                 approachType: approachType,
@@ -9028,6 +9191,8 @@ class $$FlightsTableTableManager
                 Value<int?> arrival = const Value.absent(),
                 required DateTime departureTime,
                 Value<DateTime?> arrivalTime = const Value.absent(),
+                Value<String?> departureIanaLocation = const Value.absent(),
+                Value<String?> arrivalIanaLocation = const Value.absent(),
                 required bool isRecording,
                 Value<int?> aircraftId = const Value.absent(),
                 Value<String?> approachType = const Value.absent(),
@@ -9042,6 +9207,8 @@ class $$FlightsTableTableManager
                 arrival: arrival,
                 departureTime: departureTime,
                 arrivalTime: arrivalTime,
+                departureIanaLocation: departureIanaLocation,
+                arrivalIanaLocation: arrivalIanaLocation,
                 isRecording: isRecording,
                 aircraftId: aircraftId,
                 approachType: approachType,

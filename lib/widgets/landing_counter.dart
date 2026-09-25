@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class LandingCounter extends StatelessWidget {
   final String label;
   final int value;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<int>? onChanged;
 
   const LandingCounter({
     super.key,
@@ -30,18 +30,26 @@ class LandingCounter extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
-              onTap: () => onChanged((value - 1).clamp(0, 99)),
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6),
+            if (onChanged != null) ...[
+              GestureDetector(
+                onTap: () => onChanged!((value - 1).clamp(0, 99)),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(
+                    Icons.remove,
+                    size: 16,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
-                child: Icon(Icons.remove, size: 16, color: cs.onSurfaceVariant),
               ),
-            ),
+            ] else ...[
+              SizedBox(width: 20),
+            ],
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
@@ -51,18 +59,22 @@ class LandingCounter extends StatelessWidget {
                 ),
               ),
             ),
-            GestureDetector(
-              onTap: () => onChanged(value + 1),
-              child: Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6),
+            if (onChanged != null) ...[
+              GestureDetector(
+                onTap: () => onChanged!(value + 1),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(Icons.add, size: 16, color: cs.onSurfaceVariant),
                 ),
-                child: Icon(Icons.add, size: 16, color: cs.onSurfaceVariant),
               ),
-            ),
+            ] else ...[
+              SizedBox(width: 20),
+            ],
           ],
         ),
       ],

@@ -364,6 +364,8 @@ class FlightService {
     int? dayLandings,
     String? flightRules,
     String? remarks,
+    String? departureIanaLocation,
+    String? arrivalIanaLocation,
   }) async {
     final flightId = await database
         .into(database.flights)
@@ -374,6 +376,8 @@ class FlightService {
             arrival: Value(arrivalId),
             departureTime: departureTime,
             arrivalTime: Value(arrivalTime),
+            departureIanaLocation: Value(departureIanaLocation),
+            arrivalIanaLocation: Value(arrivalIanaLocation),
             isRecording: false,
             aircraftId: Value(aircraftId),
             approachType: Value(approachType),
@@ -393,6 +397,8 @@ class FlightService {
           arrival: arrivalId,
           departureTime: departureTime,
           arrivalTime: arrivalTime,
+          departureIanaLocation: departureIanaLocation,
+          arrivalIanaLocation: arrivalIanaLocation,
           isRecording: false,
           aircraftId: aircraftId,
           approachType: approachType,

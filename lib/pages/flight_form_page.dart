@@ -190,24 +190,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     final depCode = form.selectedDeparture?.ident ?? form.departureCode.trim();
     final arrCode = form.selectedArrival?.ident ?? form.arrivalCode.trim();
 
-    final depDateTime = DateTime(
-      form.departureDate.year,
-      form.departureDate.month,
-      form.departureDate.day,
-      form.depTZDateTime.hour,
-      form.depTZDateTime.minute,
-    );
-
-    DateTime? arrDateTime;
-    if (form.arrTZDateTime != null) {
-      arrDateTime = DateTime(
-        form.arrivalDate!.year,
-        form.arrivalDate!.month,
-        form.arrivalDate!.day,
-        form.arrTZDateTime!.hour,
-        form.arrTZDateTime!.minute,
-      );
-    }
+    // Use the TZDateTime directly - it stores the correct instant in UTC
+    final depDateTime = form.depTZDateTime;
+    final arrDateTime = form.arrTZDateTime;
 
     await flightService.addFlight(
       departureId: form.selectedDeparture?.id,
@@ -221,6 +206,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       dayLandings: form.dayLandings,
       flightRules: form.flightRules,
       remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
+      departureIanaLocation: form.depIanaLocation,
+      arrivalIanaLocation: form.arrIanaLocation,
     );
 
     ref.read(flightListProvider.notifier).refresh();
