@@ -76,7 +76,7 @@ class HomePage extends ConsumerWidget {
                     context,
                     MaterialPageRoute(
                       builder: (_) =>
-                          FlightDetailPage(flight: recentFlights[index]),
+                          FlightDetailPage(flightId: recentFlights[index].flight.id),
                     ),
                   ),
                 ),

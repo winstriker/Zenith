@@ -276,7 +276,7 @@ class _AircraftDetailPageState extends ConsumerState<AircraftDetailPage> {
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            FlightDetailPage(flight: _flights[index]),
+                            FlightDetailPage(flightId: _flights[index].flight.id),
                       ),
                     );
                   },

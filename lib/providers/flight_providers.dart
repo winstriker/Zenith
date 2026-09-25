@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logbook/main.dart';
+import 'package:drift/drift.dart';
 import '../services/database.dart';
 import '../services/flight_service.dart';
 import '../services/location_service.dart';
@@ -32,6 +33,39 @@ class FlightListNotifier extends Notifier<List<FlightWithStats>> {
 }
 
 final flightListProvider = NotifierProvider<FlightListNotifier, List<FlightWithStats>>(FlightListNotifier.new);
+
+Future<FlightWithStats?> _fetchFlightById(int flightId, FlightService service) async {
+  final session = service.getSession(flightId);
+  if (session != null) return session;
+
+  final flightRow = await (service.database.select(service.database.flights)
+        ..where((f) => f.id.equals(flightId)))
+      .getSingleOrNull();
+  if (flightRow == null) return null;
+
+  final pointsRows = await (service.database.select(service.database.flightDataPoints)
+        ..where((p) => p.flight.equals(flightId))
+        ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]))
+      .get();
+
+  final departure = await service.resolveAirport(flightRow.departure);
+  final arrival = await service.resolveAirport(flightRow.arrival);
+  final aircraft = await service.resolveAircraft(flightRow.aircraftId);
+
+  return FlightWithStats(
+    flight: flightRow,
+    dataPoints: pointsRows,
+    aircraft: aircraft,
+    departure: departure,
+    arrival: arrival,
+  );
+}
+
+final flightByIdProvider = FutureProvider.family<FlightWithStats?, int>((ref, flightId) async {
+  final service = ref.watch(flightServiceProvider);
+  ref.watch(flightListProvider);
+  return _fetchFlightById(flightId, service);
+});
 
 class RecordingStateNotifier extends Notifier<bool> {
   late final FlightService _service;

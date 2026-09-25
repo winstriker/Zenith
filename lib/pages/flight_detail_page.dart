@@ -13,22 +13,47 @@ import 'package:logbook/widgets/landings_card.dart';
 import 'package:logbook/widgets/remarks_card.dart';
 import '../providers/unit_provider.dart';
 import '../providers/carto_provider.dart';
+import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import 'replay_page.dart';
 import 'flight_form_page.dart';
 import '../widgets/info_row.dart';
 import '../widgets/section_header.dart';
 
-class FlightDetailPage extends ConsumerStatefulWidget {
-  final FlightWithStats flight;
+class FlightDetailPage extends ConsumerWidget {
+  final int flightId;
 
-  const FlightDetailPage({super.key, required this.flight});
+  const FlightDetailPage({super.key, required this.flightId});
 
   @override
-  ConsumerState<FlightDetailPage> createState() => _FlightDetailPageState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final flightAsync = ref.watch(flightByIdProvider(flightId));
+
+    return flightAsync.when(
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(
+        body: Center(child: Text('Error loading flight: $e')),
+      ),
+      data: (flight) {
+        if (flight == null) {
+          return const Scaffold(body: Center(child: Text('Flight not found')));
+        }
+        return _FlightDetailView(flight: flight);
+      },
+    );
+  }
 }
 
-class _FlightDetailPageState extends ConsumerState<FlightDetailPage> {
+class _FlightDetailView extends ConsumerStatefulWidget {
+  final FlightWithStats flight;
+
+  const _FlightDetailView({required this.flight});
+
+  @override
+  ConsumerState<_FlightDetailView> createState() => _FlightDetailViewState();
+}
+
+class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
 
