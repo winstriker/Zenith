@@ -52,3 +52,28 @@ class UserSignatureNameNotifier extends Notifier<String?> {
 }
 
 final userSignatureNameProvider = NotifierProvider<UserSignatureNameNotifier, String?>(UserSignatureNameNotifier.new);
+
+class OnboardingCompleteNotifier extends Notifier<bool> {
+  static const _key = 'onboarding_complete';
+
+  @override
+  bool build() {
+    _loadComplete();
+    return false;
+  }
+
+  Future<void> _loadComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getBool(_key) ?? false;
+  }
+
+  Future<void> setComplete() async {
+    state = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key, true);
+  }
+}
+
+final onboardingCompleteProvider = NotifierProvider<OnboardingCompleteNotifier, bool>(
+  OnboardingCompleteNotifier.new,
+);

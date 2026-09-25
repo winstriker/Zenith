@@ -86,7 +86,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     final apiKey = ref.watch(cartoApiKeyProvider);
     final nickname = ref.watch(userNicknameProvider);
     final signatureName = ref.watch(userSignatureNameProvider);
-    final needsIntro = nickname == null || signatureName == null;
+    final onboardingComplete = ref.watch(onboardingCompleteProvider);
+    final needsIntro = nickname == null || signatureName == null || !onboardingComplete;
     // Pre-load CARTO style as soon as the API key is available
     if (apiKey != null && apiKey.isNotEmpty) {
       ref.watch(cartoStyleProvider);
@@ -103,11 +104,9 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
           ? const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             )
-          : !_permissionGranted
+          : needsIntro
               ? IntroPage(onPermissionGranted: _onPermissionGranted)
-              : needsIntro
-                  ? IntroPage(onPermissionGranted: _onPermissionGranted)
-                  : _buildMainApp(),
+              : _buildMainApp(),
     );
   }
 }

@@ -121,6 +121,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
   }
 
   Future<void> _skipLocation() async {
+    await ref.read(onboardingCompleteProvider.notifier).setComplete();
     widget.onPermissionGranted();
   }
 
@@ -134,9 +135,11 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
+      await ref.read(onboardingCompleteProvider.notifier).setComplete();
       widget.onPermissionGranted();
     } else {
-      // Permission denied, still proceed to app
+      // Permission denied, still proceed to app but mark onboarding complete
+      await ref.read(onboardingCompleteProvider.notifier).setComplete();
       widget.onPermissionGranted();
     }
   }
