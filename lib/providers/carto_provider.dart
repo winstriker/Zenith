@@ -51,10 +51,7 @@ class CartoStyleNotifier extends Notifier<AsyncValue<Style?>> {
   @override
   AsyncValue<Style?> build() {
     final key = ref.watch(cartoApiKeyProvider);
-    if (key == null || key.isEmpty) {
-      return const AsyncData(null);
-    }
-    _loadStyle(key);
+    _loadStyle(key ?? "");
     return const AsyncLoading();
   }
 
