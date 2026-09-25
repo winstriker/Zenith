@@ -22,7 +22,6 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   final _searchController = TextEditingController();
   bool _showFilters = false;
   bool _shouldRelocate = false;
-  bool _useAlphabeticalFallback = false;
 
   String _lastQuery = '';
   String? _lastCountry;
@@ -61,7 +60,8 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   }
 
   Future<List<AirportWithDistance>> _loadAirportsWithFallback(
-      AirportsService service) async {
+    AirportsService service,
+  ) async {
     final hasPermission = await _checkLocationPermission();
     if (hasPermission) {
       return service.getNearAirportsWithFallback(
@@ -97,11 +97,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           builder: (context, snapshot) {
             final hasPermission = snapshot.data ?? false;
             if (isFiltering) return const Text('Search Results');
-            return Text(
-              hasPermission
-                  ? 'Nearest Airports'
-                  : 'Airports (Alphabetical)',
-            );
+            return Text(hasPermission ? 'Nearest Airports' : 'Airports');
           },
         ),
         actions: [
@@ -126,34 +122,43 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 ),
               ),
             ),
-          FutureBuilder<bool>(
-            future: _checkLocationPermission(),
-            builder: (context, snapshot) {
-              final hasPermission = snapshot.data ?? false;
-              if (!hasPermission) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Icon(
-                    Icons.location_off,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
+
           IconButton(
             icon: Icon(_showFilters ? Icons.filter_alt_off : Icons.filter_alt),
             tooltip: 'Filters',
             onPressed: () => setState(() => _showFilters = !_showFilters),
           ),
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            tooltip: 'Recenter location',
-            onPressed: () {
-              setState(() => _shouldRelocate = true);
+          FutureBuilder<bool>(
+            future: _checkLocationPermission(),
+            builder: (context, snapshot) {
+              final hasPermission = snapshot.data ?? false;
+              if (!hasPermission) {
+                return IconButton(
+                  icon: Icon(
+                    Icons.location_off,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  tooltip: 'Enable location access',
+                  onPressed: () async {
+                    final status = await Geolocator.requestPermission();
+                    if (!mounted) return;
+                    if (status == LocationPermission.always ||
+                        status == LocationPermission.whileInUse) {
+                      setState(() => _shouldRelocate = true);
+                    }
+                  },
+                );
+              }
+              return IconButton(
+                icon: const Icon(Icons.my_location),
+                tooltip: 'Recenter location',
+                onPressed: () {
+                  setState(() => _shouldRelocate = true);
+                },
+              );
             },
           ),
+
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh data',
