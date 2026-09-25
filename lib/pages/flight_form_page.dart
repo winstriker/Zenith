@@ -26,10 +26,12 @@ class FlightFormPage extends ConsumerStatefulWidget {
 
 class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   final _formKey = GlobalKey<FormState>();
+  late final FlightFormNotifier _formNotifier;
 
   @override
   void initState() {
     super.initState();
+    _formNotifier = ref.read(flightFormProvider.notifier);
     if (widget.isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _populateFromFlight(widget.flightToEdit!);
@@ -40,13 +42,13 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   @override
   void dispose() {
     if (!widget.isEditing) {
-      ref.read(flightFormProvider.notifier).reset();
+      Future.microtask(() => _formNotifier.reset());
     }
     super.dispose();
   }
 
   void _populateFromFlight(FlightWithStats flight) async {
-    final notifier = ref.read(flightFormProvider.notifier);
+    final notifier = _formNotifier;
     final flightService = ref.read(flightServiceProvider);
     final f = flight.flight;
 
@@ -103,7 +105,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   @override
   Widget build(BuildContext context) {
     final form = ref.watch(flightFormProvider);
-    final notifier = ref.read(flightFormProvider.notifier);
+    final notifier = _formNotifier;
 
     return Scaffold(
       appBar: AppBar(

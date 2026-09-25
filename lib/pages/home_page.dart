@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logbook/main.dart';
 import '../providers/flight_providers.dart';
 import '../providers/aircraft_providers.dart';
+import '../providers/user_provider.dart';
 import '../services/database.dart';
 import '../widgets/flight_card.dart';
 import 'recording_page.dart';
@@ -29,6 +30,7 @@ class HomePage extends ConsumerWidget {
     final flights = ref.watch(flightListProvider);
     final isRecording = ref.watch(recordingStateProvider);
     final aircraftList = ref.watch(aircraftListProvider);
+    final nickname = ref.watch(userNicknameProvider);
     final recentFlights = flights.take(3).toList();
     final theme = Theme.of(context);
 
@@ -45,6 +47,7 @@ class HomePage extends ConsumerWidget {
             flights.length,
             totalMinutes,
             aircraftList.length,
+            nickname,
           ),
           SliverToBoxAdapter(
             child: _buildRecordingBanner(context, theme, isRecording),
@@ -96,6 +99,7 @@ class HomePage extends ConsumerWidget {
     int flightCount,
     int totalMinutes,
     int aircraftCount,
+    String? nickname,
   ) {
     return SliverAppBar(
       expandedHeight: 200,
@@ -148,7 +152,7 @@ class HomePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Pilot Logbook',
+                      nickname ?? 'Pilot',
                       style: theme.textTheme.headlineMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

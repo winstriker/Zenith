@@ -6,10 +6,10 @@ import 'pages/home_page.dart';
 import 'pages/airports_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/intro_page.dart';
-import 'pages/api_key_page.dart';
 
 import 'providers/theme_provider.dart';
 import 'providers/carto_provider.dart';
+import 'providers/user_provider.dart';
 
 class LogbookApp extends ConsumerStatefulWidget {
   const LogbookApp({super.key});
@@ -31,10 +31,6 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
 
   void _onPermissionGranted() {
     setState(() => _permissionGranted = true);
-  }
-
-  void _onApiKeySaved() {
-    // No setState needed — the cartoApiKeyProvider will notify consumers
   }
 
   Future<void> _checkLocationPermission() async {
@@ -88,6 +84,9 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
     final apiKey = ref.watch(cartoApiKeyProvider);
+    final nickname = ref.watch(userNicknameProvider);
+    final signatureName = ref.watch(userSignatureNameProvider);
+    final needsIntro = nickname == null || signatureName == null;
     // Pre-load CARTO style as soon as the API key is available
     if (apiKey != null && apiKey.isNotEmpty) {
       ref.watch(cartoStyleProvider);
@@ -106,8 +105,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
             )
           : !_permissionGranted
               ? IntroPage(onPermissionGranted: _onPermissionGranted)
-              : apiKey == null
-                  ? ApiKeyPage(onKeySaved: _onApiKeySaved)
+              : needsIntro
+                  ? IntroPage(onPermissionGranted: _onPermissionGranted)
                   : _buildMainApp(),
     );
   }
