@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
@@ -21,11 +22,18 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   final _searchController = TextEditingController();
   bool _showFilters = false;
   bool _shouldRelocate = false;
+  bool _useAlphabeticalFallback = false;
 
   String _lastQuery = '';
   String? _lastCountry;
   AirportType? _lastType;
   List<Airport> _cachedResults = [];
+
+  Future<bool> _checkLocationPermission() async {
+    final status = await Geolocator.checkPermission();
+    return status == LocationPermission.always ||
+        status == LocationPermission.whileInUse;
+  }
 
   @override
   void dispose() {
@@ -52,6 +60,19 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     return _cachedResults;
   }
 
+  Future<List<AirportWithDistance>> _loadAirportsWithFallback(
+      AirportsService service) async {
+    final hasPermission = await _checkLocationPermission();
+    if (hasPermission) {
+      return service.getNearAirportsWithFallback(
+        limit: 20,
+        relocate: _shouldRelocate,
+      );
+    } else {
+      return service.getAirportsAlphabetical(limit: 20);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(airportLoadProvider);
@@ -63,23 +84,25 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
         _selectedType != null;
 
     final airportsFuture = isFiltering
-        ? _searchAirportsCached(service).then(
-            (list) => list
-                .map((a) => AirportWithDistance(a, -1))
-                .toList(),
-          )
-        : service.getNearAirports(
-            limit: 20,
-            relocate: _shouldRelocate,
-          );
+        ? _searchAirportsCached(
+            service,
+          ).then((list) => list.map((a) => AirportWithDistance(a, -1)).toList())
+        : _loadAirportsWithFallback(service);
     _shouldRelocate = false;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          isFiltering
-              ? 'Search Results'
-              : 'Nearest Airports',
+        title: FutureBuilder<bool>(
+          future: _checkLocationPermission(),
+          builder: (context, snapshot) {
+            final hasPermission = snapshot.data ?? false;
+            if (isFiltering) return const Text('Search Results');
+            return Text(
+              hasPermission
+                  ? 'Nearest Airports'
+                  : 'Airports (Alphabetical)',
+            );
+          },
         ),
         actions: [
           if (service.status.type == StatusType.downloading)
@@ -103,6 +126,22 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 ),
               ),
             ),
+          FutureBuilder<bool>(
+            future: _checkLocationPermission(),
+            builder: (context, snapshot) {
+              final hasPermission = snapshot.data ?? false;
+              if (!hasPermission) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(
+                    Icons.location_off,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
           IconButton(
             icon: Icon(_showFilters ? Icons.filter_alt_off : Icons.filter_alt),
             tooltip: 'Filters',
@@ -164,8 +203,9 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                           final item = snapshot.data![index];
                           return AirportCard(
                             airport: item.airport,
-                            distanceKm:
-                                item.distance >= 0 ? item.distance : null,
+                            distanceKm: item.distance >= 0
+                                ? item.distance
+                                : null,
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(

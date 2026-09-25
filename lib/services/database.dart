@@ -413,6 +413,13 @@ class LogbookDatabase extends _$LogbookDatabase {
     return statement.get();
   }
 
+  Future<List<Airport>> getAllAirportsAlphabetical({int limit = 100}) async {
+    return (select(airports)
+      ..orderBy([(a) => OrderingTerm.asc(a.name)])
+      ..limit(limit))
+      .get();
+  }
+
   Future<List<Airport>?> getAirportsWithinSquare(
     double latitude,
     double longitude, {
@@ -590,6 +597,27 @@ class LogbookDatabase extends _$LogbookDatabase {
       ..where((a) => a.id.isIn(airportIds.toList()))
       ..limit(limit);
     return airportQuery.get();
+  }
+
+  Future<bool> isAirportReferencedInFlights(int airportId) async {
+    final departureCountQuery = select(flights)
+      ..where((f) => f.departure.equals(airportId));
+    final arrivalCountQuery = select(flights)
+      ..where((f) => f.arrival.equals(airportId));
+
+    final departureCount = await departureCountQuery.get();
+    if (departureCount.isNotEmpty) return true;
+
+    final arrivalCount = await arrivalCountQuery.get();
+    return arrivalCount.isNotEmpty;
+  }
+
+  Future<Map<int, bool>> areAirportsReferencedInFlights(List<int> airportIds) async {
+    final result = <int, bool>{};
+    for (final id in airportIds) {
+      result[id] = await isAirportReferencedInFlights(id);
+    }
+    return result;
   }
 
   Future<List<FlightWithStats>> getFlightsForAircraft(
