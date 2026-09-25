@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart' hide Theme;
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
+    hide Theme;
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
@@ -360,12 +362,20 @@ class AirportDetailPage extends ConsumerWidget {
             if (airport.iataCode != null)
               InfoRow(label: 'IATA', value: airport.iataCode!, labelWidth: 120),
             if (airport.municipality != null)
-              InfoRow(label: 'Municipality', value: airport.municipality!, labelWidth: 120),
+              InfoRow(
+                label: 'Municipality',
+                value: airport.municipality!,
+                labelWidth: 120,
+              ),
             if (country != null)
               InfoRow(label: 'Country', value: country.name, labelWidth: 120),
             if (region != null)
               InfoRow(label: 'Region', value: region.name, labelWidth: 120),
-            InfoRow(label: 'Continent', value: airport.continent, labelWidth: 120),
+            InfoRow(
+              label: 'Continent',
+              value: airport.continent,
+              labelWidth: 120,
+            ),
             if (airport.latitudeDeg != null)
               InfoRow(
                 label: 'Latitude',
@@ -385,11 +395,23 @@ class AirportDetailPage extends ConsumerWidget {
                 labelWidth: 120,
               ),
             if (airport.gpsCode != null)
-              InfoRow(label: 'GPS Code', value: airport.gpsCode!, labelWidth: 120),
+              InfoRow(
+                label: 'GPS Code',
+                value: airport.gpsCode!,
+                labelWidth: 120,
+              ),
             if (airport.localCode != null)
-              InfoRow(label: 'Local Code', value: airport.localCode!, labelWidth: 120),
+              InfoRow(
+                label: 'Local Code',
+                value: airport.localCode!,
+                labelWidth: 120,
+              ),
             if (airport.homeLink != null)
-              InfoRow(label: 'Website', value: airport.homeLink!, labelWidth: 120),
+              InfoRow(
+                label: 'Website',
+                value: airport.homeLink!,
+                labelWidth: 120,
+              ),
           ],
         ),
       ),
@@ -404,6 +426,7 @@ class AirportDetailPage extends ConsumerWidget {
     final lat = airport.latitudeDeg;
     final lng = airport.longitudeDeg;
     if (lat == null || lng == null) return const SizedBox.shrink();
+    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -440,6 +463,27 @@ class AirportDetailPage extends ConsumerWidget {
                 diskCacheTtl: const Duration(days: 30),
                 diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
               ),
+              if (kReleaseMode) ...[
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(0),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.6),
+                      ),
+                      child: Text(
+                        '© OpenStreetMap contributors,© CARTO',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           loading: () => const Center(child: CircularProgressIndicator()),

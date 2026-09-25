@@ -1,10 +1,12 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart' hide Theme;
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
+    hide Theme;
 
 import 'package:logbook/services/database.dart';
 import '../providers/airport_providers.dart';
@@ -150,6 +152,27 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
               diskCacheTtl: const Duration(days: 30),
               diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
             ),
+            if (kReleaseMode) ...[
+              Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(0),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.6),
+                    ),
+                    child: Text(
+                      '© OpenStreetMap contributors,© CARTO',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             MarkerLayer(
               markers: _airports.map((airport) {
                 final isCenter =

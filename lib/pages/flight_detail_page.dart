@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -30,10 +31,10 @@ class FlightDetailPage extends ConsumerWidget {
     final flightAsync = ref.watch(flightByIdProvider(flightId));
 
     return flightAsync.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(
-        body: Center(child: Text('Error loading flight: $e')),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) =>
+          Scaffold(body: Center(child: Text('Error loading flight: $e'))),
       data: (flight) {
         if (flight == null) {
           return const Scaffold(body: Center(child: Text('Flight not found')));
@@ -199,6 +200,27 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                 diskCacheTtl: const Duration(days: 30),
                 diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
               ),
+              if (kReleaseMode) ...[
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(0),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.6),
+                      ),
+                      child: Text(
+                        '© OpenStreetMap contributors,© CARTO',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               // Route polyline
               if (hasData && points.length >= 2)
                 PolylineLayer(
