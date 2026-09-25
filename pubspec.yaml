@@ -27,6 +27,9 @@ dependencies:
   flutter_native_html_to_pdf: ^3.1.0
   share_plus: ^10.1.4
   country_flags: ^4.1.1
+  timezone: ^0.11.1
+  state_notifier: ^1.0.0
+  lat_lng_to_timezone: ^0.2.0
 dependency_overrides:
   flutter_map_vector_tiles:
     path: packages/flutter_map_vector_tiles
