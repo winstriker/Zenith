@@ -1,32 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
-import 'package:logbook/utils/tz_datetime.dart';
-import 'package:logbook/services/database.dart';
 import 'package:timezone/timezone.dart' as tz;
+
+import '../services/database.dart';
+import '../utils/tz_datetime.dart';
 
 enum TimezoneMode { utc, local, iana }
 
 class FlightFormState {
-  final String departureCode;
-  final String arrivalCode;
-  final String depTime;
-  final String arrTime;
-  final String remarks;
-  final Airport? selectedDeparture;
-  final Airport? selectedArrival;
-  final DateTime departureDate;
-  final DateTime arrivalDate;
-  final TimezoneMode depTzMode;
-  final TimezoneMode arrTzMode;
-  final String? depIanaLocation;
-  final String? arrIanaLocation;
-  final Aircraft? selectedAircraft;
-  final String approachType;
-  final int nightLandings;
-  final int dayLandings;
-  final String flightRules;
-
   FlightFormState({
     this.departureCode = '',
     this.arrivalCode = '',
@@ -36,7 +18,7 @@ class FlightFormState {
     this.selectedDeparture,
     this.selectedArrival,
     DateTime? departureDate,
-    DateTime? arrivalDate,
+    this.arrivalDate,
     this.depTzMode = TimezoneMode.local,
     this.arrTzMode = TimezoneMode.local,
     this.depIanaLocation,
@@ -46,17 +28,26 @@ class FlightFormState {
     this.nightLandings = 0,
     this.dayLandings = 1,
     this.flightRules = 'VFR',
-  }) : departureDate = departureDate ?? DateTime.now(),
-       arrivalDate =
-           arrivalDate ??
-           DateTime(
-             DateTime.now().year,
-             DateTime.now().month,
-             DateTime.now().day,
-             0,
-             0,
-             0,
-           );
+  }) : departureDate = departureDate ?? DateTime.now();
+
+  final String departureCode;
+  final String arrivalCode;
+  final String depTime;
+  final String arrTime;
+  final String remarks;
+  final Airport? selectedDeparture;
+  final Airport? selectedArrival;
+  final DateTime departureDate;
+  final DateTime? arrivalDate;
+  final TimezoneMode depTzMode;
+  final TimezoneMode arrTzMode;
+  final String? depIanaLocation;
+  final String? arrIanaLocation;
+  final Aircraft? selectedAircraft;
+  final String approachType;
+  final int nightLandings;
+  final int dayLandings;
+  final String flightRules;
 
   FlightFormState copyWith({
     String? departureCode,
@@ -129,9 +120,10 @@ class FlightFormState {
       case TimezoneMode.local:
         return _airportTimezone(selectedArrival);
       case TimezoneMode.iana:
+        if (arrivalDate == null) return 'IANA';
         return TZDateTimeParser.parseDateTimeFromText(
           arrTime,
-          arrivalDate,
+          arrivalDate!,
           arrIanaLocation,
         ).timeZone.abbreviation;
     }
@@ -139,14 +131,16 @@ class FlightFormState {
 
   String _airportTimezone(Airport? airport) {
     if (airport == null) return 'LCL';
-    if (airport.latitudeDeg == null || airport.longitudeDeg == null)
+    if (airport.latitudeDeg == null || airport.longitudeDeg == null) {
       return 'LCL';
+    }
 
     try {
       final ianaLocation = latLngToTimezoneString(
         airport.latitudeDeg!,
         airport.longitudeDeg!,
       );
+
       final location = tz.getLocation(ianaLocation);
       final now = tz.TZDateTime.now(location);
       return now.timeZone.abbreviation;
@@ -162,10 +156,10 @@ class FlightFormState {
   );
 
   tz.TZDateTime? get arrTZDateTime {
-    if (arrTime.isEmpty) return null;
+    if (arrTime.isEmpty || arrivalDate == null) return null;
     return TZDateTimeParser.parseDateTimeFromText(
       arrTime,
-      arrivalDate,
+      arrivalDate!,
       arrIanaLocation,
     );
   }

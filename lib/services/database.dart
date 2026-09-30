@@ -110,6 +110,17 @@ class Airports extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'airports_iso_country_idx', columns: {isoCountry}),
+    TableIndex(
+      name: 'airports_lat_lon_idx',
+      columns: {latitudeDeg, longitudeDeg},
+    ),
+    TableIndex(name: 'airports_ident_idx', columns: {ident}),
+    TableIndex(name: 'airports_icao_idx', columns: {icaoCode}),
+    TableIndex(name: 'airports_iata_idx', columns: {iataCode}),
+  ];
 }
 
 class Frequencies extends Table {
@@ -122,6 +133,10 @@ class Frequencies extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'frequencies_airport_idx', columns: {airport}),
+  ];
 }
 
 class Runways extends Table {
@@ -152,6 +167,10 @@ class Runways extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'runways_airport_idx', columns: {airport}),
+  ];
 }
 
 class Aircrafts extends Table {
@@ -161,6 +180,10 @@ class Aircrafts extends Table {
   TextColumn get tailNumber => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'aircrafts_created_at_idx', columns: {createdAt}),
+  ];
 }
 
 class Flights extends Table {
@@ -181,6 +204,14 @@ class Flights extends Table {
   IntColumn get dayLandings => integer().nullable()();
   TextColumn get flightRules => text().nullable()();
   TextColumn get remarks => text().nullable()();
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'flights_departure_time_idx', columns: {departureTime}),
+    TableIndex(name: 'flights_aircraft_id_idx', columns: {aircraftId}),
+    TableIndex(name: 'flights_is_recording_idx', columns: {isRecording}),
+    TableIndex(name: 'flights_departure_idx', columns: {departure}),
+    TableIndex(name: 'flights_arrival_idx', columns: {arrival}),
+  ];
 }
 
 class FlightDataPoints extends Table {
@@ -192,6 +223,15 @@ class FlightDataPoints extends Table {
   DateTimeColumn get timestamp => dateTime()();
   RealColumn get speed => real().nullable()();
   RealColumn get heading => real().nullable()();
+
+  List<TableIndex> get indexes => [
+    TableIndex(
+      name: 'flight_data_points_flight_timestamp_idx',
+      columns: {flight, timestamp},
+    ),
+    TableIndex(name: 'flight_data_points_flight_idx', columns: {flight}),
+    TableIndex(name: 'flight_data_points_timestamp_idx', columns: {timestamp}),
+  ];
 }
 
 class AirportWithEverything {
@@ -279,14 +319,12 @@ class FlightWithStats {
 }
 
 class AirportWithDistance {
+  AirportWithDistance(this.airport, this.distance);
   final Airport airport;
   final double distance;
-  AirportWithDistance(this.airport, this.distance);
 }
 
 class AircraftWithStats extends Aircraft {
-  final int flightCount;
-  final Duration? totalFlightTime;
   AircraftWithStats({
     required Aircraft aircraft,
     required this.flightCount,
@@ -299,6 +337,8 @@ class AircraftWithStats extends Aircraft {
          notes: aircraft.notes,
          tailNumber: aircraft.tailNumber,
        );
+  final int flightCount;
+  final Duration? totalFlightTime;
 }
 
 @DriftDatabase(
@@ -314,10 +354,6 @@ class AircraftWithStats extends Aircraft {
   ],
 )
 class LogbookDatabase extends _$LogbookDatabase {
-  static LogbookDatabase? _instance;
-
-  LogbookDatabase._(QueryExecutor executor) : super(executor);
-
   factory LogbookDatabase([QueryExecutor? executor]) {
     if (executor != null) {
       return LogbookDatabase._(executor);
@@ -326,8 +362,11 @@ class LogbookDatabase extends _$LogbookDatabase {
     return _instance!;
   }
 
+  LogbookDatabase._(super.executor);
+  static LogbookDatabase? _instance;
+
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -339,6 +378,10 @@ class LogbookDatabase extends _$LogbookDatabase {
         await m.addColumn(flights, flights.dayLandings);
         await m.addColumn(flights, flights.flightRules);
         await m.addColumn(flights, flights.remarks);
+      }
+      if (from < 3) {
+        // Indexes are automatically created by Drift when using TableIndex
+        // No manual SQL needed - Drift handles index creation during schema upgrade
       }
     },
   );
@@ -415,9 +458,9 @@ class LogbookDatabase extends _$LogbookDatabase {
 
   Future<List<Airport>> getAllAirportsAlphabetical({int limit = 100}) async {
     return (select(airports)
-      ..orderBy([(a) => OrderingTerm.asc(a.name)])
-      ..limit(limit))
-      .get();
+          ..orderBy([(a) => OrderingTerm.asc(a.name)])
+          ..limit(limit))
+        .get();
   }
 
   Future<List<Airport>?> getAirportsWithinSquare(
@@ -612,7 +655,9 @@ class LogbookDatabase extends _$LogbookDatabase {
     return arrivalCount.isNotEmpty;
   }
 
-  Future<Map<int, bool>> areAirportsReferencedInFlights(List<int> airportIds) async {
+  Future<Map<int, bool>> areAirportsReferencedInFlights(
+    List<int> airportIds,
+  ) async {
     final result = <int, bool>{};
     for (final id in airportIds) {
       result[id] = await isAirportReferencedInFlights(id);

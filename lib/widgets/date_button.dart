@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
 class DateButton extends StatelessWidget {
-  final DateTime date;
-  final VoidCallback onTap;
-  final TextAlign textAlign;
-
   const DateButton({
     super.key,
-    required this.date,
+    this.date,
     required this.onTap,
     this.textAlign = TextAlign.left,
   });
+  final DateTime? date;
+  final VoidCallback onTap;
+  final TextAlign textAlign;
 
-  String _formatDisplayDate(DateTime date) {
+  String _formatDisplayDate(DateTime? date) {
+    if (date == null) return 'Not set';
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
@@ -29,6 +29,7 @@ class DateButton extends StatelessWidget {
           _formatDisplayDate(date),
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
+            color: date == null ? theme.colorScheme.onSurfaceVariant : null,
           ),
           textAlign: textAlign,
         ),

@@ -1,72 +1,75 @@
-import 'dart:async';
 import 'dart:math' show sin, cos, atan2;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
+    hide Theme;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart' hide Theme;
 
-import '../services/database.dart';
-import '../providers/unit_provider.dart';
 import '../providers/carto_provider.dart';
+import '../providers/unit_provider.dart';
+import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
-  final FlightWithStats flight;
-
   const ReplayPage({super.key, required this.flight});
+  final FlightWithStats flight;
 
   @override
   ConsumerState<ReplayPage> createState() => _ReplayPageState();
 }
 
-class _ReplayPageState extends ConsumerState<ReplayPage> {
+class _ReplayPageState extends ConsumerState<ReplayPage>
+    with TickerProviderStateMixin {
   final MapController _mapController = MapController();
 
-  double _progress = 0.0;
-  bool _isPlaying = false;
-  double _speed = 1.0;
-  Timer? _timer;
+  // Animation controller for smooth 60fps playback
+  late final AnimationController _animationController;
+  late final Animation<double> _progressAnimation;
 
-  List<LatLng> _pathPoints = [];
-  List<double> _cumulativeDistances = [];
-  double _totalDistance = 0;
-  Duration _replayDuration = Duration.zero;
+  // Flight data (pre-computed)
+  late final List<LatLng> _pathPoints;
+  late final List<double> _cumulativeDistances;
+  late final double _totalDistance;
+  late final Duration _replayDuration;
+  late final int _pointsCount;
 
+  // Current state (updated by animation)
   LatLng? _currentPosition;
   double _currentAltitude = 0;
   double? _currentSpeed;
   double? _currentHeading;
-  bool _mapReady = false;
+  int _currentSegmentIndex = 0;
 
-  static const _tickPeriod = Duration(milliseconds: 16);
+  // Playback state
+  double _speed = 1.0;
+  bool _mapReady = false;
 
   @override
   void initState() {
     super.initState();
     _initFlightData();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+    _initAnimationController();
   }
 
   void _initFlightData() {
     final points = widget.flight.dataPoints;
+    _pointsCount = points.length;
     _pathPoints = points.map((p) => LatLng(p.latitude, p.longitude)).toList();
 
     if (points.length >= 2) {
-      final dist = Distance();
+      const dist = Distance();
       _cumulativeDistances = [0.0];
       for (int i = 1; i < points.length; i++) {
         final d = dist(_pathPoints[i - 1], _pathPoints[i]);
         _cumulativeDistances.add(_cumulativeDistances.last + d);
       }
       _totalDistance = _cumulativeDistances.last;
+    } else {
+      _cumulativeDistances = [0.0];
+      _totalDistance = 0;
     }
 
     _replayDuration = _calculateDuration();
@@ -74,7 +77,22 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     if (points.isNotEmpty) {
       _currentAltitude = points.first.altitude.toDouble();
       _currentSpeed = points.first.speed;
+      _currentHeading = points.first.heading;
     }
+  }
+
+  void _initAnimationController() {
+    _animationController = AnimationController(
+      vsync: this,
+      duration: _replayDuration,
+    );
+
+    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.linear),
+    );
+
+    _animationController.addListener(_onAnimationTick);
+    _animationController.addStatusListener(_onAnimationStatusChanged);
   }
 
   Duration _calculateDuration() {
@@ -84,102 +102,83 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     }
     final points = widget.flight.dataPoints;
     if (points.length >= 2) {
-      final d =
-          points.last.timestamp.difference(points.first.timestamp);
+      final d = points.last.timestamp.difference(points.first.timestamp);
       if (d.inMicroseconds > 0) return d;
     }
     return const Duration(seconds: 30);
   }
 
-  void _onMapReady() {
-    _mapReady = true;
-    _fitMapBounds();
-  }
-
-  void _fitMapBounds() {
-    if (!_mapReady || _pathPoints.isEmpty) return;
-
-    final startPoint = _pathPoints.first;
-
-    _mapController.move(startPoint, 13.0);
-
-    // Force a tiny movement to trigger a tile refresh and resolve the blurry tiles
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _mapController.move(
-          _mapController.camera.center,
-          _mapController.camera.zoom + 0.000001,
-        );
-      }
-    });
-  }
-
-  LatLng _getPositionAtProgress(double progress) {
-    if (_pathPoints.isEmpty) return const LatLng(0, 0);
-    if (_pathPoints.length == 1) return _pathPoints.first;
-    if (progress <= 0) return _pathPoints.first;
-    if (progress >= 1) return _pathPoints.last;
-
-    final target = progress * _totalDistance;
-    int i = 1;
-    while (i < _cumulativeDistances.length &&
-        _cumulativeDistances[i] < target) {
-      i++;
+  void _onAnimationTick() {
+    final progress = _progressAnimation.value * _speed;
+    if (progress >= 1.0) {
+      _animationController.stop();
+      return;
     }
-    if (i >= _cumulativeDistances.length) return _pathPoints.last;
-
-    final segStart = _cumulativeDistances[i - 1];
-    final segEnd = _cumulativeDistances[i];
-    final t =
-        segEnd > segStart ? ((target - segStart) / (segEnd - segStart)) : 0.0;
-    final p1 = _pathPoints[i - 1];
-    final p2 = _pathPoints[i];
-
-    return LatLng(
-      p1.latitude + (p2.latitude - p1.latitude) * t,
-      p1.longitude + (p2.longitude - p1.longitude) * t,
-    );
+    _updateCurrentPoint(progress.clamp(0.0, 1.0));
   }
 
-  int _getSegmentIndex(double progress) {
-    if (_pathPoints.length < 2 || progress >= 1) return _pathPoints.length - 1;
-    if (progress <= 0) return 0;
-
-    final target = progress * _totalDistance;
-    int i = 1;
-    while (i < _cumulativeDistances.length &&
-        _cumulativeDistances[i] < target) {
-      i++;
+  void _onAnimationStatusChanged(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      setState(() => _animationController.reset());
     }
-    return i - 1;
   }
 
   void _updateCurrentPoint(double progress) {
-    final points = widget.flight.dataPoints;
-    if (points.isEmpty) return;
+    if (_pathPoints.isEmpty) return;
+    if (_pathPoints.length == 1) {
+      _currentPosition = _pathPoints.first;
+      return;
+    }
+    if (progress <= 0) {
+      _currentPosition = _pathPoints.first;
+      _currentSegmentIndex = 0;
+      return;
+    }
+    if (progress >= 1) {
+      _currentPosition = _pathPoints.last;
+      _currentSegmentIndex = _pathPoints.length - 1;
+      return;
+    }
 
-    _currentPosition = _getPositionAtProgress(progress);
+    final target = progress * _totalDistance;
 
-    final segIndex = _getSegmentIndex(progress);
-    if (segIndex < points.length - 1) {
-      final segStart = _cumulativeDistances[segIndex];
-      final segEnd = _cumulativeDistances[segIndex + 1];
-      final t = segEnd > segStart
-          ? ((progress * _totalDistance - segStart) / (segEnd - segStart))
-          : 0.0;
-      final p1 = points[segIndex];
-      final p2 = points[segIndex + 1];
+    // Binary search for segment index (O(log n) instead of O(n))
+    int low = 1;
+    int high = _cumulativeDistances.length - 1;
+    while (low <= high) {
+      final mid = (low + high) ~/ 2;
+      if (_cumulativeDistances[mid] < target) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    _currentSegmentIndex = high.clamp(0, _cumulativeDistances.length - 2);
 
-      _currentAltitude = p1.altitude + (p2.altitude - p1.altitude) * t;
-      _currentSpeed = p1.speed != null && p2.speed != null
-          ? p1.speed! + (p2.speed! - p1.speed!) * t
-          : (p1.speed ?? p2.speed);
-      _currentHeading = _computeBearing(p1, p2);
-    } else if (points.isNotEmpty) {
-      final p = points.last;
-      _currentAltitude = p.altitude.toDouble();
-      _currentSpeed = p.speed;
-      _currentHeading = p.heading;
+    final segStart = _cumulativeDistances[_currentSegmentIndex];
+    final segEnd = _cumulativeDistances[_currentSegmentIndex + 1];
+    final t = segEnd > segStart
+        ? ((target - segStart) / (segEnd - segStart))
+        : 0.0;
+
+    final p1 = _pathPoints[_currentSegmentIndex];
+    final p2 = _pathPoints[_currentSegmentIndex + 1];
+
+    _currentPosition = LatLng(
+      p1.latitude + (p2.latitude - p1.latitude) * t,
+      p1.longitude + (p2.longitude - p1.longitude) * t,
+    );
+
+    // Interpolate altitude, speed, heading from data points
+    if (_currentSegmentIndex < widget.flight.dataPoints.length - 1) {
+      final dp1 = widget.flight.dataPoints[_currentSegmentIndex];
+      final dp2 = widget.flight.dataPoints[_currentSegmentIndex + 1];
+
+      _currentAltitude = dp1.altitude + (dp2.altitude - dp1.altitude) * t;
+      _currentSpeed = dp1.speed != null && dp2.speed != null
+          ? dp1.speed! + (dp2.speed! - dp1.speed!) * t
+          : (dp1.speed ?? dp2.speed);
+      _currentHeading = _computeBearing(dp1, dp2);
     }
   }
 
@@ -193,84 +192,90 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
   }
 
   void _togglePlayback() {
-    if (_progress >= 1.0) {
-      setState(() {
-        _progress = 0.0;
-        _updateCurrentPoint(0.0);
-      });
+    if (_progressAnimation.value >= 1.0) {
+      _animationController.reset();
     }
-    if (_isPlaying) {
-      _pausePlayback();
+    if (_animationController.isAnimating) {
+      _animationController.stop();
     } else {
-      _startPlayback();
+      // Adjust duration based on speed
+      _animationController.duration = Duration(
+        microseconds: (_replayDuration.inMicroseconds / _speed).round(),
+      );
+      _animationController.forward(from: _progressAnimation.value);
     }
-  }
-
-  void _startPlayback() {
-    _isPlaying = true;
-    _timer = Timer.periodic(_tickPeriod, (_) => _onTick());
-  }
-
-  void _pausePlayback() {
-    _isPlaying = false;
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  void _onTick() {
-    if (_progress >= 1.0) {
-      _pausePlayback();
-      return;
-    }
-    final totalUs = _replayDuration.inMicroseconds.toDouble();
-    if (totalUs <= 0) return;
-    final step = (_tickPeriod.inMicroseconds / totalUs) * _speed;
-
-    setState(() {
-      _progress = (_progress + step).clamp(0.0, 1.0);
-      _updateCurrentPoint(_progress);
-      if (_progress >= 1.0) {
-        _pausePlayback();
-      }
-    });
+    setState(() {});
   }
 
   void _setSpeed(double speed) {
-    setState(() => _speed = speed);
+    final wasPlaying = _animationController.isAnimating;
+    final currentProgress = _progressAnimation.value;
+
+    setState(() {
+      _speed = speed;
+    });
+
+    if (wasPlaying) {
+      _animationController.duration = Duration(
+        microseconds: (_replayDuration.inMicroseconds / _speed).round(),
+      );
+      _animationController.forward(from: currentProgress);
+    }
   }
 
   void _onSliderChanged(double value) {
-    if (_isPlaying) _pausePlayback();
-    setState(() {
-      _progress = value;
-      _updateCurrentPoint(value);
-    });
+    if (_animationController.isAnimating) {
+      _animationController.stop();
+    }
+    _animationController.value = value;
+    _updateCurrentPoint(value);
+    setState(() {});
   }
 
   String _formatAltitude(double meters, bool isMetric) {
-    if (isMetric) {
-      return '${meters.round()} m';
-    }
+    if (isMetric) return '${meters.round()} m';
     final feet = meters * 3.28084;
     return '${feet.round()} ft';
   }
 
   String _formatSpeed(double? speed, bool isMetric) {
     if (speed == null) return '--';
-    if (isMetric) {
-      return '${speed.round()} km/h';
-    }
+    if (isMetric) return '${speed.round()} km/h';
     final knots = speed * 0.539957;
     return '${knots.round()} kts';
   }
 
   List<LatLng> _buildTrailPoints() {
-    if (_progress <= 0 || _currentPosition == null) return [];
-    final idx = _getSegmentIndex(_progress);
-    return [
-      ..._pathPoints.sublist(0, idx + 1),
-      _currentPosition!,
-    ];
+    if (_progressAnimation.value <= 0 || _currentPosition == null) return [];
+    final idx = _currentSegmentIndex;
+    return [..._pathPoints.sublist(0, idx + 1), _currentPosition!];
+  }
+
+  @override
+  void dispose() {
+    _animationController.removeListener(_onAnimationTick);
+    _animationController.removeStatusListener(_onAnimationStatusChanged);
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onMapReady() {
+    _mapReady = true;
+    _fitMapBounds();
+  }
+
+  void _fitMapBounds() {
+    if (!_mapReady || _pathPoints.isEmpty) return;
+    final startPoint = _pathPoints.first;
+    _mapController.move(startPoint, 13.0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _mapController.move(
+          _mapController.camera.center,
+          _mapController.camera.zoom + 0.000001,
+        );
+      }
+    });
   }
 
   @override
@@ -284,10 +289,12 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
     final isMetric = unitMode == MeasurementUnit.metric;
     final cartoStyle = ref.watch(cartoStyleProvider);
 
+    // Use AnimatedBuilder to only rebuild the parts that change
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // Map - static, doesn't rebuild on animation
           cartoStyle.when(
             data: (style) => FlutterMap(
               mapController: _mapController,
@@ -302,11 +309,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                 VectorTileLayer(
                   tileProviders: style!.providers,
                   theme: style.theme,
-                  tileOffset: TileOffset.maplibre,
                   concurrency: 4,
                   diskCacheTtl: const Duration(days: 30),
-                  diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
                 ),
+                // Static full path
                 if (_pathPoints.length >= 2)
                   PolylineLayer(
                     polylines: [
@@ -315,34 +321,54 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                         strokeWidth: 3,
                         color: cs.primary.withValues(alpha: 0.25),
                       ),
-                      if (_progress > 0 && _currentPosition != null)
-                        Polyline(
-                          points: _buildTrailPoints(),
-                          strokeWidth: 4,
-                          color: cs.primary,
+                    ],
+                  ),
+                // Animated trail + plane marker
+                AnimatedBuilder(
+                  animation: _progressAnimation,
+                  builder: (context, _) {
+                    if (_pathPoints.length < 2 || _currentPosition == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return Stack(
+                      children: [
+                        // Trail polyline
+                        PolylineLayer(
+                          polylines: [
+                            Polyline(
+                              points: _buildTrailPoints(),
+                              strokeWidth: 4,
+                              color: cs.primary,
+                            ),
+                          ],
                         ),
-                    ],
-                  ),
-                if (_currentPosition != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _currentPosition!,
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        child: _buildPlaneMarker(cs),
-                      ),
-                    ],
-                  ),
+                        // Plane marker
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _currentPosition!,
+                              width: 48,
+                              height: 48,
+                              alignment: Alignment.center,
+                              child: _buildPlaneMarker(cs),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => const Center(child: Text('Failed to load map')),
           ),
 
+          // Top gradient overlay (static)
           Positioned(
-            top: 0, left: 0, right: 0,
+            top: 0,
+            left: 0,
+            right: 0,
             height: 140 + topPad,
             child: IgnorePointer(
               child: Container(
@@ -361,6 +387,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
             ),
           ),
 
+          // Top bar with flight info and speed (static + animated speed)
           Positioned(
             top: topPad + 4,
             left: 4,
@@ -372,8 +399,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back,
-                          color: Colors.white),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.black26,
@@ -398,7 +424,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${_pathPoints.length} data points',
+                            '$_pointsCount data points',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: Colors.white70,
                             ),
@@ -406,44 +432,57 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                         ],
                       ),
                     ),
-                    if (_currentSpeed != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black26,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'SPD',
-                              style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
+                    // Speed display - animated
+                    AnimatedBuilder(
+                      animation: _progressAnimation,
+                      builder: (context, _) {
+                        if (_currentSpeed == null) {
+                          return const SizedBox.shrink();
+                        }
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'SPD',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            Text(
-                              _formatSpeed(_currentSpeed, isMetric),
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                              Text(
+                                _formatSpeed(_currentSpeed, isMetric),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
           ),
 
+          // Bottom gradient overlay (static)
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             height: 260 + botPad,
             child: IgnorePointer(
               child: Container(
@@ -462,13 +501,18 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
             ),
           ),
 
+          // Control panel - animated
           Positioned(
             bottom: botPad + 16,
             left: 16,
             right: 16,
-            child: _buildControlPanel(theme, cs, isMetric),
+            child: AnimatedBuilder(
+              animation: _progressAnimation,
+              builder: (context, _) => _buildControlPanel(theme, cs, isMetric),
+            ),
           ),
 
+          // Empty state for insufficient data
           if (_pathPoints.length < 2)
             Center(
               child: Column(
@@ -484,8 +528,9 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                     _pathPoints.isEmpty
                         ? 'No flight data available'
                         : 'Not enough points to replay',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(color: Colors.white70),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.white70,
+                    ),
                   ),
                 ],
               ),
@@ -527,7 +572,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
   }
 
   Widget _buildControlPanel(ThemeData theme, ColorScheme cs, bool isMetric) {
-    final elapsed = _replayDuration * _progress;
+    final elapsed = _replayDuration * _progressAnimation.value;
     final remaining = _replayDuration - elapsed;
 
     return ClipRRect(
@@ -538,9 +583,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.55),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -554,19 +597,18 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                       data: SliderThemeData(
                         trackHeight: 3,
                         thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 7),
+                          enabledThumbRadius: 7,
+                        ),
                         activeTrackColor: cs.primary,
-                        inactiveTrackColor:
-                            Colors.white.withValues(alpha: 0.15),
+                        inactiveTrackColor: Colors.white.withValues(
+                          alpha: 0.15,
+                        ),
                         thumbColor: Colors.white,
-                        overlayColor:
-                            cs.primary.withValues(alpha: 0.15),
+                        overlayColor: cs.primary.withValues(alpha: 0.15),
                       ),
                       child: Slider(
-                        value: _progress,
+                        value: _progressAnimation.value,
                         onChanged: _onSliderChanged,
-                        min: 0,
-                        max: 1,
                       ),
                     ),
                   ),
@@ -622,11 +664,11 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
                         padding: EdgeInsets.zero,
                       ),
                       child: Icon(
-                        _isPlaying
+                        _animationController.isAnimating
                             ? Icons.pause
-                            : (_progress >= 1.0
-                                ? Icons.replay
-                                : Icons.play_arrow),
+                            : (_progressAnimation.value >= 1.0
+                                  ? Icons.replay
+                                  : Icons.play_arrow),
                       ),
                     ),
                   ),
@@ -650,9 +692,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage> {
   }
 }
 
+// Stateless widgets for static UI parts
 class _TimeLabel extends StatelessWidget {
-  final Duration duration;
   const _TimeLabel({required this.duration});
+  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
@@ -666,7 +709,7 @@ class _TimeLabel extends StatelessWidget {
       width: 48,
       child: Text(
         str,
-        style: TextStyle(
+        style: const TextStyle(
           color: Colors.white70,
           fontSize: 12,
           fontFeatures: [FontFeature.tabularFigures()],
@@ -678,14 +721,14 @@ class _TimeLabel extends StatelessWidget {
 }
 
 class _StatTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
   const _StatTile({
     required this.label,
     required this.value,
     required this.icon,
   });
+  final String label;
+  final String value;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -719,14 +762,14 @@ class _StatTile extends StatelessWidget {
 }
 
 class _SpeedChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
   const _SpeedChip({
     required this.label,
     required this.selected,
     required this.onTap,
   });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -737,14 +780,10 @@ class _SpeedChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected
-              ? cs.primary
-              : Colors.white.withValues(alpha: 0.08),
+          color: selected ? cs.primary : Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected
-                ? cs.primary
-                : Colors.white.withValues(alpha: 0.12),
+            color: selected ? cs.primary : Colors.white.withValues(alpha: 0.12),
           ),
         ),
         child: Text(

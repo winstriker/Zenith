@@ -1,22 +1,24 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logbook/main.dart';
+import '../repositories/aircraft_repository.dart';
 import '../services/database.dart';
 
-final databaseProviderForAircraft = databaseProvider;
+// Aircraft Repository Provider
+// Provided by aircraft_repository.dart
 
-class AircraftListNotifier extends Notifier<List<AircraftWithStats>> {
-  @override
-  List<AircraftWithStats> build() {
-    _refresh();
-    return [];
-  }
+/// Stream of all aircraft with stats
+final aircraftListStreamProvider = StreamProvider<List<AircraftWithStats>>((ref) {
+  final repository = ref.watch(aircraftRepositoryProvider);
+  return repository.watchAircraftsWithStats();
+});
 
-  Future<void> _refresh() async {
-    final db = ref.read(databaseProvider);
-    state = await db.getAircraftsWithStats();
-  }
+/// Stream of a specific aircraft
+final aircraftByIdStreamProvider = StreamProvider.family<Aircraft?, int>((ref, aircraftId) {
+  final repository = ref.watch(aircraftRepositoryProvider);
+  return repository.watchAircraft(aircraftId);
+});
 
-  Future<void> refresh() => _refresh();
-}
-
-final aircraftListProvider = NotifierProvider<AircraftListNotifier, List<AircraftWithStats>>(AircraftListNotifier.new);
+/// Stream of flights for a specific aircraft
+final flightsForAircraftStreamProvider = StreamProvider.family<List<FlightWithStats>, int>((ref, aircraftId) {
+  final repository = ref.watch(aircraftRepositoryProvider);
+  return repository.watchFlightsForAircraft(aircraftId);
+});

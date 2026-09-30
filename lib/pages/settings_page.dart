@@ -32,11 +32,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           FilledButton(
             onPressed: () async {
               final flightService = ref.read(flightServiceProvider);
-              final sessions = flightService.sessions.toList();
+              final flightsAsync = ref.read(flightListStreamProvider);
+              final sessions = flightsAsync.value?.toList() ?? [];
               for (final s in sessions) {
                 await flightService.deleteSession(s.flight.id);
               }
-              ref.read(flightListProvider.notifier).refresh();
+              // Stream provider automatically updates
               if (ctx.mounted) Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(
@@ -51,7 +52,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _exportData() async {
-    final flights = ref.read(flightListProvider);
+    final flightsAsync = ref.read(flightListStreamProvider);
+    final flights = flightsAsync.value ?? [];
     if (flights.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -18,63 +18,65 @@ class AircraftsPage extends ConsumerStatefulWidget {
 class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   @override
   Widget build(BuildContext context) {
-    final aircraftList = ref.watch(aircraftListProvider);
+    final aircraftAsync = ref.watch(aircraftListStreamProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Aircraft'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Add aircraft',
-            onPressed: () => _showAddDialog(),
-          ),
-        ],
-      ),
-      body: aircraftList.isEmpty
-          ? EmptyState(
-              icon: Icons.airplanemode_active,
-              title: 'No aircraft yet',
-              subtitle: 'Add your first aircraft to start tracking flights.',
-              action: FilledButton.icon(
-                onPressed: () => _showAddDialog(),
+    return aircraftAsync.when(
+      data: (aircraftList) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('My Aircraft'),
+            actions: [
+              IconButton(
                 icon: const Icon(Icons.add),
-                label: const Text('Add Aircraft'),
+                tooltip: 'Add aircraft',
+                onPressed: () => _showAddDialog(),
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemCount: aircraftList.length,
-              itemBuilder: (context, index) {
-                final aws = aircraftList[index];
-                return AircraftCard(
-                  aircraft: aws,
-                  onTap: () => _showDetailPage(aws),
-                  onLongPress: () => _confirmDelete(aws),
-                );
-              },
-            ),
+            ],
+          ),
+          body: aircraftList.isEmpty
+              ? EmptyState(
+                  icon: Icons.airplanemode_active,
+                  title: 'No aircraft yet',
+                  subtitle: 'Add your first aircraft to start tracking flights.',
+                  action: FilledButton.icon(
+                    onPressed: () => _showAddDialog(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Aircraft'),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.only(top: 8, bottom: 80),
+                  itemCount: aircraftList.length,
+                  itemBuilder: (context, index) {
+                    final aws = aircraftList[index];
+                    return AircraftCard(
+                      aircraft: aws,
+                      onTap: () => _showDetailPage(aws),
+                      onLongPress: () => _confirmDelete(aws),
+                    );
+                  },
+                ),
+        );
+      },
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
 
   Future<void> _showAddDialog() async {
-    final result = await Navigator.push<bool>(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AircraftFormPage()),
     );
-    if (result == true) {
-      ref.read(aircraftListProvider.notifier).refresh();
-    }
+    // Stream provider automatically updates, no manual refresh needed
   }
 
   Future<void> _showDetailPage(AircraftWithStats aws) async {
-    final result = await Navigator.push<bool>(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => AircraftDetailPage(aircraft: aws)),
     );
-    if (result == true) {
-      ref.read(aircraftListProvider.notifier).refresh();
-    }
+    // Stream provider automatically updates
   }
 
   Future<void> _confirmDelete(AircraftWithStats aws) async {
@@ -101,7 +103,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     if (confirmed == true) {
       final db = ref.read(databaseProvider);
       await db.deleteAircraft(aws.id);
-      ref.read(aircraftListProvider.notifier).refresh();
+      // Stream provider automatically updates
     }
   }
 }

@@ -1,34 +1,34 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
     hide Theme;
-import 'package:logbook/widgets/aircraft_card.dart';
-import 'package:logbook/widgets/flight_card.dart';
-import 'package:logbook/widgets/flight_rules_card.dart';
-import 'package:logbook/widgets/landings_card.dart';
-import 'package:logbook/widgets/remarks_card.dart';
-import '../providers/unit_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
+import '../providers/unit_provider.dart';
 import '../services/database.dart';
-import 'replay_page.dart';
-import 'flight_form_page.dart';
+import '../widgets/aircraft_card.dart';
+import '../widgets/flight_card.dart';
+import '../widgets/flight_rules_card.dart';
 import '../widgets/info_row.dart';
+import '../widgets/landings_card.dart';
+import '../widgets/remarks_card.dart';
 import '../widgets/section_header.dart';
+import 'flight_form_page.dart';
+import 'replay_page.dart';
 
 class FlightDetailPage extends ConsumerWidget {
-  final int flightId;
-
   const FlightDetailPage({super.key, required this.flightId});
+  final int flightId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final flightAsync = ref.watch(flightByIdProvider(flightId));
+    final flightAsync = ref.watch(flightByIdStreamProvider(flightId));
 
     return flightAsync.when(
       loading: () =>
@@ -46,9 +46,8 @@ class FlightDetailPage extends ConsumerWidget {
 }
 
 class _FlightDetailView extends ConsumerStatefulWidget {
-  final FlightWithStats flight;
-
   const _FlightDetailView({required this.flight});
+  final FlightWithStats flight;
 
   @override
   ConsumerState<_FlightDetailView> createState() => _FlightDetailViewState();
@@ -84,7 +83,7 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
             children: [
               _buildMapCard(context, flight),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
                     const SizedBox(height: 270),
@@ -140,7 +139,7 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
 
     if (depLat == null || depLon == null) {
       return Card(
-        margin: EdgeInsets.all(0),
+        margin: const EdgeInsets.all(0),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: SizedBox(
@@ -172,115 +171,96 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
     final hasData = points.isNotEmpty;
 
     return Card(
-      margin: EdgeInsets.all(0),
+      margin: const EdgeInsets.all(0),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         height: 350,
         child: cartoStyle.when(
-          data: (style) => FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: LatLng(depLat, depLon),
-              initialZoom: 10.0,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
+          data: (style) {
+            if (style == null) {
+              return const Text(
+                "Error: Style file is null. Are you sure your API key is correct?",
+              );
+            }
+            return FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: LatLng(depLat, depLon),
+                initialZoom: 10.0,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
+                ),
+                onMapReady: () {
+                  _mapReady = true;
+                  _fitMapBounds(flight, hasData);
+                },
               ),
-              onMapReady: () {
-                _mapReady = true;
-                _fitMapBounds(flight, hasData);
-              },
-            ),
-            children: [
-              VectorTileLayer(
-                tileProviders: style!.providers,
-                theme: style.theme,
-                tileOffset: TileOffset.maplibre,
-                concurrency: 4,
-                diskCacheTtl: const Duration(days: 30),
-                diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
-              ),
-              if (kReleaseMode) ...[
-                Align(
-                  alignment: Alignment.topLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.all(0),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest
-                            .withValues(alpha: 0.6),
-                      ),
-                      child: Text(
-                        '© OpenStreetMap contributors,© CARTO',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+              children: [
+                VectorTileLayer(
+                  tileProviders: style.providers,
+                  theme: style.theme,
+                  concurrency: 4,
+                  diskCacheTtl: const Duration(days: 30),
+                ),
+                if (kReleaseMode) ...[
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.all(0),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.6),
+                        ),
+                        child: Text(
+                          '© OpenStreetMap contributors,© CARTO',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
-              // Route polyline
-              if (hasData && points.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: points
-                          .map((p) => LatLng(p.latitude, p.longitude))
-                          .toList(),
-                      strokeWidth: 3,
-                      color: cs.primary,
-                    ),
-                  ],
-                )
-              else if (!hasData && arrLat != null && arrLon != null)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: [LatLng(depLat, depLon), LatLng(arrLat, arrLon)],
-                      strokeWidth: 3,
-                      color: cs.primary,
-                    ),
-                  ],
-                ),
-              // Departure / Arrival markers
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: LatLng(depLat, depLon),
-                    width: 24,
-                    height: 24,
-                    alignment: Alignment.center,
-                    child: Container(
-                      decoration: BoxDecoration(
+                ],
+                // Route polyline
+                if (hasData && points.length >= 2)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: points
+                            .map((p) => LatLng(p.latitude, p.longitude))
+                            .toList(),
+                        strokeWidth: 3,
                         color: cs.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
+                      ),
+                    ],
+                  )
+                else if (!hasData && arrLat != null && arrLon != null)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: [
+                          LatLng(depLat, depLon),
+                          LatLng(arrLat, arrLon),
                         ],
+                        strokeWidth: 3,
+                        color: cs.primary,
                       ),
-                      child: Icon(
-                        Icons.flight_takeoff,
-                        size: 12,
-                        color: cs.onPrimary,
-                      ),
-                    ),
+                    ],
                   ),
-                  if (arrLat != null && arrLon != null)
+                // Departure / Arrival markers
+                MarkerLayer(
+                  markers: [
                     Marker(
-                      point: LatLng(arrLat, arrLon),
+                      point: LatLng(depLat, depLon),
                       width: 24,
                       height: 24,
                       alignment: Alignment.center,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: cs.error,
+                          color: cs.primary,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                           boxShadow: [
@@ -292,16 +272,43 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                           ],
                         ),
                         child: Icon(
-                          Icons.flight_land,
+                          Icons.flight_takeoff,
                           size: 12,
-                          color: Colors.white,
+                          color: cs.onPrimary,
                         ),
                       ),
                     ),
-                ],
-              ),
-            ],
-          ),
+                    if (arrLat != null && arrLon != null)
+                      Marker(
+                        point: LatLng(arrLat, arrLon),
+                        width: 24,
+                        height: 24,
+                        alignment: Alignment.center,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: cs.error,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.flight_land,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Text(
@@ -434,7 +441,6 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                   ? LineChart(
                       LineChartData(
                         gridData: FlGridData(
-                          show: true,
                           drawVerticalLine: false,
                           getDrawingHorizontalLine: (value) => FlLine(
                             color: cs.outlineVariant.withValues(alpha: 0.5),
@@ -467,12 +473,8 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                               },
                             ),
                           ),
-                          topTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
-                          rightTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: false),
-                          ),
+                          topTitles: const AxisTitles(),
+                          rightTitles: const AxisTitles(),
                         ),
                         borderData: FlBorderData(show: false),
                         lineBarsData: [
@@ -481,7 +483,7 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                             isCurved: true,
                             color: cs.primary,
                             barWidth: 3,
-                            dotData: FlDotData(show: false),
+                            dotData: const FlDotData(show: false),
                             belowBarData: BarAreaData(
                               show: true,
                               color: cs.primary.withValues(alpha: 0.15),
@@ -548,7 +550,6 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
               value: DateFormat(
                 'MMM d, y \u2013 HH:mm',
               ).format(flight.flight.departureTime),
-              labelWidth: 100,
             ),
             if (flight.flight.arrivalTime != null)
               InfoRow(
@@ -556,18 +557,12 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                 value: DateFormat(
                   'MMM d, y \u2013 HH:mm',
                 ).format(flight.flight.arrivalTime!),
-                labelWidth: 100,
               ),
             InfoRow(
               label: 'Status',
               value: flight.flight.isRecording ? 'In Progress' : 'Recorded',
-              labelWidth: 100,
             ),
-            InfoRow(
-              label: 'Data Points',
-              value: '${flight.dataPoints.length}',
-              labelWidth: 100,
-            ),
+            InfoRow(label: 'Data Points', value: '${flight.dataPoints.length}'),
           ],
         ),
       ),

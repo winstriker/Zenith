@@ -1,36 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:logbook/widgets/airport_field.dart';
-import 'package:logbook/widgets/date_button.dart';
-import 'package:logbook/widgets/time_input.dart';
-import 'package:logbook/widgets/time_pill.dart';
-import 'package:logbook/widgets/tz_chip.dart';
-import 'package:logbook/services/database.dart';
+
+import '../services/database.dart';
+import 'airport_field.dart';
+import 'date_button.dart';
+import 'time_input.dart';
+import 'time_pill.dart';
+import 'tz_chip.dart';
 
 class FlightDetailsCard extends StatelessWidget {
-  final DateTime departureDate;
-  final DateTime arrivalDate;
-  final String departureCode;
-  final String arrivalCode;
-  final String depTime;
-  final String arrTime;
-  final Airport? selectedDeparture;
-  final Airport? selectedArrival;
-  final String depTzLabel;
-  final String arrTzLabel;
-  final String blockTime;
-  final VoidCallback onDepartureDateTap;
-  final VoidCallback onArrivalDateTap;
-  final VoidCallback onDepartureTzTap;
-  final VoidCallback onArrivalTzTap;
-  final VoidCallback onDepartureAirportTap;
-  final VoidCallback onArrivalAirportTap;
-  final ValueChanged<String> onDepTimeChanged;
-  final ValueChanged<String> onArrTimeChanged;
-  final tz.TZDateTime Function(String, DateTime, String?) parseDateTime;
-  final String? depIanaLocation;
-  final String? arrIanaLocation;
-
   const FlightDetailsCard({
     super.key,
     required this.departureDate,
@@ -56,6 +34,28 @@ class FlightDetailsCard extends StatelessWidget {
     required this.depIanaLocation,
     required this.arrIanaLocation,
   });
+  final DateTime departureDate;
+  final DateTime? arrivalDate;
+  final String departureCode;
+  final String arrivalCode;
+  final String depTime;
+  final String arrTime;
+  final Airport? selectedDeparture;
+  final Airport? selectedArrival;
+  final String depTzLabel;
+  final String arrTzLabel;
+  final String blockTime;
+  final VoidCallback onDepartureDateTap;
+  final VoidCallback onArrivalDateTap;
+  final VoidCallback onDepartureTzTap;
+  final VoidCallback onArrivalTzTap;
+  final VoidCallback onDepartureAirportTap;
+  final VoidCallback onArrivalAirportTap;
+  final ValueChanged<String> onDepTimeChanged;
+  final ValueChanged<String> onArrTimeChanged;
+  final tz.TZDateTime Function(String, DateTime, String?) parseDateTime;
+  final String? depIanaLocation;
+  final String? arrIanaLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +63,7 @@ class FlightDetailsCard extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Card(
-      margin: EdgeInsets.all(0),
+      margin: const EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -186,19 +186,22 @@ class FlightDetailsCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                TzChip(label: depTzLabel, onTap: null),
+                TzChip(label: depTzLabel),
                 const SizedBox(width: 8),
                 TimePill(
                   label: "Block Time",
                   start: (depTime.isEmpty || depIanaLocation == null)
                       ? null
                       : parseDateTime(depTime, departureDate, depIanaLocation),
-                  end: (arrTime.isEmpty || arrIanaLocation == null)
+                  end:
+                      (arrTime.isEmpty ||
+                          arrIanaLocation == null ||
+                          arrivalDate == null)
                       ? null
-                      : parseDateTime(arrTime, arrivalDate, arrIanaLocation),
+                      : parseDateTime(arrTime, arrivalDate!, arrIanaLocation),
                 ),
                 const SizedBox(width: 8),
-                TzChip(label: arrTzLabel, onTap: null),
+                TzChip(label: arrTzLabel),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TimeInput(

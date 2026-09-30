@@ -8,11 +8,6 @@ import '../utils/duration_formatter.dart';
 import 'gradient_card.dart';
 
 class FlightCard extends StatelessWidget {
-  final FlightWithStats flight;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final bool useOuterPadding;
-
   const FlightCard({
     super.key,
     required this.flight,
@@ -20,6 +15,10 @@ class FlightCard extends StatelessWidget {
     this.onLongPress,
     this.useOuterPadding = true,
   });
+  final FlightWithStats flight;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool useOuterPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +117,6 @@ class FlightCard extends StatelessWidget {
         const SizedBox(height: 6),
         Row(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (right) ...[
               Flexible(
@@ -216,7 +214,7 @@ class FlightCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             flight.duration != null
-                ? DurationFormatter.compact(flight.duration!)
+                ? DurationFormatter.hm(flight.duration!)
                 : '--:--',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,

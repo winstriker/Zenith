@@ -1,16 +1,15 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
-import 'package:logbook/services/database.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/csv_parser.dart';
-import 'dart:math';
 import 'package:logging/logging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../utils/csv_parser.dart';
+import 'database.dart';
 
 class AirportsService {
-  final logger = Logger("Airports Service");
-  final LogbookDatabase database;
-
   AirportsService(this.database) {
     isLocating = true;
     _locate()
@@ -21,6 +20,8 @@ class AirportsService {
           isLocating = false;
         });
   }
+  final logger = Logger("Airports Service");
+  final LogbookDatabase database;
 
   static const _baseUrl = 'https://davidmegginson.github.io/ourairports-data';
   static const _airportsFile = 'airports.csv';
@@ -47,45 +48,6 @@ class AirportsService {
     for (var fun in callbacks) {
       fun();
     }
-  }
-
-  static Future<void> _parseAirports(
-    http.Response response,
-    LogbookDatabase database,
-  ) async {
-    final rows = parseCsv(response.body);
-
-    final airports = rows
-        .skip(1)
-        .map(
-          (row) => AirportsCompanion.insert(
-            id: Value(_parseInt(row[0])!),
-            ident: Value(row[1]),
-            type: AirportType.fromCsvString(row[2]),
-            name: Value(row[3]),
-            latitudeDeg: Value(_parseDouble(row[4])),
-            longitudeDeg: Value(_parseDouble(row[5])),
-            elevationFt: Value(_parseInt(row[6])),
-            continent: row[7],
-            isoCountry: row[8],
-            isoRegion: row[9],
-            municipality: Value(row[10]),
-            scheduledService: Value(row[11] == 'yes'),
-            icaoCode: Value(row[12]),
-            iataCode: Value(row[13]),
-            gpsCode: Value(row[14]),
-            localCode: Value(row[15]),
-            homeLink: Value(row[16]),
-            wikipediaLink: Value(row[17]),
-            keywords: Value(row[18]),
-          ),
-        );
-
-    await database.airports.deleteAll();
-
-    await database.batch((batch) {
-      database.airports.insertAll(airports);
-    });
   }
 
   static Future<Map<int, Airport>> _parseAirportsToMap(
@@ -180,29 +142,6 @@ class AirportsService {
     });
   }
 
-  static Future<void> _parseCountries(
-    http.Response response,
-    LogbookDatabase database,
-  ) async {
-    final rows = parseCsv(response.body);
-
-    final countries = rows.skip(1).map((row) {
-      return CountriesCompanion.insert(
-        id: Value(_parseInt(row[0])!),
-        code: row[1],
-        name: row[2],
-        continent: row[3],
-        wikipediaLink: Value(_nullIfEmpty(row[4])),
-        keywords: Value(_nullIfEmpty(row[5])),
-      );
-    });
-
-    await database.countries.deleteAll();
-    await database.batch((batch) {
-      database.countries.insertAll(countries);
-    });
-  }
-
   static Future<Map<String, Country>> _parseCountriesToMap(
     http.Response response,
   ) async {
@@ -221,32 +160,6 @@ class AirportsService {
       );
     }
     return countries;
-  }
-
-  static Future<void> _parseRegions(
-    http.Response response,
-    LogbookDatabase database,
-  ) async {
-    final rows = parseCsv(response.body);
-    if (rows.length < 2) return;
-
-    final regions = rows.skip(1).map((row) {
-      return RegionsCompanion.insert(
-        id: Value(_parseInt(row[0])!),
-        code: row[1],
-        localCode: Value(_nullIfEmpty(row[2])),
-        name: row[3],
-        continent: row[4],
-        isoCountry: row[5],
-        wikipediaLink: Value(_nullIfEmpty(row[6])),
-        keywords: Value(_nullIfEmpty(row[7])),
-      );
-    });
-
-    await database.regions.deleteAll();
-    await database.batch((batch) {
-      database.regions.insertAll(regions);
-    });
   }
 
   static Future<Map<String, Region>> _parseRegionsToMap(
@@ -471,29 +384,33 @@ class AirportsService {
       final newRegions = await _parseRegionsToMap(regionsResponse);
       final newAirports = await _parseAirportsToMap(airportsResponse);
 
-      final countriesData = newCountries.values.map(
-        (c) => CountriesCompanion.insert(
-          id: Value(c.id),
-          code: c.code,
-          name: c.name,
-          continent: c.continent,
-          wikipediaLink: Value(c.wikipediaLink),
-          keywords: Value(c.keywords),
-        ),
-      ).toList();
+      final countriesData = newCountries.values
+          .map(
+            (c) => CountriesCompanion.insert(
+              id: Value(c.id),
+              code: c.code,
+              name: c.name,
+              continent: c.continent,
+              wikipediaLink: Value(c.wikipediaLink),
+              keywords: Value(c.keywords),
+            ),
+          )
+          .toList();
 
-      final regionsData = newRegions.values.map(
-        (r) => RegionsCompanion.insert(
-          id: Value(r.id),
-          code: r.code,
-          localCode: Value(r.localCode),
-          name: r.name,
-          continent: r.continent,
-          isoCountry: r.isoCountry,
-          wikipediaLink: Value(r.wikipediaLink),
-          keywords: Value(r.keywords),
-        ),
-      ).toList();
+      final regionsData = newRegions.values
+          .map(
+            (r) => RegionsCompanion.insert(
+              id: Value(r.id),
+              code: r.code,
+              localCode: Value(r.localCode),
+              name: r.name,
+              continent: r.continent,
+              isoCountry: r.isoCountry,
+              wikipediaLink: Value(r.wikipediaLink),
+              keywords: Value(r.keywords),
+            ),
+          )
+          .toList();
 
       final frequenciesResponse = await client.get(
         Uri.parse('$_baseUrl/$_frequenciesFile'),
@@ -517,7 +434,10 @@ class AirportsService {
             database.regions.insertAll(regionsData);
           });
 
-          await AirportsService._syncAirportsWithSmartUpdate(newAirports, database);
+          await AirportsService._syncAirportsWithSmartUpdate(
+            newAirports,
+            database,
+          );
 
           await Future.wait([
             AirportsService._parseFrequencies(frequenciesResponse, database),
@@ -530,7 +450,7 @@ class AirportsService {
       );
     } catch (e) {
       status = AirportServiceStatus.error;
-      print(e);
+      logger.log(Level.SEVERE, 'Airport data sync failed', e);
       _notify();
       return;
     } finally {

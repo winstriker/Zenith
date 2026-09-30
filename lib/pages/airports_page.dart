@@ -286,9 +286,10 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              FutureBuilder(
+              FutureBuilder<List<Country>>(
                 future: countries,
                 builder: (context, snapshot) {
+                  final countryList = snapshot.data ?? [];
                   return Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _selectedCountry,
@@ -305,7 +306,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                           value: null,
                           child: Text('All Countries'),
                         ),
-                        ...(snapshot.hasData ? snapshot.data! : []).map(
+                        ...countryList.map(
                           (c) => DropdownMenuItem(
                             value: c.code,
                             child: Text(
@@ -335,10 +336,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                     ),
                   ),
                   items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('All Types'),
-                    ),
+                    const DropdownMenuItem(child: Text('All Types')),
                     ...types.map(
                       (t) => DropdownMenuItem(
                         value: t,

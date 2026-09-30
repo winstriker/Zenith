@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:logbook/widgets/section_header.dart';
 
 class FlightRulesCard extends StatelessWidget {
-  final String flightRules;
-  final ValueChanged<String>? onFlightRulesChanged;
-
   const FlightRulesCard({
     super.key,
     required this.flightRules,
     this.onFlightRulesChanged,
   });
+  final String flightRules;
+  final ValueChanged<String>? onFlightRulesChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +15,7 @@ class FlightRulesCard extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Card(
-      margin: EdgeInsets.all(0),
+      margin: const EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
@@ -39,7 +37,7 @@ class FlightRulesCard extends StatelessWidget {
                   if (onFlightRulesChanged == null) ...[
                     Text(
                       flightRules,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),

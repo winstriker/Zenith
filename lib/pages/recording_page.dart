@@ -1,17 +1,20 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:logbook/main.dart';
-import '../providers/flight_providers.dart';
+
+import '../main.dart';
 import '../providers/aircraft_providers.dart';
+import '../providers/flight_providers.dart';
+import '../providers/gps_tracking_provider.dart';
 import '../providers/unit_provider.dart';
+import '../repositories/flight_repository.dart';
 import '../services/database.dart';
-import '../services/location_service.dart';
-import '../widgets/pulsing_dot.dart';
+import '../utils/duration_formatter.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/info_row.dart';
-import '../utils/duration_formatter.dart';
+import '../widgets/pulsing_dot.dart';
 
 class RecordingPage extends ConsumerStatefulWidget {
   const RecordingPage({super.key});
@@ -26,16 +29,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   final _arrivalController = TextEditingController();
   Aircraft? _selectedAircraft;
 
-  StreamSubscription<Map<String, double>>? _locationSubscription;
   Timer? _timer;
   DateTime? _startTime;
   Duration _elapsed = Duration.zero;
-
-  double _latitude = 0;
-  double _longitude = 0;
-  double _altitude = 0;
-  double _speed = 0;
-  double _heading = 0;
 
   bool get _isRecording => _startTime != null;
 
@@ -51,8 +47,13 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Future<void> _resumeExistingRecording() async {
-    final flightService = ref.read(flightServiceProvider);
-    final activeSession = flightService.activeSession;
+    final repository = ref.read(flightRepositoryProvider);
+    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
+
+    // Check for active session via repository stream
+    final activeFlights = await repository.watchActiveFlight().first;
+    final activeSession = activeFlights;
+
     if (activeSession == null) return;
 
     setState(() {
@@ -68,34 +69,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       }
     });
 
-    final locationService = LocationService();
-    await locationService.startTracking();
-
-    _locationSubscription = locationService.locationStream.listen((location) {
-      final lat = location['latitude']!;
-      final lon = location['longitude']!;
-      final alt = location['altitude']!;
-      final speed = location['speed']!;
-      final heading = location['heading']!;
-
-      ref
-          .read(flightServiceProvider)
-          .addPoint(lat, lon, alt, speed: speed, heading: heading);
-
-      if (mounted) {
-        setState(() {
-          _latitude = lat;
-          _longitude = lon;
-          _altitude = alt;
-          _speed = speed;
-          _heading = heading;
-        });
-      }
-    });
-
-    ref.read(recordingStateProvider.notifier).refresh();
-    ref.read(flightListProvider.notifier).refresh();
-    ref.read(activeFlightProvider.notifier).refresh();
+    await gpsController.startTracking(activeSession.flight.id, repository);
   }
 
   @override
@@ -103,34 +77,30 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     _titleController.dispose();
     _departureController.dispose();
     _arrivalController.dispose();
-    _locationSubscription?.cancel();
     _timer?.cancel();
     super.dispose();
   }
 
   Future<void> _startRecording() async {
-    final flightService = ref.read(flightServiceProvider);
-    final locationService = LocationService();
+    final repository = ref.read(flightRepositoryProvider);
+    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
 
     if (mounted) {
       await _ensureBackgroundPermission();
     }
 
-    await flightService.startSession(
+    final flightId = await repository.startSession(
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
       aircraftId: _selectedAircraft?.id,
-      aircraft: _selectedAircraft,
-      departure: _departureController.text.trim().isEmpty
+      departureId: _departureController.text.trim().isEmpty
           ? null
-          : _departureController.text.trim(),
-      arrival: _arrivalController.text.trim().isEmpty
+          : int.tryParse(_departureController.text.trim()),
+      arrivalId: _arrivalController.text.trim().isEmpty
           ? null
-          : _arrivalController.text.trim(),
+          : int.tryParse(_arrivalController.text.trim()),
     );
-
-    await locationService.startTracking();
 
     setState(() {
       _startTime = DateTime.now();
@@ -145,31 +115,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       }
     });
 
-    _locationSubscription = locationService.locationStream.listen((location) {
-      final lat = location['latitude']!;
-      final lon = location['longitude']!;
-      final alt = location['altitude']!;
-      final speed = location['speed']!;
-      final heading = location['heading']!;
-
-      ref
-          .read(flightServiceProvider)
-          .addPoint(lat, lon, alt, speed: speed, heading: heading);
-
-      if (mounted) {
-        setState(() {
-          _latitude = lat;
-          _longitude = lon;
-          _altitude = alt;
-          _speed = speed;
-          _heading = heading;
-        });
-      }
-    });
-
-    ref.read(recordingStateProvider.notifier).refresh();
-    ref.read(flightListProvider.notifier).refresh();
-    ref.read(activeFlightProvider.notifier).refresh();
+    await gpsController.startTracking(flightId, repository);
   }
 
   Future<void> _ensureBackgroundPermission() async {
@@ -205,15 +151,15 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   Future<void> _stopRecording() async {
     _timer?.cancel();
     _timer = null;
-    _locationSubscription?.cancel();
-    _locationSubscription = null;
 
-    LocationService().stopTracking();
-    await ref.read(flightServiceProvider).endSession();
+    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
+    await gpsController.stopTracking();
 
-    ref.read(recordingStateProvider.notifier).refresh();
-    ref.read(flightListProvider.notifier).refresh();
-    ref.read(activeFlightProvider.notifier).refresh();
+    final repository = ref.read(flightRepositoryProvider);
+    final activeFlight = await repository.watchActiveFlight().first;
+    if (activeFlight != null) {
+      await repository.endSession(activeFlight.flight.id);
+    }
 
     if (mounted) {
       Navigator.of(context).popUntil((route) => route.isFirst);
@@ -223,20 +169,25 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final gpsState = ref.watch(gpsTrackingControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_isRecording ? 'Recording' : 'New Flight'),
         centerTitle: true,
       ),
-      body: _isRecording ? _buildRecordingView(theme) : _buildSetupForm(theme),
+      body: _isRecording
+          ? _buildRecordingView(theme, gpsState)
+          : _buildSetupForm(theme),
     );
   }
 
   Widget _buildSetupForm(ThemeData theme) {
-    final aircraftList = ref.watch(aircraftListProvider);
+    final aircraftListAsync = ref.watch(aircraftListStreamProvider);
 
-    return SingleChildScrollView(
+    return aircraftListAsync.when(
+      data: (aircraftList) {
+        return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -303,7 +254,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: IconButton.filled(
-                  onPressed: () => _addNewAircraft(),
+                  onPressed: _addNewAircraft,
                   icon: const Icon(Icons.add, size: 20),
                   tooltip: 'Add new aircraft',
                   style: IconButton.styleFrom(
@@ -356,6 +307,10 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           ),
         ],
       ),
+    );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 
@@ -446,15 +401,12 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     notesCtrl.dispose();
 
     if (saved == true) {
-      ref.read(aircraftListProvider.notifier).refresh();
+      // Stream provider automatically updates, no manual refresh needed
     }
   }
 
-  Widget _buildRecordingView(ThemeData theme) {
-    final session = ref.watch(flightServiceProvider).activeSession;
-    final hasRoute =
-        session?.departure?.ident != null || session?.arrival?.ident != null;
-    final hasAircraft = session?.aircraft != null;
+  Widget _buildRecordingView(ThemeData theme, AsyncValue<void> gpsState) {
+    final sessionAsync = ref.watch(activeFlightStreamProvider);
 
     return Column(
       children: [
@@ -499,73 +451,91 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                if (hasAircraft || hasRoute)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          if (hasAircraft)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
+                sessionAsync.when(
+                  data: (session) {
+                    if (session == null) return const SizedBox.shrink();
+                    final hasRoute =
+                        session.departure?.ident != null ||
+                        session.arrival?.ident != null;
+                    final hasAircraft = session.aircraft != null;
+
+                    if (!hasAircraft && !hasRoute) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            if (hasAircraft)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.airplanemode_active,
+                                      size: 18,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      session.aircraft!.type,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (hasRoute)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.airplanemode_active,
-                                    size: 18,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    session!.aircraft!.type,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
+                                  if (session.departure?.ident != null)
+                                    InfoChip(
+                                      label: session.departure!.ident!,
+                                      icon: Icons.flight_takeoff,
+                                      backgroundColor:
+                                          theme.colorScheme.tertiaryContainer,
+                                      textColor:
+                                          theme.colorScheme.onTertiaryContainer,
+                                    ),
+                                  if (session.departure?.ident != null &&
+                                      session.arrival?.ident != null)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      child: Icon(
+                                        Icons.arrow_forward,
+                                        size: 16,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  if (session.arrival?.ident != null)
+                                    InfoChip(
+                                      label: session.arrival!.ident!,
+                                      icon: Icons.flight_land,
+                                      backgroundColor:
+                                          theme.colorScheme.tertiaryContainer,
+                                      textColor:
+                                          theme.colorScheme.onTertiaryContainer,
+                                    ),
                                 ],
                               ),
-                            ),
-                          if (hasRoute)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (session!.departure?.ident != null)
-                                  InfoChip(
-                                    label: session.departure!.ident!,
-                                    icon: Icons.flight_takeoff,
-                                    backgroundColor:
-                                        theme.colorScheme.tertiaryContainer,
-                                    textColor:
-                                        theme.colorScheme.onTertiaryContainer,
-                                  ),
-                                if (session.departure?.ident != null &&
-                                    session.arrival?.ident != null)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    child: Icon(
-                                      Icons.arrow_forward,
-                                      size: 16,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                if (session.arrival?.ident != null)
-                                  InfoChip(
-                                    label: session.arrival!.ident!,
-                                    icon: Icons.flight_land,
-                                    backgroundColor:
-                                        theme.colorScheme.tertiaryContainer,
-                                    textColor:
-                                        theme.colorScheme.onTertiaryContainer,
-                                  ),
-                              ],
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
+                ),
                 const SizedBox(height: 24),
-                _buildGpsCard(theme),
+                _buildGpsCard(theme, gpsState),
               ],
             ),
           ),
@@ -595,15 +565,25 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     );
   }
 
-  Widget _buildGpsCard(ThemeData theme) {
+  Widget _buildGpsCard(ThemeData theme, AsyncValue<void> gpsState) {
     final unitMode = ref.watch(unitProvider);
     final isMetric = unitMode == MeasurementUnit.metric;
 
-    final altValue = isMetric ? _altitude : _altitude * 3.28084;
+    // Get latest GPS data from the controller
+    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
+    final latestLocation = gpsController.latestLocation;
+
+    final lat = latestLocation?['latitude'] ?? 0.0;
+    final lon = latestLocation?['longitude'] ?? 0.0;
+    final alt = latestLocation?['altitude'] ?? 0.0;
+    final speed = latestLocation?['speed'] ?? 0.0;
+    final heading = latestLocation?['heading'] ?? 0.0;
+
+    final altValue = isMetric ? alt : alt * 3.28084;
     final altUnit = isMetric ? 'm' : 'ft';
 
-    final speedValue = isMetric ? _speed : _speed * 0.539957;
-    final speedUnit = isMetric ? 'km/h' : 'kts'; // Knots mode shows kts
+    final speedValue = isMetric ? speed : speed * 0.539957;
+    final speedUnit = isMetric ? 'km/h' : 'kts';
 
     return Card(
       child: Padding(
@@ -625,18 +605,29 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const Spacer(),
+                if (gpsState.isLoading)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (gpsState.hasError)
+                  Icon(Icons.gps_off, color: theme.colorScheme.error, size: 20)
+                else
+                  const Icon(Icons.gps_fixed, color: Colors.green, size: 20),
               ],
             ),
             const SizedBox(height: 16),
             InfoRow(
               label: 'Latitude',
-              value: _latitude.toStringAsFixed(6),
+              value: lat.toStringAsFixed(6),
               labelWidth: 90,
               isMonospace: true,
             ),
             InfoRow(
               label: 'Longitude',
-              value: _longitude.toStringAsFixed(6),
+              value: lon.toStringAsFixed(6),
               labelWidth: 90,
               isMonospace: true,
             ),
@@ -654,7 +645,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
             ),
             InfoRow(
               label: 'Heading',
-              value: '${_heading.toStringAsFixed(1)}\u00B0',
+              value: '${heading.toStringAsFixed(1)}\u00B0',
               labelWidth: 90,
               isMonospace: true,
             ),

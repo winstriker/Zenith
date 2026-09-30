@@ -311,7 +311,6 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       );
     }
 
-    ref.read(flightListProvider.notifier).refresh();
     notifier.reset();
 
     if (mounted) Navigator.pop(context, true);

@@ -17,12 +17,6 @@ class FlightsPage extends ConsumerStatefulWidget {
 class _FlightsPageState extends ConsumerState<FlightsPage> {
   DateTime? _selectedDate;
 
-  List<FlightWithStats> get _filteredFlights {
-    final allFlights = ref.watch(flightListProvider);
-    if (_selectedDate == null) return allFlights;
-    return ref.read(flightServiceProvider).searchByDate(_selectedDate!);
-  }
-
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -45,7 +39,9 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Flight'),
-        content: Text('Are you sure you want to delete "${flight.flight.title}"?'),
+        content: Text(
+          'Are you sure you want to delete "${flight.flight.title}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -63,60 +59,74 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
     );
     if (confirmed == true) {
       await ref.read(flightServiceProvider).deleteSession(flight.flight.id);
-      ref.read(flightListProvider.notifier).refresh();
+      // Stream provider automatically updates
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final flights = _filteredFlights;
+    final flightsAsync = ref.watch(flightListStreamProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_selectedDate != null
-            ? DateFormat('MMM dd, yyyy').format(_selectedDate!)
-            : 'Flights'),
-        actions: [
-          if (_selectedDate != null)
-            IconButton(
-              icon: const Icon(Icons.clear),
-              tooltip: 'Clear filter',
-              onPressed: _clearFilter,
+    return flightsAsync.when(
+      data: (allFlights) {
+        final flights = _selectedDate == null
+            ? allFlights
+            : ref.read(flightServiceProvider).searchByDate(_selectedDate!);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              _selectedDate != null
+                  ? DateFormat('MMM dd, yyyy').format(_selectedDate!)
+                  : 'Flights',
             ),
-          IconButton(
-            icon: const Icon(Icons.calendar_month),
-            tooltip: 'Search by date',
-            onPressed: _pickDate,
+            actions: [
+              if (_selectedDate != null)
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  tooltip: 'Clear filter',
+                  onPressed: _clearFilter,
+                ),
+              IconButton(
+                icon: const Icon(Icons.calendar_month),
+                tooltip: 'Search by date',
+                onPressed: _pickDate,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: flights.isEmpty
-          ? EmptyState(
-              icon: _selectedDate != null ? Icons.search_off : Icons.flight,
-              title: _selectedDate != null
-                  ? 'No flights on this date'
-                  : 'No flights yet',
-              subtitle: _selectedDate != null
-                  ? 'Try selecting a different date'
-                  : 'Start recording your first flight!',
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemCount: flights.length,
-              itemBuilder: (context, index) {
-                final flight = flights[index];
-                return FlightCard(
-                  flight: flight,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FlightDetailPage(flightId: flight.flight.id),
-                    ),
-                  ),
-                  onLongPress: () => _confirmDelete(flight),
-                );
-              },
-            ),
+          body: flights.isEmpty
+              ? EmptyState(
+                  icon: _selectedDate != null ? Icons.search_off : Icons.flight,
+                  title: _selectedDate != null
+                      ? 'No flights on this date'
+                      : 'No flights yet',
+                  subtitle: _selectedDate != null
+                      ? 'Try selecting a different date'
+                      : 'Start recording your first flight!',
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.only(top: 8, bottom: 80),
+                  itemCount: flights.length,
+                  itemBuilder: (context, index) {
+                    final flight = flights[index];
+                    return FlightCard(
+                      flight: flight,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              FlightDetailPage(flightId: flight.flight.id),
+                        ),
+                      ),
+                      onLongPress: () => _confirmDelete(flight),
+                    );
+                  },
+                ),
+        );
+      },
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
 }

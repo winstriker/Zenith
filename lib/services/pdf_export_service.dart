@@ -225,7 +225,7 @@ class PdfExportService {
           final total = flight.duration != null
               ? '${flight.duration!.inHours.toString().padLeft(2, '0')}:${(flight.duration!.inMinutes % 60).toString().padLeft(2, '0')}'
               : '';
-          final remarks = flight.flight.title ?? '';
+          final remarks = flight.flight.title;
 
           buffer.write('<td>$date</td>');
           buffer.write('<td>$depPlace</td>');

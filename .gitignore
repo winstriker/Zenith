@@ -13,6 +13,7 @@
 .opencode/
 .config/
 .slim/
+.vscode/
 linux/
 macos/
 windows/
@@ -49,3 +50,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Widget Preview related
+.widget_preview/

@@ -1,6 +1,6 @@
+import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart';
 
 // ---------------------------------------------------------------------------
 // API Key persistence
@@ -47,31 +47,29 @@ final cartoApiKeyProvider = NotifierProvider<CartoApiKeyNotifier, String?>(
 const _styleUrl =
     'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
-class CartoStyleNotifier extends Notifier<AsyncValue<Style?>> {
+class CartoStyleNotifier extends AsyncNotifier<Style?> {
   @override
-  AsyncValue<Style?> build() {
+  Future<Style?> build() async {
     final key = ref.watch(cartoApiKeyProvider);
-    _loadStyle(key ?? "");
-    return const AsyncLoading();
+    if (key == null || key.isEmpty) return null;
+    return _loadStyle(key);
   }
 
-  Future<void> _loadStyle(String apiKey) async {
-    state = const AsyncLoading();
+  Future<Style?> _loadStyle(String apiKey) async {
     try {
       final style = await StyleReader(
         uri: '$_styleUrl?key={key}',
         apiKey: apiKey,
         logger: const Logger.console(),
       ).read();
-
-      state = AsyncData(style);
+      return style;
     } catch (e, st) {
-      state = AsyncError(e, st);
+      // Re-throw to let AsyncNotifier handle error state
+      Error.throwWithStackTrace(e, st);
     }
   }
 }
 
-final cartoStyleProvider =
-    NotifierProvider<CartoStyleNotifier, AsyncValue<Style?>>(
-      CartoStyleNotifier.new,
-    );
+final cartoStyleProvider = AsyncNotifierProvider<CartoStyleNotifier, Style?>(
+  CartoStyleNotifier.new,
+);
