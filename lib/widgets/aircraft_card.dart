@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/spacing.dart';
 import '../services/database.dart';
+import 'aircraft_details_card.dart';
 import 'gradient_card.dart';
 import 'info_chip.dart';
 
@@ -73,28 +74,24 @@ class AircraftCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-
-                      const SizedBox(height: 2),
                       Text(
-                        aircraft!.modelFullName,
+                        "${aircraft!.manufacturer} ${aircraft!.modelFullName}",
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
 
-                      const SizedBox(height: 2),
-                      Text(
-                        '${aircraft!.manufacturer} • ${aircraft!.engineCount} ${aircraft!.engineType.name}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
+                      const SizedBox(height: 3),
 
                       if (showStats && aircraft is AircraftWithStats) ...[
-                        const SizedBox(height: 6),
                         Row(
                           children: [
                             InfoChip(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               label:
                                   '${(aircraft as AircraftWithStats).flightCount} flights',
                               icon: Icons.flight,
@@ -107,6 +104,10 @@ class AircraftCard extends StatelessWidget {
                                 null) ...[
                               const SizedBox(width: 8),
                               InfoChip(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 label:
                                     '${((aircraft as AircraftWithStats).totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h',
                                 icon: Icons.schedule,
@@ -115,6 +116,28 @@ class AircraftCard extends StatelessWidget {
                                 textColor: theme.colorScheme.onSurfaceVariant,
                               ),
                             ],
+                          ],
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            InfoChip(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              label:
+                                  '${aircraft!.engineCount}x ${aircraft!.engineType.name.capitalize()}',
+                            ),
+                            const SizedBox(width: 4),
+                            InfoChip(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              label:
+                                  'Wake ${aircraft!.wakeTurbulenceCategory.name}/${aircraft!.wakeTurbulenceGroup.name}',
+                            ),
                           ],
                         ),
                       ],
@@ -129,7 +152,7 @@ class AircraftCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                aircraft!.wakeTurbulenceCategory.name,
+                aircraft!.designator,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onTertiaryContainer,
                   fontWeight: FontWeight.w600,

@@ -47,7 +47,7 @@ class FlightRepository {
   }
 
   /// Returns the total minutes flown as an [int]
-  //TODO: ADD AN INDEX ON flight_time instead of selecting everything every time
+  //TODO: ADD A VIEW ON flight_time instead of selecting everything every time
   Stream<int> watchTotalFlightTime() {
     return _database
         .customSelect(
@@ -133,13 +133,21 @@ class FlightRepository {
       if (aircraftIds.isNotEmpty) {
         // Join aircrafts with icaoAircrafts
         final aircraftRows = await (_database.select(_database.aircrafts).join([
-          innerJoin(_database.icaoAircrafts, _database.icaoAircrafts.id.equalsExp(_database.aircrafts.icaoAircraft)),
+          innerJoin(
+            _database.icaoAircrafts,
+            _database.icaoAircrafts.id.equalsExp(
+              _database.aircrafts.icaoAircraft,
+            ),
+          ),
         ])..where(_database.aircrafts.id.isIn(aircraftIds.toList()))).get();
-        
+
         for (final row in aircraftRows) {
           final aircraft = row.readTable(_database.aircrafts);
           final icao = row.readTable(_database.icaoAircrafts);
-          aircraftMap[aircraft.id] = AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
+          aircraftMap[aircraft.id] = AircraftWithIcao(
+            aircraft: aircraft,
+            icaoAircraft: icao,
+          );
         }
       }
 

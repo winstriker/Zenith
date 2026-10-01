@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/aircraft_providers.dart';
 import '../widgets/aircraft_details_card.dart';
 import '../widgets/flight_card.dart';
-import '../widgets/info_chip.dart';
 import 'aircraft_form_page.dart';
 import 'flight_detail_page.dart';
 
@@ -22,9 +21,6 @@ class AircraftDetailPage extends ConsumerWidget {
         }
         final theme = Theme.of(context);
         final cs = theme.colorScheme;
-        final hours = aircraft.totalFlightTime != null
-            ? '${(aircraft.totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h'
-            : null;
 
         return Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -148,12 +144,16 @@ class AircraftDetailPage extends ConsumerWidget {
                     }
                   },
                   error: (e, _) {
-                    return const Text(
-                      "Error while loading flights for this aircraft!",
+                    return const SliverToBoxAdapter(
+                      child: Text(
+                        "Error while loading flights for this aircraft!",
+                      ),
                     );
                   },
                   loading: () {
-                    return const CircularProgressIndicator();
+                    return const SliverToBoxAdapter(
+                      child: CircularProgressIndicator(),
+                    );
                   },
                 ),
               ],

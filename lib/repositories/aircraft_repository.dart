@@ -11,49 +11,39 @@ class AircraftRepository {
 
   /// Stream of all aircraft with stats (joined with ICAO data)
   Stream<List<AircraftWithStats>> watchAircraftsWithStats() {
-    return _database
-        .select(_database.aircrafts)
-        .join([
-          innerJoin(
-            _database.icaoAircrafts,
-            _database.icaoAircrafts.id.equalsExp(
-              _database.aircrafts.icaoAircraft,
+    return _database.select(_database.aircraftsStats).watch().asyncMap((
+      rows,
+    ) async {
+      final result = <AircraftWithStats>[];
+      for (final row in rows) {
+        result.add(
+          AircraftWithStats(
+            aircraft: Aircraft(
+              id: row.id,
+              icaoAircraft: row.icaoAircraft,
+              tailNumber: row.tailNumber,
             ),
+            nightLandings: row.nightLandings ?? 0,
+            dayLandings: row.dayLandings ?? 0,
+            icaoAircraft: IcaoAircraft(
+              id: row.icaoAircraft,
+              modelFullName: row.modelFullName,
+              designator: row.designator,
+              wakeTurbolenceCategory: row.wakeTurbolenceCategory,
+              wakeTurbolenceGroup: row.wakeTurbolenceGroup,
+              manufacturer: row.manufacturer,
+              description: row.description,
+              engineCount: row.engineCount,
+              engineType: row.engineType,
+              userInserted: row.userInserted,
+            ),
+            flightCount: row.flightCount ?? 0,
+            totalFlightTime: Duration(minutes: row.totalFlightTime ?? 0),
           ),
-        ])
-        .watch()
-        .asyncMap((rows) async {
-          final result = <AircraftWithStats>[];
-          for (final row in rows) {
-            final aircraft = row.readTable(_database.aircrafts);
-            final icao = row.readTable(_database.icaoAircrafts);
-            final aircraftWithIcao = AircraftWithIcao(
-              aircraft: aircraft,
-              icaoAircraft: icao,
-            );
-
-            final flightQuery = _database.select(_database.flights)
-              ..where((f) => f.aircraftId.equals(aircraft.id))
-              ..where((f) => f.isRecording.equals(false));
-            final flightRows = await flightQuery.get();
-            Duration? totalTime;
-            for (final f in flightRows) {
-              if (f.arrivalTime != null) {
-                final dur = f.arrivalTime!.difference(f.departureTime);
-                totalTime = (totalTime ?? Duration.zero) + dur;
-              }
-            }
-            result.add(
-              AircraftWithStats(
-                aircraft: aircraftWithIcao.aircraft,
-                icaoAircraft: aircraftWithIcao.icaoAircraft,
-                flightCount: flightRows.length,
-                totalFlightTime: totalTime,
-              ),
-            );
-          }
-          return result;
-        });
+        );
+      }
+      return result;
+    });
   }
 
   /// Stream of a single aircraft with ICAO data
@@ -85,26 +75,32 @@ class AircraftRepository {
   }
 
   Stream<AircraftWithStats?> watchAircraftWithStats(int id) {
-    return watchAircraftWithIcao(id).asyncMap((aircraftWithIcao) async {
-      if (aircraftWithIcao == null) {
-        return null;
-      }
-      final flightQuery = _database.select(_database.flights)
-        ..where((f) => f.aircraftId.equals(aircraftWithIcao.aircraft.id))
-        ..where((f) => f.isRecording.equals(false));
-      final flightRows = await flightQuery.get();
-      Duration? totalTime;
-      for (final f in flightRows) {
-        if (f.arrivalTime != null) {
-          final dur = f.arrivalTime!.difference(f.departureTime);
-          totalTime = (totalTime ?? Duration.zero) + dur;
-        }
-      }
+    final stmt = _database.aircraftsStats.select();
+    stmt.where((acws) => acws.id.equals(id));
+    stmt.limit(1);
+    return stmt.watchSingle().asyncMap((acs) async {
       return AircraftWithStats(
-        aircraft: aircraftWithIcao.aircraft,
-        icaoAircraft: aircraftWithIcao.icaoAircraft,
-        flightCount: flightRows.length,
-        totalFlightTime: totalTime,
+        aircraft: Aircraft(
+          id: acs.id,
+          icaoAircraft: acs.icaoAircraft,
+          tailNumber: acs.tailNumber,
+        ),
+        icaoAircraft: IcaoAircraft(
+          id: acs.icaoAircraft,
+          modelFullName: acs.modelFullName,
+          designator: acs.designator,
+          wakeTurbolenceCategory: acs.wakeTurbolenceCategory,
+          wakeTurbolenceGroup: acs.wakeTurbolenceGroup,
+          manufacturer: acs.manufacturer,
+          description: acs.description,
+          engineCount: acs.engineCount,
+          engineType: acs.engineType,
+          userInserted: acs.userInserted,
+        ),
+        dayLandings: acs.dayLandings ?? 0,
+        nightLandings: acs.nightLandings ?? 0,
+        flightCount: acs.flightCount ?? 0,
+        totalFlightTime: Duration(minutes: acs.totalFlightTime ?? 0),
       );
     });
   }
@@ -115,6 +111,13 @@ class AircraftRepository {
     int limit = 50,
   }) async {
     return _database.searchIcaoAircrafts(query, limit: limit);
+  }
+
+  /// Stream of all ICAO aircrafts
+  Stream<List<IcaoAircraft>> watchAllIcaoAircrafts() {
+    return (_database.select(
+      _database.icaoAircrafts,
+    )..orderBy([(a) => OrderingTerm.asc(a.modelFullName)])).watch();
   }
 
   /// Stream of flights for an aircraft
@@ -229,7 +232,7 @@ class AircraftRepository {
         tailNumber: tailNumber != null
             ? Value(tailNumber)
             : const Value.absent(),
-        notes: notes != null ? Value(notes) : const Value.absent(),
+        notes: notes != null ? Value(notes) : const Value(null),
       ),
     );
   }

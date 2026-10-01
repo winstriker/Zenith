@@ -1,19 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
     hide Theme;
-import '../services/database.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
+import '../services/database.dart';
 import '../widgets/info_row.dart';
 import 'airport_map_page.dart';
 
 class _FrequenciesSection extends ConsumerWidget {
-  final List<Frequency>? frequencies;
   const _FrequenciesSection({required this.frequencies});
+  final List<Frequency>? frequencies;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,8 +94,8 @@ class _FrequenciesSection extends ConsumerWidget {
 }
 
 class _RunwaysSection extends ConsumerWidget {
-  final List<Runway>? runways;
   const _RunwaysSection({required this.runways});
+  final List<Runway>? runways;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -216,9 +217,8 @@ class _RunwaysSection extends ConsumerWidget {
 }
 
 class AirportDetailPage extends ConsumerWidget {
-  final int airportId;
-
   const AirportDetailPage({super.key, required this.airportId});
+  final int airportId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -226,10 +226,10 @@ class AirportDetailPage extends ConsumerWidget {
     final airport = service.getCompleteAirportData(airportId);
     final cartoStyle = ref.watch(cartoStyleProvider);
     return Scaffold(
-      appBar: AppBar(title: Text('Airport Details')),
+      appBar: AppBar(title: const Text('Airport Details')),
       body: FutureBuilder(
         future: airport,
-        builder: ((context, snapshot) {
+        builder: (context, snapshot) {
           if (snapshot.hasError) {
             return ErrorWidget("Error while loading airport");
           }
@@ -254,7 +254,7 @@ class AirportDetailPage extends ConsumerWidget {
               const SizedBox(height: 32),
             ],
           );
-        }),
+        },
       ),
     );
   }
@@ -437,7 +437,6 @@ class AirportDetailPage extends ConsumerWidget {
           data: (style) => FlutterMap(
             options: MapOptions(
               initialCenter: LatLng(lat, lng),
-              initialZoom: 13.0,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.none,
               ),
@@ -458,10 +457,8 @@ class AirportDetailPage extends ConsumerWidget {
               VectorTileLayer(
                 tileProviders: style!.providers,
                 theme: style.theme,
-                tileOffset: TileOffset.maplibre,
                 concurrency: 4,
                 diskCacheTtl: const Duration(days: 30),
-                diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
               ),
               if (kReleaseMode) ...[
                 Align(

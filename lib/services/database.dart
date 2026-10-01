@@ -367,10 +367,64 @@ class AircraftWithStats extends AircraftWithIcao {
     required super.aircraft,
     required super.icaoAircraft,
     required this.flightCount,
+    required this.dayLandings,
+    required this.nightLandings,
     this.totalFlightTime,
   });
   final int flightCount;
+  final int dayLandings;
+  final int nightLandings;
   final Duration? totalFlightTime;
+}
+
+abstract class AircraftsStats extends View {
+  Aircrafts get aircrafts;
+  Flights get flights;
+  IcaoAircrafts get icaoAircrafts;
+
+  Expression<int> get flightCount => flights.id.count();
+  Expression<int> get dayLandings => flights.dayLandings.sum();
+  Expression<int> get nightLandings => flights.nightLandings.sum();
+  Expression<int> get totalFlightTime => CustomExpression<int>('''
+    SUM(
+      CAST(
+        (
+          ${flights.arrivalTime.escapedNameFor(SqlDialect.sqlite)} -
+          ${flights.departureTime.escapedNameFor(SqlDialect.sqlite)}
+        ) / 60
+        AS INTEGER
+      )
+    )
+    ''');
+
+  @override
+  Query as() =>
+      select([
+          aircrafts.id,
+          aircrafts.tailNumber,
+          aircrafts.notes,
+          aircrafts.icaoAircraft,
+          icaoAircrafts.description,
+          icaoAircrafts.modelFullName,
+          icaoAircrafts.designator,
+          icaoAircrafts.manufacturer,
+          icaoAircrafts.engineCount,
+          icaoAircrafts.engineType,
+          icaoAircrafts.wakeTurbolenceCategory,
+          icaoAircrafts.wakeTurbolenceGroup,
+          icaoAircrafts.userInserted,
+          dayLandings,
+          nightLandings,
+          flightCount,
+          totalFlightTime,
+        ]).from(aircrafts).join([
+          leftOuterJoin(flights, flights.aircraftId.equalsExp(aircrafts.id)),
+          innerJoin(
+            icaoAircrafts,
+            aircrafts.icaoAircraft.equalsExp(icaoAircrafts.id),
+          ),
+        ])
+        ..groupBy([aircrafts.id]);
 }
 
 /// Aircraft with its ICAO data joined
@@ -429,6 +483,7 @@ class AircraftWithIcao {
     Aircrafts,
     IcaoAircrafts,
   ],
+  views: [AircraftsStats],
 )
 class LogbookDatabase extends _$LogbookDatabase {
   factory LogbookDatabase([QueryExecutor? executor]) {
@@ -762,8 +817,12 @@ class LogbookDatabase extends _$LogbookDatabase {
         ..where((f) => f.aircraftId.equals(ac.aircraft.id))
         ..where((f) => f.isRecording.equals(false));
       final flightRows = await flightQuery.get();
+      int nightLandings = 0;
+      int dayLandings = 0;
       Duration? totalTime;
       for (final f in flightRows) {
+        nightLandings += f.nightLandings ?? 0;
+        dayLandings += f.dayLandings ?? 0;
         if (f.arrivalTime != null) {
           final dur = f.arrivalTime!.difference(f.departureTime);
           totalTime = (totalTime ?? Duration.zero) + dur;
@@ -772,6 +831,8 @@ class LogbookDatabase extends _$LogbookDatabase {
       result.add(
         AircraftWithStats(
           aircraft: ac.aircraft,
+          dayLandings: dayLandings,
+          nightLandings: nightLandings,
           icaoAircraft: ac.icaoAircraft,
           flightCount: flightRows.length,
           totalFlightTime: totalTime,
