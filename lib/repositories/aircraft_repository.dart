@@ -9,37 +9,75 @@ class AircraftRepository {
   AircraftRepository(this._database);
   final LogbookDatabase _database;
 
-  /// Stream of all aircraft with stats
+  /// Stream of all aircraft with stats (joined with ICAO data)
   Stream<List<AircraftWithStats>> watchAircraftsWithStats() {
-    return _database.select(_database.aircrafts).watch().asyncMap((
-      aircraftList,
-    ) async {
-      final result = <AircraftWithStats>[];
-      for (final ac in aircraftList) {
-        final flightQuery = _database.select(_database.flights)
-          ..where((f) => f.aircraftId.equals(ac.id))
-          ..where((f) => f.isRecording.equals(false));
-        final flightRows = await flightQuery.get();
-        Duration? totalTime;
-        for (final f in flightRows) {
-          if (f.arrivalTime != null) {
-            final dur = f.arrivalTime!.difference(f.departureTime);
-            totalTime = (totalTime ?? Duration.zero) + dur;
-          }
-        }
-        result.add(
-          AircraftWithStats(
-            aircraft: ac,
-            flightCount: flightRows.length,
-            totalFlightTime: totalTime,
+    return _database
+        .select(_database.aircrafts)
+        .join([
+          innerJoin(
+            _database.icaoAircrafts,
+            _database.icaoAircrafts.id.equalsExp(
+              _database.aircrafts.icaoAircraft,
+            ),
           ),
-        );
-      }
-      return result;
-    });
+        ])
+        .watch()
+        .asyncMap((rows) async {
+          final result = <AircraftWithStats>[];
+          for (final row in rows) {
+            final aircraft = row.readTable(_database.aircrafts);
+            final icao = row.readTable(_database.icaoAircrafts);
+            final aircraftWithIcao = AircraftWithIcao(
+              aircraft: aircraft,
+              icaoAircraft: icao,
+            );
+
+            final flightQuery = _database.select(_database.flights)
+              ..where((f) => f.aircraftId.equals(aircraft.id))
+              ..where((f) => f.isRecording.equals(false));
+            final flightRows = await flightQuery.get();
+            Duration? totalTime;
+            for (final f in flightRows) {
+              if (f.arrivalTime != null) {
+                final dur = f.arrivalTime!.difference(f.departureTime);
+                totalTime = (totalTime ?? Duration.zero) + dur;
+              }
+            }
+            result.add(
+              AircraftWithStats(
+                aircraft: aircraftWithIcao.aircraft,
+                icaoAircraft: aircraftWithIcao.icaoAircraft,
+                flightCount: flightRows.length,
+                totalFlightTime: totalTime,
+              ),
+            );
+          }
+          return result;
+        });
   }
 
-  /// Stream of a single aircraft
+  /// Stream of a single aircraft with ICAO data
+  Stream<AircraftWithIcao?> watchAircraftWithIcao(int id) {
+    return (_database.select(_database.aircrafts)
+          ..where((a) => a.id.equals(id)))
+        .join([
+          innerJoin(
+            _database.icaoAircrafts,
+            _database.icaoAircrafts.id.equalsExp(
+              _database.aircrafts.icaoAircraft,
+            ),
+          ),
+        ])
+        .watchSingleOrNull()
+        .map((row) {
+          if (row == null) return null;
+          final aircraft = row.readTable(_database.aircrafts);
+          final icao = row.readTable(_database.icaoAircrafts);
+          return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
+        });
+  }
+
+  /// Stream of a specific aircraft
   Stream<Aircraft?> watchAircraft(int id) {
     return (_database.select(
       _database.aircrafts,
@@ -47,30 +85,36 @@ class AircraftRepository {
   }
 
   Stream<AircraftWithStats?> watchAircraftWithStats(int id) {
-    return (_database.select(_database.aircrafts)
-          ..where((a) => a.id.equals(id)))
-        .watchSingleOrNull()
-        .asyncMap((aircraft) async {
-          if (aircraft == null) {
-            return null;
-          }
-          final flightQuery = _database.select(_database.flights)
-            ..where((f) => f.aircraftId.equals(aircraft.id))
-            ..where((f) => f.isRecording.equals(false));
-          final flightRows = await flightQuery.get();
-          Duration? totalTime;
-          for (final f in flightRows) {
-            if (f.arrivalTime != null) {
-              final dur = f.arrivalTime!.difference(f.departureTime);
-              totalTime = (totalTime ?? Duration.zero) + dur;
-            }
-          }
-          return AircraftWithStats(
-            aircraft: aircraft,
-            flightCount: flightRows.length,
-            totalFlightTime: totalTime,
-          );
-        });
+    return watchAircraftWithIcao(id).asyncMap((aircraftWithIcao) async {
+      if (aircraftWithIcao == null) {
+        return null;
+      }
+      final flightQuery = _database.select(_database.flights)
+        ..where((f) => f.aircraftId.equals(aircraftWithIcao.aircraft.id))
+        ..where((f) => f.isRecording.equals(false));
+      final flightRows = await flightQuery.get();
+      Duration? totalTime;
+      for (final f in flightRows) {
+        if (f.arrivalTime != null) {
+          final dur = f.arrivalTime!.difference(f.departureTime);
+          totalTime = (totalTime ?? Duration.zero) + dur;
+        }
+      }
+      return AircraftWithStats(
+        aircraft: aircraftWithIcao.aircraft,
+        icaoAircraft: aircraftWithIcao.icaoAircraft,
+        flightCount: flightRows.length,
+        totalFlightTime: totalTime,
+      );
+    });
+  }
+
+  /// Search ICAO aircrafts by model name, manufacturer, or type
+  Future<List<IcaoAircraft>> searchIcaoAircrafts(
+    String query, {
+    int limit = 50,
+  }) async {
+    return _database.searchIcaoAircrafts(query, limit: limit);
   }
 
   /// Stream of flights for an aircraft
@@ -99,9 +143,9 @@ class AircraftRepository {
             pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
           }
 
-          final aircraft = await (_database.select(
-            _database.aircrafts,
-          )..where((a) => a.id.equals(aircraftId))).getSingleOrNull();
+          final aircraftWithIcao = await _database.getAircraftWithIcao(
+            aircraftId,
+          );
 
           final results = <FlightWithStats>[];
           for (final flight in flightRows) {
@@ -120,7 +164,7 @@ class AircraftRepository {
               FlightWithStats(
                 flight: flight,
                 dataPoints: points,
-                aircraft: aircraft,
+                aircraft: aircraftWithIcao,
                 departure: departure,
                 arrival: arrival,
               ),
@@ -132,30 +176,46 @@ class AircraftRepository {
 
   // Mutating operations
   Future<int> addAircraft({
-    required String type,
-    required String model,
+    required int icaoAircraftId,
     required String tailNumber,
-    required String manufacturer,
     String? notes,
   }) async {
     return _database
         .into(_database.aircrafts)
         .insert(
           AircraftsCompanion.insert(
-            type: type,
-            model: model,
+            icaoAircraft: icaoAircraftId,
             tailNumber: tailNumber,
-            manufacturer: manufacturer,
             notes: Value(notes),
-            createdAt: DateTime.now(),
           ),
         );
   }
 
+  Future<int> addIcaoAircraft({
+    required String modelFullName,
+    required String manufacturer,
+    required String designator,
+    required WakeTurbolenceCategory wakeTurbolenceCategory,
+    required WakeTurbolenceGroup wakeTurbolenceGroup,
+    required AircraftDescription description,
+    required int engineCount,
+    required EngineType engineType,
+  }) async {
+    return _database.addIcaoAircraft(
+      modelFullName: modelFullName,
+      manufacturer: manufacturer,
+      designator: designator,
+      wakeTurbolenceCategory: wakeTurbolenceCategory,
+      wakeTurbolenceGroup: wakeTurbolenceGroup,
+      description: description,
+      engineCount: engineCount,
+      engineType: engineType,
+    );
+  }
+
   Future<void> updateAircraft(
     int id, {
-    String? type,
-    String? model,
+    int? icaoAircraftId,
     String? tailNumber,
     String? notes,
   }) async {
@@ -163,8 +223,9 @@ class AircraftRepository {
       _database.aircrafts,
     )..where((a) => a.id.equals(id))).write(
       AircraftsCompanion(
-        type: type != null ? Value(type) : const Value.absent(),
-        model: model != null ? Value(model) : const Value.absent(),
+        icaoAircraft: icaoAircraftId != null
+            ? Value(icaoAircraftId)
+            : const Value.absent(),
         tailNumber: tailNumber != null
             ? Value(tailNumber)
             : const Value.absent(),

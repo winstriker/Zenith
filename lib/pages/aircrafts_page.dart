@@ -78,7 +78,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => AircraftDetailPage(aircraftId: aws.id),
+        builder: (_) => AircraftDetailPage(aircraftId: aws.aircraft.id),
       ),
     );
     // Stream provider automatically updates
@@ -89,7 +89,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Aircraft'),
-        content: Text('Are you sure you want to delete "${aws.type}"?'),
+        content: Text('Are you sure you want to delete "${aws.tailNumber}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -107,7 +107,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     );
     if (confirmed == true) {
       final db = ref.read(databaseProvider);
-      await db.deleteAircraft(aws.id);
+      await db.deleteAircraft(aws.aircraft.id);
       // Stream provider automatically updates
     }
   }

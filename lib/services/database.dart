@@ -175,16 +175,9 @@ class Runways extends Table {
 
 class Aircrafts extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get type => text()();
-  TextColumn get model => text()();
-  TextColumn get manufacturer => text()();
+  IntColumn get icaoAircraft => integer().references(IcaoAircrafts, #id)();
   TextColumn get tailNumber => text()();
   TextColumn get notes => text().nullable()();
-  DateTimeColumn get createdAt => dateTime()();
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'aircrafts_created_at_idx', columns: {createdAt}),
-  ];
 }
 
 class Flights extends Table {
@@ -267,6 +260,7 @@ enum AircraftDescription {
 class IcaoAircrafts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get modelFullName => text()();
+  TextColumn get designator => text()();
   TextColumn get wakeTurbolenceCategory =>
       textEnum<WakeTurbolenceCategory>().withLength(min: 1, max: 1)();
   TextColumn get wakeTurbolenceGroup =>
@@ -308,7 +302,7 @@ class FlightWithStats {
   }
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
-  final Aircraft? aircraft;
+  final AircraftWithIcao? aircraft;
   final Airport? departure;
   final Airport? arrival;
   Duration? duration;
@@ -331,7 +325,7 @@ class FlightWithStats {
   FlightWithStats copyWith({
     Flight? flight,
     List<FlightDataPoint>? dataPoints,
-    Aircraft? aircraft,
+    AircraftWithIcao? aircraft,
     Airport? departure,
     Airport? arrival,
     Duration? duration,
@@ -368,22 +362,59 @@ class AirportWithDistance {
   final double distance;
 }
 
-class AircraftWithStats extends Aircraft {
+class AircraftWithStats extends AircraftWithIcao {
   AircraftWithStats({
-    required Aircraft aircraft,
+    required super.aircraft,
+    required super.icaoAircraft,
     required this.flightCount,
     this.totalFlightTime,
-  }) : super(
-         id: aircraft.id,
-         type: aircraft.type,
-         manufacturer: aircraft.manufacturer,
-         createdAt: aircraft.createdAt,
-         model: aircraft.model,
-         notes: aircraft.notes,
-         tailNumber: aircraft.tailNumber,
-       );
+  });
   final int flightCount;
   final Duration? totalFlightTime;
+}
+
+/// Aircraft with its ICAO data joined
+class AircraftWithIcao {
+  AircraftWithIcao({required this.aircraft, required this.icaoAircraft});
+  final Aircraft aircraft;
+  final IcaoAircraft icaoAircraft;
+
+  /// Get display name from ICAO data
+  String get modelFullName => icaoAircraft.modelFullName;
+
+  /// Get manufacturer from ICAO data
+  String get manufacturer => icaoAircraft.manufacturer;
+
+  /// Get notes from aircraft
+  String? get notes => aircraft.notes;
+
+  /// Get tail number from aircraft
+  String get tailNumber => aircraft.tailNumber;
+
+  /// Get ICAO aircraft ID
+  int get icaoAircraftId => icaoAircraft.id;
+
+  /// Get wake turbulence category
+  WakeTurbolenceCategory get wakeTurbulenceCategory =>
+      icaoAircraft.wakeTurbolenceCategory;
+
+  /// Get wake turbulence group
+  WakeTurbolenceGroup get wakeTurbulenceGroup =>
+      icaoAircraft.wakeTurbolenceGroup;
+
+  /// Get description
+  AircraftDescription get description => icaoAircraft.description;
+
+  /// Get engine count
+  int get engineCount => icaoAircraft.engineCount;
+
+  /// Get engine type
+  EngineType get engineType => icaoAircraft.engineType;
+
+  /// Whether this is a user-inserted ICAO aircraft
+  bool get isUserInserted => icaoAircraft.userInserted;
+
+  String get designator => icaoAircraft.designator;
 }
 
 @DriftDatabase(
@@ -544,14 +575,23 @@ class LogbookDatabase extends _$LogbookDatabase {
       return match;
     }
 
-    final aircraftCache = <int, Aircraft?>{};
-    Future<Aircraft?> resolveAircraft(int? id) async {
+    final aircraftCache = <int, AircraftWithIcao?>{};
+    Future<AircraftWithIcao?> resolveAircraft(int? id) async {
       if (id == null) return null;
       if (aircraftCache.containsKey(id)) return aircraftCache[id];
-      final query = select(aircrafts)..where((a) => a.id.equals(id));
-      final match = await query.getSingleOrNull();
-      aircraftCache[id] = match;
-      return match;
+      final query = select(aircrafts).join([
+        innerJoin(
+          icaoAircrafts,
+          icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
+        ),
+      ])..where(aircrafts.id.equals(id));
+      final row = await query.getSingleOrNull();
+      if (row == null) return null;
+      final aircraft = row.readTable(aircrafts);
+      final icao = row.readTable(icaoAircrafts);
+      final result = AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
+      aircraftCache[id] = result;
+      return result;
     }
 
     final results = <FlightWithStats>[];
@@ -574,9 +614,40 @@ class LogbookDatabase extends _$LogbookDatabase {
   }
 
   Future<List<Aircraft>> getAircrafts() async {
-    return (select(
-      aircrafts,
-    )..orderBy([(a) => OrderingTerm.desc(a.createdAt)])).get();
+    return (select(aircrafts)..orderBy([(a) => OrderingTerm.desc(a.id)])).get();
+  }
+
+  /// Get aircrafts with their ICAO data joined
+  Future<List<AircraftWithIcao>> getAircraftsWithIcao() async {
+    final query = select(aircrafts).join([
+      innerJoin(
+        icaoAircrafts,
+        icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
+      ),
+    ])..orderBy([OrderingTerm.desc(aircrafts.id)]);
+
+    final rows = await query.get();
+    return rows.map((row) {
+      final aircraft = row.readTable(aircrafts);
+      final icao = row.readTable(icaoAircrafts);
+      return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
+    }).toList();
+  }
+
+  /// Get a single aircraft with its ICAO data
+  Future<AircraftWithIcao?> getAircraftWithIcao(int id) async {
+    final query = select(aircrafts).join([
+      innerJoin(
+        icaoAircrafts,
+        icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
+      ),
+    ])..where(aircrafts.id.equals(id));
+
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    final aircraft = row.readTable(aircrafts);
+    final icao = row.readTable(icaoAircrafts);
+    return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
   }
 
   Future<Aircraft?> getAircraft(int id) async {
@@ -584,36 +655,84 @@ class LogbookDatabase extends _$LogbookDatabase {
     return query.getSingleOrNull();
   }
 
-  Future<int> addAircraft({
-    required String type,
-    required String model,
-    required String tailNumber,
+  /// Search ICAO aircrafts by model name, manufacturer, or type
+  Future<List<IcaoAircraft>> searchIcaoAircrafts(
+    String query, {
+    int limit = 50,
+  }) async {
+    final term = '%$query%';
+    return (select(icaoAircrafts)
+          ..where(
+            (a) =>
+                a.modelFullName.like(term) |
+                a.manufacturer.like(term) |
+                a.wakeTurbolenceCategory.like(term) |
+                a.wakeTurbolenceGroup.like(term),
+          )
+          ..orderBy([(a) => OrderingTerm.asc(a.modelFullName)])
+          ..limit(limit))
+        .get();
+  }
+
+  /// Get all ICAO aircrafts (for dropdown)
+  Future<List<IcaoAircraft>> getAllIcaoAircrafts({int limit = 200}) async {
+    return (select(icaoAircrafts)
+          ..orderBy([(a) => OrderingTerm.asc(a.modelFullName)])
+          ..limit(limit))
+        .get();
+  }
+
+  /// Add a new ICAO aircraft (user inserted)
+  Future<int> addIcaoAircraft({
+    required String modelFullName,
     required String manufacturer,
+    required String designator,
+    required WakeTurbolenceCategory wakeTurbolenceCategory,
+    required WakeTurbolenceGroup wakeTurbolenceGroup,
+    required AircraftDescription description,
+    required int engineCount,
+    required EngineType engineType,
+  }) async {
+    return into(icaoAircrafts).insert(
+      IcaoAircraftsCompanion.insert(
+        modelFullName: modelFullName,
+        designator: designator,
+        manufacturer: manufacturer,
+        wakeTurbolenceCategory: wakeTurbolenceCategory,
+        wakeTurbolenceGroup: wakeTurbolenceGroup,
+        description: description,
+        engineCount: engineCount,
+        engineType: engineType,
+        userInserted: const Value(true),
+      ),
+    );
+  }
+
+  Future<int> addAircraft({
+    required int icaoAircraftId,
+    required String tailNumber,
     String? notes,
   }) async {
     return into(aircrafts).insert(
       AircraftsCompanion.insert(
-        type: type,
-        manufacturer: manufacturer,
-        model: model,
+        icaoAircraft: icaoAircraftId,
         tailNumber: tailNumber,
         notes: Value(notes),
-        createdAt: DateTime.now(),
       ),
     );
   }
 
   Future<void> updateAircraft(
     int id, {
-    String? type,
-    String? model,
+    int? icaoAircraftId,
     String? tailNumber,
     String? notes,
   }) async {
     await (update(aircrafts)..where((a) => a.id.equals(id))).write(
       AircraftsCompanion(
-        type: type != null ? Value(type) : const Value.absent(),
-        model: model != null ? Value(model) : const Value.absent(),
+        icaoAircraft: icaoAircraftId != null
+            ? Value(icaoAircraftId)
+            : const Value.absent(),
         tailNumber: tailNumber != null
             ? Value(tailNumber)
             : const Value.absent(),
@@ -636,11 +755,11 @@ class LogbookDatabase extends _$LogbookDatabase {
   }
 
   Future<List<AircraftWithStats>> getAircraftsWithStats() async {
-    final allAircraft = await getAircrafts();
+    final allAircraft = await getAircraftsWithIcao();
     final result = <AircraftWithStats>[];
     for (final ac in allAircraft) {
       final flightQuery = select(flights)
-        ..where((f) => f.aircraftId.equals(ac.id))
+        ..where((f) => f.aircraftId.equals(ac.aircraft.id))
         ..where((f) => f.isRecording.equals(false));
       final flightRows = await flightQuery.get();
       Duration? totalTime;
@@ -652,7 +771,8 @@ class LogbookDatabase extends _$LogbookDatabase {
       }
       result.add(
         AircraftWithStats(
-          aircraft: ac,
+          aircraft: ac.aircraft,
+          icaoAircraft: ac.icaoAircraft,
           flightCount: flightRows.length,
           totalFlightTime: totalTime,
         ),
@@ -732,9 +852,19 @@ class LogbookDatabase extends _$LogbookDatabase {
       return match;
     }
 
-    final aircraft = await (select(
-      aircrafts,
-    )..where((a) => a.id.equals(aircraftId))).getSingleOrNull();
+    final aircraftQuery = select(aircrafts).join([
+      innerJoin(
+        icaoAircrafts,
+        icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
+      ),
+    ])..where(aircrafts.id.equals(aircraftId));
+    final aircraftRow = await aircraftQuery.getSingleOrNull();
+    AircraftWithIcao? aircraft;
+    if (aircraftRow != null) {
+      final ac = aircraftRow.readTable(aircrafts);
+      final icao = aircraftRow.readTable(icaoAircrafts);
+      aircraft = AircraftWithIcao(aircraft: ac, icaoAircraft: icao);
+    }
 
     final results = <FlightWithStats>[];
     for (final flight in flightRows) {

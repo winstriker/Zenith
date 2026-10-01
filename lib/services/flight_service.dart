@@ -18,12 +18,16 @@ class FlightService {
     return match;
   }
 
-  Future<Aircraft?> resolveAircraft(int? id) async {
+  Future<AircraftWithIcao?> resolveAircraft(int? id) async {
     if (id == null) return null;
-    final match = await (database.select(
-      database.aircrafts,
-    )..where((a) => a.id.equals(id))).getSingleOrNull();
-    return match;
+    final query = database.select(database.aircrafts).join([
+      innerJoin(database.icaoAircrafts, database.icaoAircrafts.id.equalsExp(database.aircrafts.icaoAircraft)),
+    ])..where(database.aircrafts.id.equals(id));
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    final aircraft = row.readTable(database.aircrafts);
+    final icao = row.readTable(database.icaoAircrafts);
+    return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
   }
 
   FlightService(this.database) {
@@ -55,15 +59,20 @@ class FlightService {
 
     final flightRows = await database.select(database.flights).get();
 
-    final aircraftCache = <int, Aircraft?>{};
-    Future<Aircraft?> resolveAircraft(int? id) async {
+    final aircraftCache = <int, AircraftWithIcao?>{};
+    Future<AircraftWithIcao?> resolveAircraft(int? id) async {
       if (id == null) return null;
       if (aircraftCache.containsKey(id)) return aircraftCache[id];
-      final match = await (database.select(
-        database.aircrafts,
-      )..where((a) => a.id.equals(id))).getSingleOrNull();
-      aircraftCache[id] = match;
-      return match;
+      final query = database.select(database.aircrafts).join([
+        innerJoin(database.icaoAircrafts, database.icaoAircrafts.id.equalsExp(database.aircrafts.icaoAircraft)),
+      ])..where(database.aircrafts.id.equals(id));
+      final row = await query.getSingleOrNull();
+      if (row == null) return null;
+      final aircraft = row.readTable(database.aircrafts);
+      final icao = row.readTable(database.icaoAircrafts);
+      final result = AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
+      aircraftCache[id] = result;
+      return result;
     }
 
     for (final row in flightRows) {
@@ -154,7 +163,7 @@ class FlightService {
   Future<int> startSession({
     String title = 'New Flight',
     int? aircraftId,
-    Aircraft? aircraft,
+    AircraftWithIcao? aircraft,
     String? departure,
     String? arrival,
   }) async {
@@ -302,7 +311,7 @@ class FlightService {
   Future<void> setFlightAircraft(
     int flightId, {
     int? aircraftId,
-    Aircraft? aircraft,
+    AircraftWithIcao? aircraft,
   }) async {
     final index = _sessions.indexWhere((s) => s.flight.id == flightId);
     if (index != -1) {

@@ -66,6 +66,7 @@ class AircraftTypesService {
       final companions = icaoAircrafts.map((val) {
         return IcaoAircraftsCompanion.insert(
           modelFullName: val["ModelFullName"] as String,
+          designator: val["Designator"] as String,
           wakeTurbolenceCategory: _mapWakeTurbulenceCategory(
             val['WTC'] as String?,
           ),

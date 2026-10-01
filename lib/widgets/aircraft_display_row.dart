@@ -13,7 +13,7 @@ class AircraftDisplayRow extends StatelessWidget {
     this.onTap,
     this.trailing,
   });
-  final Aircraft? aircraft;
+  final AircraftWithStats? aircraft;
   final bool isSelected;
   final bool showChevron;
   final VoidCallback? onTap;
@@ -57,14 +57,14 @@ class AircraftDisplayRow extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          aircraft!.type,
+                          aircraft!.modelFullName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          aircraft!.model,
+                          '${aircraft!.manufacturer} • ${aircraft!.modelFullName}',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -90,8 +90,8 @@ class AircraftDisplayRow extends StatelessWidget {
                       ],
                     ),
             ),
-            // Tail number badge
-            if (aircraft?.tailNumber != null)
+            // Wake category badge
+            if (aircraft != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -99,13 +99,27 @@ class AircraftDisplayRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  aircraft!.tailNumber,
+                  aircraft!.wakeTurbulenceCategory.name,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onTertiaryContainer,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                aircraft!.tailNumber!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
             // Chevron or trailing
             ?trailing,
             if (trailing == null && showChevron)

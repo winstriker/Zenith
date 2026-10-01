@@ -33,9 +33,9 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
             ? aircraftList
             : aircraftList.where((aws) {
                 final q = _query.toLowerCase();
-                return aws.type.toLowerCase().contains(q) ||
-                    (aws.model?.toLowerCase().contains(q) ?? false) ||
-                    (aws.tailNumber?.toLowerCase().contains(q) ?? false);
+                return aws.modelFullName.toLowerCase().contains(q) ||
+                    aws.manufacturer.toLowerCase().contains(q) ||
+                    (aws.aircraft.notes?.toLowerCase().contains(q) ?? false);
               }).toList();
 
         return Scaffold(
@@ -45,7 +45,7 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
               IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Add new aircraft',
-                onPressed: () => _addAircraft(),
+                onPressed: _addAircraft,
               ),
             ],
           ),
@@ -79,7 +79,7 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
                         subtitle:
                             'Add your first aircraft to start tracking flights.',
                         action: FilledButton.icon(
-                          onPressed: () => _addAircraft(),
+                          onPressed: _addAircraft,
                           icon: const Icon(Icons.add),
                           label: const Text('Add Aircraft'),
                         ),
@@ -91,7 +91,7 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
                         iconOpacity: 0.4,
                         title: 'No aircraft match "$_query"',
                         action: OutlinedButton.icon(
-                          onPressed: () => _addAircraft(),
+                          onPressed: _addAircraft,
                           icon: const Icon(Icons.add),
                           label: const Text('Add New Aircraft'),
                         ),
@@ -113,7 +113,8 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
           ),
         );
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }

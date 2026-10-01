@@ -11,7 +11,7 @@ class AircraftDetailsCard extends StatelessWidget {
     required this.aircraft,
     this.useOuterPadding = true,
   });
-  final Aircraft aircraft;
+  final AircraftWithStats aircraft;
   final bool useOuterPadding;
 
   @override
@@ -26,18 +26,10 @@ class AircraftDetailsCard extends StatelessWidget {
               Text(
                 aircraft.tailNumber,
                 style: const TextStyle(
-                  fontSize: 30,
+                  fontSize: 40,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(aircraft.manufacturer),
-              const Text(" - "),
-              Text(aircraft.model),
             ],
           ),
           const SizedBox(height: 8),
@@ -45,17 +37,55 @@ class AircraftDetailsCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               InfoChip(
-                label: aircraft.type,
+                label: aircraft.designator,
                 backgroundColor: theme.colorScheme.tertiaryContainer,
                 textColor: theme.colorScheme.onTertiaryContainer,
               ),
+              const SizedBox(width: 10),
+              Text(aircraft.manufacturer),
+              const Text(" - "),
+              Text(aircraft.modelFullName),
             ],
           ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              InfoChip(
+                label:
+                    '${aircraft.engineCount}x ${aircraft.engineType.name.capitalize()}',
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                textColor: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              InfoChip(
+                label: aircraft.description.name.capitalize(),
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                textColor: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+          if (aircraft.notes != null && aircraft.notes!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              aircraft.notes!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
 
     if (!useOuterPadding) return card;
     return Padding(padding: AppSpacing.cardPadding, child: card);
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }

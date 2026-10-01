@@ -590,8 +590,9 @@ class HomePage extends ConsumerWidget {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  AircraftDetailPage(aircraftId: aws.id),
+                              builder: (_) => AircraftDetailPage(
+                                aircraftId: aws.aircraft.id,
+                              ),
                             ),
                           ),
                           padding: const EdgeInsets.all(14),
@@ -630,20 +631,20 @@ class HomePage extends ConsumerWidget {
                               ),
                               const Spacer(),
                               Text(
-                                ac.type,
+                                ac.designator,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              if (ac.model != null)
-                                Text(
-                                  ac.model!,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+
+                              Text(
+                                ac.modelFullName,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               const SizedBox(height: 4),
                               Row(
                                 children: [

@@ -15,6 +15,7 @@ import '../utils/duration_formatter.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/info_row.dart';
 import '../widgets/pulsing_dot.dart';
+import 'aircraft_form_page.dart';
 
 class RecordingPage extends ConsumerStatefulWidget {
   const RecordingPage({super.key});
@@ -27,7 +28,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   final _titleController = TextEditingController();
   final _departureController = TextEditingController();
   final _arrivalController = TextEditingController();
-  Aircraft? _selectedAircraft;
+  AircraftWithStats? _selectedAircraft;
 
   Timer? _timer;
   DateTime? _startTime;
@@ -93,7 +94,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
-      aircraftId: _selectedAircraft?.id,
+      aircraftId: _selectedAircraft?.aircraft.id,
       departureId: _departureController.text.trim().isEmpty
           ? null
           : int.tryParse(_departureController.text.trim()),
@@ -226,7 +227,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<Aircraft>(
+                    child: DropdownButtonFormField<AircraftWithStats>(
                       initialValue: _selectedAircraft,
                       isExpanded: true,
                       decoration: const InputDecoration(
@@ -237,7 +238,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                           .map(
                             (aws) => DropdownMenuItem(
                               value: aws,
-                              child: Text('${aws.type} (${aws.tailNumber})'),
+                              child: Text('${aws.modelFullName}'),
                             ),
                           )
                           .toList(),
@@ -311,92 +312,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   }
 
   Future<void> _addNewAircraft() async {
-    final db = ref.read(databaseProvider);
-    final typeCtrl = TextEditingController();
-    final modelCtrl = TextEditingController();
-    final tailCtrl = TextEditingController();
-    final manufacturerCtrl = TextEditingController();
-    final notesCtrl = TextEditingController();
-
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add Aircraft'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: typeCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Type *',
-                  hintText: 'e.g. C172',
-                  prefixIcon: Icon(Icons.airplanemode_active),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: modelCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Model',
-                  hintText: 'e.g. Cessna 172S',
-                  prefixIcon: Icon(Icons.model_training),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: tailCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tail Number',
-                  hintText: 'e.g. N123AB',
-                  prefixIcon: Icon(Icons.numbers),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Notes',
-                  prefixIcon: Icon(Icons.notes),
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (typeCtrl.text.trim().isEmpty) return;
-              await db.addAircraft(
-                type: typeCtrl.text.trim(),
-                model: modelCtrl.text.trim(),
-                tailNumber: tailCtrl.text.trim(),
-                manufacturer: manufacturerCtrl.text.trim(),
-                notes: notesCtrl.text.trim().isEmpty
-                    ? null
-                    : notesCtrl.text.trim(),
-              );
-              if (ctx.mounted) Navigator.pop(ctx, true);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AircraftFormPage()),
     );
-
-    typeCtrl.dispose();
-    modelCtrl.dispose();
-    tailCtrl.dispose();
-    notesCtrl.dispose();
-
-    if (saved == true) {
-      // Stream provider automatically updates, no manual refresh needed
-    }
+    // Stream provider automatically updates, no manual refresh needed
   }
 
   Widget _buildRecordingView(ThemeData theme, AsyncValue<void> gpsState) {
@@ -474,7 +394,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      session.aircraft!.type,
+                                      session.aircraft!.modelFullName,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
                                             fontWeight: FontWeight.w600,

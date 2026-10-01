@@ -255,12 +255,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   }
 
   Future<void> _pickAircraft(FlightFormNotifier notifier) async {
-    final aircraft = await Navigator.push<Aircraft>(
+    final aws = await Navigator.push<AircraftWithStats>(
       context,
       MaterialPageRoute(builder: (_) => const AircraftSelectPage()),
     );
-    if (aircraft != null) {
-      notifier.setSelectedAircraft(aircraft);
+    if (aws != null) {
+      notifier.setSelectedAircraft(aws);
     }
   }
 
@@ -285,7 +285,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         title: '$depCode → $arrCode',
         departureTime: depDateTime,
         arrivalTime: arrDateTime,
-        aircraftId: form.selectedAircraft?.id,
+        aircraftId: form.selectedAircraft?.aircraft.id,
         approachType: form.approachType,
         nightLandings: form.nightLandings,
         dayLandings: form.dayLandings,
@@ -301,7 +301,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         title: '$depCode → $arrCode',
         departureTime: depDateTime,
         arrivalTime: arrDateTime,
-        aircraftId: form.selectedAircraft?.id,
+        aircraftId: form.selectedAircraft?.aircraft.id,
         approachType: form.approachType,
         nightLandings: form.nightLandings,
         dayLandings: form.dayLandings,

@@ -14,7 +14,7 @@ class AircraftCard extends StatelessWidget {
     this.showStats = false,
     this.useOuterPadding = true,
   });
-  final Aircraft? aircraft;
+  final AircraftWithIcao? aircraft;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool showStats;
@@ -76,13 +76,21 @@ class AircraftCard extends StatelessWidget {
 
                       const SizedBox(height: 2),
                       Text(
-                        aircraft!.model,
+                        aircraft!.modelFullName,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
 
-                      if (aircraft is AircraftWithStats && showStats) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        '${aircraft!.manufacturer} • ${aircraft!.engineCount} ${aircraft!.engineType.name}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+
+                      if (showStats && aircraft is AircraftWithStats) ...[
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -121,7 +129,7 @@ class AircraftCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                aircraft!.type,
+                aircraft!.wakeTurbulenceCategory.name,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onTertiaryContainer,
                   fontWeight: FontWeight.w600,

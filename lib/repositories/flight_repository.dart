@@ -123,19 +123,23 @@ class FlightRepository {
         }
       }
 
-      // Fetch all aircraft for these flights
+      // Fetch all aircraft for these flights (with ICAO data)
       final aircraftIds = flightsToProcess
           .where((f) => f.aircraftId != null)
           .map((f) => f.aircraftId!)
           .toSet();
 
-      final aircraftMap = <int, Aircraft>{};
+      final aircraftMap = <int, AircraftWithIcao>{};
       if (aircraftIds.isNotEmpty) {
-        final aircraftRows = await (_database.select(
-          _database.aircrafts,
-        )..where((a) => a.id.isIn(aircraftIds.toList()))).get();
-        for (final a in aircraftRows) {
-          aircraftMap[a.id] = a;
+        // Join aircrafts with icaoAircrafts
+        final aircraftRows = await (_database.select(_database.aircrafts).join([
+          innerJoin(_database.icaoAircrafts, _database.icaoAircrafts.id.equalsExp(_database.aircrafts.icaoAircraft)),
+        ])..where(_database.aircrafts.id.isIn(aircraftIds.toList()))).get();
+        
+        for (final row in aircraftRows) {
+          final aircraft = row.readTable(_database.aircrafts);
+          final icao = row.readTable(_database.icaoAircrafts);
+          aircraftMap[aircraft.id] = AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
         }
       }
 
