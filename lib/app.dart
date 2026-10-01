@@ -10,6 +10,7 @@ import 'pages/intro_page.dart';
 import 'providers/theme_provider.dart';
 import 'providers/carto_provider.dart';
 import 'providers/user_provider.dart';
+import 'providers/aircraft_providers.dart';
 
 class LogbookApp extends ConsumerStatefulWidget {
   const LogbookApp({super.key});
@@ -92,6 +93,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     if (apiKey != null && apiKey.isNotEmpty) {
       ref.watch(cartoStyleProvider);
     }
+    // Trigger aircraft types load on app startup
+    ref.watch(aircraftTypesLoadProvider);
 
     return MaterialApp(
       key: ValueKey(_permissionGranted),

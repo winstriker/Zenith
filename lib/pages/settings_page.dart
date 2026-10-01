@@ -6,6 +6,7 @@ import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/carto_provider.dart';
+import '../providers/aircraft_providers.dart';
 import '../services/pdf_export_service.dart';
 import '../widgets/section_header.dart';
 
@@ -110,6 +111,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _reloadAircraftTypes() async {
+    try {
+      await ref.read(aircraftTypesLoadProvider.notifier).refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aircraft types reloaded successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reload aircraft types: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -296,6 +314,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   subtitle: const Text('Export flights as CSV or JSON'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _exportData,
+                ),
+                const Divider(height: 1, indent: 72),
+                ListTile(
+                  leading: const Icon(Icons.refresh),
+                  title: const Text('Reload Aircraft Types'),
+                  subtitle: const Text('Fetch latest aircraft types from ICAO'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _reloadAircraftTypes,
                 ),
               ],
             ),

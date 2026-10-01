@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../main.dart';
 import '../repositories/aircraft_repository.dart';
+import '../services/aircraft_types_service.dart';
 import '../services/database.dart';
 
 // Aircraft Repository Provider
@@ -25,13 +27,49 @@ final aircraftByIdStreamProvider = StreamProvider.family<Aircraft?, int>((
 /// Stream of a specific aircraft
 final aircraftWithStatsByIdStreamProvider =
     StreamProvider.family<AircraftWithStats?, int>((ref, aircraftId) {
-      final repository = ref.watch(aircraftRepositoryProvider);
-      return repository.watchAircraftWithStats(aircraftId);
-    });
+  final repository = ref.watch(aircraftRepositoryProvider);
+  return repository.watchAircraftWithStats(aircraftId);
+});
 
 /// Stream of flights for a specific aircraft
 final flightsForAircraftStreamProvider =
     StreamProvider.family<List<FlightWithStats>, int>((ref, aircraftId) {
-      final repository = ref.watch(aircraftRepositoryProvider);
-      return repository.watchFlightsForAircraft(aircraftId);
-    });
+  final repository = ref.watch(aircraftRepositoryProvider);
+  return repository.watchFlightsForAircraft(aircraftId);
+});
+
+// ---------------------------------------------------------------------------
+// Aircraft Types loading provider
+// ---------------------------------------------------------------------------
+
+class AircraftTypesLoadNotifier extends Notifier<int> {
+  late final AircraftTypesService _service;
+
+  @override
+  int build() {
+    _service = ref.watch(aircraftTypesServiceProvider);
+    _service.addListener(_onServiceChange);
+    ref.onDispose(() => _service.removeListener(_onServiceChange));
+    _service.loadData();
+    return 0;
+  }
+
+  void _onServiceChange() {
+    state = state + 1;
+  }
+
+  Future<void> refresh() async {
+    _onServiceChange();
+    await _service.loadData(forceDownload: true);
+  }
+}
+
+final aircraftTypesLoadProvider = NotifierProvider<AircraftTypesLoadNotifier, int>(
+  AircraftTypesLoadNotifier.new,
+);
+
+/// AircraftTypesService provider
+final aircraftTypesServiceProvider = Provider<AircraftTypesService>((ref) {
+  final db = ref.watch(databaseProvider);
+  return AircraftTypesService(db);
+});

@@ -444,9 +444,7 @@ class AirportsService {
             AirportsService._parseRunways(runwaysResponse, database),
           ]);
         },
-        connect: (connection) {
-          return LogbookDatabase(connection);
-        },
+        connect: LogbookDatabase.new,
       );
     } catch (e) {
       status = AirportServiceStatus.error;
