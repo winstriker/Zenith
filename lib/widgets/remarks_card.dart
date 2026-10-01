@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:logbook/widgets/section_header.dart';
+import '../widgets/section_header.dart';
 
 class RemarksCard extends StatelessWidget {
+  const RemarksCard({super.key, required this.initialValue, this.onChanged});
   final String initialValue;
   final ValueChanged<String>? onChanged;
-
-  const RemarksCard({super.key, required this.initialValue, this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +12,7 @@ class RemarksCard extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Card(
-      margin: EdgeInsets.all(0),
+      margin: const EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

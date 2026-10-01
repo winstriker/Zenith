@@ -3558,9 +3558,20 @@ class $AircraftsTable extends Aircrafts
   late final GeneratedColumn<String> model = GeneratedColumn<String>(
     'model',
     aliasedName,
-    true,
+    false,
     type: DriftSqlType.string,
-    requiredDuringInsert: false,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _manufacturerMeta = const VerificationMeta(
+    'manufacturer',
+  );
+  @override
+  late final GeneratedColumn<String> manufacturer = GeneratedColumn<String>(
+    'manufacturer',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _tailNumberMeta = const VerificationMeta(
     'tailNumber',
@@ -3569,9 +3580,9 @@ class $AircraftsTable extends Aircrafts
   late final GeneratedColumn<String> tailNumber = GeneratedColumn<String>(
     'tail_number',
     aliasedName,
-    true,
+    false,
     type: DriftSqlType.string,
-    requiredDuringInsert: false,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
@@ -3598,6 +3609,7 @@ class $AircraftsTable extends Aircrafts
     id,
     type,
     model,
+    manufacturer,
     tailNumber,
     notes,
     createdAt,
@@ -3630,12 +3642,27 @@ class $AircraftsTable extends Aircrafts
         _modelMeta,
         model.isAcceptableOrUnknown(data['model']!, _modelMeta),
       );
+    } else if (isInserting) {
+      context.missing(_modelMeta);
+    }
+    if (data.containsKey('manufacturer')) {
+      context.handle(
+        _manufacturerMeta,
+        manufacturer.isAcceptableOrUnknown(
+          data['manufacturer']!,
+          _manufacturerMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_manufacturerMeta);
     }
     if (data.containsKey('tail_number')) {
       context.handle(
         _tailNumberMeta,
         tailNumber.isAcceptableOrUnknown(data['tail_number']!, _tailNumberMeta),
       );
+    } else if (isInserting) {
+      context.missing(_tailNumberMeta);
     }
     if (data.containsKey('notes')) {
       context.handle(
@@ -3671,11 +3698,15 @@ class $AircraftsTable extends Aircrafts
       model: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}model'],
-      ),
+      )!,
+      manufacturer: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manufacturer'],
+      )!,
       tailNumber: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}tail_number'],
-      ),
+      )!,
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -3696,15 +3727,17 @@ class $AircraftsTable extends Aircrafts
 class Aircraft extends DataClass implements Insertable<Aircraft> {
   final int id;
   final String type;
-  final String? model;
-  final String? tailNumber;
+  final String model;
+  final String manufacturer;
+  final String tailNumber;
   final String? notes;
   final DateTime createdAt;
   const Aircraft({
     required this.id,
     required this.type,
-    this.model,
-    this.tailNumber,
+    required this.model,
+    required this.manufacturer,
+    required this.tailNumber,
     this.notes,
     required this.createdAt,
   });
@@ -3713,12 +3746,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['type'] = Variable<String>(type);
-    if (!nullToAbsent || model != null) {
-      map['model'] = Variable<String>(model);
-    }
-    if (!nullToAbsent || tailNumber != null) {
-      map['tail_number'] = Variable<String>(tailNumber);
-    }
+    map['model'] = Variable<String>(model);
+    map['manufacturer'] = Variable<String>(manufacturer);
+    map['tail_number'] = Variable<String>(tailNumber);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
@@ -3730,12 +3760,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     return AircraftsCompanion(
       id: Value(id),
       type: Value(type),
-      model: model == null && nullToAbsent
-          ? const Value.absent()
-          : Value(model),
-      tailNumber: tailNumber == null && nullToAbsent
-          ? const Value.absent()
-          : Value(tailNumber),
+      model: Value(model),
+      manufacturer: Value(manufacturer),
+      tailNumber: Value(tailNumber),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -3751,8 +3778,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     return Aircraft(
       id: serializer.fromJson<int>(json['id']),
       type: serializer.fromJson<String>(json['type']),
-      model: serializer.fromJson<String?>(json['model']),
-      tailNumber: serializer.fromJson<String?>(json['tailNumber']),
+      model: serializer.fromJson<String>(json['model']),
+      manufacturer: serializer.fromJson<String>(json['manufacturer']),
+      tailNumber: serializer.fromJson<String>(json['tailNumber']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -3763,8 +3791,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'type': serializer.toJson<String>(type),
-      'model': serializer.toJson<String?>(model),
-      'tailNumber': serializer.toJson<String?>(tailNumber),
+      'model': serializer.toJson<String>(model),
+      'manufacturer': serializer.toJson<String>(manufacturer),
+      'tailNumber': serializer.toJson<String>(tailNumber),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -3773,15 +3802,17 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   Aircraft copyWith({
     int? id,
     String? type,
-    Value<String?> model = const Value.absent(),
-    Value<String?> tailNumber = const Value.absent(),
+    String? model,
+    String? manufacturer,
+    String? tailNumber,
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
   }) => Aircraft(
     id: id ?? this.id,
     type: type ?? this.type,
-    model: model.present ? model.value : this.model,
-    tailNumber: tailNumber.present ? tailNumber.value : this.tailNumber,
+    model: model ?? this.model,
+    manufacturer: manufacturer ?? this.manufacturer,
+    tailNumber: tailNumber ?? this.tailNumber,
     notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -3790,6 +3821,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       id: data.id.present ? data.id.value : this.id,
       type: data.type.present ? data.type.value : this.type,
       model: data.model.present ? data.model.value : this.model,
+      manufacturer: data.manufacturer.present
+          ? data.manufacturer.value
+          : this.manufacturer,
       tailNumber: data.tailNumber.present
           ? data.tailNumber.value
           : this.tailNumber,
@@ -3804,6 +3838,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           ..write('id: $id, ')
           ..write('type: $type, ')
           ..write('model: $model, ')
+          ..write('manufacturer: $manufacturer, ')
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
@@ -3813,7 +3848,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
 
   @override
   int get hashCode =>
-      Object.hash(id, type, model, tailNumber, notes, createdAt);
+      Object.hash(id, type, model, manufacturer, tailNumber, notes, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3821,6 +3856,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           other.id == this.id &&
           other.type == this.type &&
           other.model == this.model &&
+          other.manufacturer == this.manufacturer &&
           other.tailNumber == this.tailNumber &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt);
@@ -3829,14 +3865,16 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
 class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   final Value<int> id;
   final Value<String> type;
-  final Value<String?> model;
-  final Value<String?> tailNumber;
+  final Value<String> model;
+  final Value<String> manufacturer;
+  final Value<String> tailNumber;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
   const AircraftsCompanion({
     this.id = const Value.absent(),
     this.type = const Value.absent(),
     this.model = const Value.absent(),
+    this.manufacturer = const Value.absent(),
     this.tailNumber = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3844,16 +3882,21 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   AircraftsCompanion.insert({
     this.id = const Value.absent(),
     required String type,
-    this.model = const Value.absent(),
-    this.tailNumber = const Value.absent(),
+    required String model,
+    required String manufacturer,
+    required String tailNumber,
     this.notes = const Value.absent(),
     required DateTime createdAt,
   }) : type = Value(type),
+       model = Value(model),
+       manufacturer = Value(manufacturer),
+       tailNumber = Value(tailNumber),
        createdAt = Value(createdAt);
   static Insertable<Aircraft> custom({
     Expression<int>? id,
     Expression<String>? type,
     Expression<String>? model,
+    Expression<String>? manufacturer,
     Expression<String>? tailNumber,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -3862,6 +3905,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
       if (id != null) 'id': id,
       if (type != null) 'type': type,
       if (model != null) 'model': model,
+      if (manufacturer != null) 'manufacturer': manufacturer,
       if (tailNumber != null) 'tail_number': tailNumber,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
@@ -3871,8 +3915,9 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   AircraftsCompanion copyWith({
     Value<int>? id,
     Value<String>? type,
-    Value<String?>? model,
-    Value<String?>? tailNumber,
+    Value<String>? model,
+    Value<String>? manufacturer,
+    Value<String>? tailNumber,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
   }) {
@@ -3880,6 +3925,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
       id: id ?? this.id,
       type: type ?? this.type,
       model: model ?? this.model,
+      manufacturer: manufacturer ?? this.manufacturer,
       tailNumber: tailNumber ?? this.tailNumber,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -3897,6 +3943,9 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     }
     if (model.present) {
       map['model'] = Variable<String>(model.value);
+    }
+    if (manufacturer.present) {
+      map['manufacturer'] = Variable<String>(manufacturer.value);
     }
     if (tailNumber.present) {
       map['tail_number'] = Variable<String>(tailNumber.value);
@@ -3916,6 +3965,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
           ..write('id: $id, ')
           ..write('type: $type, ')
           ..write('model: $model, ')
+          ..write('manufacturer: $manufacturer, ')
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt')
@@ -5352,6 +5402,592 @@ class FlightDataPointsCompanion extends UpdateCompanion<FlightDataPoint> {
   }
 }
 
+class $IcaoAircraftsTable extends IcaoAircrafts
+    with TableInfo<$IcaoAircraftsTable, IcaoAircraft> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $IcaoAircraftsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _modelFullNameMeta = const VerificationMeta(
+    'modelFullName',
+  );
+  @override
+  late final GeneratedColumn<String> modelFullName = GeneratedColumn<String>(
+    'model_full_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  wakeTurbolenceCategory =
+      GeneratedColumn<String>(
+        'wake_turbolence_category',
+        aliasedName,
+        false,
+        additionalChecks: GeneratedColumn.checkTextLength(
+          minTextLength: 1,
+          maxTextLength: 1,
+        ),
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<WakeTurbolenceCategory>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceCategory,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  wakeTurbolenceGroup =
+      GeneratedColumn<String>(
+        'wake_turbolence_group',
+        aliasedName,
+        false,
+        additionalChecks: GeneratedColumn.checkTextLength(
+          minTextLength: 1,
+          maxTextLength: 1,
+        ),
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<WakeTurbolenceGroup>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceGroup,
+      );
+  static const VerificationMeta _manufacturerMeta = const VerificationMeta(
+    'manufacturer',
+  );
+  @override
+  late final GeneratedColumn<String> manufacturer = GeneratedColumn<String>(
+    'manufacturer',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<AircraftDescription, String>
+  description =
+      GeneratedColumn<String>(
+        'description',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<AircraftDescription>(
+        $IcaoAircraftsTable.$converterdescription,
+      );
+  static const VerificationMeta _engineCountMeta = const VerificationMeta(
+    'engineCount',
+  );
+  @override
+  late final GeneratedColumn<int> engineCount = GeneratedColumn<int>(
+    'engine_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<EngineType, String> engineType =
+      GeneratedColumn<String>(
+        'engine_type',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<EngineType>($IcaoAircraftsTable.$converterengineType);
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    modelFullName,
+    wakeTurbolenceCategory,
+    wakeTurbolenceGroup,
+    manufacturer,
+    description,
+    engineCount,
+    engineType,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'icao_aircrafts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<IcaoAircraft> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('model_full_name')) {
+      context.handle(
+        _modelFullNameMeta,
+        modelFullName.isAcceptableOrUnknown(
+          data['model_full_name']!,
+          _modelFullNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_modelFullNameMeta);
+    }
+    if (data.containsKey('manufacturer')) {
+      context.handle(
+        _manufacturerMeta,
+        manufacturer.isAcceptableOrUnknown(
+          data['manufacturer']!,
+          _manufacturerMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_manufacturerMeta);
+    }
+    if (data.containsKey('engine_count')) {
+      context.handle(
+        _engineCountMeta,
+        engineCount.isAcceptableOrUnknown(
+          data['engine_count']!,
+          _engineCountMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_engineCountMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  IcaoAircraft map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return IcaoAircraft(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      modelFullName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_full_name'],
+      )!,
+      wakeTurbolenceCategory: $IcaoAircraftsTable
+          .$converterwakeTurbolenceCategory
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}wake_turbolence_category'],
+            )!,
+          ),
+      wakeTurbolenceGroup: $IcaoAircraftsTable.$converterwakeTurbolenceGroup
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}wake_turbolence_group'],
+            )!,
+          ),
+      manufacturer: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manufacturer'],
+      )!,
+      description: $IcaoAircraftsTable.$converterdescription.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}description'],
+        )!,
+      ),
+      engineCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}engine_count'],
+      )!,
+      engineType: $IcaoAircraftsTable.$converterengineType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}engine_type'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $IcaoAircraftsTable createAlias(String alias) {
+    return $IcaoAircraftsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<WakeTurbolenceCategory, String, String>
+  $converterwakeTurbolenceCategory =
+      const EnumNameConverter<WakeTurbolenceCategory>(
+        WakeTurbolenceCategory.values,
+      );
+  static JsonTypeConverter2<WakeTurbolenceGroup, String, String>
+  $converterwakeTurbolenceGroup = const EnumNameConverter<WakeTurbolenceGroup>(
+    WakeTurbolenceGroup.values,
+  );
+  static JsonTypeConverter2<AircraftDescription, String, String>
+  $converterdescription = const EnumNameConverter<AircraftDescription>(
+    AircraftDescription.values,
+  );
+  static JsonTypeConverter2<EngineType, String, String> $converterengineType =
+      const EnumNameConverter<EngineType>(EngineType.values);
+}
+
+class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
+  final int id;
+  final String modelFullName;
+  final WakeTurbolenceCategory wakeTurbolenceCategory;
+  final WakeTurbolenceGroup wakeTurbolenceGroup;
+  final String manufacturer;
+  final AircraftDescription description;
+  final int engineCount;
+  final EngineType engineType;
+  const IcaoAircraft({
+    required this.id,
+    required this.modelFullName,
+    required this.wakeTurbolenceCategory,
+    required this.wakeTurbolenceGroup,
+    required this.manufacturer,
+    required this.description,
+    required this.engineCount,
+    required this.engineType,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['model_full_name'] = Variable<String>(modelFullName);
+    {
+      map['wake_turbolence_category'] = Variable<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceCategory.toSql(
+          wakeTurbolenceCategory,
+        ),
+      );
+    }
+    {
+      map['wake_turbolence_group'] = Variable<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceGroup.toSql(
+          wakeTurbolenceGroup,
+        ),
+      );
+    }
+    map['manufacturer'] = Variable<String>(manufacturer);
+    {
+      map['description'] = Variable<String>(
+        $IcaoAircraftsTable.$converterdescription.toSql(description),
+      );
+    }
+    map['engine_count'] = Variable<int>(engineCount);
+    {
+      map['engine_type'] = Variable<String>(
+        $IcaoAircraftsTable.$converterengineType.toSql(engineType),
+      );
+    }
+    return map;
+  }
+
+  IcaoAircraftsCompanion toCompanion(bool nullToAbsent) {
+    return IcaoAircraftsCompanion(
+      id: Value(id),
+      modelFullName: Value(modelFullName),
+      wakeTurbolenceCategory: Value(wakeTurbolenceCategory),
+      wakeTurbolenceGroup: Value(wakeTurbolenceGroup),
+      manufacturer: Value(manufacturer),
+      description: Value(description),
+      engineCount: Value(engineCount),
+      engineType: Value(engineType),
+    );
+  }
+
+  factory IcaoAircraft.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return IcaoAircraft(
+      id: serializer.fromJson<int>(json['id']),
+      modelFullName: serializer.fromJson<String>(json['modelFullName']),
+      wakeTurbolenceCategory: $IcaoAircraftsTable
+          .$converterwakeTurbolenceCategory
+          .fromJson(
+            serializer.fromJson<String>(json['wakeTurbolenceCategory']),
+          ),
+      wakeTurbolenceGroup: $IcaoAircraftsTable.$converterwakeTurbolenceGroup
+          .fromJson(serializer.fromJson<String>(json['wakeTurbolenceGroup'])),
+      manufacturer: serializer.fromJson<String>(json['manufacturer']),
+      description: $IcaoAircraftsTable.$converterdescription.fromJson(
+        serializer.fromJson<String>(json['description']),
+      ),
+      engineCount: serializer.fromJson<int>(json['engineCount']),
+      engineType: $IcaoAircraftsTable.$converterengineType.fromJson(
+        serializer.fromJson<String>(json['engineType']),
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'modelFullName': serializer.toJson<String>(modelFullName),
+      'wakeTurbolenceCategory': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceCategory.toJson(
+          wakeTurbolenceCategory,
+        ),
+      ),
+      'wakeTurbolenceGroup': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceGroup.toJson(
+          wakeTurbolenceGroup,
+        ),
+      ),
+      'manufacturer': serializer.toJson<String>(manufacturer),
+      'description': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterdescription.toJson(description),
+      ),
+      'engineCount': serializer.toJson<int>(engineCount),
+      'engineType': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterengineType.toJson(engineType),
+      ),
+    };
+  }
+
+  IcaoAircraft copyWith({
+    int? id,
+    String? modelFullName,
+    WakeTurbolenceCategory? wakeTurbolenceCategory,
+    WakeTurbolenceGroup? wakeTurbolenceGroup,
+    String? manufacturer,
+    AircraftDescription? description,
+    int? engineCount,
+    EngineType? engineType,
+  }) => IcaoAircraft(
+    id: id ?? this.id,
+    modelFullName: modelFullName ?? this.modelFullName,
+    wakeTurbolenceCategory:
+        wakeTurbolenceCategory ?? this.wakeTurbolenceCategory,
+    wakeTurbolenceGroup: wakeTurbolenceGroup ?? this.wakeTurbolenceGroup,
+    manufacturer: manufacturer ?? this.manufacturer,
+    description: description ?? this.description,
+    engineCount: engineCount ?? this.engineCount,
+    engineType: engineType ?? this.engineType,
+  );
+  IcaoAircraft copyWithCompanion(IcaoAircraftsCompanion data) {
+    return IcaoAircraft(
+      id: data.id.present ? data.id.value : this.id,
+      modelFullName: data.modelFullName.present
+          ? data.modelFullName.value
+          : this.modelFullName,
+      wakeTurbolenceCategory: data.wakeTurbolenceCategory.present
+          ? data.wakeTurbolenceCategory.value
+          : this.wakeTurbolenceCategory,
+      wakeTurbolenceGroup: data.wakeTurbolenceGroup.present
+          ? data.wakeTurbolenceGroup.value
+          : this.wakeTurbolenceGroup,
+      manufacturer: data.manufacturer.present
+          ? data.manufacturer.value
+          : this.manufacturer,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      engineCount: data.engineCount.present
+          ? data.engineCount.value
+          : this.engineCount,
+      engineType: data.engineType.present
+          ? data.engineType.value
+          : this.engineType,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IcaoAircraft(')
+          ..write('id: $id, ')
+          ..write('modelFullName: $modelFullName, ')
+          ..write('wakeTurbolenceCategory: $wakeTurbolenceCategory, ')
+          ..write('wakeTurbolenceGroup: $wakeTurbolenceGroup, ')
+          ..write('manufacturer: $manufacturer, ')
+          ..write('description: $description, ')
+          ..write('engineCount: $engineCount, ')
+          ..write('engineType: $engineType')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    modelFullName,
+    wakeTurbolenceCategory,
+    wakeTurbolenceGroup,
+    manufacturer,
+    description,
+    engineCount,
+    engineType,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is IcaoAircraft &&
+          other.id == this.id &&
+          other.modelFullName == this.modelFullName &&
+          other.wakeTurbolenceCategory == this.wakeTurbolenceCategory &&
+          other.wakeTurbolenceGroup == this.wakeTurbolenceGroup &&
+          other.manufacturer == this.manufacturer &&
+          other.description == this.description &&
+          other.engineCount == this.engineCount &&
+          other.engineType == this.engineType);
+}
+
+class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
+  final Value<int> id;
+  final Value<String> modelFullName;
+  final Value<WakeTurbolenceCategory> wakeTurbolenceCategory;
+  final Value<WakeTurbolenceGroup> wakeTurbolenceGroup;
+  final Value<String> manufacturer;
+  final Value<AircraftDescription> description;
+  final Value<int> engineCount;
+  final Value<EngineType> engineType;
+  const IcaoAircraftsCompanion({
+    this.id = const Value.absent(),
+    this.modelFullName = const Value.absent(),
+    this.wakeTurbolenceCategory = const Value.absent(),
+    this.wakeTurbolenceGroup = const Value.absent(),
+    this.manufacturer = const Value.absent(),
+    this.description = const Value.absent(),
+    this.engineCount = const Value.absent(),
+    this.engineType = const Value.absent(),
+  });
+  IcaoAircraftsCompanion.insert({
+    this.id = const Value.absent(),
+    required String modelFullName,
+    required WakeTurbolenceCategory wakeTurbolenceCategory,
+    required WakeTurbolenceGroup wakeTurbolenceGroup,
+    required String manufacturer,
+    required AircraftDescription description,
+    required int engineCount,
+    required EngineType engineType,
+  }) : modelFullName = Value(modelFullName),
+       wakeTurbolenceCategory = Value(wakeTurbolenceCategory),
+       wakeTurbolenceGroup = Value(wakeTurbolenceGroup),
+       manufacturer = Value(manufacturer),
+       description = Value(description),
+       engineCount = Value(engineCount),
+       engineType = Value(engineType);
+  static Insertable<IcaoAircraft> custom({
+    Expression<int>? id,
+    Expression<String>? modelFullName,
+    Expression<String>? wakeTurbolenceCategory,
+    Expression<String>? wakeTurbolenceGroup,
+    Expression<String>? manufacturer,
+    Expression<String>? description,
+    Expression<int>? engineCount,
+    Expression<String>? engineType,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (modelFullName != null) 'model_full_name': modelFullName,
+      if (wakeTurbolenceCategory != null)
+        'wake_turbolence_category': wakeTurbolenceCategory,
+      if (wakeTurbolenceGroup != null)
+        'wake_turbolence_group': wakeTurbolenceGroup,
+      if (manufacturer != null) 'manufacturer': manufacturer,
+      if (description != null) 'description': description,
+      if (engineCount != null) 'engine_count': engineCount,
+      if (engineType != null) 'engine_type': engineType,
+    });
+  }
+
+  IcaoAircraftsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? modelFullName,
+    Value<WakeTurbolenceCategory>? wakeTurbolenceCategory,
+    Value<WakeTurbolenceGroup>? wakeTurbolenceGroup,
+    Value<String>? manufacturer,
+    Value<AircraftDescription>? description,
+    Value<int>? engineCount,
+    Value<EngineType>? engineType,
+  }) {
+    return IcaoAircraftsCompanion(
+      id: id ?? this.id,
+      modelFullName: modelFullName ?? this.modelFullName,
+      wakeTurbolenceCategory:
+          wakeTurbolenceCategory ?? this.wakeTurbolenceCategory,
+      wakeTurbolenceGroup: wakeTurbolenceGroup ?? this.wakeTurbolenceGroup,
+      manufacturer: manufacturer ?? this.manufacturer,
+      description: description ?? this.description,
+      engineCount: engineCount ?? this.engineCount,
+      engineType: engineType ?? this.engineType,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (modelFullName.present) {
+      map['model_full_name'] = Variable<String>(modelFullName.value);
+    }
+    if (wakeTurbolenceCategory.present) {
+      map['wake_turbolence_category'] = Variable<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceCategory.toSql(
+          wakeTurbolenceCategory.value,
+        ),
+      );
+    }
+    if (wakeTurbolenceGroup.present) {
+      map['wake_turbolence_group'] = Variable<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceGroup.toSql(
+          wakeTurbolenceGroup.value,
+        ),
+      );
+    }
+    if (manufacturer.present) {
+      map['manufacturer'] = Variable<String>(manufacturer.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(
+        $IcaoAircraftsTable.$converterdescription.toSql(description.value),
+      );
+    }
+    if (engineCount.present) {
+      map['engine_count'] = Variable<int>(engineCount.value);
+    }
+    if (engineType.present) {
+      map['engine_type'] = Variable<String>(
+        $IcaoAircraftsTable.$converterengineType.toSql(engineType.value),
+      );
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IcaoAircraftsCompanion(')
+          ..write('id: $id, ')
+          ..write('modelFullName: $modelFullName, ')
+          ..write('wakeTurbolenceCategory: $wakeTurbolenceCategory, ')
+          ..write('wakeTurbolenceGroup: $wakeTurbolenceGroup, ')
+          ..write('manufacturer: $manufacturer, ')
+          ..write('description: $description, ')
+          ..write('engineCount: $engineCount, ')
+          ..write('engineType: $engineType')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LogbookDatabase extends GeneratedDatabase {
   _$LogbookDatabase(QueryExecutor e) : super(e);
   $LogbookDatabaseManager get managers => $LogbookDatabaseManager(this);
@@ -5365,6 +6001,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $FlightDataPointsTable flightDataPoints = $FlightDataPointsTable(
     this,
   );
+  late final $IcaoAircraftsTable icaoAircrafts = $IcaoAircraftsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5378,6 +6015,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     aircrafts,
     flights,
     flightDataPoints,
+    icaoAircrafts,
   ];
 }
 
@@ -8229,8 +8867,9 @@ typedef $$AircraftsTableCreateCompanionBuilder =
     AircraftsCompanion Function({
       Value<int> id,
       required String type,
-      Value<String?> model,
-      Value<String?> tailNumber,
+      required String model,
+      required String manufacturer,
+      required String tailNumber,
       Value<String?> notes,
       required DateTime createdAt,
     });
@@ -8238,8 +8877,9 @@ typedef $$AircraftsTableUpdateCompanionBuilder =
     AircraftsCompanion Function({
       Value<int> id,
       Value<String> type,
-      Value<String?> model,
-      Value<String?> tailNumber,
+      Value<String> model,
+      Value<String> manufacturer,
+      Value<String> tailNumber,
       Value<String?> notes,
       Value<DateTime> createdAt,
     });
@@ -8289,6 +8929,11 @@ class $$AircraftsTableFilterComposer
 
   ColumnFilters<String> get model => $composableBuilder(
     column: $table.model,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manufacturer => $composableBuilder(
+    column: $table.manufacturer,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8357,6 +9002,11 @@ class $$AircraftsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get manufacturer => $composableBuilder(
+    column: $table.manufacturer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get tailNumber => $composableBuilder(
     column: $table.tailNumber,
     builder: (column) => ColumnOrderings(column),
@@ -8390,6 +9040,11 @@ class $$AircraftsTableAnnotationComposer
 
   GeneratedColumn<String> get model =>
       $composableBuilder(column: $table.model, builder: (column) => column);
+
+  GeneratedColumn<String> get manufacturer => $composableBuilder(
+    column: $table.manufacturer,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get tailNumber => $composableBuilder(
     column: $table.tailNumber,
@@ -8458,14 +9113,16 @@ class $$AircraftsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> type = const Value.absent(),
-                Value<String?> model = const Value.absent(),
-                Value<String?> tailNumber = const Value.absent(),
+                Value<String> model = const Value.absent(),
+                Value<String> manufacturer = const Value.absent(),
+                Value<String> tailNumber = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => AircraftsCompanion(
                 id: id,
                 type: type,
                 model: model,
+                manufacturer: manufacturer,
                 tailNumber: tailNumber,
                 notes: notes,
                 createdAt: createdAt,
@@ -8474,14 +9131,16 @@ class $$AircraftsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String type,
-                Value<String?> model = const Value.absent(),
-                Value<String?> tailNumber = const Value.absent(),
+                required String model,
+                required String manufacturer,
+                required String tailNumber,
                 Value<String?> notes = const Value.absent(),
                 required DateTime createdAt,
               }) => AircraftsCompanion.insert(
                 id: id,
                 type: type,
                 model: model,
+                manufacturer: manufacturer,
                 tailNumber: tailNumber,
                 notes: notes,
                 createdAt: createdAt,
@@ -9728,6 +10387,299 @@ typedef $$FlightDataPointsTableProcessedTableManager =
       FlightDataPoint,
       PrefetchHooks Function({bool flight})
     >;
+typedef $$IcaoAircraftsTableCreateCompanionBuilder =
+    IcaoAircraftsCompanion Function({
+      Value<int> id,
+      required String modelFullName,
+      required WakeTurbolenceCategory wakeTurbolenceCategory,
+      required WakeTurbolenceGroup wakeTurbolenceGroup,
+      required String manufacturer,
+      required AircraftDescription description,
+      required int engineCount,
+      required EngineType engineType,
+    });
+typedef $$IcaoAircraftsTableUpdateCompanionBuilder =
+    IcaoAircraftsCompanion Function({
+      Value<int> id,
+      Value<String> modelFullName,
+      Value<WakeTurbolenceCategory> wakeTurbolenceCategory,
+      Value<WakeTurbolenceGroup> wakeTurbolenceGroup,
+      Value<String> manufacturer,
+      Value<AircraftDescription> description,
+      Value<int> engineCount,
+      Value<EngineType> engineType,
+    });
+
+class $$IcaoAircraftsTableFilterComposer
+    extends Composer<_$LogbookDatabase, $IcaoAircraftsTable> {
+  $$IcaoAircraftsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelFullName => $composableBuilder(
+    column: $table.modelFullName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    WakeTurbolenceCategory,
+    WakeTurbolenceCategory,
+    String
+  >
+  get wakeTurbolenceCategory => $composableBuilder(
+    column: $table.wakeTurbolenceCategory,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    WakeTurbolenceGroup,
+    WakeTurbolenceGroup,
+    String
+  >
+  get wakeTurbolenceGroup => $composableBuilder(
+    column: $table.wakeTurbolenceGroup,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get manufacturer => $composableBuilder(
+    column: $table.manufacturer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    AircraftDescription,
+    AircraftDescription,
+    String
+  >
+  get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get engineCount => $composableBuilder(
+    column: $table.engineCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<EngineType, EngineType, String>
+  get engineType => $composableBuilder(
+    column: $table.engineType,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+}
+
+class $$IcaoAircraftsTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $IcaoAircraftsTable> {
+  $$IcaoAircraftsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get modelFullName => $composableBuilder(
+    column: $table.modelFullName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get wakeTurbolenceCategory => $composableBuilder(
+    column: $table.wakeTurbolenceCategory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get wakeTurbolenceGroup => $composableBuilder(
+    column: $table.wakeTurbolenceGroup,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manufacturer => $composableBuilder(
+    column: $table.manufacturer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get engineCount => $composableBuilder(
+    column: $table.engineCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get engineType => $composableBuilder(
+    column: $table.engineType,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$IcaoAircraftsTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $IcaoAircraftsTable> {
+  $$IcaoAircraftsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get modelFullName => $composableBuilder(
+    column: $table.modelFullName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  get wakeTurbolenceCategory => $composableBuilder(
+    column: $table.wakeTurbolenceCategory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  get wakeTurbolenceGroup => $composableBuilder(
+    column: $table.wakeTurbolenceGroup,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get manufacturer => $composableBuilder(
+    column: $table.manufacturer,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<AircraftDescription, String>
+  get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get engineCount => $composableBuilder(
+    column: $table.engineCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<EngineType, String> get engineType =>
+      $composableBuilder(
+        column: $table.engineType,
+        builder: (column) => column,
+      );
+}
+
+class $$IcaoAircraftsTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $IcaoAircraftsTable,
+          IcaoAircraft,
+          $$IcaoAircraftsTableFilterComposer,
+          $$IcaoAircraftsTableOrderingComposer,
+          $$IcaoAircraftsTableAnnotationComposer,
+          $$IcaoAircraftsTableCreateCompanionBuilder,
+          $$IcaoAircraftsTableUpdateCompanionBuilder,
+          (
+            IcaoAircraft,
+            BaseReferences<
+              _$LogbookDatabase,
+              $IcaoAircraftsTable,
+              IcaoAircraft
+            >,
+          ),
+          IcaoAircraft,
+          PrefetchHooks Function()
+        > {
+  $$IcaoAircraftsTableTableManager(
+    _$LogbookDatabase db,
+    $IcaoAircraftsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$IcaoAircraftsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$IcaoAircraftsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$IcaoAircraftsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> modelFullName = const Value.absent(),
+                Value<WakeTurbolenceCategory> wakeTurbolenceCategory =
+                    const Value.absent(),
+                Value<WakeTurbolenceGroup> wakeTurbolenceGroup =
+                    const Value.absent(),
+                Value<String> manufacturer = const Value.absent(),
+                Value<AircraftDescription> description = const Value.absent(),
+                Value<int> engineCount = const Value.absent(),
+                Value<EngineType> engineType = const Value.absent(),
+              }) => IcaoAircraftsCompanion(
+                id: id,
+                modelFullName: modelFullName,
+                wakeTurbolenceCategory: wakeTurbolenceCategory,
+                wakeTurbolenceGroup: wakeTurbolenceGroup,
+                manufacturer: manufacturer,
+                description: description,
+                engineCount: engineCount,
+                engineType: engineType,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String modelFullName,
+                required WakeTurbolenceCategory wakeTurbolenceCategory,
+                required WakeTurbolenceGroup wakeTurbolenceGroup,
+                required String manufacturer,
+                required AircraftDescription description,
+                required int engineCount,
+                required EngineType engineType,
+              }) => IcaoAircraftsCompanion.insert(
+                id: id,
+                modelFullName: modelFullName,
+                wakeTurbolenceCategory: wakeTurbolenceCategory,
+                wakeTurbolenceGroup: wakeTurbolenceGroup,
+                manufacturer: manufacturer,
+                description: description,
+                engineCount: engineCount,
+                engineType: engineType,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$IcaoAircraftsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $IcaoAircraftsTable,
+      IcaoAircraft,
+      $$IcaoAircraftsTableFilterComposer,
+      $$IcaoAircraftsTableOrderingComposer,
+      $$IcaoAircraftsTableAnnotationComposer,
+      $$IcaoAircraftsTableCreateCompanionBuilder,
+      $$IcaoAircraftsTableUpdateCompanionBuilder,
+      (
+        IcaoAircraft,
+        BaseReferences<_$LogbookDatabase, $IcaoAircraftsTable, IcaoAircraft>,
+      ),
+      IcaoAircraft,
+      PrefetchHooks Function()
+    >;
 
 class $LogbookDatabaseManager {
   final _$LogbookDatabase _db;
@@ -9748,4 +10700,6 @@ class $LogbookDatabaseManager {
       $$FlightsTableTableManager(_db, _db.flights);
   $$FlightDataPointsTableTableManager get flightDataPoints =>
       $$FlightDataPointsTableTableManager(_db, _db.flightDataPoints);
+  $$IcaoAircraftsTableTableManager get icaoAircrafts =>
+      $$IcaoAircraftsTableTableManager(_db, _db.icaoAircrafts);
 }

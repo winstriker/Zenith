@@ -46,6 +46,33 @@ class AircraftRepository {
     )..where((a) => a.id.equals(id))).watchSingleOrNull();
   }
 
+  Stream<AircraftWithStats?> watchAircraftWithStats(int id) {
+    return (_database.select(_database.aircrafts)
+          ..where((a) => a.id.equals(id)))
+        .watchSingleOrNull()
+        .asyncMap((aircraft) async {
+          if (aircraft == null) {
+            return null;
+          }
+          final flightQuery = _database.select(_database.flights)
+            ..where((f) => f.aircraftId.equals(aircraft.id))
+            ..where((f) => f.isRecording.equals(false));
+          final flightRows = await flightQuery.get();
+          Duration? totalTime;
+          for (final f in flightRows) {
+            if (f.arrivalTime != null) {
+              final dur = f.arrivalTime!.difference(f.departureTime);
+              totalTime = (totalTime ?? Duration.zero) + dur;
+            }
+          }
+          return AircraftWithStats(
+            aircraft: aircraft,
+            flightCount: flightRows.length,
+            totalFlightTime: totalTime,
+          );
+        });
+  }
+
   /// Stream of flights for an aircraft
   Stream<List<FlightWithStats>> watchFlightsForAircraft(
     int aircraftId, {
@@ -106,8 +133,9 @@ class AircraftRepository {
   // Mutating operations
   Future<int> addAircraft({
     required String type,
-    String? model,
-    String? tailNumber,
+    required String model,
+    required String tailNumber,
+    required String manufacturer,
     String? notes,
   }) async {
     return _database
@@ -115,8 +143,9 @@ class AircraftRepository {
         .insert(
           AircraftsCompanion.insert(
             type: type,
-            model: Value(model),
-            tailNumber: Value(tailNumber),
+            model: model,
+            tailNumber: tailNumber,
+            manufacturer: manufacturer,
             notes: Value(notes),
             createdAt: DateTime.now(),
           ),

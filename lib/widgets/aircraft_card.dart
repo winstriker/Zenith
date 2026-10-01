@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:logbook/services/database.dart';
+
 import '../core/spacing.dart';
+import '../services/database.dart';
 import 'gradient_card.dart';
 import 'info_chip.dart';
 
 class AircraftCard extends StatelessWidget {
-  final Aircraft? aircraft;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final bool showStats;
-  final bool useOuterPadding;
-
   const AircraftCard({
     super.key,
     required this.aircraft,
@@ -19,6 +14,11 @@ class AircraftCard extends StatelessWidget {
     this.showStats = false,
     this.useOuterPadding = true,
   });
+  final Aircraft? aircraft;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool showStats;
+  final bool useOuterPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -68,20 +68,20 @@ class AircraftCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        aircraft!.tailNumber ?? aircraft!.type,
+                        aircraft!.tailNumber,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (aircraft!.model != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          aircraft!.model!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
+
+                      const SizedBox(height: 2),
+                      Text(
+                        aircraft!.model,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ],
+                      ),
+
                       if (aircraft is AircraftWithStats && showStats) ...[
                         const SizedBox(height: 6),
                         Row(

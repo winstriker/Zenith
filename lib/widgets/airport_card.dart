@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:logbook/services/database.dart';
+
 import '../core/spacing.dart';
+import '../services/database.dart';
 import 'gradient_card.dart';
 import 'info_chip.dart';
 
 class AirportCard extends StatelessWidget {
-  final Airport airport;
-  final VoidCallback? onTap;
-  final double? distanceKm;
-
   const AirportCard({
     super.key,
     required this.airport,
     this.onTap,
     this.distanceKm,
   });
+  final Airport airport;
+  final VoidCallback? onTap;
+  final double? distanceKm;
 
   @override
   Widget build(BuildContext context) {

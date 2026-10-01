@@ -589,8 +589,9 @@ class HomePage extends ConsumerWidget {
                         child: BaseCard(
                           onTap: () => Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => AircraftDetailPage(aircraft: aws),
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  AircraftDetailPage(aircraftId: aws.id),
                             ),
                           ),
                           padding: const EdgeInsets.all(14),

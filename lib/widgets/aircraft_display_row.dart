@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:logbook/services/database.dart';
+
+import '../services/database.dart';
 
 /// A standardized row for displaying aircraft with icon, type, model, and tail number.
 /// Used in flight detail and flight form pages.
 class AircraftDisplayRow extends StatelessWidget {
-  final Aircraft? aircraft;
-  final bool isSelected;
-  final bool showChevron;
-  final VoidCallback? onTap;
-  final Widget? trailing;
-
   const AircraftDisplayRow({
     super.key,
     this.aircraft,
@@ -18,6 +13,11 @@ class AircraftDisplayRow extends StatelessWidget {
     this.onTap,
     this.trailing,
   });
+  final Aircraft? aircraft;
+  final bool isSelected;
+  final bool showChevron;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +64,7 @@ class AircraftDisplayRow extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          aircraft!.model ?? '',
+                          aircraft!.model,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -99,7 +99,7 @@ class AircraftDisplayRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  aircraft!.tailNumber!,
+                  aircraft!.tailNumber,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onTertiaryContainer,
                     fontWeight: FontWeight.w600,

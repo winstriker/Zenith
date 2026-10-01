@@ -176,8 +176,9 @@ class Runways extends Table {
 class Aircrafts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get type => text()();
-  TextColumn get model => text().nullable()();
-  TextColumn get tailNumber => text().nullable()();
+  TextColumn get model => text()();
+  TextColumn get manufacturer => text()();
+  TextColumn get tailNumber => text()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
@@ -232,6 +233,48 @@ class FlightDataPoints extends Table {
     TableIndex(name: 'flight_data_points_flight_idx', columns: {flight}),
     TableIndex(name: 'flight_data_points_timestamp_idx', columns: {timestamp}),
   ];
+}
+
+/// Z is a fallback for aircrafts without wake category like sailplanes
+enum WakeTurbolenceCategory { J, H, L, M, Z }
+
+/// Z is a fallback for aircrafts without wake group like sailplanes
+enum WakeTurbolenceGroup { A, B, C, D, E, F, G, Z }
+
+enum EngineType { electric, jet, piston, rocket, turboprop, none }
+
+enum AircraftDescription {
+  amphibian,
+  gyrocopter,
+  helicopter,
+  landplane,
+  seaplane,
+  tiltrotor,
+  airship,
+  balloon,
+  glider,
+  motorglider,
+  microlightAutogyro,
+  microlightHelicopter,
+  paraplane,
+  sailplane,
+  ultralightAircraft,
+  ultralightAutogyro,
+  ultralightHelicopter,
+  unsupported,
+}
+
+class IcaoAircrafts extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get modelFullName => text()();
+  TextColumn get wakeTurbolenceCategory =>
+      textEnum<WakeTurbolenceCategory>().withLength(min: 1, max: 1)();
+  TextColumn get wakeTurbolenceGroup =>
+      textEnum<WakeTurbolenceGroup>().withLength(min: 1, max: 1)();
+  TextColumn get manufacturer => text()();
+  TextColumn get description => textEnum<AircraftDescription>()();
+  IntColumn get engineCount => integer()();
+  TextColumn get engineType => textEnum<EngineType>()();
 }
 
 class AirportWithEverything {
@@ -332,6 +375,7 @@ class AircraftWithStats extends Aircraft {
   }) : super(
          id: aircraft.id,
          type: aircraft.type,
+         manufacturer: aircraft.manufacturer,
          createdAt: aircraft.createdAt,
          model: aircraft.model,
          notes: aircraft.notes,
@@ -351,6 +395,7 @@ class AircraftWithStats extends Aircraft {
     Flights,
     FlightDataPoints,
     Aircrafts,
+    IcaoAircrafts,
   ],
 )
 class LogbookDatabase extends _$LogbookDatabase {
@@ -366,29 +411,17 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
-    onUpgrade: (m, from, to) async {
-      if (from < 2) {
-        await m.addColumn(flights, flights.approachType);
-        await m.addColumn(flights, flights.nightLandings);
-        await m.addColumn(flights, flights.dayLandings);
-        await m.addColumn(flights, flights.flightRules);
-        await m.addColumn(flights, flights.remarks);
-      }
-      if (from < 3) {
-        // Indexes are automatically created by Drift when using TableIndex
-        // No manual SQL needed - Drift handles index creation during schema upgrade
-      }
-    },
+    onUpgrade: (m, from, to) async {},
   );
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
-      name: 'logbook',
+      name: 'zenith',
       native: const DriftNativeOptions(
         databaseDirectory: getApplicationSupportDirectory,
       ),
@@ -552,15 +585,17 @@ class LogbookDatabase extends _$LogbookDatabase {
 
   Future<int> addAircraft({
     required String type,
-    String? model,
-    String? tailNumber,
+    required String model,
+    required String tailNumber,
+    required String manufacturer,
     String? notes,
   }) async {
     return into(aircrafts).insert(
       AircraftsCompanion.insert(
         type: type,
-        model: Value(model),
-        tailNumber: Value(tailNumber),
+        manufacturer: manufacturer,
+        model: model,
+        tailNumber: tailNumber,
         notes: Value(notes),
         createdAt: DateTime.now(),
       ),

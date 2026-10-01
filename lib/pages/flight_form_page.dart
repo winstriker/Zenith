@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logbook/providers/flight_form_provider.dart';
-import 'package:logbook/providers/flight_providers.dart';
-import 'package:logbook/widgets/aircraft_card.dart';
-import 'package:logbook/widgets/airport_search_dialog.dart';
-import 'package:logbook/widgets/flight_details_card.dart';
-import 'package:logbook/widgets/flight_rules_card.dart';
-import 'package:logbook/widgets/landings_card.dart';
-import 'package:logbook/widgets/remarks_card.dart';
-import 'package:logbook/widgets/timezone_picker.dart';
+
+import '../providers/flight_form_provider.dart';
+import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import '../utils/tz_datetime.dart';
+import '../widgets/aircraft_card.dart';
+import '../widgets/airport_search_dialog.dart';
+import '../widgets/flight_details_card.dart';
+import '../widgets/flight_rules_card.dart';
+import '../widgets/landings_card.dart';
+import '../widgets/remarks_card.dart';
+import '../widgets/timezone_picker.dart';
 import 'aircraft_select_page.dart';
 
 class FlightFormPage extends ConsumerStatefulWidget {

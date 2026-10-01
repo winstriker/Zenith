@@ -47,10 +47,11 @@ class InfoChip extends StatelessWidget {
           ],
           Text(
             label,
-            style: textStyle ??
+            style:
+                textStyle ??
                 theme.textTheme.labelSmall?.copyWith(
                   color: effectiveTextColor,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
           ),
         ],

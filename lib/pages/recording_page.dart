@@ -188,126 +188,122 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     return aircraftListAsync.when(
       data: (aircraftList) {
         return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Icon(
-            Icons.flight,
-            size: 64,
-            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Configure Flight',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Set up your flight details before starting the recording.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Flight Title',
-              prefixIcon: Icon(Icons.label_outline),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: DropdownButtonFormField<Aircraft>(
-                  initialValue: _selectedAircraft,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Aircraft (optional)',
-                    prefixIcon: Icon(Icons.airplanemode_active),
-                  ),
-                  items: aircraftList
-                      .map(
-                        (aws) => DropdownMenuItem(
-                          value: aws,
-                          child: Text(
-                            aws.tailNumber != null
-                                ? '${aws.type} (${aws.tailNumber})'
-                                : aws.type,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedAircraft = value);
-                  },
+              Icon(
+                Icons.flight,
+                size: 64,
+                color: theme.colorScheme.primary.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Configure Flight',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Set up your flight details before starting the recording.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Flight Title',
+                  prefixIcon: Icon(Icons.label_outline),
                 ),
               ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: IconButton.filled(
-                  onPressed: _addNewAircraft,
-                  icon: const Icon(Icons.add, size: 20),
-                  tooltip: 'Add new aircraft',
-                  style: IconButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    foregroundColor: theme.colorScheme.onPrimaryContainer,
-                    minimumSize: const Size(48, 48),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<Aircraft>(
+                      initialValue: _selectedAircraft,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Aircraft (optional)',
+                        prefixIcon: Icon(Icons.airplanemode_active),
+                      ),
+                      items: aircraftList
+                          .map(
+                            (aws) => DropdownMenuItem(
+                              value: aws,
+                              child: Text('${aws.type} (${aws.tailNumber})'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedAircraft = value);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: IconButton.filled(
+                      onPressed: _addNewAircraft,
+                      icon: const Icon(Icons.add, size: 20),
+                      tooltip: 'Add new aircraft',
+                      style: IconButton.styleFrom(
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        foregroundColor: theme.colorScheme.onPrimaryContainer,
+                        minimumSize: const Size(48, 48),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _departureController,
+                      decoration: const InputDecoration(
+                        labelText: 'Departure (optional)',
+                        prefixIcon: Icon(Icons.flight_takeoff),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _arrivalController,
+                      decoration: const InputDecoration(
+                        labelText: 'Arrival (optional)',
+                        prefixIcon: Icon(Icons.flight_land),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              FilledButton.icon(
+                onPressed: _startRecording,
+                icon: const Icon(Icons.fiber_manual_record, size: 22),
+                label: const Text('Start Recording'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _departureController,
-                  decoration: const InputDecoration(
-                    labelText: 'Departure (optional)',
-                    prefixIcon: Icon(Icons.flight_takeoff),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _arrivalController,
-                  decoration: const InputDecoration(
-                    labelText: 'Arrival (optional)',
-                    prefixIcon: Icon(Icons.flight_land),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          FilledButton.icon(
-            onPressed: _startRecording,
-            icon: const Icon(Icons.fiber_manual_record, size: 22),
-            label: const Text('Start Recording'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              textStyle: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+        );
       },
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
@@ -319,6 +315,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     final typeCtrl = TextEditingController();
     final modelCtrl = TextEditingController();
     final tailCtrl = TextEditingController();
+    final manufacturerCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
 
     final saved = await showDialog<bool>(
@@ -377,12 +374,9 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               if (typeCtrl.text.trim().isEmpty) return;
               await db.addAircraft(
                 type: typeCtrl.text.trim(),
-                model: modelCtrl.text.trim().isEmpty
-                    ? null
-                    : modelCtrl.text.trim(),
-                tailNumber: tailCtrl.text.trim().isEmpty
-                    ? null
-                    : tailCtrl.text.trim(),
+                model: modelCtrl.text.trim(),
+                tailNumber: tailCtrl.text.trim(),
+                manufacturer: manufacturerCtrl.text.trim(),
                 notes: notesCtrl.text.trim().isEmpty
                     ? null
                     : notesCtrl.text.trim(),

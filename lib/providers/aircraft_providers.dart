@@ -6,19 +6,32 @@ import '../services/database.dart';
 // Provided by aircraft_repository.dart
 
 /// Stream of all aircraft with stats
-final aircraftListStreamProvider = StreamProvider<List<AircraftWithStats>>((ref) {
+final aircraftListStreamProvider = StreamProvider<List<AircraftWithStats>>((
+  ref,
+) {
   final repository = ref.watch(aircraftRepositoryProvider);
   return repository.watchAircraftsWithStats();
 });
 
 /// Stream of a specific aircraft
-final aircraftByIdStreamProvider = StreamProvider.family<Aircraft?, int>((ref, aircraftId) {
+final aircraftByIdStreamProvider = StreamProvider.family<Aircraft?, int>((
+  ref,
+  aircraftId,
+) {
   final repository = ref.watch(aircraftRepositoryProvider);
   return repository.watchAircraft(aircraftId);
 });
 
+/// Stream of a specific aircraft
+final aircraftWithStatsByIdStreamProvider =
+    StreamProvider.family<AircraftWithStats?, int>((ref, aircraftId) {
+      final repository = ref.watch(aircraftRepositoryProvider);
+      return repository.watchAircraftWithStats(aircraftId);
+    });
+
 /// Stream of flights for a specific aircraft
-final flightsForAircraftStreamProvider = StreamProvider.family<List<FlightWithStats>, int>((ref, aircraftId) {
-  final repository = ref.watch(aircraftRepositoryProvider);
-  return repository.watchFlightsForAircraft(aircraftId);
-});
+final flightsForAircraftStreamProvider =
+    StreamProvider.family<List<FlightWithStats>, int>((ref, aircraftId) {
+      final repository = ref.watch(aircraftRepositoryProvider);
+      return repository.watchFlightsForAircraft(aircraftId);
+    });

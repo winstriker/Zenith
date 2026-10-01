@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:logbook/providers/flight_form_provider.dart';
+
+import '../providers/flight_form_provider.dart';
 
 class TimezonePicker {
   static void show({
@@ -118,9 +119,15 @@ class TimezonePicker {
                               filtered = allTimezones;
                             } else {
                               filtered = allTimezones.where((entry) {
-                                final nameMatch = entry.name.toLowerCase().contains(query);
-                                final abbrMatch = entry.abbreviation.toLowerCase().contains(query);
-                                final offsetMatch = entry.offset.toLowerCase().contains(query);
+                                final nameMatch = entry.name
+                                    .toLowerCase()
+                                    .contains(query);
+                                final abbrMatch = entry.abbreviation
+                                    .toLowerCase()
+                                    .contains(query);
+                                final offsetMatch = entry.offset
+                                    .toLowerCase()
+                                    .contains(query);
                                 return nameMatch || abbrMatch || offsetMatch;
                               }).toList();
                             }
@@ -215,14 +222,14 @@ class _TimezoneListTile extends StatelessWidget {
       leading: leadingIcon != null
           ? Icon(leadingIcon, color: theme.colorScheme.onSurfaceVariant)
           : leading != null
-              ? Text(
-                  leading!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontFamily: 'monospace',
-                  ),
-                )
-              : null,
+          ? Text(
+              leading!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontFamily: 'monospace',
+              ),
+            )
+          : null,
       title: Text(title),
       trailing: trailing != null
           ? Text(

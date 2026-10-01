@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/database.dart';
+
+import '../main.dart';
 import '../providers/aircraft_providers.dart';
+import '../services/database.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/empty_state.dart';
-import 'aircraft_form_page.dart';
 import 'aircraft_detail_page.dart';
-import '../main.dart';
+import 'aircraft_form_page.dart';
 
 class AircraftsPage extends ConsumerStatefulWidget {
   const AircraftsPage({super.key});
@@ -29,7 +30,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
               IconButton(
                 icon: const Icon(Icons.add),
                 tooltip: 'Add aircraft',
-                onPressed: () => _showAddDialog(),
+                onPressed: _showAddDialog,
               ),
             ],
           ),
@@ -37,9 +38,10 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
               ? EmptyState(
                   icon: Icons.airplanemode_active,
                   title: 'No aircraft yet',
-                  subtitle: 'Add your first aircraft to start tracking flights.',
+                  subtitle:
+                      'Add your first aircraft to start tracking flights.',
                   action: FilledButton.icon(
-                    onPressed: () => _showAddDialog(),
+                    onPressed: _showAddDialog,
                     icon: const Icon(Icons.add),
                     label: const Text('Add Aircraft'),
                   ),
@@ -58,7 +60,8 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
                 ),
         );
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
@@ -74,7 +77,9 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   Future<void> _showDetailPage(AircraftWithStats aws) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => AircraftDetailPage(aircraft: aws)),
+      MaterialPageRoute<void>(
+        builder: (_) => AircraftDetailPage(aircraftId: aws.id),
+      ),
     );
     // Stream provider automatically updates
   }

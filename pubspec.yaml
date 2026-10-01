@@ -1,7 +1,7 @@
-name: logbook
-description: "Pilot Flight Tracker - Track and replay flights in 3D"
+name: zenith
+description: "Zenith - Pilot's Logbook"
 publish_to: "none"
-version: 1.0.0+1
+version: 1.0.0
 
 environment:
   sdk: ^3.12.0

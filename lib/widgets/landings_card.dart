@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:logbook/widgets/landing_counter.dart';
+import '../widgets/landing_counter.dart';
 
 class LandingsCard extends StatelessWidget {
-  final String approachType;
-  final ValueChanged<String>? onApproachTypeChanged;
-  final int nightLandings;
-  final ValueChanged<int>? onNightLandingsChanged;
-  final int dayLandings;
-  final ValueChanged<int>? onDayLandingsChanged;
-
   const LandingsCard({
     super.key,
     required this.approachType,
@@ -18,6 +11,12 @@ class LandingsCard extends StatelessWidget {
     required this.dayLandings,
     this.onDayLandingsChanged,
   });
+  final String approachType;
+  final ValueChanged<String>? onApproachTypeChanged;
+  final int nightLandings;
+  final ValueChanged<int>? onNightLandingsChanged;
+  final int dayLandings;
+  final ValueChanged<int>? onDayLandingsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +24,7 @@ class LandingsCard extends StatelessWidget {
     final cs = theme.colorScheme;
 
     return Card(
-      margin: EdgeInsets.all(0),
+      margin: const EdgeInsets.all(0),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -47,7 +46,7 @@ class LandingsCard extends StatelessWidget {
                   if (onApproachTypeChanged == null) ...[
                     Text(
                       approachType,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),

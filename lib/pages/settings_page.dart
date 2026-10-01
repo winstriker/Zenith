@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import '../providers/flight_providers.dart';
@@ -56,9 +57,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final flights = flightsAsync.value ?? [];
     if (flights.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No flights to export')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No flights to export')));
       return;
     }
 
@@ -67,9 +68,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await Share.shareXFiles([XFile(file.path)], text: 'Logbook export');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
   }
 
@@ -241,10 +242,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.map,
-                            color: theme.colorScheme.primary,
-                          ),
+                          Icon(Icons.map, color: theme.colorScheme.primary),
                           const SizedBox(width: 16),
                           Text(
                             'Map API Key',
@@ -304,19 +302,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           const SizedBox(height: 8),
           const SectionHeader(title: 'About', uppercase: true),
-          Card(
+          const Card(
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.flight_takeoff),
-                  title: const Text('Logbook'),
-                  subtitle: const Text('Version 1.0.0'),
+                  leading: Icon(Icons.flight_takeoff),
+                  title: Text("Zenith"),
+                  subtitle: Text('Version $appBuildName'),
                 ),
-                const Divider(height: 1, indent: 72),
+                Divider(height: 1, indent: 72),
                 ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: const Text('Description'),
-                  subtitle: const Text('Pilot Flight Tracker'),
+                  leading: Icon(Icons.info_outline),
+                  title: Text('Description'),
+                  subtitle: Text('Pilot Flight Tracker'),
                 ),
               ],
             ),

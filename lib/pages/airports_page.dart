@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:logbook/services/database.dart';
+import '../services/database.dart';
 import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
 import '../widgets/airport_card.dart';
