@@ -59,6 +59,7 @@ class AircraftTypesService {
           'Rocket' => EngineType.rocket,
           _ => EngineType.none,
         },
+        userInserted: false,
       );
     });
   }

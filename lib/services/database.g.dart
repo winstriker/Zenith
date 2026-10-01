@@ -5507,6 +5507,21 @@ class $IcaoAircraftsTable extends IcaoAircrafts
         type: DriftSqlType.string,
         requiredDuringInsert: true,
       ).withConverter<EngineType>($IcaoAircraftsTable.$converterengineType);
+  static const VerificationMeta _userInsertedMeta = const VerificationMeta(
+    'userInserted',
+  );
+  @override
+  late final GeneratedColumn<bool> userInserted = GeneratedColumn<bool>(
+    'user_inserted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("user_inserted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5517,6 +5532,7 @@ class $IcaoAircraftsTable extends IcaoAircrafts
     description,
     engineCount,
     engineType,
+    userInserted,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5565,6 +5581,15 @@ class $IcaoAircraftsTable extends IcaoAircrafts
       );
     } else if (isInserting) {
       context.missing(_engineCountMeta);
+    }
+    if (data.containsKey('user_inserted')) {
+      context.handle(
+        _userInsertedMeta,
+        userInserted.isAcceptableOrUnknown(
+          data['user_inserted']!,
+          _userInsertedMeta,
+        ),
+      );
     }
     return context;
   }
@@ -5618,6 +5643,10 @@ class $IcaoAircraftsTable extends IcaoAircrafts
           data['${effectivePrefix}engine_type'],
         )!,
       ),
+      userInserted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}user_inserted'],
+      )!,
     );
   }
 
@@ -5652,6 +5681,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
   final AircraftDescription description;
   final int engineCount;
   final EngineType engineType;
+  final bool userInserted;
   const IcaoAircraft({
     required this.id,
     required this.modelFullName,
@@ -5661,6 +5691,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
     required this.description,
     required this.engineCount,
     required this.engineType,
+    required this.userInserted,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5693,6 +5724,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
         $IcaoAircraftsTable.$converterengineType.toSql(engineType),
       );
     }
+    map['user_inserted'] = Variable<bool>(userInserted);
     return map;
   }
 
@@ -5706,6 +5738,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
       description: Value(description),
       engineCount: Value(engineCount),
       engineType: Value(engineType),
+      userInserted: Value(userInserted),
     );
   }
 
@@ -5732,6 +5765,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
       engineType: $IcaoAircraftsTable.$converterengineType.fromJson(
         serializer.fromJson<String>(json['engineType']),
       ),
+      userInserted: serializer.fromJson<bool>(json['userInserted']),
     );
   }
   @override
@@ -5758,6 +5792,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
       'engineType': serializer.toJson<String>(
         $IcaoAircraftsTable.$converterengineType.toJson(engineType),
       ),
+      'userInserted': serializer.toJson<bool>(userInserted),
     };
   }
 
@@ -5770,6 +5805,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
     AircraftDescription? description,
     int? engineCount,
     EngineType? engineType,
+    bool? userInserted,
   }) => IcaoAircraft(
     id: id ?? this.id,
     modelFullName: modelFullName ?? this.modelFullName,
@@ -5780,6 +5816,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
     description: description ?? this.description,
     engineCount: engineCount ?? this.engineCount,
     engineType: engineType ?? this.engineType,
+    userInserted: userInserted ?? this.userInserted,
   );
   IcaoAircraft copyWithCompanion(IcaoAircraftsCompanion data) {
     return IcaoAircraft(
@@ -5805,6 +5842,9 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
       engineType: data.engineType.present
           ? data.engineType.value
           : this.engineType,
+      userInserted: data.userInserted.present
+          ? data.userInserted.value
+          : this.userInserted,
     );
   }
 
@@ -5818,7 +5858,8 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
           ..write('manufacturer: $manufacturer, ')
           ..write('description: $description, ')
           ..write('engineCount: $engineCount, ')
-          ..write('engineType: $engineType')
+          ..write('engineType: $engineType, ')
+          ..write('userInserted: $userInserted')
           ..write(')'))
         .toString();
   }
@@ -5833,6 +5874,7 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
     description,
     engineCount,
     engineType,
+    userInserted,
   );
   @override
   bool operator ==(Object other) =>
@@ -5845,7 +5887,8 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
           other.manufacturer == this.manufacturer &&
           other.description == this.description &&
           other.engineCount == this.engineCount &&
-          other.engineType == this.engineType);
+          other.engineType == this.engineType &&
+          other.userInserted == this.userInserted);
 }
 
 class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
@@ -5857,6 +5900,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
   final Value<AircraftDescription> description;
   final Value<int> engineCount;
   final Value<EngineType> engineType;
+  final Value<bool> userInserted;
   const IcaoAircraftsCompanion({
     this.id = const Value.absent(),
     this.modelFullName = const Value.absent(),
@@ -5866,6 +5910,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
     this.description = const Value.absent(),
     this.engineCount = const Value.absent(),
     this.engineType = const Value.absent(),
+    this.userInserted = const Value.absent(),
   });
   IcaoAircraftsCompanion.insert({
     this.id = const Value.absent(),
@@ -5876,6 +5921,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
     required AircraftDescription description,
     required int engineCount,
     required EngineType engineType,
+    this.userInserted = const Value.absent(),
   }) : modelFullName = Value(modelFullName),
        wakeTurbolenceCategory = Value(wakeTurbolenceCategory),
        wakeTurbolenceGroup = Value(wakeTurbolenceGroup),
@@ -5892,6 +5938,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
     Expression<String>? description,
     Expression<int>? engineCount,
     Expression<String>? engineType,
+    Expression<bool>? userInserted,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5904,6 +5951,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
       if (description != null) 'description': description,
       if (engineCount != null) 'engine_count': engineCount,
       if (engineType != null) 'engine_type': engineType,
+      if (userInserted != null) 'user_inserted': userInserted,
     });
   }
 
@@ -5916,6 +5964,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
     Value<AircraftDescription>? description,
     Value<int>? engineCount,
     Value<EngineType>? engineType,
+    Value<bool>? userInserted,
   }) {
     return IcaoAircraftsCompanion(
       id: id ?? this.id,
@@ -5927,6 +5976,7 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
       description: description ?? this.description,
       engineCount: engineCount ?? this.engineCount,
       engineType: engineType ?? this.engineType,
+      userInserted: userInserted ?? this.userInserted,
     );
   }
 
@@ -5969,6 +6019,9 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
         $IcaoAircraftsTable.$converterengineType.toSql(engineType.value),
       );
     }
+    if (userInserted.present) {
+      map['user_inserted'] = Variable<bool>(userInserted.value);
+    }
     return map;
   }
 
@@ -5982,7 +6035,8 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
           ..write('manufacturer: $manufacturer, ')
           ..write('description: $description, ')
           ..write('engineCount: $engineCount, ')
-          ..write('engineType: $engineType')
+          ..write('engineType: $engineType, ')
+          ..write('userInserted: $userInserted')
           ..write(')'))
         .toString();
   }
@@ -10397,6 +10451,7 @@ typedef $$IcaoAircraftsTableCreateCompanionBuilder =
       required AircraftDescription description,
       required int engineCount,
       required EngineType engineType,
+      Value<bool> userInserted,
     });
 typedef $$IcaoAircraftsTableUpdateCompanionBuilder =
     IcaoAircraftsCompanion Function({
@@ -10408,6 +10463,7 @@ typedef $$IcaoAircraftsTableUpdateCompanionBuilder =
       Value<AircraftDescription> description,
       Value<int> engineCount,
       Value<EngineType> engineType,
+      Value<bool> userInserted,
     });
 
 class $$IcaoAircraftsTableFilterComposer
@@ -10474,6 +10530,11 @@ class $$IcaoAircraftsTableFilterComposer
     column: $table.engineType,
     builder: (column) => ColumnWithTypeConverterFilters(column),
   );
+
+  ColumnFilters<bool> get userInserted => $composableBuilder(
+    column: $table.userInserted,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$IcaoAircraftsTableOrderingComposer
@@ -10522,6 +10583,11 @@ class $$IcaoAircraftsTableOrderingComposer
 
   ColumnOrderings<String> get engineType => $composableBuilder(
     column: $table.engineType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get userInserted => $composableBuilder(
+    column: $table.userInserted,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -10576,6 +10642,11 @@ class $$IcaoAircraftsTableAnnotationComposer
         column: $table.engineType,
         builder: (column) => column,
       );
+
+  GeneratedColumn<bool> get userInserted => $composableBuilder(
+    column: $table.userInserted,
+    builder: (column) => column,
+  );
 }
 
 class $$IcaoAircraftsTableTableManager
@@ -10625,6 +10696,7 @@ class $$IcaoAircraftsTableTableManager
                 Value<AircraftDescription> description = const Value.absent(),
                 Value<int> engineCount = const Value.absent(),
                 Value<EngineType> engineType = const Value.absent(),
+                Value<bool> userInserted = const Value.absent(),
               }) => IcaoAircraftsCompanion(
                 id: id,
                 modelFullName: modelFullName,
@@ -10634,6 +10706,7 @@ class $$IcaoAircraftsTableTableManager
                 description: description,
                 engineCount: engineCount,
                 engineType: engineType,
+                userInserted: userInserted,
               ),
           createCompanionCallback:
               ({
@@ -10645,6 +10718,7 @@ class $$IcaoAircraftsTableTableManager
                 required AircraftDescription description,
                 required int engineCount,
                 required EngineType engineType,
+                Value<bool> userInserted = const Value.absent(),
               }) => IcaoAircraftsCompanion.insert(
                 id: id,
                 modelFullName: modelFullName,
@@ -10654,6 +10728,7 @@ class $$IcaoAircraftsTableTableManager
                 description: description,
                 engineCount: engineCount,
                 engineType: engineType,
+                userInserted: userInserted,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

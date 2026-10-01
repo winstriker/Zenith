@@ -275,6 +275,7 @@ class IcaoAircrafts extends Table {
   TextColumn get description => textEnum<AircraftDescription>()();
   IntColumn get engineCount => integer()();
   TextColumn get engineType => textEnum<EngineType>()();
+  BoolColumn get userInserted => boolean().withDefault(const Constant(false))();
 }
 
 class AirportWithEverything {
