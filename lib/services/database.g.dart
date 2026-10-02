@@ -5952,7 +5952,7 @@ class FlightDataPointsCompanion extends UpdateCompanion<FlightDataPoint> {
   }
 }
 
-class AircraftsStat extends DataClass {
+class AircraftWithStats extends DataClass {
   final int id;
   final String tailNumber;
   final String? notes;
@@ -5970,7 +5970,7 @@ class AircraftsStat extends DataClass {
   final int? nightLandings;
   final int? flightCount;
   final int? totalFlightTime;
-  const AircraftsStat({
+  const AircraftWithStats({
     required this.id,
     required this.tailNumber,
     this.notes,
@@ -5989,12 +5989,12 @@ class AircraftsStat extends DataClass {
     this.flightCount,
     this.totalFlightTime,
   });
-  factory AircraftsStat.fromJson(
+  factory AircraftWithStats.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return AircraftsStat(
+    return AircraftWithStats(
       id: serializer.fromJson<int>(json['id']),
       tailNumber: serializer.fromJson<String>(json['tailNumber']),
       notes: serializer.fromJson<String?>(json['notes']),
@@ -6059,7 +6059,7 @@ class AircraftsStat extends DataClass {
     };
   }
 
-  AircraftsStat copyWith({
+  AircraftWithStats copyWith({
     int? id,
     String? tailNumber,
     Value<String?> notes = const Value.absent(),
@@ -6077,7 +6077,7 @@ class AircraftsStat extends DataClass {
     Value<int?> nightLandings = const Value.absent(),
     Value<int?> flightCount = const Value.absent(),
     Value<int?> totalFlightTime = const Value.absent(),
-  }) => AircraftsStat(
+  }) => AircraftWithStats(
     id: id ?? this.id,
     tailNumber: tailNumber ?? this.tailNumber,
     notes: notes.present ? notes.value : this.notes,
@@ -6103,7 +6103,7 @@ class AircraftsStat extends DataClass {
   );
   @override
   String toString() {
-    return (StringBuffer('AircraftsStat(')
+    return (StringBuffer('AircraftWithStats(')
           ..write('id: $id, ')
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
@@ -6148,7 +6148,7 @@ class AircraftsStat extends DataClass {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is AircraftsStat &&
+      (other is AircraftWithStats &&
           other.id == this.id &&
           other.tailNumber == this.tailNumber &&
           other.notes == this.notes &&
@@ -6168,12 +6168,13 @@ class AircraftsStat extends DataClass {
           other.totalFlightTime == this.totalFlightTime);
 }
 
-class $AircraftsStatsView extends ViewInfo<$AircraftsStatsView, AircraftsStat>
+class $AircraftWithStatssView
+    extends ViewInfo<$AircraftWithStatssView, AircraftWithStats>
     implements HasResultSet {
   final String? _alias;
   @override
   final _$LogbookDatabase attachedDatabase;
-  $AircraftsStatsView(this.attachedDatabase, [this._alias]);
+  $AircraftWithStatssView(this.attachedDatabase, [this._alias]);
   $AircraftsTable get aircrafts => attachedDatabase.aircrafts.createAlias('t0');
   $FlightsTable get flights => attachedDatabase.flights.createAlias('t1');
   $IcaoAircraftsTable get icaoAircrafts =>
@@ -6201,15 +6202,15 @@ class $AircraftsStatsView extends ViewInfo<$AircraftsStatsView, AircraftsStat>
   @override
   String get aliasedName => _alias ?? entityName;
   @override
-  String get entityName => 'aircrafts_stats';
+  String get entityName => 'aircraft_with_statss';
   @override
   Map<SqlDialect, String>? get createViewStatements => null;
   @override
-  $AircraftsStatsView get asDslTable => this;
+  $AircraftWithStatssView get asDslTable => this;
   @override
-  AircraftsStat map(Map<String, dynamic> data, {String? tablePrefix}) {
+  AircraftWithStats map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return AircraftsStat(
+    return AircraftWithStats(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
@@ -6447,8 +6448,8 @@ class $AircraftsStatsView extends ViewInfo<$AircraftsStatsView, AircraftsStat>
     type: DriftSqlType.int,
   );
   @override
-  $AircraftsStatsView createAlias(String alias) {
-    return $AircraftsStatsView(attachedDatabase, alias);
+  $AircraftWithStatssView createAlias(String alias) {
+    return $AircraftWithStatssView(attachedDatabase, alias);
   }
 
   @override
@@ -6468,6 +6469,597 @@ class $AircraftsStatsView extends ViewInfo<$AircraftsStatsView, AircraftsStat>
   };
 }
 
+class FlightStat extends DataClass {
+  final int id;
+  final int? aircraftId;
+  final int? flightTime;
+  final int? dayLandings;
+  final int? nightLandings;
+  const FlightStat({
+    required this.id,
+    this.aircraftId,
+    this.flightTime,
+    this.dayLandings,
+    this.nightLandings,
+  });
+  factory FlightStat.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FlightStat(
+      id: serializer.fromJson<int>(json['id']),
+      aircraftId: serializer.fromJson<int?>(json['aircraftId']),
+      flightTime: serializer.fromJson<int?>(json['flightTime']),
+      dayLandings: serializer.fromJson<int?>(json['dayLandings']),
+      nightLandings: serializer.fromJson<int?>(json['nightLandings']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'aircraftId': serializer.toJson<int?>(aircraftId),
+      'flightTime': serializer.toJson<int?>(flightTime),
+      'dayLandings': serializer.toJson<int?>(dayLandings),
+      'nightLandings': serializer.toJson<int?>(nightLandings),
+    };
+  }
+
+  FlightStat copyWith({
+    int? id,
+    Value<int?> aircraftId = const Value.absent(),
+    Value<int?> flightTime = const Value.absent(),
+    Value<int?> dayLandings = const Value.absent(),
+    Value<int?> nightLandings = const Value.absent(),
+  }) => FlightStat(
+    id: id ?? this.id,
+    aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
+    flightTime: flightTime.present ? flightTime.value : this.flightTime,
+    dayLandings: dayLandings.present ? dayLandings.value : this.dayLandings,
+    nightLandings: nightLandings.present
+        ? nightLandings.value
+        : this.nightLandings,
+  );
+  @override
+  String toString() {
+    return (StringBuffer('FlightStat(')
+          ..write('id: $id, ')
+          ..write('aircraftId: $aircraftId, ')
+          ..write('flightTime: $flightTime, ')
+          ..write('dayLandings: $dayLandings, ')
+          ..write('nightLandings: $nightLandings')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, aircraftId, flightTime, dayLandings, nightLandings);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FlightStat &&
+          other.id == this.id &&
+          other.aircraftId == this.aircraftId &&
+          other.flightTime == this.flightTime &&
+          other.dayLandings == this.dayLandings &&
+          other.nightLandings == this.nightLandings);
+}
+
+class $FlightStatsView extends ViewInfo<$FlightStatsView, FlightStat>
+    implements HasResultSet {
+  final String? _alias;
+  @override
+  final _$LogbookDatabase attachedDatabase;
+  $FlightStatsView(this.attachedDatabase, [this._alias]);
+  $FlightsTable get flights => attachedDatabase.flights.createAlias('t0');
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    aircraftId,
+    flightTime,
+    dayLandings,
+    nightLandings,
+  ];
+  @override
+  String get aliasedName => _alias ?? entityName;
+  @override
+  String get entityName => 'flight_stats';
+  @override
+  Map<SqlDialect, String>? get createViewStatements => null;
+  @override
+  $FlightStatsView get asDslTable => this;
+  @override
+  FlightStat map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FlightStat(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      aircraftId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}aircraft_id'],
+      ),
+      flightTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}flight_time'],
+      ),
+      dayLandings: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}day_landings'],
+      ),
+      nightLandings: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}night_landings'],
+      ),
+    );
+  }
+
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(flights.id, false),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumn<int> aircraftId = GeneratedColumn<int>(
+    'aircraft_id',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(flights.aircraftId, false),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumn<int> flightTime = GeneratedColumn<int>(
+    'flight_time',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(
+      CustomExpression<int>('''
+      CAST(
+        (
+          ${flights.arrivalTime.escapedNameFor(SqlDialect.sqlite)} -
+          ${flights.departureTime.escapedNameFor(SqlDialect.sqlite)}
+        ) / 60
+        AS INTEGER
+      )
+    '''),
+      false,
+    ),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumn<int> dayLandings = GeneratedColumn<int>(
+    'day_landings',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(flights.dayLandings, false),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumn<int> nightLandings = GeneratedColumn<int>(
+    'night_landings',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(flights.nightLandings, false),
+    type: DriftSqlType.int,
+  );
+  @override
+  $FlightStatsView createAlias(String alias) {
+    return $FlightStatsView(attachedDatabase, alias);
+  }
+
+  @override
+  Query? get query =>
+      (attachedDatabase.selectOnly(flights)..addColumns($columns));
+  @override
+  Set<String> get readTables => const {'flights'};
+}
+
+class AircraftWithIcao extends DataClass {
+  final int id;
+  final String tailNumber;
+  final String? notes;
+  final int icaoAircraft;
+  final AircraftDescription description;
+  final String modelFullName;
+  final String designator;
+  final String manufacturer;
+  final int engineCount;
+  final EngineType engineType;
+  final WakeTurbolenceCategory wakeTurbolenceCategory;
+  final WakeTurbolenceGroup wakeTurbolenceGroup;
+  final bool userInserted;
+  const AircraftWithIcao({
+    required this.id,
+    required this.tailNumber,
+    this.notes,
+    required this.icaoAircraft,
+    required this.description,
+    required this.modelFullName,
+    required this.designator,
+    required this.manufacturer,
+    required this.engineCount,
+    required this.engineType,
+    required this.wakeTurbolenceCategory,
+    required this.wakeTurbolenceGroup,
+    required this.userInserted,
+  });
+  factory AircraftWithIcao.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AircraftWithIcao(
+      id: serializer.fromJson<int>(json['id']),
+      tailNumber: serializer.fromJson<String>(json['tailNumber']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      icaoAircraft: serializer.fromJson<int>(json['icaoAircraft']),
+      description: $IcaoAircraftsTable.$converterdescription.fromJson(
+        serializer.fromJson<String>(json['description']),
+      ),
+      modelFullName: serializer.fromJson<String>(json['modelFullName']),
+      designator: serializer.fromJson<String>(json['designator']),
+      manufacturer: serializer.fromJson<String>(json['manufacturer']),
+      engineCount: serializer.fromJson<int>(json['engineCount']),
+      engineType: $IcaoAircraftsTable.$converterengineType.fromJson(
+        serializer.fromJson<String>(json['engineType']),
+      ),
+      wakeTurbolenceCategory: $IcaoAircraftsTable
+          .$converterwakeTurbolenceCategory
+          .fromJson(
+            serializer.fromJson<String>(json['wakeTurbolenceCategory']),
+          ),
+      wakeTurbolenceGroup: $IcaoAircraftsTable.$converterwakeTurbolenceGroup
+          .fromJson(serializer.fromJson<String>(json['wakeTurbolenceGroup'])),
+      userInserted: serializer.fromJson<bool>(json['userInserted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'tailNumber': serializer.toJson<String>(tailNumber),
+      'notes': serializer.toJson<String?>(notes),
+      'icaoAircraft': serializer.toJson<int>(icaoAircraft),
+      'description': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterdescription.toJson(description),
+      ),
+      'modelFullName': serializer.toJson<String>(modelFullName),
+      'designator': serializer.toJson<String>(designator),
+      'manufacturer': serializer.toJson<String>(manufacturer),
+      'engineCount': serializer.toJson<int>(engineCount),
+      'engineType': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterengineType.toJson(engineType),
+      ),
+      'wakeTurbolenceCategory': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceCategory.toJson(
+          wakeTurbolenceCategory,
+        ),
+      ),
+      'wakeTurbolenceGroup': serializer.toJson<String>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceGroup.toJson(
+          wakeTurbolenceGroup,
+        ),
+      ),
+      'userInserted': serializer.toJson<bool>(userInserted),
+    };
+  }
+
+  AircraftWithIcao copyWith({
+    int? id,
+    String? tailNumber,
+    Value<String?> notes = const Value.absent(),
+    int? icaoAircraft,
+    AircraftDescription? description,
+    String? modelFullName,
+    String? designator,
+    String? manufacturer,
+    int? engineCount,
+    EngineType? engineType,
+    WakeTurbolenceCategory? wakeTurbolenceCategory,
+    WakeTurbolenceGroup? wakeTurbolenceGroup,
+    bool? userInserted,
+  }) => AircraftWithIcao(
+    id: id ?? this.id,
+    tailNumber: tailNumber ?? this.tailNumber,
+    notes: notes.present ? notes.value : this.notes,
+    icaoAircraft: icaoAircraft ?? this.icaoAircraft,
+    description: description ?? this.description,
+    modelFullName: modelFullName ?? this.modelFullName,
+    designator: designator ?? this.designator,
+    manufacturer: manufacturer ?? this.manufacturer,
+    engineCount: engineCount ?? this.engineCount,
+    engineType: engineType ?? this.engineType,
+    wakeTurbolenceCategory:
+        wakeTurbolenceCategory ?? this.wakeTurbolenceCategory,
+    wakeTurbolenceGroup: wakeTurbolenceGroup ?? this.wakeTurbolenceGroup,
+    userInserted: userInserted ?? this.userInserted,
+  );
+  @override
+  String toString() {
+    return (StringBuffer('AircraftWithIcao(')
+          ..write('id: $id, ')
+          ..write('tailNumber: $tailNumber, ')
+          ..write('notes: $notes, ')
+          ..write('icaoAircraft: $icaoAircraft, ')
+          ..write('description: $description, ')
+          ..write('modelFullName: $modelFullName, ')
+          ..write('designator: $designator, ')
+          ..write('manufacturer: $manufacturer, ')
+          ..write('engineCount: $engineCount, ')
+          ..write('engineType: $engineType, ')
+          ..write('wakeTurbolenceCategory: $wakeTurbolenceCategory, ')
+          ..write('wakeTurbolenceGroup: $wakeTurbolenceGroup, ')
+          ..write('userInserted: $userInserted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tailNumber,
+    notes,
+    icaoAircraft,
+    description,
+    modelFullName,
+    designator,
+    manufacturer,
+    engineCount,
+    engineType,
+    wakeTurbolenceCategory,
+    wakeTurbolenceGroup,
+    userInserted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AircraftWithIcao &&
+          other.id == this.id &&
+          other.tailNumber == this.tailNumber &&
+          other.notes == this.notes &&
+          other.icaoAircraft == this.icaoAircraft &&
+          other.description == this.description &&
+          other.modelFullName == this.modelFullName &&
+          other.designator == this.designator &&
+          other.manufacturer == this.manufacturer &&
+          other.engineCount == this.engineCount &&
+          other.engineType == this.engineType &&
+          other.wakeTurbolenceCategory == this.wakeTurbolenceCategory &&
+          other.wakeTurbolenceGroup == this.wakeTurbolenceGroup &&
+          other.userInserted == this.userInserted);
+}
+
+class $AircraftWithIcaosView
+    extends ViewInfo<$AircraftWithIcaosView, AircraftWithIcao>
+    implements HasResultSet {
+  final String? _alias;
+  @override
+  final _$LogbookDatabase attachedDatabase;
+  $AircraftWithIcaosView(this.attachedDatabase, [this._alias]);
+  $AircraftsTable get aircrafts => attachedDatabase.aircrafts.createAlias('t0');
+  $IcaoAircraftsTable get icaoAircrafts =>
+      attachedDatabase.icaoAircrafts.createAlias('t1');
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tailNumber,
+    notes,
+    icaoAircraft,
+    description,
+    modelFullName,
+    designator,
+    manufacturer,
+    engineCount,
+    engineType,
+    wakeTurbolenceCategory,
+    wakeTurbolenceGroup,
+    userInserted,
+  ];
+  @override
+  String get aliasedName => _alias ?? entityName;
+  @override
+  String get entityName => 'aircraft_with_icaos';
+  @override
+  Map<SqlDialect, String>? get createViewStatements => null;
+  @override
+  $AircraftWithIcaosView get asDslTable => this;
+  @override
+  AircraftWithIcao map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AircraftWithIcao(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      tailNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tail_number'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      icaoAircraft: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}icao_aircraft'],
+      )!,
+      description: $IcaoAircraftsTable.$converterdescription.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}description'],
+        )!,
+      ),
+      modelFullName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_full_name'],
+      )!,
+      designator: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}designator'],
+      )!,
+      manufacturer: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manufacturer'],
+      )!,
+      engineCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}engine_count'],
+      )!,
+      engineType: $IcaoAircraftsTable.$converterengineType.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}engine_type'],
+        )!,
+      ),
+      wakeTurbolenceCategory: $IcaoAircraftsTable
+          .$converterwakeTurbolenceCategory
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}wake_turbolence_category'],
+            )!,
+          ),
+      wakeTurbolenceGroup: $IcaoAircraftsTable.$converterwakeTurbolenceGroup
+          .fromSql(
+            attachedDatabase.typeMapping.read(
+              DriftSqlType.string,
+              data['${effectivePrefix}wake_turbolence_group'],
+            )!,
+          ),
+      userInserted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}user_inserted'],
+      )!,
+    );
+  }
+
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(aircrafts.id, false),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumn<String> tailNumber = GeneratedColumn<String>(
+    'tail_number',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(aircrafts.tailNumber, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.notes, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<int> icaoAircraft = GeneratedColumn<int>(
+    'icao_aircraft',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(aircrafts.icaoAircraft, false),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumnWithTypeConverter<AircraftDescription, String>
+  description =
+      GeneratedColumn<String>(
+        'description',
+        aliasedName,
+        false,
+        generatedAs: GeneratedAs(icaoAircrafts.description, false),
+        type: DriftSqlType.string,
+      ).withConverter<AircraftDescription>(
+        $IcaoAircraftsTable.$converterdescription,
+      );
+  late final GeneratedColumn<String> modelFullName = GeneratedColumn<String>(
+    'model_full_name',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(icaoAircrafts.modelFullName, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> designator = GeneratedColumn<String>(
+    'designator',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(icaoAircrafts.designator, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> manufacturer = GeneratedColumn<String>(
+    'manufacturer',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(icaoAircrafts.manufacturer, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<int> engineCount = GeneratedColumn<int>(
+    'engine_count',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(icaoAircrafts.engineCount, false),
+    type: DriftSqlType.int,
+  );
+  late final GeneratedColumnWithTypeConverter<EngineType, String> engineType =
+      GeneratedColumn<String>(
+        'engine_type',
+        aliasedName,
+        false,
+        generatedAs: GeneratedAs(icaoAircrafts.engineType, false),
+        type: DriftSqlType.string,
+      ).withConverter<EngineType>($IcaoAircraftsTable.$converterengineType);
+  late final GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  wakeTurbolenceCategory =
+      GeneratedColumn<String>(
+        'wake_turbolence_category',
+        aliasedName,
+        false,
+        generatedAs: GeneratedAs(icaoAircrafts.wakeTurbolenceCategory, false),
+        type: DriftSqlType.string,
+      ).withConverter<WakeTurbolenceCategory>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceCategory,
+      );
+  late final GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  wakeTurbolenceGroup =
+      GeneratedColumn<String>(
+        'wake_turbolence_group',
+        aliasedName,
+        false,
+        generatedAs: GeneratedAs(icaoAircrafts.wakeTurbolenceGroup, false),
+        type: DriftSqlType.string,
+      ).withConverter<WakeTurbolenceGroup>(
+        $IcaoAircraftsTable.$converterwakeTurbolenceGroup,
+      );
+  late final GeneratedColumn<bool> userInserted = GeneratedColumn<bool>(
+    'user_inserted',
+    aliasedName,
+    false,
+    generatedAs: GeneratedAs(icaoAircrafts.userInserted, false),
+    type: DriftSqlType.bool,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("user_inserted" IN (0, 1))',
+    ),
+  );
+  @override
+  $AircraftWithIcaosView createAlias(String alias) {
+    return $AircraftWithIcaosView(attachedDatabase, alias);
+  }
+
+  @override
+  Query? get query =>
+      (attachedDatabase.selectOnly(aircrafts)..addColumns($columns)).join([
+        innerJoin(
+          icaoAircrafts,
+          aircrafts.icaoAircraft.equalsExp(icaoAircrafts.id),
+        ),
+      ])..groupBy([aircrafts.id]);
+  @override
+  Set<String> get readTables => const {'aircrafts', 'icao_aircrafts'};
+}
+
 abstract class _$LogbookDatabase extends GeneratedDatabase {
   _$LogbookDatabase(QueryExecutor e) : super(e);
   $LogbookDatabaseManager get managers => $LogbookDatabaseManager(this);
@@ -6482,7 +7074,12 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $FlightDataPointsTable flightDataPoints = $FlightDataPointsTable(
     this,
   );
-  late final $AircraftsStatsView aircraftsStats = $AircraftsStatsView(this);
+  late final $AircraftWithStatssView aircraftWithStatss =
+      $AircraftWithStatssView(this);
+  late final $FlightStatsView flightStats = $FlightStatsView(this);
+  late final $AircraftWithIcaosView aircraftWithIcaos = $AircraftWithIcaosView(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6497,7 +7094,9 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     aircrafts,
     flights,
     flightDataPoints,
-    aircraftsStats,
+    aircraftWithStatss,
+    flightStats,
+    aircraftWithIcaos,
   ];
 }
 
@@ -7448,37 +8047,37 @@ final class $$AirportsTableReferences
   }
 
   static MultiTypedResultKey<$FrequenciesTable, List<Frequency>>
-  _frequenciesRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
+  _frequencyRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
     db.frequencies,
     aliasName: $_aliasNameGenerator(db.airports.id, db.frequencies.airport),
   );
 
-  $$FrequenciesTableProcessedTableManager get frequenciesRefs {
+  $$FrequenciesTableProcessedTableManager get frequencyRefs {
     final manager = $$FrequenciesTableTableManager(
       $_db,
       $_db.frequencies,
     ).filter((f) => f.airport.id.sqlEquals($_itemColumn<int>('id')!));
 
-    final cache = $_typedResult.readTableOrNull(_frequenciesRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(_frequencyRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
 
-  static MultiTypedResultKey<$RunwaysTable, List<Runway>> _runwaysRefsTable(
+  static MultiTypedResultKey<$RunwaysTable, List<Runway>> _runwayRefsTable(
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.runways,
     aliasName: $_aliasNameGenerator(db.airports.id, db.runways.airport),
   );
 
-  $$RunwaysTableProcessedTableManager get runwaysRefs {
+  $$RunwaysTableProcessedTableManager get runwayRefs {
     final manager = $$RunwaysTableTableManager(
       $_db,
       $_db.runways,
     ).filter((f) => f.airport.id.sqlEquals($_itemColumn<int>('id')!));
 
-    final cache = $_typedResult.readTableOrNull(_runwaysRefsTable($_db));
+    final cache = $_typedResult.readTableOrNull(_runwayRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -7668,7 +8267,7 @@ class $$AirportsTableFilterComposer
     return composer;
   }
 
-  Expression<bool> frequenciesRefs(
+  Expression<bool> frequencyRefs(
     Expression<bool> Function($$FrequenciesTableFilterComposer f) f,
   ) {
     final $$FrequenciesTableFilterComposer composer = $composerBuilder(
@@ -7693,7 +8292,7 @@ class $$AirportsTableFilterComposer
     return f(composer);
   }
 
-  Expression<bool> runwaysRefs(
+  Expression<bool> runwayRefs(
     Expression<bool> Function($$RunwaysTableFilterComposer f) f,
   ) {
     final $$RunwaysTableFilterComposer composer = $composerBuilder(
@@ -8028,7 +8627,7 @@ class $$AirportsTableAnnotationComposer
     return composer;
   }
 
-  Expression<T> frequenciesRefs<T extends Object>(
+  Expression<T> frequencyRefs<T extends Object>(
     Expression<T> Function($$FrequenciesTableAnnotationComposer a) f,
   ) {
     final $$FrequenciesTableAnnotationComposer composer = $composerBuilder(
@@ -8053,7 +8652,7 @@ class $$AirportsTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> runwaysRefs<T extends Object>(
+  Expression<T> runwayRefs<T extends Object>(
     Expression<T> Function($$RunwaysTableAnnotationComposer a) f,
   ) {
     final $$RunwaysTableAnnotationComposer composer = $composerBuilder(
@@ -8145,8 +8744,8 @@ class $$AirportsTableTableManager
           PrefetchHooks Function({
             bool isoCountry,
             bool isoRegion,
-            bool frequenciesRefs,
-            bool runwaysRefs,
+            bool frequencyRefs,
+            bool runwayRefs,
             bool departureAirportRefs,
             bool arrivalAirportsRefs,
           })
@@ -8258,16 +8857,16 @@ class $$AirportsTableTableManager
               ({
                 isoCountry = false,
                 isoRegion = false,
-                frequenciesRefs = false,
-                runwaysRefs = false,
+                frequencyRefs = false,
+                runwayRefs = false,
                 departureAirportRefs = false,
                 arrivalAirportsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
-                    if (frequenciesRefs) db.frequencies,
-                    if (runwaysRefs) db.runways,
+                    if (frequencyRefs) db.frequencies,
+                    if (runwayRefs) db.runways,
                     if (departureAirportRefs) db.flights,
                     if (arrivalAirportsRefs) db.flights,
                   ],
@@ -8318,7 +8917,7 @@ class $$AirportsTableTableManager
                       },
                   getPrefetchedDataCallback: (items) async {
                     return [
-                      if (frequenciesRefs)
+                      if (frequencyRefs)
                         await $_getPrefetchedData<
                           Airport,
                           $AirportsTable,
@@ -8326,20 +8925,20 @@ class $$AirportsTableTableManager
                         >(
                           currentTable: table,
                           referencedTable: $$AirportsTableReferences
-                              ._frequenciesRefsTable(db),
+                              ._frequencyRefsTable(db),
                           managerFromTypedResult: (p0) =>
                               $$AirportsTableReferences(
                                 db,
                                 table,
                                 p0,
-                              ).frequenciesRefs,
+                              ).frequencyRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.airport == item.id,
                               ),
                           typedResults: items,
                         ),
-                      if (runwaysRefs)
+                      if (runwayRefs)
                         await $_getPrefetchedData<
                           Airport,
                           $AirportsTable,
@@ -8347,13 +8946,13 @@ class $$AirportsTableTableManager
                         >(
                           currentTable: table,
                           referencedTable: $$AirportsTableReferences
-                              ._runwaysRefsTable(db),
+                              ._runwayRefsTable(db),
                           managerFromTypedResult: (p0) =>
                               $$AirportsTableReferences(
                                 db,
                                 table,
                                 p0,
-                              ).runwaysRefs,
+                              ).runwayRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.airport == item.id,
@@ -8425,8 +9024,8 @@ typedef $$AirportsTableProcessedTableManager =
       PrefetchHooks Function({
         bool isoCountry,
         bool isoRegion,
-        bool frequenciesRefs,
-        bool runwaysRefs,
+        bool frequencyRefs,
+        bool runwayRefs,
         bool departureAirportRefs,
         bool arrivalAirportsRefs,
       })

@@ -13,7 +13,7 @@ class TimezonePicker {
     required bool isDeparture,
     required DateTime referenceDate,
   }) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       builder: (ctx) {
         final theme = Theme.of(ctx);
@@ -79,7 +79,7 @@ class TimezonePicker {
     final allTimezones = _buildTimezoneList(referenceDate);
     List<_TimezoneEntry> filtered = allTimezones;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {

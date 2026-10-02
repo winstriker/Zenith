@@ -9,62 +9,24 @@ class AircraftRepository {
   AircraftRepository(this._database);
   final LogbookDatabase _database;
 
-  /// Stream of all aircraft with stats (joined with ICAO data)
+  /// Stream of a specific aircraft with stats
+  Stream<AircraftWithStats?> watchAircraftWithStats(int id) {
+    final stmt = _database.aircraftWithStatss.select();
+    stmt.where((acws) => acws.id.equals(id));
+    stmt.limit(1);
+    return stmt.watchSingle();
+  }
+
+  /// Stream of all aircraft with stats
   Stream<List<AircraftWithStats>> watchAircraftsWithStats() {
-    return _database.select(_database.aircraftsStats).watch().asyncMap((
-      rows,
-    ) async {
-      final result = <AircraftWithStats>[];
-      for (final row in rows) {
-        result.add(
-          AircraftWithStats(
-            aircraft: Aircraft(
-              id: row.id,
-              icaoAircraft: row.icaoAircraft,
-              tailNumber: row.tailNumber,
-            ),
-            nightLandings: row.nightLandings ?? 0,
-            dayLandings: row.dayLandings ?? 0,
-            icaoAircraft: IcaoAircraft(
-              id: row.icaoAircraft,
-              modelFullName: row.modelFullName,
-              designator: row.designator,
-              wakeTurbolenceCategory: row.wakeTurbolenceCategory,
-              wakeTurbolenceGroup: row.wakeTurbolenceGroup,
-              manufacturer: row.manufacturer,
-              description: row.description,
-              engineCount: row.engineCount,
-              engineType: row.engineType,
-              userInserted: row.userInserted,
-            ),
-            flightCount: row.flightCount ?? 0,
-            totalFlightTime: Duration(minutes: row.totalFlightTime ?? 0),
-          ),
-        );
-      }
-      return result;
-    });
+    return _database.select(_database.aircraftWithStatss).watch();
   }
 
   /// Stream of a single aircraft with ICAO data
   Stream<AircraftWithIcao?> watchAircraftWithIcao(int id) {
-    return (_database.select(_database.aircrafts)
-          ..where((a) => a.id.equals(id)))
-        .join([
-          innerJoin(
-            _database.icaoAircrafts,
-            _database.icaoAircrafts.id.equalsExp(
-              _database.aircrafts.icaoAircraft,
-            ),
-          ),
-        ])
-        .watchSingleOrNull()
-        .map((row) {
-          if (row == null) return null;
-          final aircraft = row.readTable(_database.aircrafts);
-          final icao = row.readTable(_database.icaoAircrafts);
-          return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
-        });
+    return (_database.select(
+      _database.aircraftWithIcaos,
+    )..where((a) => a.id.equals(id))).watchSingleOrNull();
   }
 
   /// Stream of a specific aircraft
@@ -74,107 +36,34 @@ class AircraftRepository {
     )..where((a) => a.id.equals(id))).watchSingleOrNull();
   }
 
-  Stream<AircraftWithStats?> watchAircraftWithStats(int id) {
-    final stmt = _database.aircraftsStats.select();
-    stmt.where((acws) => acws.id.equals(id));
-    stmt.limit(1);
-    return stmt.watchSingle().asyncMap((acs) async {
-      return AircraftWithStats(
-        aircraft: Aircraft(
-          id: acs.id,
-          icaoAircraft: acs.icaoAircraft,
-          tailNumber: acs.tailNumber,
-        ),
-        icaoAircraft: IcaoAircraft(
-          id: acs.icaoAircraft,
-          modelFullName: acs.modelFullName,
-          designator: acs.designator,
-          wakeTurbolenceCategory: acs.wakeTurbolenceCategory,
-          wakeTurbolenceGroup: acs.wakeTurbolenceGroup,
-          manufacturer: acs.manufacturer,
-          description: acs.description,
-          engineCount: acs.engineCount,
-          engineType: acs.engineType,
-          userInserted: acs.userInserted,
-        ),
-        dayLandings: acs.dayLandings ?? 0,
-        nightLandings: acs.nightLandings ?? 0,
-        flightCount: acs.flightCount ?? 0,
-        totalFlightTime: Duration(minutes: acs.totalFlightTime ?? 0),
-      );
-    });
-  }
-
   /// Search ICAO aircrafts by model name, manufacturer, or type
   Future<List<IcaoAircraft>> searchIcaoAircrafts(
     String query, {
     int limit = 50,
   }) async {
-    return _database.searchIcaoAircrafts(query, limit: limit);
+    final term = '%$query%';
+    return (_database.select(_database.icaoAircrafts)
+          ..where(
+            (a) =>
+                a.modelFullName.like(term) |
+                a.manufacturer.like(term) |
+                a.designator.like(term),
+          )
+          ..orderBy([
+            (a) => OrderingTerm.asc(a.manufacturer),
+            (a) => OrderingTerm.asc(a.modelFullName),
+          ])
+          ..limit(limit))
+        .get();
   }
 
   /// Stream of all ICAO aircrafts
   Stream<List<IcaoAircraft>> watchAllIcaoAircrafts() {
-    return (_database.select(
-      _database.icaoAircrafts,
-    )..orderBy([(a) => OrderingTerm.asc(a.modelFullName)])).watch();
-  }
-
-  /// Stream of flights for an aircraft
-  Stream<List<FlightWithStats>> watchFlightsForAircraft(
-    int aircraftId, {
-    int limit = 5,
-    int offset = 0,
-  }) {
-    return (_database.select(_database.flights)
-          ..where((f) => f.aircraftId.equals(aircraftId))
-          ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
-          ..limit(limit, offset: offset))
-        .watch()
-        .asyncMap((flightRows) async {
-          if (flightRows.isEmpty) return <FlightWithStats>[];
-
-          final flightIds = flightRows.map((f) => f.id).toList();
-
-          final dataPointsQuery = _database.select(_database.flightDataPoints)
-            ..where((p) => p.flight.isIn(flightIds))
-            ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]);
-          final allPoints = await dataPointsQuery.get();
-
-          final pointsByFlight = <int, List<FlightDataPoint>>{};
-          for (final point in allPoints) {
-            pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
-          }
-
-          final aircraftWithIcao = await _database.getAircraftWithIcao(
-            aircraftId,
-          );
-
-          final results = <FlightWithStats>[];
-          for (final flight in flightRows) {
-            final points = pointsByFlight[flight.id] ?? const [];
-            final departure = flight.departure != null
-                ? await (_database.select(_database.airports)
-                        ..where((a) => a.id.equals(flight.departure!)))
-                      .getSingleOrNull()
-                : null;
-            final arrival = flight.arrival != null
-                ? await (_database.select(_database.airports)
-                        ..where((a) => a.id.equals(flight.arrival!)))
-                      .getSingleOrNull()
-                : null;
-            results.add(
-              FlightWithStats(
-                flight: flight,
-                dataPoints: points,
-                aircraft: aircraftWithIcao,
-                departure: departure,
-                arrival: arrival,
-              ),
-            );
-          }
-          return results;
-        });
+    return (_database.select(_database.icaoAircrafts)..orderBy([
+          (a) => OrderingTerm.asc(a.manufacturer),
+          (a) => OrderingTerm.asc(a.modelFullName),
+        ]))
+        .watch();
   }
 
   // Mutating operations

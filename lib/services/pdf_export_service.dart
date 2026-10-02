@@ -220,8 +220,8 @@ class PdfExportService {
           final arrTime = flight.flight.arrivalTime != null
               ? timeFmt.format(flight.flight.arrivalTime!)
               : '';
-          final acftType = flight.aircraft?.designator ?? '';
-          final acftReg = flight.aircraft?.tailNumber ?? '';
+          final acftType = flight.aircraftWithStats?.designator ?? '';
+          final acftReg = flight.aircraftWithStats?.tailNumber ?? '';
           final total = flight.duration != null
               ? '${flight.duration!.inHours.toString().padLeft(2, '0')}:${(flight.duration!.inMinutes % 60).toString().padLeft(2, '0')}'
               : '';

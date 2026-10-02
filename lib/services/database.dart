@@ -1,3 +1,5 @@
+// ignore_for_file: strict_raw_type
+
 import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
@@ -125,6 +127,8 @@ class Airports extends Table {
 
 class Frequencies extends Table {
   IntColumn get id => integer()();
+
+  @ReferenceName('frequencyRefs')
   IntColumn get airport => integer().references(Airports, #id)(); //airport_ref
   //IntColumn get airportIdent => integer().references(Airports, #ident)();
   TextColumn get type => text().nullable()();
@@ -141,6 +145,8 @@ class Frequencies extends Table {
 
 class Runways extends Table {
   IntColumn get id => integer()();
+
+  @ReferenceName('runwayRefs')
   IntColumn get airport => integer().references(Airports, #id)(); //airport_ref
   //IntColumn get airportIdent => integer().references(Airports, #ident)();
   IntColumn get lengthFt => integer().nullable()();
@@ -277,12 +283,12 @@ class AirportWithEverything {
     required this.airport,
     required this.country,
     required this.region,
-    this.runways,
-    this.frequencies,
+    required this.runways,
+    required this.frequencies,
   });
   final Airport airport;
-  final List<Frequency>? frequencies;
-  final List<Runway>? runways;
+  final List<Frequency> frequencies;
+  final List<Runway> runways;
   final Country country;
   final Region region;
 }
@@ -291,7 +297,7 @@ class FlightWithStats {
   FlightWithStats({
     required this.flight,
     required this.dataPoints,
-    this.aircraft,
+    this.aircraftWithStats,
     this.departure,
     this.arrival,
   }) {
@@ -302,7 +308,7 @@ class FlightWithStats {
   }
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
-  final AircraftWithIcao? aircraft;
+  final AircraftWithStats? aircraftWithStats;
   final Airport? departure;
   final Airport? arrival;
   Duration? duration;
@@ -325,7 +331,7 @@ class FlightWithStats {
   FlightWithStats copyWith({
     Flight? flight,
     List<FlightDataPoint>? dataPoints,
-    AircraftWithIcao? aircraft,
+    AircraftWithStats? aircraftWithStats,
     Airport? departure,
     Airport? arrival,
     Duration? duration,
@@ -334,7 +340,9 @@ class FlightWithStats {
   }) => FlightWithStats(
     flight: flight ?? this.flight,
     dataPoints: dataPoints ?? this.dataPoints,
-    aircraft: removeAircraft ? null : (aircraft ?? this.aircraft),
+    aircraftWithStats: removeAircraft
+        ? null
+        : (aircraftWithStats ?? this.aircraftWithStats),
     departure: departure ?? this.departure,
     arrival: arrival ?? this.arrival,
   );
@@ -362,22 +370,30 @@ class AirportWithDistance {
   final double distance;
 }
 
-class AircraftWithStats extends AircraftWithIcao {
-  AircraftWithStats({
-    required super.aircraft,
-    required super.icaoAircraft,
-    required this.flightCount,
-    required this.dayLandings,
-    required this.nightLandings,
-    this.totalFlightTime,
-  });
-  final int flightCount;
-  final int dayLandings;
-  final int nightLandings;
-  final Duration? totalFlightTime;
+abstract class FlightStats extends View {
+  Flights get flights;
+  Expression<int> get flightTime => CustomExpression<int>('''
+      CAST(
+        (
+          ${flights.arrivalTime.escapedNameFor(SqlDialect.sqlite)} -
+          ${flights.departureTime.escapedNameFor(SqlDialect.sqlite)}
+        ) / 60
+        AS INTEGER
+      )
+    ''');
+
+  @override
+  Query as() => select([
+    flights.id,
+    flights.aircraftId,
+    flightTime,
+    flights.dayLandings,
+    flights.nightLandings,
+  ]).from(flights);
 }
 
-abstract class AircraftsStats extends View {
+@DataClassName("AircraftWithStats")
+abstract class AircraftWithStatss extends View {
   Aircrafts get aircrafts;
   Flights get flights;
   IcaoAircrafts get icaoAircrafts;
@@ -427,48 +443,51 @@ abstract class AircraftsStats extends View {
         ..groupBy([aircrafts.id]);
 }
 
-/// Aircraft with its ICAO data joined
-class AircraftWithIcao {
-  AircraftWithIcao({required this.aircraft, required this.icaoAircraft});
-  final Aircraft aircraft;
-  final IcaoAircraft icaoAircraft;
+@DataClassName("AircraftWithIcao")
+abstract class AircraftWithIcaos extends View {
+  Aircrafts get aircrafts;
+  IcaoAircrafts get icaoAircrafts;
 
-  /// Get display name from ICAO data
-  String get modelFullName => icaoAircraft.modelFullName;
+  @override
+  Query as() =>
+      select([
+          aircrafts.id,
+          aircrafts.tailNumber,
+          aircrafts.notes,
+          aircrafts.icaoAircraft,
+          icaoAircrafts.description,
+          icaoAircrafts.modelFullName,
+          icaoAircrafts.designator,
+          icaoAircrafts.manufacturer,
+          icaoAircrafts.engineCount,
+          icaoAircrafts.engineType,
+          icaoAircrafts.wakeTurbolenceCategory,
+          icaoAircrafts.wakeTurbolenceGroup,
+          icaoAircrafts.userInserted,
+        ]).from(aircrafts).join([
+          innerJoin(
+            icaoAircrafts,
+            aircrafts.icaoAircraft.equalsExp(icaoAircrafts.id),
+          ),
+        ])
+        ..groupBy([aircrafts.id]);
+}
 
-  /// Get manufacturer from ICAO data
-  String get manufacturer => icaoAircraft.manufacturer;
-
-  /// Get notes from aircraft
-  String? get notes => aircraft.notes;
-
-  /// Get tail number from aircraft
-  String get tailNumber => aircraft.tailNumber;
-
-  /// Get ICAO aircraft ID
-  int get icaoAircraftId => icaoAircraft.id;
-
-  /// Get wake turbulence category
-  WakeTurbolenceCategory get wakeTurbulenceCategory =>
-      icaoAircraft.wakeTurbolenceCategory;
-
-  /// Get wake turbulence group
-  WakeTurbolenceGroup get wakeTurbulenceGroup =>
-      icaoAircraft.wakeTurbolenceGroup;
-
-  /// Get description
-  AircraftDescription get description => icaoAircraft.description;
-
-  /// Get engine count
-  int get engineCount => icaoAircraft.engineCount;
-
-  /// Get engine type
-  EngineType get engineType => icaoAircraft.engineType;
-
-  /// Whether this is a user-inserted ICAO aircraft
-  bool get isUserInserted => icaoAircraft.userInserted;
-
-  String get designator => icaoAircraft.designator;
+extension ToIcaoAircraft on AircraftWithStats {
+  IcaoAircraft toIcaoAircraft() {
+    return IcaoAircraft(
+      id: id,
+      modelFullName: modelFullName,
+      designator: designator,
+      wakeTurbolenceCategory: wakeTurbolenceCategory,
+      wakeTurbolenceGroup: wakeTurbolenceGroup,
+      manufacturer: manufacturer,
+      description: description,
+      engineCount: engineCount,
+      engineType: engineType,
+      userInserted: userInserted,
+    );
+  }
 }
 
 @DriftDatabase(
@@ -483,7 +502,7 @@ class AircraftWithIcao {
     Aircrafts,
     IcaoAircrafts,
   ],
-  views: [AircraftsStats],
+  views: [AircraftWithStatss, FlightStats, AircraftWithIcaos],
 )
 class LogbookDatabase extends _$LogbookDatabase {
   factory LogbookDatabase([QueryExecutor? executor]) {
@@ -603,130 +622,13 @@ class LogbookDatabase extends _$LogbookDatabase {
     return query.get();
   }
 
-  Future<List<FlightWithStats>> getRecentFlights({int limit = 20}) async {
-    final flightsQuery = select(flights)
-      ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
-      ..limit(limit);
-    final recentFlights = await flightsQuery.get();
-
-    if (recentFlights.isEmpty) return [];
-
-    final flightIds = recentFlights.map((f) => f.id).toList();
-
-    final dataPointsQuery = select(flightDataPoints)
-      ..where((p) => p.flight.isIn(flightIds))
-      ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]);
-    final allPoints = await dataPointsQuery.get();
-
-    final pointsByFlight = <int, List<FlightDataPoint>>{};
-    for (final point in allPoints) {
-      pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
-    }
-
-    Future<Airport?> resolveAirport(int? id) async {
-      if (id == null) return null;
-      final query = select(airports)..where((a) => a.id.equals(id));
-      final match = await query.getSingleOrNull();
-      return match;
-    }
-
-    final aircraftCache = <int, AircraftWithIcao?>{};
-    Future<AircraftWithIcao?> resolveAircraft(int? id) async {
-      if (id == null) return null;
-      if (aircraftCache.containsKey(id)) return aircraftCache[id];
-      final query = select(aircrafts).join([
-        innerJoin(
-          icaoAircrafts,
-          icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
-        ),
-      ])..where(aircrafts.id.equals(id));
-      final row = await query.getSingleOrNull();
-      if (row == null) return null;
-      final aircraft = row.readTable(aircrafts);
-      final icao = row.readTable(icaoAircrafts);
-      final result = AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
-      aircraftCache[id] = result;
-      return result;
-    }
-
-    final results = <FlightWithStats>[];
-    for (final flight in recentFlights) {
-      final points = pointsByFlight[flight.id] ?? const [];
-      final departure = await resolveAirport(flight.departure);
-      final arrival = await resolveAirport(flight.arrival);
-      final aircraft = await resolveAircraft(flight.aircraftId);
-      results.add(
-        FlightWithStats(
-          flight: flight,
-          dataPoints: points,
-          aircraft: aircraft,
-          departure: departure,
-          arrival: arrival,
-        ),
-      );
-    }
-    return results;
-  }
-
   Future<List<Aircraft>> getAircrafts() async {
     return (select(aircrafts)..orderBy([(a) => OrderingTerm.desc(a.id)])).get();
-  }
-
-  /// Get aircrafts with their ICAO data joined
-  Future<List<AircraftWithIcao>> getAircraftsWithIcao() async {
-    final query = select(aircrafts).join([
-      innerJoin(
-        icaoAircrafts,
-        icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
-      ),
-    ])..orderBy([OrderingTerm.desc(aircrafts.id)]);
-
-    final rows = await query.get();
-    return rows.map((row) {
-      final aircraft = row.readTable(aircrafts);
-      final icao = row.readTable(icaoAircrafts);
-      return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
-    }).toList();
-  }
-
-  /// Get a single aircraft with its ICAO data
-  Future<AircraftWithIcao?> getAircraftWithIcao(int id) async {
-    final query = select(aircrafts).join([
-      innerJoin(
-        icaoAircrafts,
-        icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
-      ),
-    ])..where(aircrafts.id.equals(id));
-
-    final row = await query.getSingleOrNull();
-    if (row == null) return null;
-    final aircraft = row.readTable(aircrafts);
-    final icao = row.readTable(icaoAircrafts);
-    return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
   }
 
   Future<Aircraft?> getAircraft(int id) async {
     final query = select(aircrafts)..where((a) => a.id.equals(id));
     return query.getSingleOrNull();
-  }
-
-  /// Search ICAO aircrafts by model name, manufacturer, or type
-  Future<List<IcaoAircraft>> searchIcaoAircrafts(
-    String query, {
-    int limit = 50,
-  }) async {
-    final term = '%$query%';
-    return (select(icaoAircrafts)
-          ..where(
-            (a) =>
-                a.modelFullName.like(term) |
-                a.manufacturer.like(term) |
-                a.wakeTurbolenceCategory.like(term) |
-                a.wakeTurbolenceGroup.like(term),
-          )
-          ..orderBy([(a) => OrderingTerm.asc(a.modelFullName)])
-          ..limit(limit))
-        .get();
   }
 
   /// Get all ICAO aircrafts (for dropdown)
@@ -809,39 +711,6 @@ class LogbookDatabase extends _$LogbookDatabase {
     await (delete(aircrafts)..where((a) => a.id.equals(id))).go();
   }
 
-  Future<List<AircraftWithStats>> getAircraftsWithStats() async {
-    final allAircraft = await getAircraftsWithIcao();
-    final result = <AircraftWithStats>[];
-    for (final ac in allAircraft) {
-      final flightQuery = select(flights)
-        ..where((f) => f.aircraftId.equals(ac.aircraft.id))
-        ..where((f) => f.isRecording.equals(false));
-      final flightRows = await flightQuery.get();
-      int nightLandings = 0;
-      int dayLandings = 0;
-      Duration? totalTime;
-      for (final f in flightRows) {
-        nightLandings += f.nightLandings ?? 0;
-        dayLandings += f.dayLandings ?? 0;
-        if (f.arrivalTime != null) {
-          final dur = f.arrivalTime!.difference(f.departureTime);
-          totalTime = (totalTime ?? Duration.zero) + dur;
-        }
-      }
-      result.add(
-        AircraftWithStats(
-          aircraft: ac.aircraft,
-          dayLandings: dayLandings,
-          nightLandings: nightLandings,
-          icaoAircraft: ac.icaoAircraft,
-          flightCount: flightRows.length,
-          totalFlightTime: totalTime,
-        ),
-      );
-    }
-    return result;
-  }
-
   Future<List<Airport>> getRecentAirports({int limit = 5}) async {
     final recentFlightsQuery = select(flights)
       ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
@@ -880,68 +749,5 @@ class LogbookDatabase extends _$LogbookDatabase {
       result[id] = await isAirportReferencedInFlights(id);
     }
     return result;
-  }
-
-  Future<List<FlightWithStats>> getFlightsForAircraft(
-    int aircraftId, {
-    int limit = 5,
-    int offset = 0,
-  }) async {
-    final flightsQuery = select(flights)
-      ..where((f) => f.aircraftId.equals(aircraftId))
-      ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
-      ..limit(limit, offset: offset);
-    final flightRows = await flightsQuery.get();
-
-    if (flightRows.isEmpty) return [];
-
-    final flightIds = flightRows.map((f) => f.id).toList();
-
-    final dataPointsQuery = select(flightDataPoints)
-      ..where((p) => p.flight.isIn(flightIds))
-      ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]);
-    final allPoints = await dataPointsQuery.get();
-
-    final pointsByFlight = <int, List<FlightDataPoint>>{};
-    for (final point in allPoints) {
-      pointsByFlight.putIfAbsent(point.flight, () => []).add(point);
-    }
-    Future<Airport?> resolveAirport(int? id) async {
-      if (id == null) return null;
-      final query = select(airports)..where((a) => a.id.equals(id));
-      final match = await query.getSingleOrNull();
-      return match;
-    }
-
-    final aircraftQuery = select(aircrafts).join([
-      innerJoin(
-        icaoAircrafts,
-        icaoAircrafts.id.equalsExp(aircrafts.icaoAircraft),
-      ),
-    ])..where(aircrafts.id.equals(aircraftId));
-    final aircraftRow = await aircraftQuery.getSingleOrNull();
-    AircraftWithIcao? aircraft;
-    if (aircraftRow != null) {
-      final ac = aircraftRow.readTable(aircrafts);
-      final icao = aircraftRow.readTable(icaoAircrafts);
-      aircraft = AircraftWithIcao(aircraft: ac, icaoAircraft: icao);
-    }
-
-    final results = <FlightWithStats>[];
-    for (final flight in flightRows) {
-      final points = pointsByFlight[flight.id] ?? const [];
-      final departure = await resolveAirport(flight.departure);
-      final arrival = await resolveAirport(flight.arrival);
-      results.add(
-        FlightWithStats(
-          flight: flight,
-          dataPoints: points,
-          aircraft: aircraft,
-          departure: departure,
-          arrival: arrival,
-        ),
-      );
-    }
-    return results;
   }
 }

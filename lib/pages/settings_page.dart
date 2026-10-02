@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
+
+import '../providers/aircraft_providers.dart';
+import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
-import '../providers/carto_provider.dart';
-import '../providers/aircraft_providers.dart';
 import '../services/pdf_export_service.dart';
 import '../widgets/section_header.dart';
 
@@ -19,7 +20,7 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   void _clearAllFlights() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Clear All Flights'),
@@ -77,7 +78,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   void _editApiKey(String? currentKey) {
     final controller = TextEditingController(text: currentKey ?? '');
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('CARTO API Key'),

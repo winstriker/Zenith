@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../main.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/gps_tracking_provider.dart';
@@ -94,7 +93,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       title: _titleController.text.trim().isEmpty
           ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
           : _titleController.text.trim(),
-      aircraftId: _selectedAircraft?.aircraft.id,
+      aircraftId: _selectedAircraft?.id,
       departureId: _departureController.text.trim().isEmpty
           ? null
           : int.tryParse(_departureController.text.trim()),
@@ -238,7 +237,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                           .map(
                             (aws) => DropdownMenuItem(
                               value: aws,
-                              child: Text('${aws.modelFullName}'),
+                              child: Text(aws.modelFullName),
                             ),
                           )
                           .toList(),
@@ -314,7 +313,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   Future<void> _addNewAircraft() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AircraftFormPage()),
+      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
     );
     // Stream provider automatically updates, no manual refresh needed
   }
@@ -371,7 +370,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                     final hasRoute =
                         session.departure?.ident != null ||
                         session.arrival?.ident != null;
-                    final hasAircraft = session.aircraft != null;
+                    final hasAircraft = session.aircraftWithStats != null;
 
                     if (!hasAircraft && !hasRoute) {
                       return const SizedBox.shrink();
@@ -394,7 +393,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      session.aircraft!.modelFullName,
+                                      session.aircraftWithStats!.modelFullName,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
                                             fontWeight: FontWeight.w600,

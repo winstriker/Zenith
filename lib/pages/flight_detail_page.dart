@@ -67,7 +67,7 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.of(context).push(
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (_) => FlightFormPage(flightToEdit: flight),
             ),
           );
@@ -90,7 +90,7 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
                     FlightCard(flight: flight, useOuterPadding: false),
                     const SizedBox(height: 12),
                     AircraftCard(
-                      aircraft: flight.aircraft,
+                      aircraft: flight.aircraftWithStats,
                       useOuterPadding: false,
                     ),
                     const SizedBox(height: 12),
@@ -582,7 +582,9 @@ class _FlightDetailViewState extends ConsumerState<_FlightDetailView> {
           child: FilledButton.icon(
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => ReplayPage(flight: flight)),
+                MaterialPageRoute<void>(
+                  builder: (_) => ReplayPage(flight: flight),
+                ),
               );
             },
             icon: const Icon(Icons.play_circle_filled),

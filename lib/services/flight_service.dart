@@ -4,11 +4,11 @@ import 'package:drift/drift.dart';
 import 'database.dart';
 
 class FlightService {
+  FlightService(this.database);
   final LogbookDatabase database;
   final List<FlightWithStats> _sessions = [];
   int? _activeSessionId;
   final List<Function> callbacks = [];
-  bool _initialized = false;
 
   Future<Airport?> resolveAirport(int? id) async {
     if (id == null) return null;
@@ -20,18 +20,10 @@ class FlightService {
 
   Future<AircraftWithIcao?> resolveAircraft(int? id) async {
     if (id == null) return null;
-    final query = database.select(database.aircrafts).join([
-      innerJoin(database.icaoAircrafts, database.icaoAircrafts.id.equalsExp(database.aircrafts.icaoAircraft)),
-    ])..where(database.aircrafts.id.equals(id));
-    final row = await query.getSingleOrNull();
-    if (row == null) return null;
-    final aircraft = row.readTable(database.aircrafts);
-    final icao = row.readTable(database.icaoAircrafts);
-    return AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
-  }
-
-  FlightService(this.database) {
-    _loadSessions();
+    final query = database.aircraftWithIcaos.select()
+      ..where((tbl) => tbl.id.equals(id))
+      ..limit(1);
+    return await query.getSingleOrNull();
   }
 
   void addListener(Function fun) {
@@ -46,93 +38,6 @@ class FlightService {
     for (var fun in callbacks) {
       fun();
     }
-  }
-
-  bool get isInitialized => _initialized;
-
-  Future<List<FlightWithStats>> getRecentFlights({int limit = 20}) async {
-    return database.getRecentFlights(limit: limit);
-  }
-
-  Future<void> _loadSessions() async {
-    _sessions.clear();
-
-    final flightRows = await database.select(database.flights).get();
-
-    final aircraftCache = <int, AircraftWithIcao?>{};
-    Future<AircraftWithIcao?> resolveAircraft(int? id) async {
-      if (id == null) return null;
-      if (aircraftCache.containsKey(id)) return aircraftCache[id];
-      final query = database.select(database.aircrafts).join([
-        innerJoin(database.icaoAircrafts, database.icaoAircrafts.id.equalsExp(database.aircrafts.icaoAircraft)),
-      ])..where(database.aircrafts.id.equals(id));
-      final row = await query.getSingleOrNull();
-      if (row == null) return null;
-      final aircraft = row.readTable(database.aircrafts);
-      final icao = row.readTable(database.icaoAircrafts);
-      final result = AircraftWithIcao(aircraft: aircraft, icaoAircraft: icao);
-      aircraftCache[id] = result;
-      return result;
-    }
-
-    for (final row in flightRows) {
-      final pointsRows =
-          await (database.select(database.flightDataPoints)
-                ..where((p) => p.flight.equals(row.id))
-                ..orderBy([(p) => OrderingTerm.asc(p.timestamp)]))
-              .get();
-
-      final departure = await resolveAirport(row.departure);
-      final arrival = await resolveAirport(row.arrival);
-      final aircraft = await resolveAircraft(row.aircraftId);
-
-      _sessions.add(
-        FlightWithStats(
-          flight: row,
-          dataPoints: pointsRows,
-          aircraft: aircraft,
-          departure: departure,
-          arrival: arrival,
-        ),
-      );
-    }
-
-    final active = _sessions.where((s) => s.flight.isRecording).toList();
-    if (active.isNotEmpty) {
-      _activeSessionId = active.first.flight.id;
-    }
-    _initialized = true;
-    _notify();
-  }
-
-  Future<int?> _findAirportId(String? input) async {
-    if (input == null || input.trim().isEmpty) return null;
-    final term = input.trim();
-    final query = database.select(database.airports)
-      ..where(
-        (a) =>
-            a.ident.equals(term) |
-            a.icaoCode.equals(term) |
-            a.iataCode.equals(term) |
-            a.name.equals(term),
-      )
-      ..limit(1);
-    final match = await query.getSingleOrNull();
-    if (match != null) {
-      return match.id;
-    }
-
-    final queryLike = database.select(database.airports)
-      ..where(
-        (a) =>
-            a.ident.like('%$term%') |
-            a.icaoCode.like('%$term%') |
-            a.iataCode.like('%$term%') |
-            a.name.like('%$term%'),
-      )
-      ..limit(1);
-    final matchLike = await queryLike.getSingleOrNull();
-    return matchLike?.id;
   }
 
   UnmodifiableListView<FlightWithStats> get sessions =>
@@ -160,165 +65,17 @@ class FlightService {
     }
   }
 
-  Future<int> startSession({
-    String title = 'New Flight',
-    int? aircraftId,
-    AircraftWithIcao? aircraft,
-    String? departure,
-    String? arrival,
-  }) async {
-    final departureId = await _findAirportId(departure);
-    final arrivalId = await _findAirportId(arrival);
-    final now = DateTime.now();
-
-    final flightId = await database
-        .into(database.flights)
-        .insert(
-          FlightsCompanion.insert(
-            title: title,
-            departure: Value(departureId),
-            arrival: Value(arrivalId),
-            departureTime: now,
-            arrivalTime: Value(now),
-            isRecording: true,
-            aircraftId: Value(aircraftId),
-          ),
-        );
-
-    final flight = Flight(
-      id: flightId,
-      title: title,
-      departure: departureId,
-      arrival: arrivalId,
-      departureTime: now,
-      arrivalTime: now,
-      isRecording: true,
-      aircraftId: aircraftId,
-    );
-
-    final session = FlightWithStats(
-      flight: flight,
-      dataPoints: [],
-      aircraft: aircraft,
-      departure: await resolveAirport(departureId),
-      arrival: await resolveAirport(arrivalId),
-    );
-    _sessions.add(session);
-    _activeSessionId = flightId;
-    _notify();
-    return flightId;
-  }
-
-  void addPoint(
-    double latitude,
-    double longitude,
-    double altitude, {
-    double? speed,
-    double? heading,
-  }) {
-    if (_activeSessionId == null) return;
-    final index = _sessions.indexWhere((s) => s.flight.id == _activeSessionId);
-    if (index == -1) return;
-
-    final flightId = _activeSessionId!;
-    final timestamp = DateTime.now();
-
-    final point = FlightDataPoint(
-      id: 0,
-      flight: flightId,
-      longitude: longitude,
-      latitude: latitude,
-      altitude: altitude.round(),
-      timestamp: timestamp,
-      speed: speed,
-      heading: heading,
-    );
-
-    final session = _sessions[index];
-    _sessions[index] = session.copyWith(
-      dataPoints: [...session.dataPoints, point],
-    );
-
-    _insertPoint(
-      flightId,
-      latitude,
-      longitude,
-      altitude,
-      timestamp,
-      speed,
-      heading,
-    );
-    _notify();
-  }
-
-  Future<void> _insertPoint(
-    int flightId,
-    double latitude,
-    double longitude,
-    double altitude,
-    DateTime timestamp,
-    double? speed,
-    double? heading,
-  ) async {
-    try {
-      await database
-          .into(database.flightDataPoints)
-          .insert(
-            FlightDataPointsCompanion.insert(
-              flight: flightId,
-              longitude: longitude,
-              latitude: latitude,
-              altitude: altitude.round(),
-              timestamp: timestamp,
-              speed: Value(speed),
-              heading: Value(heading),
-            ),
-          );
-    } catch (_) {
-      // Ignored
-    }
-  }
-
-  Future<void> endSession() async {
-    if (_activeSessionId == null) return;
-    final index = _sessions.indexWhere((s) => s.flight.id == _activeSessionId);
-    if (index == -1) return;
-
-    final flightId = _activeSessionId!;
-    final now = DateTime.now();
-
-    final updated = _sessions[index].copyWith(
-      flight: _sessions[index].flight.copyWith(
-        isRecording: false,
-        arrivalTime: Value(now),
-      ),
-    );
-    _sessions[index] = updated;
-
-    await (database.update(
-      database.flights,
-    )..where((f) => f.id.equals(flightId))).write(
-      FlightsCompanion(
-        isRecording: const Value(false),
-        arrivalTime: Value(now),
-      ),
-    );
-
-    _activeSessionId = null;
-    _notify();
-  }
-
   Future<void> setFlightAircraft(
     int flightId, {
     int? aircraftId,
-    AircraftWithIcao? aircraft,
+    AircraftWithStats? aircraft,
   }) async {
     final index = _sessions.indexWhere((s) => s.flight.id == flightId);
     if (index != -1) {
       final session = _sessions[index];
       _sessions[index] = session.copyWith(
         flight: session.flight.copyWith(aircraftId: Value(aircraftId)),
-        aircraft: aircraft,
+        aircraftWithStats: aircraft,
         removeAircraft: aircraft == null,
       );
     }

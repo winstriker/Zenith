@@ -43,7 +43,7 @@ class FlightFormState {
   final TimezoneMode arrTzMode;
   final String? depIanaLocation;
   final String? arrIanaLocation;
-  final AircraftWithIcao? selectedAircraft;
+  final AircraftWithStats? selectedAircraft;
   final String approachType;
   final int nightLandings;
   final int dayLandings;
@@ -63,7 +63,7 @@ class FlightFormState {
     TimezoneMode? arrTzMode,
     String? depIanaLocation,
     String? arrIanaLocation,
-    AircraftWithIcao? selectedAircraft,
+    AircraftWithStats? selectedAircraft,
     String? approachType,
     int? nightLandings,
     int? dayLandings,
@@ -299,7 +299,7 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
     arrTzMode: TimezoneMode.iana,
   );
 
-  void setSelectedAircraft(AircraftWithIcao? aircraft) =>
+  void setSelectedAircraft(AircraftWithStats? aircraft) =>
       state = state.copyWith(selectedAircraft: aircraft);
   void setApproachType(String type) =>
       state = state.copyWith(approachType: type);

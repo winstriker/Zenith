@@ -15,7 +15,7 @@ class AircraftCard extends StatelessWidget {
     this.showStats = false,
     this.useOuterPadding = true,
   });
-  final AircraftWithIcao? aircraft;
+  final AircraftWithStats? aircraft;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool showStats;
@@ -109,7 +109,7 @@ class AircraftCard extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 label:
-                                    '${((aircraft as AircraftWithStats).totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h',
+                                    '${((aircraft as AircraftWithStats).totalFlightTime! / 60).toStringAsFixed(1)}h',
                                 icon: Icons.schedule,
                                 backgroundColor:
                                     theme.colorScheme.surfaceContainerHighest,
@@ -136,7 +136,7 @@ class AircraftCard extends StatelessWidget {
                                 vertical: 2,
                               ),
                               label:
-                                  'Wake ${aircraft!.wakeTurbulenceCategory.name}/${aircraft!.wakeTurbulenceGroup.name}',
+                                  'Wake ${aircraft!.wakeTurbolenceCategory.name}/${aircraft!.wakeTurbolenceGroup.name}',
                             ),
                           ],
                         ),

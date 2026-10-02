@@ -71,7 +71,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   Future<void> _showAddDialog() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AircraftFormPage()),
+      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
     );
     // Stream provider automatically updates, no manual refresh needed
   }
@@ -80,7 +80,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     await Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => AircraftDetailPage(aircraftId: aws.aircraft.id),
+        builder: (_) => AircraftDetailPage(aircraftId: aws.id),
       ),
     );
     // Stream provider automatically updates
@@ -109,7 +109,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     );
     if (confirmed == true) {
       final db = ref.read(databaseProvider);
-      await db.deleteAircraft(aws.aircraft.id);
+      await db.deleteAircraft(aws.id);
       // Stream provider automatically updates
     }
   }

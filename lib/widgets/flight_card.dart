@@ -221,7 +221,7 @@ class FlightCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          if (flight.aircraft != null && flight.aircraft!.tailNumber != null)
+          if (flight.aircraftWithStats != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -229,7 +229,7 @@ class FlightCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                flight.aircraft!.tailNumber!,
+                flight.aircraftWithStats!.tailNumber,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSecondaryContainer,
                   fontWeight: FontWeight.w600,

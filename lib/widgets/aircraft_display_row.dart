@@ -99,7 +99,7 @@ class AircraftDisplayRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  aircraft!.wakeTurbulenceCategory.name,
+                  aircraft!.wakeTurbolenceCategory.name,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onTertiaryContainer,
                     fontWeight: FontWeight.w600,
@@ -113,7 +113,7 @@ class AircraftDisplayRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                aircraft!.tailNumber!,
+                aircraft!.tailNumber,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onPrimaryContainer,
                   fontWeight: FontWeight.w600,

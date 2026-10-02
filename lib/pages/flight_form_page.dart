@@ -50,20 +50,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
   void _populateFromFlight(FlightWithStats flight) async {
     final notifier = _formNotifier;
-    final flightService = ref.read(flightServiceProvider);
     final f = flight.flight;
 
     // Fetch airports from the database
-    final depAirport = f.departure != null
-        ? await flightService.resolveAirport(f.departure)
-        : null;
-    final arrAirport = f.arrival != null
-        ? await flightService.resolveAirport(f.arrival)
-        : null;
-    final aircraft = f.aircraftId != null
-        ? await flightService.resolveAircraft(f.aircraftId!)
-        : null;
-
+    final depAirport = flight.departure;
+    final arrAirport = flight.arrival;
     notifier.setDepartureDate(f.departureTime);
     notifier.setArrivalDate(f.arrivalTime);
     notifier.setDepTime(
@@ -98,8 +89,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       notifier.setArrivalCode(f.arrivalIanaLocation!);
       notifier.setArrIanaLocation(f.arrivalIanaLocation);
     }
-    if (aircraft != null) {
-      notifier.setSelectedAircraft(aircraft);
+    if (flight.aircraftWithStats != null) {
+      notifier.setSelectedAircraft(flight.aircraftWithStats);
     }
   }
 
@@ -285,7 +276,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         title: '$depCode → $arrCode',
         departureTime: depDateTime,
         arrivalTime: arrDateTime,
-        aircraftId: form.selectedAircraft?.aircraft.id,
+        aircraftId: form.selectedAircraft?.id,
         approachType: form.approachType,
         nightLandings: form.nightLandings,
         dayLandings: form.dayLandings,
@@ -301,7 +292,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         title: '$depCode → $arrCode',
         departureTime: depDateTime,
         arrivalTime: arrDateTime,
-        aircraftId: form.selectedAircraft?.aircraft.id,
+        aircraftId: form.selectedAircraft?.id,
         approachType: form.approachType,
         nightLandings: form.nightLandings,
         dayLandings: form.dayLandings,

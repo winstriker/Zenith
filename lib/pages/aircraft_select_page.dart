@@ -35,7 +35,7 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
                 final q = _query.toLowerCase();
                 return aws.modelFullName.toLowerCase().contains(q) ||
                     aws.manufacturer.toLowerCase().contains(q) ||
-                    (aws.aircraft.notes?.toLowerCase().contains(q) ?? false);
+                    (aws.notes?.toLowerCase().contains(q) ?? false);
               }).toList();
 
         return Scaffold(
@@ -122,7 +122,7 @@ class _AircraftSelectPageState extends ConsumerState<AircraftSelectPage> {
   Future<void> _addAircraft() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AircraftFormPage()),
+      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
     );
     // Stream provider automatically updates
   }

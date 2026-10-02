@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/database.dart';
+
 import '../repositories/aircraft_repository.dart';
-import '../widgets/aircraft_details_card.dart';
-import '../widgets/gradient_card.dart';
-import '../widgets/info_chip.dart';
+import '../services/database.dart';
 import '../widgets/model_card.dart';
 import 'icao_aircraft_select_page.dart';
 
@@ -26,11 +24,11 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
   @override
   void initState() {
     super.initState();
-    _tailController.text = widget.aircraft?.aircraft.tailNumber ?? '';
-    _notesController.text = widget.aircraft?.aircraft.notes ?? '';
+    _tailController.text = widget.aircraft?.tailNumber ?? '';
+    _notesController.text = widget.aircraft?.notes ?? '';
 
     if (widget.aircraft != null) {
-      _selectedIcaoAircraft = widget.aircraft!.icaoAircraft;
+      _selectedIcaoAircraft = widget.aircraft!.toIcaoAircraft();
     }
   }
 
@@ -65,7 +63,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
 
       if (widget.aircraft != null) {
         await repository.updateAircraft(
-          widget.aircraft!.aircraft.id,
+          widget.aircraft!.id,
           icaoAircraftId: _selectedIcaoAircraft!.id,
           notes: _notesController.text.trim().isEmpty
               ? null
@@ -105,7 +103,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () => Navigator.pop(ctx),
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
@@ -116,7 +114,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
     );
     if (confirmed == true && mounted) {
       final repository = ref.read(aircraftRepositoryProvider);
-      await repository.deleteAircraft(widget.aircraft!.aircraft.id);
+      await repository.deleteAircraft(widget.aircraft!.id);
       if (mounted) Navigator.pop(context);
     }
   }

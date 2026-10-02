@@ -76,7 +76,9 @@ class AircraftDetailsCard extends StatelessWidget {
                       children: [
                         const Text("Total Time", textAlign: TextAlign.center),
                         Text(
-                          DurationFormatter.hm(aircraft.totalFlightTime!),
+                          DurationFormatter.hm(
+                            Duration(minutes: aircraft.totalFlightTime ?? 0),
+                          ),
                           style: theme.textTheme.titleLarge!.copyWith(
                             fontSize: 30,
                             fontWeight: FontWeight.w600,
@@ -100,7 +102,8 @@ class AircraftDetailsCard extends StatelessWidget {
                       children: [
                         const Text("Landings", textAlign: TextAlign.center),
                         Text(
-                          (aircraft.dayLandings + aircraft.nightLandings)
+                          ((aircraft.dayLandings ?? 0) +
+                                  (aircraft.nightLandings ?? 0))
                               .toString(),
                           style: theme.textTheme.titleLarge!.copyWith(
                             fontSize: 30,

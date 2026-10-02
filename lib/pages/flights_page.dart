@@ -113,7 +113,7 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
                       flight: flight,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) =>
                               FlightDetailPage(flightId: flight.flight.id),
                         ),

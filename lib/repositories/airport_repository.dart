@@ -42,10 +42,24 @@ class AirportRepository {
   }
 
   /// Stream of recent airports (from recent flights)
-  Stream<List<Airport>> watchRecentAirports({int limit = 5}) {
-    // This is a simplified version - in practice you'd want a more efficient query
-    // For now, we'll use a computed stream from recent flights
-    return Stream.value(<Airport>[]);
+  Stream<List<Airport>> watchRecentAirports({int limit = 5, int offset = 0}) {
+    final lastUsed = _database.flights.departureTime.max();
+
+    final query =
+        _database.select(_database.airports).join([
+            innerJoin(
+              _database.flights,
+              _database.airports.id.equalsExp(_database.flights.departure) |
+                  _database.airports.id.equalsExp(_database.flights.arrival),
+            ),
+          ])
+          ..groupBy([_database.airports.id])
+          ..orderBy([OrderingTerm.desc(lastUsed)])
+          ..limit(limit, offset: offset);
+
+    return query.watch().map((rows) {
+      return rows.map((row) => row.readTable(_database.airports)).toList();
+    });
   }
 
   /// Stream of airports near coordinates
@@ -87,38 +101,29 @@ class AirportRepository {
 
   /// Stream of complete airport data with runways and frequencies
   Future<AirportWithEverything?> getCompleteAirportData(int airportId) async {
-    final query = _database.select(_database.airports).join([
-      leftOuterJoin(
-        _database.countries,
-        _database.countries.code.equalsExp(_database.airports.isoCountry),
-      ),
-      leftOuterJoin(
-        _database.regions,
-        _database.regions.code.equalsExp(_database.airports.isoRegion),
-      ),
-    ])..where(_database.airports.id.equals(airportId));
+    final result = await _database.managers.airports
+        .filter((a) => a.id(airportId))
+        .withReferences(
+          (prefetch) => prefetch(
+            isoCountry: true,
+            isoRegion: true,
+            runwayRefs: true,
+            frequencyRefs: true,
+          ),
+        )
+        .getSingleOrNull();
 
-    final row = await query.getSingleOrNull();
-    if (row == null) return null;
+    if (result == null) {
+      return null;
+    }
 
-    final airport = row.readTable(_database.airports);
-    final country = row.readTable(_database.countries);
-    final region = row.readTable(_database.regions);
-
-    final runwaysQuery = _database.select(_database.runways)
-      ..where((r) => r.airport.equals(airportId));
-    final runways = await runwaysQuery.get();
-
-    final frequenciesQuery = _database.select(_database.frequencies)
-      ..where((f) => f.airport.equals(airportId));
-    final frequencies = await frequenciesQuery.get();
-
+    final (airport, refs) = result;
     return AirportWithEverything(
       airport: airport,
-      country: country,
-      region: region,
-      runways: runways,
-      frequencies: frequencies,
+      country: refs.isoCountry.prefetchedData!.single,
+      region: refs.isoRegion.prefetchedData!.single,
+      runways: refs.runwayRefs.prefetchedData ?? [],
+      frequencies: refs.frequencyRefs.prefetchedData ?? [],
     );
   }
 

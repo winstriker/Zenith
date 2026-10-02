@@ -2,28 +2,27 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
     hide Theme;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
-import '../services/database.dart';
 import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
+import '../services/database.dart';
 import 'airport_detail_page.dart';
 
 class AirportMapPage extends ConsumerStatefulWidget {
-  final double latitude;
-  final double longitude;
-  final String airportName;
-
   const AirportMapPage({
     super.key,
     required this.latitude,
     required this.longitude,
     required this.airportName,
   });
+  final double latitude;
+  final double longitude;
+  final String airportName;
 
   @override
   ConsumerState<AirportMapPage> createState() => _AirportMapPageState();
@@ -147,10 +146,8 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
             VectorTileLayer(
               tileProviders: style!.providers,
               theme: style.theme,
-              tileOffset: TileOffset.maplibre,
               concurrency: 4,
               diskCacheTtl: const Duration(days: 30),
-              diskCacheMaximumSizeInBytes: 50 * 1024 * 1024,
             ),
             if (kReleaseMode) ...[
               Align(
@@ -187,7 +184,7 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) =>
                               AirportDetailPage(airportId: airport.id),
                         ),

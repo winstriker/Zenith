@@ -443,7 +443,7 @@ class AirportDetailPage extends ConsumerWidget {
               onTap: (tap, point) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  MaterialPageRoute<void>(
                     builder: (_) => AirportMapPage(
                       latitude: lat,
                       longitude: lng,

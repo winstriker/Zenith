@@ -7,6 +7,7 @@ import '../providers/flight_providers.dart';
 import '../providers/gps_tracking_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/database.dart';
+import '../utils/duration_formatter.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/gradient_card.dart';
@@ -88,7 +89,7 @@ class HomePage extends ConsumerWidget {
                       flight: recentFlights[index],
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) => FlightDetailPage(
                             flightId: recentFlights[index].flight.id,
                           ),
@@ -233,7 +234,9 @@ class HomePage extends ConsumerWidget {
                   FilledButton.tonalIcon(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const RecordingPage()),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RecordingPage(),
+                      ),
                     ),
                     icon: const Icon(Icons.open_in_new, size: 18),
                     label: const Text('Open'),
@@ -251,7 +254,9 @@ class HomePage extends ConsumerWidget {
                   child: FilledButton.icon(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const RecordingPage()),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RecordingPage(),
+                      ),
                     ),
                     icon: const Icon(Icons.fiber_manual_record, size: 22),
                     label: const Text('Start Recording'),
@@ -271,7 +276,9 @@ class HomePage extends ConsumerWidget {
                   child: FilledButton.tonalIcon(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const FlightFormPage()),
+                      MaterialPageRoute<void>(
+                        builder: (_) => const FlightFormPage(),
+                      ),
                     ),
                     icon: const Icon(Icons.add, size: 22),
                     label: const Text('Add Flight'),
@@ -294,14 +301,14 @@ class HomePage extends ConsumerWidget {
   void _openFlights(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const FlightsPage()),
+      MaterialPageRoute<void>(builder: (_) => const FlightsPage()),
     );
   }
 
   void _openAircrafts(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AircraftsPage()),
+      MaterialPageRoute<void>(builder: (_) => const AircraftsPage()),
     );
   }
 
@@ -474,7 +481,7 @@ class HomePage extends ConsumerWidget {
                     OutlinedButton.icon(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) => const AircraftsPage(),
                         ),
                       ),
@@ -513,7 +520,7 @@ class HomePage extends ConsumerWidget {
                     TextButton(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) => const AircraftsPage(),
                         ),
                       ),
@@ -541,7 +548,7 @@ class HomePage extends ConsumerWidget {
                             child: InkWell(
                               onTap: () => Navigator.push(
                                 context,
-                                MaterialPageRoute(
+                                MaterialPageRoute<void>(
                                   builder: (_) => const AircraftFormPage(),
                                 ),
                               ),
@@ -582,7 +589,9 @@ class HomePage extends ConsumerWidget {
                       final aws = displayAircraft[index];
                       final ac = aws;
                       final hours = aws.totalFlightTime != null
-                          ? '${(aws.totalFlightTime!.inMinutes / 60).toStringAsFixed(1)}h'
+                          ? DurationFormatter.hm(
+                              Duration(minutes: aws.totalFlightTime!),
+                            )
                           : null;
                       return SizedBox(
                         width: 160,
@@ -590,9 +599,8 @@ class HomePage extends ConsumerWidget {
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute<void>(
-                              builder: (_) => AircraftDetailPage(
-                                aircraftId: aws.aircraft.id,
-                              ),
+                              builder: (_) =>
+                                  AircraftDetailPage(aircraftId: aws.id),
                             ),
                           ),
                           padding: const EdgeInsets.all(14),
@@ -608,25 +616,24 @@ class HomePage extends ConsumerWidget {
                                     color: theme.colorScheme.secondary,
                                   ),
                                   const Spacer(),
-                                  if (ac.tailNumber != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            theme.colorScheme.tertiaryContainer,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        ac.tailNumber!,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
                                     ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          theme.colorScheme.tertiaryContainer,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      ac.tailNumber,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
                                 ],
                               ),
                               const Spacer(),

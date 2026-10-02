@@ -213,7 +213,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                                 : null,
                             onTap: () => Navigator.push(
                               context,
-                              MaterialPageRoute(
+                              MaterialPageRoute<void>(
                                 builder: (_) => AirportDetailPage(
                                   airportId: item.airport.id,
                                 ),
