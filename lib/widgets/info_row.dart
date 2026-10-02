@@ -1,16 +1,8 @@
 import 'package:flutter/material.dart';
 
 /// A row displaying a fixed-width label and expanded value.
-/// Used for detail views, GPS data, and metadata display.
+/// Used when displaying data points in flight details page
 class InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final double labelWidth;
-  final TextStyle? labelStyle;
-  final TextStyle? valueStyle;
-  final bool isMonospace;
-  final Widget? trailing;
-
   const InfoRow({
     super.key,
     required this.label,
@@ -21,17 +13,26 @@ class InfoRow extends StatelessWidget {
     this.isMonospace = false,
     this.trailing,
   });
+  final String label;
+  final String value;
+  final double labelWidth;
+  final TextStyle? labelStyle;
+  final TextStyle? valueStyle;
+  final bool isMonospace;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final effectiveLabelStyle = labelStyle ??
+    final effectiveLabelStyle =
+        labelStyle ??
         theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
         );
 
-    final effectiveValueStyle = valueStyle ??
+    final effectiveValueStyle =
+        valueStyle ??
         theme.textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
           fontFamily: isMonospace ? 'monospace' : null,
@@ -46,9 +47,7 @@ class InfoRow extends StatelessWidget {
             width: labelWidth,
             child: Text(label, style: effectiveLabelStyle),
           ),
-          Expanded(
-            child: Text(value, style: effectiveValueStyle),
-          ),
+          Expanded(child: Text(value, style: effectiveValueStyle)),
           ?trailing,
         ],
       ),

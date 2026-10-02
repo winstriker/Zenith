@@ -7,7 +7,7 @@ import '../services/database.dart';
 import '../utils/tz_datetime.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/airport_search_dialog.dart';
-import '../widgets/flight_details_card.dart';
+import '../widgets/flight_form_card.dart';
 import '../widgets/flight_rules_card.dart';
 import '../widgets/landings_card.dart';
 import '../widgets/remarks_card.dart';
@@ -15,9 +15,8 @@ import '../widgets/timezone_picker.dart';
 import 'aircraft_select_page.dart';
 
 class FlightFormPage extends ConsumerStatefulWidget {
-  final FlightWithStats? flightToEdit;
-
   const FlightFormPage({super.key, this.flightToEdit});
+  final FlightWithStats? flightToEdit;
 
   bool get isEditing => flightToEdit != null;
 
@@ -114,7 +113,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            FlightDetailsCard(
+            FlightFormCard(
               departureDate: form.departureDate,
               arrivalDate: form.arrivalDate,
               departureCode: form.departureCode,

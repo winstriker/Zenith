@@ -1,29 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/gps_tracking_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
-import '../widgets/gradient_card.dart';
 import '../widgets/pulsing_dot.dart';
-import 'aircraft_detail_page.dart';
-import 'aircraft_form_page.dart';
 import 'aircrafts_page.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
 import 'flights_page.dart';
 import 'recording_page.dart';
-
-final _recentAirportsProvider = FutureProvider<List<Airport>>((ref) {
-  final db = ref.read(databaseProvider);
-  return db.getRecentAirports();
-});
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -104,11 +94,10 @@ class HomePage extends ConsumerWidget {
             error: (_, _) => const SliverToBoxAdapter(
               child: Text("Error while loading flights."),
             ),
-            loading: () =>
-                const SliverToBoxAdapter(child: CircularProgressIndicator()),
+            loading: () => const SliverToBoxAdapter(
+              child: Center(child: CircularProgressIndicator()),
+            ),
           ),
-          _buildAircraftSection(context, theme, aircraftList),
-          _buildAirportsSection(context, theme, ref),
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
       ),
@@ -335,7 +324,7 @@ class HomePage extends ConsumerWidget {
           _statCard(
             theme,
             Icons.schedule,
-            '${(totalMinutes / 60).toInt()}:${totalMinutes % 60 > 9 ? totalMinutes % 60 : "0${totalMinutes % 60}"}h',
+            DurationFormatter.hm(Duration(minutes: totalMinutes)),
             'Flight Time',
             Colors.green,
           ),
@@ -432,403 +421,6 @@ class HomePage extends ConsumerWidget {
         title: 'No flights yet',
         subtitle: 'Start recording your first flight!',
         iconSize: 48,
-      ),
-    );
-  }
-
-  Widget _buildAircraftSection(
-    BuildContext context,
-    ThemeData theme,
-    AsyncValue<List<AircraftWithStats>> aircraftList,
-  ) {
-    return aircraftList.when(
-      data: (aircraftList) {
-        if (aircraftList.isEmpty) {
-          return SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.3,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.airplanemode_active,
-                      size: 40,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No aircraft added yet',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Add your aircraft to track flight hours.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AircraftsPage(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Your First Aircraft'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-
-        final displayAircraft = aircraftList.take(5).toList();
-        return SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.airplanemode_active,
-                      size: 20,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'My Aircraft',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AircraftsPage(),
-                        ),
-                      ),
-                      child: const Text('Manage'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 130,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(left: 4, right: 4),
-                    itemCount: displayAircraft.length + 1,
-                    separatorBuilder: (_, _) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      if (index == displayAircraft.length) {
-                        return SizedBox(
-                          width: 160,
-                          child: Card(
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: InkWell(
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const AircraftFormPage(),
-                                ),
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: theme.colorScheme.outlineVariant
-                                        .withValues(alpha: 0.5),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.add,
-                                        size: 32,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Add Aircraft',
-                                        style: theme.textTheme.labelLarge
-                                            ?.copyWith(
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      final aws = displayAircraft[index];
-                      final ac = aws;
-                      final hours = aws.totalFlightTime != null
-                          ? DurationFormatter.hm(
-                              Duration(minutes: aws.totalFlightTime!),
-                            )
-                          : null;
-                      return SizedBox(
-                        width: 160,
-                        child: BaseCard(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  AircraftDetailPage(aircraftId: aws.id),
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(14),
-                          borderRadius: 14,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.airplanemode_active,
-                                    size: 18,
-                                    color: theme.colorScheme.secondary,
-                                  ),
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          theme.colorScheme.tertiaryContainer,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      ac.tailNumber,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Spacer(),
-                              Text(
-                                ac.designator,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-
-                              Text(
-                                ac.modelFullName,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.flight,
-                                    size: 12,
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '${aws.flightCount} flights',
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  if (hours != null) ...[
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.schedule,
-                                      size: 12,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      hours,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-      error: (_, _) => const SliverToBoxAdapter(
-        child: Text("Error while loading aircrafts"),
-      ),
-      loading: () =>
-          const SliverToBoxAdapter(child: CircularProgressIndicator()),
-    );
-  }
-
-  Widget _buildAirportsSection(
-    BuildContext context,
-    ThemeData theme,
-    WidgetRef ref,
-  ) {
-    final airportsAsync = ref.watch(_recentAirportsProvider);
-
-    return airportsAsync.when(
-      data: (airports) {
-        if (airports.isEmpty) {
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
-        }
-        final displayAirports = airports.take(5).toList();
-        return SliverToBoxAdapter(
-          child: _buildAirportsList(displayAirports, theme),
-        );
-      },
-      error: (e, s) {
-        return const SliverToBoxAdapter(
-          child: Text("Error while loading Airports"),
-        );
-      },
-      loading: () => const SliverToBoxAdapter(child: SizedBox.shrink()),
-    );
-  }
-
-  Widget _buildAirportsList(List<Airport> displayAirports, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.local_airport,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Recent Airports',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              TextButton(onPressed: () {}, child: const Text('See all')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 130,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(left: 4, right: 4),
-              itemCount: displayAirports.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final airport = displayAirports[index];
-                return SizedBox(
-                  width: 180,
-                  child: BaseCard(
-                    onTap: () {},
-                    padding: const EdgeInsets.all(14),
-                    borderRadius: 14,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.local_airport,
-                              size: 18,
-                              color: theme.colorScheme.secondary,
-                            ),
-                            const Spacer(),
-                            if (airport.ident != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.tertiaryContainer,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  airport.ident!,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Text(
-                          airport.name ?? '',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (airport.municipality != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            airport.municipality!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

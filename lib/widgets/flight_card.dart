@@ -5,7 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
-import 'gradient_card.dart';
+import 'base_card.dart';
 
 class FlightCard extends StatelessWidget {
   const FlightCard({

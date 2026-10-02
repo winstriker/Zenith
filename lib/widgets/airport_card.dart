@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/spacing.dart';
 import '../services/database.dart';
-import 'gradient_card.dart';
+import 'base_card.dart';
 import 'info_chip.dart';
 
 class AirportCard extends StatelessWidget {

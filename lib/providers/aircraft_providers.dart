@@ -39,10 +39,6 @@ final flightsForAircraftStreamProvider =
       return repository.watchFlightsForAircraft(aircraftId);
     });
 
-// ---------------------------------------------------------------------------
-// Aircraft Types loading provider
-// ---------------------------------------------------------------------------
-
 class AircraftTypesLoadNotifier extends Notifier<int> {
   late final AircraftTypesService _service;
 

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 
 class LandingCounter extends StatelessWidget {
-  final String label;
-  final int value;
-  final ValueChanged<int>? onChanged;
-
   const LandingCounter({
     super.key,
     required this.label,
     required this.value,
     required this.onChanged,
   });
+  final String label;
+  final int value;
+  final ValueChanged<int>? onChanged;
 
   @override
   Widget build(BuildContext context) {

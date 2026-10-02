@@ -3,12 +3,6 @@ import 'package:flutter/material.dart';
 /// A card with gradient background decoration.
 /// Base widget for FlightCard, AirportCard, AircraftCard, and inline card patterns.
 class BaseCard extends StatelessWidget {
-  final Widget child;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final EdgeInsetsGeometry? padding;
-  final double? borderRadius;
-
   const BaseCard({
     super.key,
     required this.child,
@@ -17,6 +11,11 @@ class BaseCard extends StatelessWidget {
     this.padding,
     this.borderRadius = 16.0,
   });
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final EdgeInsetsGeometry? padding;
+  final double? borderRadius;
 
   @override
   Widget build(BuildContext context) {

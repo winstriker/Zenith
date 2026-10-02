@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'time_input_formatter.dart';
+import '../utils/time_input_formatter.dart';
 
 class TimeInput extends StatelessWidget {
-  final String value;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
   const TimeInput({
     super.key,
     required this.value,
     required this.hint,
     required this.onChanged,
   });
+  final String value;
+  final String hint;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {

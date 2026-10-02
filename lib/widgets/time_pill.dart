@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+/// Used for block time in [FlightFormCard]
 class TimePill extends StatelessWidget {
+  const TimePill({super.key, this.start, this.end, required this.label});
   final tz.TZDateTime? start;
   final tz.TZDateTime? end;
   final String label;
-
-  const TimePill({super.key, this.start, this.end, required this.label});
 
   @override
   Widget build(BuildContext context) {

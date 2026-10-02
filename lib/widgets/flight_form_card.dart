@@ -8,8 +8,8 @@ import 'time_input.dart';
 import 'time_pill.dart';
 import 'tz_chip.dart';
 
-class FlightDetailsCard extends StatelessWidget {
-  const FlightDetailsCard({
+class FlightFormCard extends StatelessWidget {
+  const FlightFormCard({
     super.key,
     required this.departureDate,
     required this.arrivalDate,

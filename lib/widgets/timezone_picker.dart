@@ -187,24 +187,17 @@ class TimezonePicker {
 }
 
 class _TimezoneEntry {
-  final String name;
-  final String offset;
-  final String abbreviation;
-
   _TimezoneEntry({
     required this.name,
     required this.offset,
     required this.abbreviation,
   });
+  final String name;
+  final String offset;
+  final String abbreviation;
 }
 
 class _TimezoneListTile extends StatelessWidget {
-  final String title;
-  final IconData? leadingIcon;
-  final String? leading;
-  final String? trailing;
-  final VoidCallback? onTap;
-
   const _TimezoneListTile({
     required this.title,
     this.leadingIcon,
@@ -212,6 +205,11 @@ class _TimezoneListTile extends StatelessWidget {
     this.trailing,
     this.onTap,
   });
+  final String title;
+  final IconData? leadingIcon;
+  final String? leading;
+  final String? trailing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

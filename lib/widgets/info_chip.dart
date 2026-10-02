@@ -3,14 +3,6 @@ import 'package:flutter/material.dart';
 /// A versatile chip/badge widget for displaying labeled information.
 /// Unified replacement for _RouteChip, _StatChip, _buildChip, _buildInfoChip, _buildTypeChip.
 class InfoChip extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final Color? backgroundColor;
-  final Color? textColor;
-  final double? borderRadius;
-  final EdgeInsetsGeometry? padding;
-  final TextStyle? textStyle;
-
   const InfoChip({
     super.key,
     required this.label,
@@ -21,6 +13,13 @@ class InfoChip extends StatelessWidget {
     this.padding,
     this.textStyle,
   });
+  final String label;
+  final IconData? icon;
+  final Color? backgroundColor;
+  final Color? textColor;
+  final double? borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {

@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 
 /// A standardized section header with optional uppercase styling.
 class SectionHeader extends StatelessWidget {
-  final String title;
-  final bool uppercase;
-  final TextStyle? style;
-  final Widget? trailing;
-
   const SectionHeader({
     super.key,
     required this.title,
@@ -14,6 +9,10 @@ class SectionHeader extends StatelessWidget {
     this.style,
     this.trailing,
   });
+  final String title;
+  final bool uppercase;
+  final TextStyle? style;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {

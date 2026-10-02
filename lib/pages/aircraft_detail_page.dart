@@ -152,7 +152,9 @@ class AircraftDetailPage extends ConsumerWidget {
                   },
                   loading: () {
                     return const SliverToBoxAdapter(
-                      child: CircularProgressIndicator(),
+                      child: Scaffold(
+                        body: Center(child: CircularProgressIndicator()),
+                      ),
                     );
                   },
                 ),

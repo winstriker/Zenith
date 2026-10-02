@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 class TzChip extends StatelessWidget {
+  const TzChip({super.key, required this.label, this.onTap});
   final String label;
   final VoidCallback? onTap;
-
-  const TzChip({super.key, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {

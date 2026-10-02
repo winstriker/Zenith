@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/spacing.dart';
 import '../services/database.dart';
 import 'aircraft_details_card.dart';
-import 'gradient_card.dart';
+import 'base_card.dart';
 import 'info_chip.dart';
 
 class ModelCard extends StatelessWidget {
