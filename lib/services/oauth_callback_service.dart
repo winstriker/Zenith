@@ -6,9 +6,10 @@ import 'package:logging/logging.dart';
 import 'oauth_service.dart';
 
 class OAuthCallbackHandler {
-  OAuthCallbackHandler({required this.oauthServices});
+  OAuthCallbackHandler({required this.oauthServices, this.onLoginSuccess});
 
   final List<OAuthService> oauthServices;
+  final void Function()? onLoginSuccess;
 
   final AppLinks _appLinks = AppLinks();
   final Logger logger = Logger("OAuth Callback Service");
@@ -56,6 +57,8 @@ class OAuthCallbackHandler {
       await oauthServices
           .firstWhere((element) => element.provider == uri.host)
           .handleCallback(uri);
+
+      onLoginSuccess?.call();
 
       logger.info('OAuth login successful.');
     } catch (error) {

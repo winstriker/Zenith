@@ -1,11 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/oauth_callback_service.dart';
 import '../services/oauth_service.dart';
-
-final callbackServiceProvider = Provider((ref) {
-  return OAuthCallbackHandler(oauthServices: [ref.read(dropboxBackupProvider)]);
-});
 
 final dropboxBackupProvider = Provider(
   (ref) => OAuthService(
@@ -17,8 +14,28 @@ final dropboxBackupProvider = Provider(
     "account_info.read",
   ),
 );
+final dropboxAuthProvider = AsyncNotifierProvider<DropboxAuthNotifier, bool>(
+  DropboxAuthNotifier.new,
+);
 
-final dropboxBackupUIProvider = StreamProvider((ref) {
-  final dropbox = ref.watch(dropboxBackupProvider);
-  return Stream.value(dropbox);
+class DropboxAuthNotifier extends AsyncNotifier<bool> {
+  OAuthService get _service => ref.read(dropboxBackupProvider);
+  @override
+  Future<bool> build() => _service.isLoggedIn();
+  Future<void> login() async {
+    final url = await _service.startLogin();
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> logout() async {
+    await _service.logout();
+    state = const AsyncData(false);
+  }
+}
+
+final callbackServiceProvider = Provider((ref) {
+  return OAuthCallbackHandler(
+    oauthServices: [ref.read(dropboxBackupProvider)],
+    onLoginSuccess: () => ref.invalidate(dropboxAuthProvider),
+  );
 });

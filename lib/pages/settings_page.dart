@@ -138,7 +138,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final themeMode = ref.watch(themeProvider);
     final unitMode = ref.watch(unitProvider);
     final cartoKey = ref.watch(cartoApiKeyProvider);
-    final dropboxBackup = ref.watch(dropboxBackupUIProvider);
+    final dropboxAuth = ref.watch(dropboxAuthProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings'), centerTitle: true),
@@ -337,46 +337,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.backup),
                   title: const Text('DropBox'),
-                  trailing: dropboxBackup.when(
-                    data: (service) {
-                      return FutureBuilder(
-                        future: service.isLoggedIn(),
-                        builder: (context, snapshot) {
-                          if (snapshot.data ?? false) {
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.check, color: Colors.green),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.logout,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: service.logout,
+                  trailing: dropboxAuth.when(
+                    data: (isLoggedIn) => isLoggedIn
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check, color: Colors.green),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.logout,
+                                  color: Colors.red,
                                 ),
-                              ],
-                            );
-                          } else if (snapshot.data == null) {
-                            return const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(),
-                            );
-                          } else {
-                            return TextButton(
-                              onPressed: () async {
-                                final url = await service.startLogin();
-                                await launchUrl(
-                                  url,
-                                  mode: LaunchMode.externalApplication,
-                                );
-                              },
-                              child: const Text("Login"),
-                            );
-                          }
-                        },
-                      );
-                    },
+                                onPressed: () async {
+                                  await ref
+                                      .read(dropboxAuthProvider.notifier)
+                                      .logout();
+                                },
+                              ),
+                            ],
+                          )
+                        : TextButton(
+                            onPressed: () async {
+                              await ref
+                                  .read(dropboxAuthProvider.notifier)
+                                  .login();
+                            },
+                            child: const Text("Login"),
+                          ),
                     error: (_, _) =>
                         const Icon(Icons.cancel, color: Colors.red),
                     loading: () => const SizedBox(
@@ -385,15 +372,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       child: CircularProgressIndicator(),
                     ),
                   ),
-                  onTap: _clearAllFlights,
-                ),
-                const Divider(height: 1, indent: 72),
-                ListTile(
-                  leading: const Icon(Icons.file_download_outlined),
-                  title: const Text('Export Data'),
-                  subtitle: const Text('Export flights as CSV or JSON'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _exportData,
                 ),
               ],
             ),
