@@ -11,7 +11,7 @@ class LocationService {
   LocationService._();
 
   static const _methodChannel = MethodChannel(
-    'com.example.logbook/location_service',
+    'it.winstriker.zenith/location_service',
   );
 
   StreamSubscription<Position>? _gpsSubscription;

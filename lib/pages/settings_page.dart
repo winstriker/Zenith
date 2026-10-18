@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/aircraft_providers.dart';
+import '../providers/backup_providers.dart';
 import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
@@ -67,7 +68,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     try {
       final file = await PdfExportService.generateLogbook(flights);
-      await Share.shareXFiles([XFile(file.path)], text: 'Logbook export');
+      await _shareFile(file.path, text: 'Logbook export');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -137,6 +138,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final themeMode = ref.watch(themeProvider);
     final unitMode = ref.watch(unitProvider);
     final cartoKey = ref.watch(cartoApiKeyProvider);
+    final dropboxBackup = ref.watch(dropboxBackupUIProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings'), centerTitle: true),
@@ -328,6 +330,75 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ),
           ),
           const SizedBox(height: 8),
+          const SectionHeader(title: 'Backup', uppercase: true),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.backup),
+                  title: const Text('DropBox'),
+                  trailing: dropboxBackup.when(
+                    data: (service) {
+                      return FutureBuilder(
+                        future: service.isLoggedIn(),
+                        builder: (context, snapshot) {
+                          if (snapshot.data ?? false) {
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check, color: Colors.green),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.logout,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: service.logout,
+                                ),
+                              ],
+                            );
+                          } else if (snapshot.data == null) {
+                            return const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(),
+                            );
+                          } else {
+                            return TextButton(
+                              onPressed: () async {
+                                final url = await service.startLogin();
+                                await launchUrl(
+                                  url,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              },
+                              child: const Text("Login"),
+                            );
+                          }
+                        },
+                      );
+                    },
+                    error: (_, _) =>
+                        const Icon(Icons.cancel, color: Colors.red),
+                    loading: () => const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                  onTap: _clearAllFlights,
+                ),
+                const Divider(height: 1, indent: 72),
+                ListTile(
+                  leading: const Icon(Icons.file_download_outlined),
+                  title: const Text('Export Data'),
+                  subtitle: const Text('Export flights as CSV or JSON'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _exportData,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           const SectionHeader(title: 'About', uppercase: true),
           const Card(
             child: Column(
@@ -341,7 +412,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: Icon(Icons.info_outline),
                   title: Text('Description'),
-                  subtitle: Text('Pilot Flight Tracker'),
+                  subtitle: Text('Pilot\'s Logbook'),
                 ),
               ],
             ),
@@ -349,7 +420,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 32),
           Center(
             child: Text(
-              'Logbook v1.0.0',
+              'Zenith v$appBuildName',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -360,4 +431,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
   }
+}
+
+Future<void> _shareFile(String filePath, {required String text}) async {
+  final uri = Uri(path: filePath, scheme: 'file');
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
 }

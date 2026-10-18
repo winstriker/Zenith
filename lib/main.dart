@@ -5,13 +5,15 @@ import 'package:logging/logging.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import 'app.dart';
+import 'providers/backup_providers.dart';
 import 'services/database.dart';
 
 final databaseProvider = Provider<LogbookDatabase>((ref) {
   return LogbookDatabase();
 });
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   tz.initializeTimeZones();
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
@@ -21,6 +23,12 @@ void main() {
       );
     }
   });
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: LogbookApp()));
+  final container = ProviderContainer();
+
+  final callbackHandler = container.read(callbackServiceProvider);
+  await callbackHandler.initialize();
+
+  runApp(
+    UncontrolledProviderScope(container: container, child: const LogbookApp()),
+  );
 }

@@ -1,4 +1,4 @@
-package com.example.logbook
+package it.winstriker.zenith
 
 import android.content.pm.PackageManager
 import android.content.Intent

@@ -50,7 +50,7 @@ class FlightRepository {
   Stream<int> watchTotalFlightTime() {
     return _database
         .customSelect(
-          "SELECT SUM(${_database.flightStats.flightTime.escapedNameFor(SqlDialect.sqlite)}) AS total_flight_time FROM ${_database.flightStats.entityName}",
+          "COALESCE(SELECT SUM(${_database.flightStats.flightTime.escapedNameFor(SqlDialect.sqlite)}) AS total_flight_time FROM ${_database.flightStats.entityName}, 0)",
           readsFrom: {_database.flights},
         )
         .watch()
