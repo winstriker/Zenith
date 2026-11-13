@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/airport_service.dart';
+import '../widgets/airport_sync_progress.dart';
 
 class IntroPage extends ConsumerStatefulWidget {
   const IntroPage({super.key, required this.onPermissionGranted});
@@ -19,6 +22,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
   bool _requesting = false;
   bool _savingKey = false;
+  bool _finishing = false;
   String? _keyError;
   int _step = 0;
   final _nicknameController = TextEditingController();
@@ -37,6 +41,10 @@ class _IntroPageState extends ConsumerState<IntroPage>
     );
 
     _controller.forward();
+
+    // Start downloading airport data right away, so it's usually done by
+    // the time the user reaches the last step.
+    ref.read(airportLoadProvider);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nicknameFocus.requestFocus();
@@ -118,31 +126,39 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
   Future<void> _onLocationContinue() => _requestPermission();
 
-  Future<void> _skipLocation() async {
-    await ref.read(onboardingCompleteProvider.notifier).setComplete();
-    widget.onPermissionGranted();
-  }
+  Future<void> _skipLocation() => _goToAirportDataStep();
 
   Future<void> _requestPermission() async {
     setState(() => _requesting = true);
 
-    final permission = await Geolocator.requestPermission();
+    // Whatever the answer, setup continues.
+    await Geolocator.requestPermission();
 
     if (!mounted) return;
     setState(() => _requesting = false);
-
-    if (permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse) {
-      await ref.read(onboardingCompleteProvider.notifier).setComplete();
-      widget.onPermissionGranted();
-    } else {
-      // Permission denied, still proceed to app but mark onboarding complete
-      await ref.read(onboardingCompleteProvider.notifier).setComplete();
-      widget.onPermissionGranted();
-    }
+    await _goToAirportDataStep();
   }
 
-  static const _stepCount = 4;
+  /// Shows the airport download progress, unless it's already finished.
+  Future<void> _goToAirportDataStep() async {
+    if (ref.read(airportLoadProvider).phase == AirportSyncPhase.done) {
+      return _finishSetup();
+    }
+    setState(() => _step = 4);
+    _controller.reset();
+    _controller.forward();
+  }
+
+  /// Marks onboarding as complete and enters the app. Any running airport
+  /// download keeps going in the background.
+  Future<void> _finishSetup() async {
+    if (_finishing) return;
+    _finishing = true;
+    await ref.read(onboardingCompleteProvider.notifier).setComplete();
+    widget.onPermissionGranted();
+  }
+
+  static const _stepCount = 5;
 
   Widget _currentStep() {
     switch (_step) {
@@ -195,12 +211,19 @@ class _IntroPageState extends ConsumerState<IntroPage>
             _onApiKeyContinue(skip: true);
           },
         );
-      default:
+      case 3:
         return _LocationStep(
           key: const ValueKey('location'),
           requesting: _requesting,
           onAllow: _onLocationContinue,
           onSkip: _skipLocation,
+        );
+      default:
+        return _AirportDataStep(
+          key: const ValueKey('airportData'),
+          progress: ref.watch(airportLoadProvider),
+          onContinue: _finishSetup,
+          onRetry: () => ref.read(airportLoadProvider.notifier).refresh(),
         );
     }
   }
@@ -209,6 +232,11 @@ class _IntroPageState extends ConsumerState<IntroPage>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+
+    // Leave setup automatically once the airport data is in.
+    ref.listen(airportLoadProvider, (_, next) {
+      if (_step == 4 && next.phase == AirportSyncPhase.done) _finishSetup();
+    });
 
     return Scaffold(
       body: SafeArea(
@@ -487,6 +515,52 @@ class _LocationStep extends StatelessWidget {
         _StepSkipButton(
           label: 'Not Now',
           onPressed: requesting ? null : onSkip,
+        ),
+      ],
+    );
+  }
+}
+
+/// Last onboarding step: waits for the OurAirports download to finish.
+class _AirportDataStep extends StatelessWidget {
+  const _AirportDataStep({
+    super.key,
+    required this.progress,
+    required this.onContinue,
+    required this.onRetry,
+  });
+
+  final AirportSyncProgress progress;
+  final VoidCallback onContinue;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = progress.phase == AirportSyncPhase.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _StepHeader(
+          title: isError ? 'Download Failed' : 'Downloading Airport Data',
+          subtitle: isError
+              ? 'Check your connection and try again, or continue and '
+                    'retry later from the Airports tab'
+              : 'Fetching airports, runways and frequencies from OurAirports',
+        ),
+        const SizedBox(height: 24),
+        AirportSyncProgressIndicator(progress: progress),
+        const SizedBox(height: 24),
+        if (isError) ...[
+          _StepPrimaryButton(
+            label: 'Retry',
+            icon: const Icon(Icons.refresh, size: 24),
+            onPressed: onRetry,
+          ),
+          const SizedBox(height: 12),
+        ],
+        _StepSkipButton(
+          label: isError ? 'Continue Without Data' : 'Continue in Background',
+          onPressed: onContinue,
         ),
       ],
     );

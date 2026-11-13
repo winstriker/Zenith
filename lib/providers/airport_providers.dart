@@ -62,37 +62,36 @@ final countriesStreamProvider = StreamProvider<List<Country>>((ref) {
 });
 
 // ---------------------------------------------------------------------------
-// Legacy provider for airport download functionality
+// OurAirports download / sync
 // ---------------------------------------------------------------------------
 
-class AirportLoadNotifier extends Notifier<int> {
-  late final AirportsService _service;
+/// Progress of the OurAirports sync. Watching it starts the (daily) sync.
+class AirportLoadNotifier extends Notifier<AirportSyncProgress> {
+  late AirportsService _service;
 
   @override
-  int build() {
+  AirportSyncProgress build() {
     _service = ref.watch(airportServiceProvider);
-    _service.addListener(_onServiceChange);
-    ref.onDispose(() => _service.removeListener(_onServiceChange));
-    _service.loadData();
-    return 0;
+    void onChange() => state = _service.progress.value;
+    _service.progress.addListener(onChange);
+    ref.onDispose(() => _service.progress.removeListener(onChange));
+    // Deferred: loadData updates progress synchronously, which must not
+    // happen while this provider is building.
+    Future.microtask(_service.loadData);
+    return _service.progress.value;
   }
 
-  void _onServiceChange() {
-    state = state + 1;
-  }
-
-  Future<void> refresh() async {
-    _onServiceChange();
-    await _service.loadData(forceDownload: true);
-  }
+  Future<void> refresh() => _service.loadData(forceDownload: true);
 }
 
-final airportLoadProvider = NotifierProvider<AirportLoadNotifier, int>(
-  AirportLoadNotifier.new,
-);
+final airportLoadProvider =
+    NotifierProvider<AirportLoadNotifier, AirportSyncProgress>(
+      AirportLoadNotifier.new,
+    );
 
-/// Legacy AirportsService provider (for download functionality)
 final airportServiceProvider = Provider<AirportsService>((ref) {
   final db = ref.watch(databaseProvider);
-  return AirportsService(db);
+  final service = AirportsService(db);
+  ref.onDispose(service.dispose);
+  return service;
 });

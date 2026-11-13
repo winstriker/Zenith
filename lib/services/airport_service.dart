@@ -1,13 +1,21 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/csv_parser.dart';
 import 'database.dart';
+
+/// Called with the overall fraction (0–1) of the current stage and a
+/// human-readable description of what is happening.
+typedef SyncProgressCallback = void Function(double fraction, String message);
 
 class AirportsService {
   AirportsService(this.database) {
@@ -24,444 +32,527 @@ class AirportsService {
   final LogbookDatabase database;
 
   static const _baseUrl = 'https://davidmegginson.github.io/ourairports-data';
-  static const _airportsFile = 'airports.csv';
-  static const _frequenciesFile = 'airport-frequencies.csv';
-  static const _runwaysFile = 'runways.csv';
   static const _countriesFile = 'countries.csv';
   static const _regionsFile = 'regions.csv';
+  static const _airportsFile = 'airports.csv';
+  static const _runwaysFile = 'runways.csv';
+  static const _frequenciesFile = 'airport-frequencies.csv';
+  static const _files = [
+    _countriesFile,
+    _regionsFile,
+    _airportsFile,
+    _runwaysFile,
+    _frequenciesFile,
+  ];
   static const _lastTimeUpdatedPrefsKey = 'last_time_updated';
-  List<Function> callbacks = [];
 
-  var status = AirportServiceStatus.ready;
+  // Share of the overall progress bar given to each stage.
+  static const _downloadEnd = 0.40;
+  static const _parseEnd = 0.50;
+
+  /// Live progress of the OurAirports sync.
+  final progress = ValueNotifier<AirportSyncProgress>(
+    const AirportSyncProgress(AirportSyncPhase.idle),
+  );
+
   var isLocating = false;
   Position? position;
 
-  void addListener(Function fun) {
-    callbacks.add(fun);
-  }
+  bool get isBusy => progress.value.isRunning;
 
-  void removeListener(Function fun) {
-    callbacks.remove(fun);
-  }
+  void dispose() => progress.dispose();
 
-  void _notify() {
-    for (var fun in callbacks) {
-      fun();
-    }
-  }
-
-  static Future<Map<int, Airport>> _parseAirportsToMap(
-    http.Response response,
-  ) async {
-    final rows = parseCsv(response.body);
-
-    final airports = <int, Airport>{};
-    for (final row in rows.skip(1)) {
-      final id = _parseInt(row[0])!;
-      airports[id] = Airport(
-        id: id,
-        ident: row[1],
-        type: AirportType.fromCsvString(row[2]),
-        name: row[3],
-        latitudeDeg: _parseDouble(row[4]),
-        longitudeDeg: _parseDouble(row[5]),
-        elevationFt: _parseInt(row[6]),
-        continent: row[7],
-        isoCountry: row[8],
-        isoRegion: row[9],
-        municipality: row[10],
-        scheduledService: row[11] == 'yes',
-        icaoCode: row[12],
-        iataCode: row[13],
-        gpsCode: row[14],
-        localCode: row[15],
-        homeLink: row[16],
-        wikipediaLink: row[17],
-        keywords: row[18],
-      );
-    }
-    return airports;
-  }
-
-  static Future<void> _parseRunways(
-    http.Response response,
-    LogbookDatabase database,
-  ) async {
-    final rows = parseCsv(response.body);
-    if (rows.length < 2) return;
-    final runways = rows.skip(1).map((row) {
-      return RunwaysCompanion.insert(
-        id: Value(_parseInt(row[0])!),
-        airport: _parseInt(row[1])!,
-        lengthFt: Value(_parseInt(row[3])),
-        widthFt: Value(_parseInt(row[4])),
-        surface: Value(_nullIfEmpty(row[5])),
-        lighted: Value(row[6] == '1'),
-        closed: Value(row[7] == '1'),
-        leIdent: Value(_nullIfEmpty(row[8])),
-        leLatitudeDeg: Value(_parseDouble(row[9])),
-        leLongitudeDeg: Value(_parseDouble(row[10])),
-        leElevationFt: Value(_parseInt(row[11])),
-        leHeadingDegT: Value(_parseDouble(row[12])),
-        leDisplacedThresholdFt: Value(_parseInt(row[13])),
-        heIdent: Value(_nullIfEmpty(row[14])),
-        heLatitudeDeg: Value(_parseDouble(row[15])),
-        heLongitudeDeg: Value(_parseDouble(row[16])),
-        heElevationFt: Value(_parseInt(row[17])),
-        heHeadingDegT: Value(_parseDouble(row[18])),
-        heDisplacedThresholdFt: Value(_parseInt(row[19])),
-      );
-    });
-
-    await database.runways.deleteAll();
-    await database.batch((batch) {
-      database.runways.insertAll(runways);
-    });
-  }
-
-  static Future<void> _parseFrequencies(
-    http.Response response,
-    LogbookDatabase database,
-  ) async {
-    final rows = parseCsv(response.body);
-    if (rows.length < 2) return;
-
-    final frequencies = rows.skip(1).map((row) {
-      return FrequenciesCompanion.insert(
-        id: Value(_parseInt(row[0])!),
-        airport: _parseInt(row[1])!,
-        type: Value(_nullIfEmpty(row[3])),
-        description: Value(_nullIfEmpty(row[4])),
-        frequencyMhz: Value(_nullIfEmpty(row[5])),
-      );
-    });
-    await database.frequencies.deleteAll();
-
-    await database.batch((batch) {
-      database.frequencies.insertAll(frequencies);
-    });
-  }
-
-  static Future<Map<String, Country>> _parseCountriesToMap(
-    http.Response response,
-  ) async {
-    final rows = parseCsv(response.body);
-
-    final countries = <String, Country>{};
-    for (final row in rows.skip(1)) {
-      final code = row[1];
-      countries[code] = Country(
-        id: _parseInt(row[0])!,
-        code: code,
-        name: row[2],
-        continent: row[3],
-        wikipediaLink: _nullIfEmpty(row[4]),
-        keywords: _nullIfEmpty(row[5]),
-      );
-    }
-    return countries;
-  }
-
-  static Future<Map<String, Region>> _parseRegionsToMap(
-    http.Response response,
-  ) async {
-    final rows = parseCsv(response.body);
-    if (rows.length < 2) return {};
-
-    final regions = <String, Region>{};
-    for (final row in rows.skip(1)) {
-      final code = row[1];
-      regions[code] = Region(
-        id: _parseInt(row[0])!,
-        code: code,
-        localCode: _nullIfEmpty(row[2]),
-        name: row[3],
-        continent: row[4],
-        isoCountry: row[5],
-        wikipediaLink: _nullIfEmpty(row[6]),
-        keywords: _nullIfEmpty(row[7]),
-      );
-    }
-    return regions;
+  void _setProgress(
+    AirportSyncPhase phase, {
+    double? fraction,
+    String message = '',
+    Object? error,
+  }) {
+    progress.value = AirportSyncProgress(
+      phase,
+      fraction: fraction,
+      message: message,
+      error: error,
+    );
   }
 
   static final _syncLogger = Logger("Airports Sync");
 
-  static Future<void> _syncAirportsWithSmartUpdate(
-    Map<int, Airport> newAirports,
-    LogbookDatabase database,
-  ) async {
-    final existingAirportsMap = {
-      for (var a in await database.select(database.airports).get()) a.id: a,
-    };
+  Future<void> loadData({bool forceDownload = false}) async {
+    if (isBusy) return;
+    // Mark as running synchronously so concurrent calls bail out above.
+    _setProgress(
+      AirportSyncPhase.downloading,
+      fraction: 0,
+      message: 'Preparing download…',
+    );
 
-    final newIds = newAirports.keys.toSet();
-    final existingIds = existingAirportsMap.keys.toSet();
-
-    final addedIds = newIds.difference(existingIds);
-    final removedIds = existingIds.difference(newIds);
-    final commonIds = newIds.intersection(existingIds);
-
-    for (final id in removedIds) {
-      final isReferenced = await database.isAirportReferencedInFlights(id);
-      if (!isReferenced) {
-        await (database.delete(
-          database.airports,
-        )..where((a) => a.id.equals(id))).go();
-        _syncLogger.log(Level.INFO, "Removed unreferenced airport: $id");
-      } else {
-        _syncLogger.log(Level.INFO, "Keeping referenced airport: $id");
-      }
+    final prefs = await SharedPreferences.getInstance();
+    if (!forceDownload && _downloadedToday(prefs)) {
+      _syncLogger.info("Already downloaded today!");
+      _setProgress(
+        AirportSyncPhase.done,
+        fraction: 1,
+        message: 'Airport data is up to date',
+      );
+      return;
     }
 
-    for (final id in addedIds) {
-      final airport = newAirports[id]!;
-      await database
-          .into(database.airports)
-          .insert(
-            AirportsCompanion.insert(
-              id: Value(airport.id),
-              ident: Value(airport.ident),
-              type: airport.type,
-              name: Value(airport.name),
-              latitudeDeg: Value(airport.latitudeDeg),
-              longitudeDeg: Value(airport.longitudeDeg),
-              elevationFt: Value(airport.elevationFt),
-              continent: airport.continent,
-              isoCountry: airport.isoCountry,
-              isoRegion: airport.isoRegion,
-              municipality: Value(airport.municipality),
-              scheduledService: Value(airport.scheduledService),
-              icaoCode: Value(airport.icaoCode),
-              iataCode: Value(airport.iataCode),
-              gpsCode: Value(airport.gpsCode),
-              localCode: Value(airport.localCode),
-              homeLink: Value(airport.homeLink),
-              wikipediaLink: Value(airport.wikipediaLink),
-              keywords: Value(airport.keywords),
-            ),
-          );
-      _syncLogger.log(
-        Level.INFO,
-        "Added new airport: ${airport.ident} (${airport.id})",
-      );
-    }
+    final stopwatch = Stopwatch()..start();
+    // autoUncompress off: bytes received then match Content-Length (the
+    // compressed size), so the % is accurate. Gunzip happens in the isolate.
+    final client = HttpClient()..autoUncompress = false;
+    try {
+      final bodies = await _downloadAll(client);
 
-    final commonIdsList = commonIds.toList();
-    if (commonIdsList.isNotEmpty) {
-      final referencedMap = await database.areAirportsReferencedInFlights(
-        commonIdsList,
+      _setProgress(
+        AirportSyncPhase.parsing,
+        fraction: _downloadEnd,
+        message: 'Processing airport data…',
+      );
+      final parsed = await _parseInBackground(bodies);
+
+      _setProgress(
+        AirportSyncPhase.saving,
+        fraction: _parseEnd,
+        message: 'Saving airport data…',
+      );
+      final summary = await syncAirportData(
+        database,
+        parsed,
+        onProgress: (f, message) => _setProgress(
+          AirportSyncPhase.saving,
+          fraction: _parseEnd + f * (1 - _parseEnd),
+          message: message,
+        ),
       );
 
-      for (final id in commonIdsList) {
-        final newAirport = newAirports[id]!;
-        final existingAirport = existingAirportsMap[id]!;
-        final isReferenced = referencedMap[id] ?? false;
-
-        final hasChanges =
-            existingAirport.ident != newAirport.ident ||
-            existingAirport.type != newAirport.type ||
-            existingAirport.name != newAirport.name ||
-            existingAirport.latitudeDeg != newAirport.latitudeDeg ||
-            existingAirport.longitudeDeg != newAirport.longitudeDeg ||
-            existingAirport.elevationFt != newAirport.elevationFt ||
-            existingAirport.continent != newAirport.continent ||
-            existingAirport.isoCountry != newAirport.isoCountry ||
-            existingAirport.isoRegion != newAirport.isoRegion ||
-            existingAirport.municipality != newAirport.municipality ||
-            existingAirport.scheduledService != newAirport.scheduledService ||
-            existingAirport.icaoCode != newAirport.icaoCode ||
-            existingAirport.iataCode != newAirport.iataCode ||
-            existingAirport.gpsCode != newAirport.gpsCode ||
-            existingAirport.localCode != newAirport.localCode ||
-            existingAirport.homeLink != newAirport.homeLink ||
-            existingAirport.wikipediaLink != newAirport.wikipediaLink ||
-            existingAirport.keywords != newAirport.keywords;
-
-        if (hasChanges) {
-          if (!isReferenced) {
-            await (database.update(
-              database.airports,
-            )..where((a) => a.id.equals(id))).write(
-              AirportsCompanion(
-                ident: Value(newAirport.ident),
-                type: Value(newAirport.type),
-                name: Value(newAirport.name),
-                latitudeDeg: Value(newAirport.latitudeDeg),
-                longitudeDeg: Value(newAirport.longitudeDeg),
-                elevationFt: Value(newAirport.elevationFt),
-                continent: Value(newAirport.continent),
-                isoCountry: Value(newAirport.isoCountry),
-                isoRegion: Value(newAirport.isoRegion),
-                municipality: Value(newAirport.municipality),
-                scheduledService: Value(newAirport.scheduledService),
-                icaoCode: Value(newAirport.icaoCode),
-                iataCode: Value(newAirport.iataCode),
-                gpsCode: Value(newAirport.gpsCode),
-                localCode: Value(newAirport.localCode),
-                homeLink: Value(newAirport.homeLink),
-                wikipediaLink: Value(newAirport.wikipediaLink),
-                keywords: Value(newAirport.keywords),
-              ),
-            );
-            _syncLogger.log(
-              Level.INFO,
-              "Updated airport: ${newAirport.ident} ($id)",
-            );
-          } else {
-            final newId = await database
-                .into(database.airports)
-                .insert(
-                  AirportsCompanion.insert(
-                    ident: Value(newAirport.ident),
-                    type: newAirport.type,
-                    name: Value(newAirport.name),
-                    latitudeDeg: Value(newAirport.latitudeDeg),
-                    longitudeDeg: Value(newAirport.longitudeDeg),
-                    elevationFt: Value(newAirport.elevationFt),
-                    continent: newAirport.continent,
-                    isoCountry: newAirport.isoRegion,
-                    isoRegion: newAirport.isoRegion,
-                    municipality: Value(newAirport.municipality),
-                    scheduledService: Value(newAirport.scheduledService),
-                    icaoCode: Value(newAirport.icaoCode),
-                    iataCode: Value(newAirport.iataCode),
-                    gpsCode: Value(newAirport.gpsCode),
-                    localCode: Value(newAirport.localCode),
-                    homeLink: Value(newAirport.homeLink),
-                    wikipediaLink: Value(newAirport.wikipediaLink),
-                    keywords: Value(newAirport.keywords),
-                  ),
-                );
-            _syncLogger.log(
-              Level.INFO,
-              "Created new version of referenced airport: ${newAirport.ident} (old: $id, new: $newId)",
-            );
-          }
-        }
-      }
+      await prefs.setInt(
+        _lastTimeUpdatedPrefsKey,
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      _syncLogger.info('$summary in ${stopwatch.elapsedMilliseconds} ms');
+      _setProgress(
+        AirportSyncPhase.done,
+        fraction: 1,
+        message: 'Airport data updated',
+      );
+    } catch (e, st) {
+      logger.severe('Airport data sync failed', e, st);
+      _setProgress(
+        AirportSyncPhase.error,
+        message: 'Could not download airport data',
+        error: e,
+      );
+    } finally {
+      client.close(force: true);
     }
   }
 
-  Future<void> loadData({bool forceDownload = false}) async {
-    if (status.type == StatusType.downloading) return;
-    final prefs = await SharedPreferences.getInstance();
-    if (!forceDownload) {
-      final lastTimeUpdated = prefs.getInt(_lastTimeUpdatedPrefsKey);
-      if (lastTimeUpdated != null) {
-        final last = DateTime.fromMillisecondsSinceEpoch(lastTimeUpdated);
-        final today = DateTime.now();
-        final todayMidnight = DateTime(today.year, today.month, today.day);
-        if (todayMidnight.isBefore(last) ||
-            todayMidnight.isAtSameMomentAs(last)) {
-          _syncLogger.log(Level.INFO, "Already downloaded today!");
-          return;
+  static bool _downloadedToday(SharedPreferences prefs) {
+    final lastTimeUpdated = prefs.getInt(_lastTimeUpdatedPrefsKey);
+    if (lastTimeUpdated == null) return false;
+    final last = DateTime.fromMillisecondsSinceEpoch(lastTimeUpdated);
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    return !last.isBefore(todayMidnight);
+  }
+
+  /// Downloads every CSV in parallel, reporting byte-level progress.
+  Future<List<_Download>> _downloadAll(HttpClient client) {
+    final received = List<int>.filled(_files.length, 0);
+    final totals = List<int?>.filled(_files.length, null);
+    final headersReceived = List<bool>.filled(_files.length, false);
+    var completed = 0;
+    final throttle = Stopwatch()..start();
+
+    void report({bool force = false}) {
+      if (!force && throttle.elapsedMilliseconds < 100) return;
+      throttle.reset();
+      final receivedBytes = received.fold<int>(0, (a, b) => a + b);
+      final allTotalsKnown =
+          headersReceived.every((h) => h) && totals.every((t) => t != null);
+      final double fraction;
+      final String message;
+      if (allTotalsKnown) {
+        final totalBytes = totals.fold<int>(0, (a, b) => a + b!);
+        fraction = totalBytes == 0 ? 0 : receivedBytes / totalBytes;
+        message =
+            'Downloading airport data — '
+            '${_mb(receivedBytes)} / ${_mb(totalBytes)} MB';
+      } else {
+        fraction = completed / _files.length;
+        message = 'Downloading airport data — ${_mb(receivedBytes)} MB';
+      }
+      _setProgress(
+        AirportSyncPhase.downloading,
+        fraction: fraction.clamp(0, 1) * _downloadEnd,
+        message: message,
+      );
+    }
+
+    Future<_Download> download(int i) async {
+      final request = await client.getUrl(Uri.parse('$_baseUrl/${_files[i]}'));
+      request.headers.set(HttpHeaders.acceptEncodingHeader, 'gzip');
+      final response = await request.close();
+      if (response.statusCode != HttpStatus.ok) {
+        await response.drain<void>();
+        throw HttpException(
+          'HTTP ${response.statusCode} while downloading ${_files[i]}',
+        );
+      }
+      final encoding = response.headers.value(
+        HttpHeaders.contentEncodingHeader,
+      );
+      final length = response.contentLength;
+      totals[i] = length > 0 ? length : null;
+      headersReceived[i] = true;
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response) {
+        builder.add(chunk);
+        received[i] += chunk.length;
+        report();
+      }
+      completed++;
+      report(force: true);
+      return _Download(
+        builder.takeBytes(),
+        gzipped: encoding?.toLowerCase() == 'gzip',
+      );
+    }
+
+    return Future.wait([for (var i = 0; i < _files.length; i++) download(i)]);
+  }
+
+  static String _mb(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);
+
+  /// Static on purpose: a closure created inside an instance method shares
+  /// its context with sibling closures and may capture `this` (DB, ports,
+  /// listeners), which can't be sent to another isolate.
+  static Future<ParsedAirportData> _parseInBackground(List<_Download> bodies) =>
+      Isolate.run(() => _decodeAndParse(bodies));
+
+  /// Runs in a background isolate: gunzips and decodes the downloaded bytes
+  /// (same order as [_files]) and parses them into rows ready to be written.
+  static ParsedAirportData _decodeAndParse(List<_Download> bodies) {
+    String text(int i) {
+      final d = bodies[i];
+      return utf8.decode(
+        d.gzipped ? gzip.decode(d.bytes) : d.bytes,
+        allowMalformed: true,
+      );
+    }
+
+    return parseAirportData(
+      countriesCsv: text(0),
+      regionsCsv: text(1),
+      airportsCsv: text(2),
+      runwaysCsv: text(3),
+      frequenciesCsv: text(4),
+    );
+  }
+
+  /// Parses the OurAirports CSV files. Pure and synchronous, so it can run
+  /// in an isolate.
+  static ParsedAirportData parseAirportData({
+    required String countriesCsv,
+    required String regionsCsv,
+    required String airportsCsv,
+    required String runwaysCsv,
+    required String frequenciesCsv,
+  }) {
+    final countries = <CountriesCompanion>[];
+    for (final row in parseCsv(countriesCsv).skip(1)) {
+      if (row.length < 6) continue;
+      final id = _parseInt(row[0]);
+      if (id == null) continue;
+      countries.add(
+        CountriesCompanion.insert(
+          id: Value(id),
+          code: row[1],
+          name: row[2],
+          continent: row[3],
+          wikipediaLink: Value(_nullIfEmpty(row[4])),
+          keywords: Value(_nullIfEmpty(row[5])),
+        ),
+      );
+    }
+
+    final regions = <RegionsCompanion>[];
+    for (final row in parseCsv(regionsCsv).skip(1)) {
+      if (row.length < 8) continue;
+      final id = _parseInt(row[0]);
+      if (id == null) continue;
+      regions.add(
+        RegionsCompanion.insert(
+          id: Value(id),
+          code: row[1],
+          localCode: Value(_nullIfEmpty(row[2])),
+          name: row[3],
+          continent: row[4],
+          isoCountry: row[5],
+          wikipediaLink: Value(_nullIfEmpty(row[6])),
+          keywords: Value(_nullIfEmpty(row[7])),
+        ),
+      );
+    }
+
+    final airports = <Airport>[];
+    final seenIds = <int>{};
+    final seenIdents = <String>{};
+    for (final row in parseCsv(airportsCsv).skip(1)) {
+      if (row.length < 19) continue;
+      final id = _parseInt(row[0]);
+      if (id == null || !seenIds.add(id)) continue;
+      // `ident` is UNIQUE: drop duplicates instead of failing the sync.
+      final ident = seenIdents.add(row[1]) ? row[1] : null;
+      airports.add(
+        Airport(
+          id: id,
+          ident: ident,
+          type: AirportType.fromCsvString(row[2]),
+          name: row[3],
+          latitudeDeg: _parseDouble(row[4]),
+          longitudeDeg: _parseDouble(row[5]),
+          elevationFt: _parseInt(row[6]),
+          continent: row[7],
+          isoCountry: row[8],
+          isoRegion: row[9],
+          municipality: row[10],
+          scheduledService: row[11] == 'yes',
+          icaoCode: row[12],
+          iataCode: row[13],
+          gpsCode: row[14],
+          localCode: row[15],
+          homeLink: row[16],
+          wikipediaLink: row[17],
+          keywords: row[18],
+        ),
+      );
+    }
+
+    final runways = <RunwaysCompanion>[];
+    for (final row in parseCsv(runwaysCsv).skip(1)) {
+      if (row.length < 20) continue;
+      final id = _parseInt(row[0]);
+      final airport = _parseInt(row[1]);
+      if (id == null || airport == null) continue;
+      runways.add(
+        RunwaysCompanion.insert(
+          id: Value(id),
+          airport: airport,
+          lengthFt: Value(_parseInt(row[3])),
+          widthFt: Value(_parseInt(row[4])),
+          surface: Value(_nullIfEmpty(row[5])),
+          lighted: Value(row[6] == '1'),
+          closed: Value(row[7] == '1'),
+          leIdent: Value(_nullIfEmpty(row[8])),
+          leLatitudeDeg: Value(_parseDouble(row[9])),
+          leLongitudeDeg: Value(_parseDouble(row[10])),
+          leElevationFt: Value(_parseInt(row[11])),
+          leHeadingDegT: Value(_parseDouble(row[12])),
+          leDisplacedThresholdFt: Value(_parseInt(row[13])),
+          heIdent: Value(_nullIfEmpty(row[14])),
+          heLatitudeDeg: Value(_parseDouble(row[15])),
+          heLongitudeDeg: Value(_parseDouble(row[16])),
+          heElevationFt: Value(_parseInt(row[17])),
+          heHeadingDegT: Value(_parseDouble(row[18])),
+          heDisplacedThresholdFt: Value(_parseInt(row[19])),
+        ),
+      );
+    }
+
+    final frequencies = <FrequenciesCompanion>[];
+    for (final row in parseCsv(frequenciesCsv).skip(1)) {
+      if (row.length < 6) continue;
+      final id = _parseInt(row[0]);
+      final airport = _parseInt(row[1]);
+      if (id == null || airport == null) continue;
+      frequencies.add(
+        FrequenciesCompanion.insert(
+          id: Value(id),
+          airport: airport,
+          type: Value(_nullIfEmpty(row[3])),
+          description: Value(_nullIfEmpty(row[4])),
+          frequencyMhz: Value(_nullIfEmpty(row[5])),
+        ),
+      );
+    }
+
+    return ParsedAirportData(
+      countries: countries,
+      regions: regions,
+      airports: airports,
+      runways: runways,
+      frequencies: frequencies,
+    );
+  }
+
+  static const _chunkSize = 5000;
+
+  /// Writes [data] into [db] in a single transaction, so a failure leaves the
+  /// previous data untouched.
+  ///
+  /// Airports referenced by flights are never deleted; when OurAirports
+  /// changes them they are updated in place (same id, so flights keep
+  /// pointing at them).
+  static Future<AirportSyncSummary> syncAirportData(
+    LogbookDatabase db,
+    ParsedAirportData data, {
+    SyncProgressCallback? onProgress,
+  }) {
+    // Progress is measured in rows; airports are counted once for the diff.
+    final totalUnits = max(
+      1,
+      data.countries.length +
+          data.regions.length +
+          data.airports.length +
+          data.runways.length +
+          data.frequencies.length,
+    );
+    var doneUnits = 0;
+    void advance(int units, String message) {
+      doneUnits += units;
+      onProgress?.call(min(1, doneUnits / totalUnits), message);
+    }
+
+    return db.transaction(() async {
+      // Countries & regions: small, full replace.
+      await db.countries.deleteAll();
+      await _insertChunked(
+        db,
+        db.countries,
+        data.countries,
+        (n) => advance(n, 'Saving countries'),
+      );
+      await db.regions.deleteAll();
+      await _insertChunked(
+        db,
+        db.regions,
+        data.regions,
+        (n) => advance(n, 'Saving regions'),
+      );
+
+      // Airports: diff against what's stored.
+      final referenced = await db.getReferencedAirportIds();
+      final existing = {
+        for (final a in await db.select(db.airports).get()) a.id: a,
+      };
+      final newIds = <int>{for (final a in data.airports) a.id};
+      final newIdents = <String>{
+        for (final a in data.airports)
+          if (a.ident != null) a.ident!,
+      };
+
+      final toDelete = <int>[];
+      final keptIdentClashes = <int>[];
+      var kept = 0;
+      for (final old in existing.values) {
+        if (newIds.contains(old.id)) continue;
+        if (referenced.contains(old.id)) {
+          kept++;
+          if (old.ident != null && newIdents.contains(old.ident)) {
+            keptIdentClashes.add(old.id);
+          }
+        } else {
+          toDelete.add(old.id);
         }
       }
+
+      final toUpsert = <Airport>[];
+      final identChanged = <int>[];
+      var added = 0;
+      var updated = 0;
+      for (final airport in data.airports) {
+        final old = existing[airport.id];
+        if (old == null) {
+          added++;
+          toUpsert.add(airport);
+        } else if (old != airport) {
+          updated++;
+          toUpsert.add(airport);
+          if (old.ident != airport.ident) identChanged.add(airport.id);
+        }
+      }
+
+      // Free up idents before writing so the UNIQUE(ident) constraint can't
+      // fire: removed rows go away, and rows whose ident is about to move
+      // (or is taken by a new airport) are cleared first.
+      for (final chunk in _chunks(toDelete)) {
+        await (db.delete(db.airports)..where((a) => a.id.isIn(chunk))).go();
+      }
+      for (final chunk in _chunks([...identChanged, ...keptIdentClashes])) {
+        await (db.update(db.airports)..where((a) => a.id.isIn(chunk))).write(
+          const AirportsCompanion(ident: Value(null)),
+        );
+      }
+
+      // Unchanged airports still count towards progress.
+      final airportUnitsPerWrite = toUpsert.isEmpty
+          ? 0.0
+          : data.airports.length / toUpsert.length;
+      if (toUpsert.isEmpty) advance(data.airports.length, 'Saving airports');
+      var written = 0;
+      var reportedUnits = 0;
+      for (final chunk in _chunks(toUpsert)) {
+        await db.batch((b) => b.insertAllOnConflictUpdate(db.airports, chunk));
+        written += chunk.length;
+        final units = (written * airportUnitsPerWrite).round();
+        advance(
+          units - reportedUnits,
+          'Saving airports $written / ${toUpsert.length}',
+        );
+        reportedUnits = units;
+      }
+
+      // Runways & frequencies: full replace, skipping orphans.
+      final airportIds = {...newIds, ...existing.keys}..removeAll(toDelete);
+      await db.runways.deleteAll();
+      await _insertChunked(
+        db,
+        db.runways,
+        data.runways.where((r) => airportIds.contains(r.airport.value)),
+        (n) => advance(n, 'Saving runways'),
+        total: data.runways.length,
+      );
+      await db.frequencies.deleteAll();
+      await _insertChunked(
+        db,
+        db.frequencies,
+        data.frequencies.where((f) => airportIds.contains(f.airport.value)),
+        (n) => advance(n, 'Saving frequencies'),
+        total: data.frequencies.length,
+      );
+
+      return AirportSyncSummary(
+        added: added,
+        updated: updated,
+        deleted: toDelete.length,
+        kept: kept,
+      );
+    });
+  }
+
+  static Future<void> _insertChunked<T extends Table, D>(
+    LogbookDatabase db,
+    TableInfo<T, D> table,
+    Iterable<Insertable<D>> rows,
+    void Function(int count) onUnits, {
+    int? total,
+  }) async {
+    final list = rows.toList();
+    for (final chunk in _chunks(list)) {
+      await db.batch((b) => b.insertAll(table, chunk));
+      onUnits(chunk.length);
     }
+    // Rows that were filtered out still count towards progress.
+    if (total != null && total > list.length) onUnits(total - list.length);
+  }
 
-    final client = http.Client();
-    try {
-      status = AirportServiceStatus.downloadingCountries;
-      _notify();
-      final countriesResponse = await client.get(
-        Uri.parse('$_baseUrl/$_countriesFile'),
-      );
-
-      status = AirportServiceStatus.downloadingRegions;
-      _notify();
-      final regionsResponse = await client.get(
-        Uri.parse('$_baseUrl/$_regionsFile'),
-      );
-
-      status = AirportServiceStatus.downloadingAirports;
-      _notify();
-      final airportsResponse = await client.get(
-        Uri.parse('$_baseUrl/$_airportsFile'),
-      );
-
-      final newCountries = await _parseCountriesToMap(countriesResponse);
-      final newRegions = await _parseRegionsToMap(regionsResponse);
-      final newAirports = await _parseAirportsToMap(airportsResponse);
-
-      final countriesData = newCountries.values
-          .map(
-            (c) => CountriesCompanion.insert(
-              id: Value(c.id),
-              code: c.code,
-              name: c.name,
-              continent: c.continent,
-              wikipediaLink: Value(c.wikipediaLink),
-              keywords: Value(c.keywords),
-            ),
-          )
-          .toList();
-
-      final regionsData = newRegions.values
-          .map(
-            (r) => RegionsCompanion.insert(
-              id: Value(r.id),
-              code: r.code,
-              localCode: Value(r.localCode),
-              name: r.name,
-              continent: r.continent,
-              isoCountry: r.isoCountry,
-              wikipediaLink: Value(r.wikipediaLink),
-              keywords: Value(r.keywords),
-            ),
-          )
-          .toList();
-
-      final frequenciesResponse = await client.get(
-        Uri.parse('$_baseUrl/$_frequenciesFile'),
-      );
-      final runwaysResponse = await client.get(
-        Uri.parse('$_baseUrl/$_runwaysFile'),
-      );
-
-      status = AirportServiceStatus.downloadingRunwaysAndFrequencies;
-      _notify();
-
-      await database.computeWithDatabase(
-        computation: (database) async {
-          await database.countries.deleteAll();
-          await database.batch((batch) {
-            database.countries.insertAll(countriesData);
-          });
-
-          await database.regions.deleteAll();
-          await database.batch((batch) {
-            database.regions.insertAll(regionsData);
-          });
-
-          await AirportsService._syncAirportsWithSmartUpdate(
-            newAirports,
-            database,
-          );
-
-          await Future.wait([
-            AirportsService._parseFrequencies(frequenciesResponse, database),
-            AirportsService._parseRunways(runwaysResponse, database),
-          ]);
-        },
-        connect: LogbookDatabase.new,
-      );
-    } catch (e) {
-      status = AirportServiceStatus.error;
-      logger.log(Level.SEVERE, 'Airport data sync failed', e);
-      _notify();
-      return;
-    } finally {
-      client.close();
+  static Iterable<List<E>> _chunks<E>(List<E> list) sync* {
+    for (var i = 0; i < list.length; i += _chunkSize) {
+      yield list.sublist(i, min(i + _chunkSize, list.length));
     }
-
-    await prefs.setInt(
-      _lastTimeUpdatedPrefsKey,
-      DateTime.now().millisecondsSinceEpoch,
-    );
-
-    status = AirportServiceStatus.ready;
-    _notify();
   }
 
   Future<AirportWithEverything?> getCompleteAirportData(int id) async {
@@ -576,33 +667,78 @@ class AirportsService {
   }
 }
 
-enum AirportServiceStatus {
-  ready(message: "Ready", type: StatusType.ready),
-  downloadingCountries(
-    message: "Downloading Countries",
-    type: StatusType.downloading,
-  ),
-  downloadingRegions(
-    message: "Downloading Regions",
-    type: StatusType.downloading,
-  ),
-  downloadingAirports(
-    message: "Downloading Airports",
-    type: StatusType.downloading,
-  ),
-  downloadingRunwaysAndFrequencies(
-    message: "Downloading Runways and Frequencies",
-    type: StatusType.downloading,
-  ),
-  error(message: "Error occurred while downloading!", type: StatusType.error);
-
-  const AirportServiceStatus({required this.message, required this.type});
-
-  final String message;
-  final StatusType type;
+/// Raw body of one downloaded file.
+class _Download {
+  const _Download(this.bytes, {required this.gzipped});
+  final Uint8List bytes;
+  final bool gzipped;
 }
 
-enum StatusType { ready, downloading, error }
+enum AirportSyncPhase { idle, downloading, parsing, saving, done, error }
+
+/// Snapshot of the OurAirports sync progress.
+@immutable
+class AirportSyncProgress {
+  const AirportSyncProgress(
+    this.phase, {
+    this.fraction,
+    this.message = '',
+    this.error,
+  });
+
+  final AirportSyncPhase phase;
+
+  /// Overall completion between 0 and 1, or null when unknown.
+  final double? fraction;
+  final String message;
+  final Object? error;
+
+  bool get isRunning =>
+      phase == AirportSyncPhase.downloading ||
+      phase == AirportSyncPhase.parsing ||
+      phase == AirportSyncPhase.saving;
+
+  /// Rounded percentage, or null when [fraction] is unknown.
+  int? get percent => fraction == null ? null : (fraction! * 100).round();
+}
+
+/// Rows parsed from the OurAirports CSVs, ready to be written.
+class ParsedAirportData {
+  const ParsedAirportData({
+    required this.countries,
+    required this.regions,
+    required this.airports,
+    required this.runways,
+    required this.frequencies,
+  });
+
+  final List<CountriesCompanion> countries;
+  final List<RegionsCompanion> regions;
+  final List<Airport> airports;
+  final List<RunwaysCompanion> runways;
+  final List<FrequenciesCompanion> frequencies;
+}
+
+class AirportSyncSummary {
+  const AirportSyncSummary({
+    required this.added,
+    required this.updated,
+    required this.deleted,
+    required this.kept,
+  });
+
+  final int added;
+  final int updated;
+  final int deleted;
+
+  /// Airports removed from OurAirports but kept because flights use them.
+  final int kept;
+
+  @override
+  String toString() =>
+      'Airport sync: $added added, $updated updated, $deleted deleted, '
+      '$kept kept (used in flights)';
+}
 
 double _distance(double lat1, double lon1, double lat2, double lon2) {
   const radius = 6371;

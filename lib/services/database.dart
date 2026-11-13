@@ -837,13 +837,13 @@ class LogbookDatabase extends _$LogbookDatabase {
     return arrivalCount.isNotEmpty;
   }
 
-  Future<Map<int, bool>> areAirportsReferencedInFlights(
-    List<int> airportIds,
-  ) async {
-    final result = <int, bool>{};
-    for (final id in airportIds) {
-      result[id] = await isAirportReferencedInFlights(id);
-    }
-    return result;
+  /// Ids of every airport used as departure or arrival by any flight.
+  Future<Set<int>> getReferencedAirportIds() async {
+    final rows = await customSelect(
+      'SELECT departure AS id FROM flights WHERE departure IS NOT NULL '
+      'UNION SELECT arrival AS id FROM flights WHERE arrival IS NOT NULL',
+      readsFrom: {flights},
+    ).get();
+    return {for (final row in rows) row.read<int>('id')};
   }
 }

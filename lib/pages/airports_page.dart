@@ -7,6 +7,7 @@ import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
 import '../services/database.dart';
 import '../widgets/airport_card.dart';
+import '../widgets/airport_sync_progress.dart';
 import '../widgets/empty_state.dart';
 import 'airport_detail_page.dart';
 
@@ -107,9 +108,20 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(airportLoadProvider);
-    // Reload the list when the airport data download progresses/finishes.
-    ref.listen(airportLoadProvider, (_, _) => setState(_reloadAirports));
+    final sync = ref.watch(airportLoadProvider);
+    // Reload the list once a sync has written new data.
+    ref.listen(airportLoadProvider, (prev, next) {
+      if (next.phase == AirportSyncPhase.done &&
+          prev?.phase != AirportSyncPhase.done) {
+        setState(() {
+          _countriesFuture = ref
+              .read(airportServiceProvider)
+              .getCountriesList();
+          _cachedResults = [];
+          _reloadAirports();
+        });
+      }
+    });
     final service = ref.watch(airportServiceProvider);
     final isFiltering = _isFiltering;
 
@@ -124,15 +136,6 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           },
         ),
         actions: [
-          if (service.status.type == StatusType.downloading)
-            const Padding(
-              padding: EdgeInsets.only(right: 8),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
           if (service.isLocating)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -192,18 +195,26 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh data',
-            onPressed: () {
-              setState(() {
-                _searchQuery = '';
-                _selectedCountry = null;
-                _selectedType = null;
-                _searchController.clear();
-                _reloadAirports();
-              });
-              ref.read(airportLoadProvider.notifier).refresh();
-            },
+            onPressed: sync.isRunning
+                ? null
+                : () {
+                    setState(() {
+                      _searchQuery = '';
+                      _selectedCountry = null;
+                      _selectedType = null;
+                      _searchController.clear();
+                      _reloadAirports();
+                    });
+                    ref.read(airportLoadProvider.notifier).refresh();
+                  },
           ),
         ],
+        bottom: sync.isRunning || sync.phase == AirportSyncPhase.error
+            ? _SyncBanner(
+                progress: sync,
+                onRetry: () => ref.read(airportLoadProvider.notifier).refresh(),
+              )
+            : null,
       ),
       body: FutureBuilder(
         future: _airportsFuture,
@@ -288,6 +299,40 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Shown under the app bar while airport data is syncing, or after it failed.
+class _SyncBanner extends StatelessWidget implements PreferredSizeWidget {
+  const _SyncBanner({required this.progress, required this.onRetry});
+
+  final AirportSyncProgress progress;
+  final VoidCallback onRetry;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(48);
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = progress.phase == AirportSyncPhase.error;
+    return SizedBox(
+      height: preferredSize.height,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 8, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: AirportSyncProgressIndicator(
+                progress: progress,
+                compact: true,
+              ),
+            ),
+            if (isError)
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
       ),
     );
   }
