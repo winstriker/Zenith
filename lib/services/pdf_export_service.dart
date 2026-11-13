@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
+import 'package:logging/logging.dart';
 
 import '../models/crew_rules.dart';
 import '../providers/user_provider.dart';
@@ -9,6 +10,8 @@ import 'database.dart';
 import 'file_opener.dart';
 
 const _rowsPerPage = 20;
+
+final _log = Logger('PDF Export');
 
 class _Totals {
   Duration se = Duration.zero;
@@ -56,13 +59,35 @@ class PdfExportService {
     );
     final converter = HtmlToPdfConverter();
     final directory = await FileOpener.exportsDirectory();
-    return converter.convertHtmlToPdf(
+    final file = await converter.convertHtmlToPdf(
       html: html,
       targetDirectory: directory.path,
       targetName:
           'logbook_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}',
       pageSize: PdfPageSize.a4.landscape,
     );
+    // Only after a successful export, so a failure keeps the previous one.
+    await _deleteOlderExports(directory, keep: file);
+    return file;
+  }
+
+  static Future<void> _deleteOlderExports(
+    Directory directory, {
+    required File keep,
+  }) async {
+    await for (final entity in directory.list()) {
+      final name = entity.uri.pathSegments.last;
+      if (entity is File &&
+          entity.path != keep.path &&
+          name.startsWith('logbook_') &&
+          name.endsWith('.pdf')) {
+        try {
+          await entity.delete();
+        } catch (e, st) {
+          _log.warning('Could not delete old export ${entity.path}', e, st);
+        }
+      }
+    }
   }
 
   static String _fmtDur(Duration d) {
