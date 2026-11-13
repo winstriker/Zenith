@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../models/crew_rules.dart';
 import '../providers/user_provider.dart';
 import 'database.dart';
+import 'file_opener.dart';
 
 const _rowsPerPage = 20;
 
@@ -55,11 +55,12 @@ class PdfExportService {
       picNameMode: picNameMode,
     );
     final converter = HtmlToPdfConverter();
-    final directory = await getApplicationDocumentsDirectory();
+    final directory = await FileOpener.exportsDirectory();
     return converter.convertHtmlToPdf(
       html: html,
       targetDirectory: directory.path,
-      targetName: 'logbook_export',
+      targetName:
+          'logbook_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}',
       pageSize: PdfPageSize.a4.landscape,
     );
   }

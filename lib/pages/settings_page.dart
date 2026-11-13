@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/backup_providers.dart';
 import '../providers/carto_provider.dart';
-import '../providers/database_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/pdf_export_service.dart';
 import '../widgets/section_header.dart';
+import 'export_page.dart';
 import 'people_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -57,38 +55,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
-  }
-
-  void _exportData() async {
-    final flightsAsync = ref.read(flightListStreamProvider);
-    final flights = flightsAsync.value ?? [];
-    if (flights.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No flights to export')));
-      return;
-    }
-
-    try {
-      final pilotName = ref.read(userSignatureNameProvider);
-      final picMode = ref.read(picNameModeProvider);
-      final crew = await ref
-          .read(databaseProvider)
-          .getCrewForFlights(flights.map((f) => f.flight.id));
-      final file = await PdfExportService.generateLogbook(
-        flights,
-        crewByFlight: crew,
-        pilotName: pilotName,
-        picNameMode: picMode,
-      );
-      await _shareFile(file.path, text: 'Logbook export');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
-    }
   }
 
   Future<void> _editApiKey(String? currentKey) async {
@@ -364,9 +330,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.file_download_outlined),
                   title: const Text('Export Data'),
-                  subtitle: const Text('Export flights as CSV or JSON'),
+                  subtitle: const Text('Export flights as PDF, CSV or JSON'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: _exportData,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => const ExportPage()),
+                  ),
                 ),
                 const Divider(height: 1, indent: 72),
                 ListTile(
@@ -464,11 +433,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ),
     );
   }
-}
-
-Future<void> _shareFile(String filePath, {required String text}) async {
-  final uri = Uri(path: filePath, scheme: 'file');
-  await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
 sealed class _ApiKeyResult {
