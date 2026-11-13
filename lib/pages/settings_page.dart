@@ -7,6 +7,7 @@ import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/backup_providers.dart';
 import '../providers/carto_provider.dart';
+import '../providers/database_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
@@ -72,8 +73,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     try {
       final pilotName = ref.read(userSignatureNameProvider);
       final picMode = ref.read(picNameModeProvider);
+      final crew = await ref
+          .read(databaseProvider)
+          .getCrewForFlights(flights.map((f) => f.flight.id));
       final file = await PdfExportService.generateLogbook(
         flights,
+        crewByFlight: crew,
         pilotName: pilotName,
         picNameMode: picMode,
       );

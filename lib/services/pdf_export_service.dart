@@ -4,6 +4,7 @@ import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../models/crew_rules.dart';
 import '../providers/user_provider.dart';
 import 'database.dart';
 
@@ -43,11 +44,13 @@ class _Totals {
 class PdfExportService {
   static Future<File> generateLogbook(
     List<FlightWithStats> flights, {
+    Map<int, List<CrewMember>> crewByFlight = const {},
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
   }) async {
     final html = _buildLogbookHtml(
       flights,
+      crewByFlight: crewByFlight,
       pilotName: pilotName,
       picNameMode: picNameMode,
     );
@@ -66,9 +69,27 @@ class PdfExportService {
     return '${d.inHours.toString().padLeft(2, '0')}:${(d.inMinutes % 60).toString().padLeft(2, '0')}';
   }
 
+  static String _escape(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+
   static String _fmtInt(int n) => n > 0 ? '$n' : '';
 
-  static _Totals _calcPageTotals(List<FlightWithStats> page) {
+  static LogbookFunction _logbookFunction(
+    FlightWithStats f,
+    Map<int, List<CrewMember>> crewByFlight,
+  ) {
+    final role = f.flight.pilotRole != null
+        ? CrewRole.fromString(f.flight.pilotRole!)
+        : CrewRole.pic;
+    return LogbookFunction.resolve(role, crewByFlight[f.flight.id] ?? const []);
+  }
+
+  static _Totals _calcPageTotals(
+    List<FlightWithStats> page,
+    Map<int, List<CrewMember>> crewByFlight,
+  ) {
     final t = _Totals();
     for (final f in page) {
       final dur = f.duration;
@@ -87,8 +108,16 @@ class PdfExportService {
 
       if (f.flight.flightRules == 'IFR') t.ifr = t.ifr + dur;
 
-      // Default all flights as PIC; no explicit CoPilot/Dual/Instructor tracking
-      t.pic = t.pic + dur;
+      switch (_logbookFunction(f, crewByFlight).function) {
+        case PilotFunction.pic:
+          t.pic = t.pic + dur;
+        case PilotFunction.coPilot:
+          t.coPilot = t.coPilot + dur;
+        case PilotFunction.dual:
+          t.dual = t.dual + dur;
+        case PilotFunction.instructor:
+          t.instructor = t.instructor + dur;
+      }
     }
     return t;
   }
@@ -179,12 +208,13 @@ class PdfExportService {
 
   static String _buildLogbookHtml(
     List<FlightWithStats> flights, {
+    Map<int, List<CrewMember>> crewByFlight = const {},
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
   }) {
     final dateFmt = DateFormat('dd/MM/yy');
     final timeFmt = DateFormat('HH:mm');
-    final picName = picNameMode == PicNameMode.self
+    final selfPicName = picNameMode == PicNameMode.self
         ? 'SELF'
         : (pilotName ?? '');
 
@@ -273,7 +303,7 @@ class PdfExportService {
 
     for (int pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       final pageFlights = pages[pageIdx];
-      final pageTotals = _calcPageTotals(pageFlights);
+      final pageTotals = _calcPageTotals(pageFlights, crewByFlight);
       final grandTotals = prevTotals + pageTotals;
 
       buf.write('<div class="logbook-page">');
@@ -330,7 +360,12 @@ class PdfExportService {
           final ifrTime = (dur != null && !dur.isNegative && isIfr)
               ? _fmtDur(dur)
               : '';
-          final picTime = totalTime; // all flights default to PIC
+          final logbook = _logbookFunction(f, crewByFlight);
+          final picName = logbook.picPerson != null
+              ? _escape(logbook.picPerson!.surname)
+              : selfPicName;
+          String fnTime(PilotFunction fn) =>
+              logbook.function == fn ? totalTime : '';
 
           final dayLandings = _fmtInt(f.flight.dayLandings ?? 0);
           final nightLandings = _fmtInt(f.flight.nightLandings ?? 0);
@@ -356,10 +391,10 @@ class PdfExportService {
             ..write('<td>$nightLandings</td>')
             ..write('<td></td>') // night time
             ..write('<td>$ifrTime</td>')
-            ..write('<td>$picTime</td>')
-            ..write('<td></td>') // co-pilot
-            ..write('<td></td>') // dual
-            ..write('<td></td>') // instructor
+            ..write('<td>${fnTime(PilotFunction.pic)}</td>')
+            ..write('<td>${fnTime(PilotFunction.coPilot)}</td>')
+            ..write('<td>${fnTime(PilotFunction.dual)}</td>')
+            ..write('<td>${fnTime(PilotFunction.instructor)}</td>')
             ..write('<td></td>') // FSTD type
             ..write('<td></td>') // FSTD time
             ..write('<td class="text-left">$remarks</td>');

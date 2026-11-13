@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../models/crew_rules.dart';
 import '../services/database.dart';
 import '../utils/tz_datetime.dart';
 
@@ -186,10 +187,14 @@ class FlightFormState {
     return '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
   }
 
+  /// Non-null when SELF's role and the crew roles are inconsistent.
+  String? get crewError => crewValidationError(pilotRole, crewMembers);
+
   bool get isValid {
     return departureCode.isNotEmpty &&
         arrivalCode.isNotEmpty &&
-        depTime.isNotEmpty;
+        depTime.isNotEmpty &&
+        crewError == null;
   }
 }
 

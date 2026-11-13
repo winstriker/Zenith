@@ -12,6 +12,7 @@ class CrewCard extends StatelessWidget {
     super.key,
     required this.pilotRole,
     required this.crewMembers,
+    this.errorText,
     required ValueChanged<CrewRole> this.onPilotRoleChanged,
     required ValueChanged<CrewMember> this.onCrewMemberAdded,
     required ValueChanged<int> this.onCrewMemberRemoved,
@@ -26,13 +27,17 @@ class CrewCard extends StatelessWidget {
     required this.pilotRole,
     required this.crewMembers,
     this.onCrewMemberTap,
-  }) : onPilotRoleChanged = null,
+  }) : errorText = null,
+       onPilotRoleChanged = null,
        onCrewMemberAdded = null,
        onCrewMemberRemoved = null,
        onCrewMemberChanged = null;
 
   final CrewRole pilotRole;
   final List<CrewMember> crewMembers;
+
+  /// Shown under the crew list when the roles are inconsistent.
+  final String? errorText;
   final ValueChanged<CrewRole>? onPilotRoleChanged;
   final ValueChanged<CrewMember>? onCrewMemberAdded;
   final ValueChanged<int>? onCrewMemberRemoved;
@@ -136,6 +141,23 @@ class CrewCard extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+            ],
+            if (errorText != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.error_outline, color: cs.error, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      errorText!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.error,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],

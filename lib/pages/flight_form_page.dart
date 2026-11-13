@@ -43,15 +43,18 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
   @override
   void dispose() {
-    if (!widget.isEditing) {
-      Future.microtask(() => _formNotifier.reset());
-    }
+    // Always clear the shared form state, otherwise an abandoned edit leaks
+    // into the next form (and crew gets re-added on top of the old one).
+    Future.microtask(() => _formNotifier.reset());
     super.dispose();
   }
 
   void _populateFromFlight(FlightWithStats flight) async {
     final notifier = _formNotifier;
     final f = flight.flight;
+
+    // Start from a clean state so nothing from a previous form survives.
+    notifier.reset();
 
     // Fetch airports from the database
     final depAirport = flight.departure;
@@ -174,6 +177,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             CrewCard(
               pilotRole: form.pilotRole,
               crewMembers: form.crewMembers,
+              errorText: form.crewError,
               onPilotRoleChanged: notifier.setPilotRole,
               onCrewMemberAdded: notifier.addCrewMember,
               onCrewMemberRemoved: notifier.removeCrewMember,
@@ -277,6 +281,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     final form = ref.read(flightFormProvider);
+    if (form.crewError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(form.crewError!)));
+      return;
+    }
     final flightService = ref.read(flightServiceProvider);
 
     final depCode = form.selectedDeparture?.ident ?? form.departureCode.trim();

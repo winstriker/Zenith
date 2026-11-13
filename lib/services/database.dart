@@ -765,6 +765,24 @@ class LogbookDatabase extends _$LogbookDatabase {
       ),
   ];
 
+  /// Crew of many flights at once, keyed by flight id (flights without crew
+  /// are absent from the map).
+  Future<Map<int, List<CrewMember>>> getCrewForFlights(
+    Iterable<int> flightIds,
+  ) async {
+    final rows = await (select(flightCrew).join([
+      innerJoin(people, people.id.equalsExp(flightCrew.person)),
+    ])..where(flightCrew.flight.isIn(flightIds))).get();
+    final result = <int, List<CrewMember>>{};
+    for (final row in rows) {
+      final entry = row.readTable(flightCrew);
+      (result[entry.flight] ??= []).add(
+        CrewMember(person: row.readTable(people), role: entry.role),
+      );
+    }
+    return result;
+  }
+
   /// Replaces the whole crew of [flightId] with [crew].
   Future<void> setFlightCrew(int flightId, List<CrewMember> crew) {
     return transaction(() async {
