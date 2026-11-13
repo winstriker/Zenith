@@ -90,6 +90,9 @@ class FlightService {
       database.flightDataPoints,
     )..where((p) => p.flight.equals(sessionId))).go();
     await (database.delete(
+      database.flightCrew,
+    )..where((c) => c.flight.equals(sessionId))).go();
+    await (database.delete(
       database.flights,
     )..where((f) => f.id.equals(sessionId))).go();
     _notify();
@@ -140,6 +143,8 @@ class FlightService {
     String? remarks,
     String? departureIanaLocation,
     String? arrivalIanaLocation,
+    String? pilotRole,
+    List<CrewMember> crew = const [],
   }) async {
     final flightId = await database
         .into(database.flights)
@@ -159,8 +164,11 @@ class FlightService {
             dayLandings: Value(dayLandings),
             flightRules: Value(flightRules),
             remarks: Value(remarks),
+            pilotRole: Value(pilotRole),
           ),
         );
+
+    await database.setFlightCrew(flightId, crew);
 
     _sessions.add(
       FlightWithStats(
@@ -180,6 +188,7 @@ class FlightService {
           dayLandings: dayLandings,
           flightRules: flightRules,
           remarks: remarks,
+          pilotRole: pilotRole,
         ),
         dataPoints: [],
         departure: await resolveAirport(departureId),
@@ -204,6 +213,8 @@ class FlightService {
     String? remarks,
     String? departureIanaLocation,
     String? arrivalIanaLocation,
+    String? pilotRole,
+    List<CrewMember> crew = const [],
     bool isRecording = false,
   }) async {
     await database
@@ -224,9 +235,12 @@ class FlightService {
             dayLandings: Value(dayLandings),
             flightRules: Value(flightRules),
             remarks: Value(remarks),
+            pilotRole: Value(pilotRole),
             isRecording: Value(isRecording),
           ),
         );
+
+    await database.setFlightCrew(flightId, crew);
 
     // Update local state
     final index = _sessions.indexWhere((f) => f.flight.id == flightId);
@@ -248,6 +262,7 @@ class FlightService {
           dayLandings: dayLandings,
           flightRules: flightRules,
           remarks: remarks,
+          pilotRole: pilotRole,
         ),
         dataPoints: _sessions[index].dataPoints,
         departure: await resolveAirport(departureId),

@@ -28,7 +28,10 @@ class FlightFormState {
     this.nightLandings = 0,
     this.dayLandings = 1,
     this.flightRules = 'VFR',
-  }) : departureDate = departureDate ?? DateTime.now();
+    this.pilotRole = CrewRole.pic,
+    List<CrewMember>? crewMembers,
+  }) : departureDate = departureDate ?? DateTime.now(),
+       crewMembers = crewMembers ?? const [];
 
   final String departureCode;
   final String arrivalCode;
@@ -48,6 +51,8 @@ class FlightFormState {
   final int nightLandings;
   final int dayLandings;
   final String flightRules;
+  final CrewRole pilotRole;
+  final List<CrewMember> crewMembers;
 
   FlightFormState copyWith({
     String? departureCode,
@@ -68,6 +73,8 @@ class FlightFormState {
     int? nightLandings,
     int? dayLandings,
     String? flightRules,
+    CrewRole? pilotRole,
+    List<CrewMember>? crewMembers,
     bool clearArrivalDate = false,
     bool clearDepIana = false,
     bool clearArrIana = false,
@@ -95,6 +102,8 @@ class FlightFormState {
       nightLandings: nightLandings ?? this.nightLandings,
       dayLandings: dayLandings ?? this.dayLandings,
       flightRules: flightRules ?? this.flightRules,
+      pilotRole: pilotRole ?? this.pilotRole,
+      crewMembers: crewMembers ?? this.crewMembers,
     );
   }
 
@@ -232,7 +241,7 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
         state = state.copyWith(selectedDeparture: airport, departureCode: code);
       }
     } else {
-      state = state.copyWith(selectedDeparture: null);
+      state = state.copyWith();
     }
   }
 
@@ -265,7 +274,7 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
         state = state.copyWith(selectedArrival: airport, arrivalCode: code);
       }
     } else {
-      state = state.copyWith(selectedArrival: null);
+      state = state.copyWith();
     }
   }
 
@@ -318,6 +327,23 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
       state = state.copyWith(dayLandings: state.dayLandings + 1);
   void decrementDayLandings() =>
       state = state.copyWith(dayLandings: (state.dayLandings - 1).clamp(0, 99));
+
+  void setPilotRole(CrewRole role) => state = state.copyWith(pilotRole: role);
+
+  void addCrewMember(CrewMember member) =>
+      state = state.copyWith(crewMembers: [...state.crewMembers, member]);
+
+  void removeCrewMember(int index) {
+    final updated = [...state.crewMembers];
+    updated.removeAt(index);
+    state = state.copyWith(crewMembers: updated);
+  }
+
+  void updateCrewMember(int index, CrewMember member) {
+    final updated = [...state.crewMembers];
+    updated[index] = member;
+    state = state.copyWith(crewMembers: updated);
+  }
 
   void reset() => state = FlightFormState();
 }

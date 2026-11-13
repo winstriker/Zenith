@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/database.dart';
+
+import '../core/theme.dart';
 import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
+import '../services/database.dart';
 import '../widgets/airport_card.dart';
 import '../widgets/empty_state.dart';
 import 'airport_detail_page.dart';
@@ -27,6 +29,40 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   String? _lastCountry;
   AirportType? _lastType;
   List<Airport> _cachedResults = [];
+
+  late Future<bool> _permissionFuture;
+  late Future<List<AirportWithDistance>> _airportsFuture;
+  late Future<List<Country>> _countriesFuture;
+
+  bool get _isFiltering =>
+      _searchQuery.isNotEmpty ||
+      _selectedCountry != null ||
+      _selectedType != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final service = ref.read(airportServiceProvider);
+    _permissionFuture = _checkLocationPermission();
+    _countriesFuture = service.getCountriesList();
+    _airportsFuture = _loadAirports(service);
+  }
+
+  /// Rebuilds the airports future. Call (inside setState) whenever the
+  /// search, filters, permission or relocate flag change.
+  void _reloadAirports() {
+    _airportsFuture = _loadAirports(ref.read(airportServiceProvider));
+  }
+
+  Future<List<AirportWithDistance>> _loadAirports(AirportsService service) {
+    final future = _isFiltering
+        ? _searchAirportsCached(
+            service,
+          ).then((list) => list.map((a) => AirportWithDistance(a, -1)).toList())
+        : _loadAirportsWithFallback(service);
+    _shouldRelocate = false;
+    return future;
+  }
 
   Future<bool> _checkLocationPermission() async {
     final status = await Geolocator.checkPermission();
@@ -54,7 +90,6 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
       query: _searchQuery,
       countryCode: _selectedCountry,
       type: _selectedType,
-      limit: 100,
     );
     return _cachedResults;
   }
@@ -64,10 +99,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   ) async {
     final hasPermission = await _checkLocationPermission();
     if (hasPermission) {
-      return service.getNearAirportsWithFallback(
-        limit: 20,
-        relocate: _shouldRelocate,
-      );
+      return service.getNearAirportsWithFallback(relocate: _shouldRelocate);
     } else {
       return service.getAirportsAlphabetical(limit: 20);
     }
@@ -76,24 +108,15 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   @override
   Widget build(BuildContext context) {
     ref.watch(airportLoadProvider);
-    final service = ref.read(airportServiceProvider);
-
-    final isFiltering =
-        _searchQuery.isNotEmpty ||
-        _selectedCountry != null ||
-        _selectedType != null;
-
-    final airportsFuture = isFiltering
-        ? _searchAirportsCached(
-            service,
-          ).then((list) => list.map((a) => AirportWithDistance(a, -1)).toList())
-        : _loadAirportsWithFallback(service);
-    _shouldRelocate = false;
+    // Reload the list when the airport data download progresses/finishes.
+    ref.listen(airportLoadProvider, (_, _) => setState(_reloadAirports));
+    final service = ref.watch(airportServiceProvider);
+    final isFiltering = _isFiltering;
 
     return Scaffold(
       appBar: AppBar(
         title: FutureBuilder<bool>(
-          future: _checkLocationPermission(),
+          future: _permissionFuture,
           builder: (context, snapshot) {
             final hasPermission = snapshot.data ?? false;
             if (isFiltering) return const Text('Search Results');
@@ -111,14 +134,14 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               ),
             ),
           if (service.isLocating)
-            const Padding(
-              padding: EdgeInsets.only(right: 8),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
               child: SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color.fromRGBO(0, 255, 0, 1),
+                  color: context.appColors.success,
                 ),
               ),
             ),
@@ -129,7 +152,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             onPressed: () => setState(() => _showFilters = !_showFilters),
           ),
           FutureBuilder<bool>(
-            future: _checkLocationPermission(),
+            future: _permissionFuture,
             builder: (context, snapshot) {
               final hasPermission = snapshot.data ?? false;
               if (!hasPermission) {
@@ -144,7 +167,11 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                     if (!mounted) return;
                     if (status == LocationPermission.always ||
                         status == LocationPermission.whileInUse) {
-                      setState(() => _shouldRelocate = true);
+                      setState(() {
+                        _permissionFuture = Future.value(true);
+                        _shouldRelocate = true;
+                        _reloadAirports();
+                      });
                     }
                   },
                 );
@@ -153,7 +180,10 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 icon: const Icon(Icons.my_location),
                 tooltip: 'Recenter location',
                 onPressed: () {
-                  setState(() => _shouldRelocate = true);
+                  setState(() {
+                    _shouldRelocate = true;
+                    _reloadAirports();
+                  });
                 },
               );
             },
@@ -168,6 +198,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 _selectedCountry = null;
                 _selectedType = null;
                 _searchController.clear();
+                _reloadAirports();
               });
               ref.read(airportLoadProvider.notifier).refresh();
             },
@@ -175,10 +206,17 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
         ],
       ),
       body: FutureBuilder(
-        future: airportsFuture,
+        future: _airportsFuture,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return ErrorWidget("Error while loading airports");
+            return EmptyState(
+              icon: Icons.error_outline,
+              title: 'Error while loading airports',
+              action: FilledButton.tonal(
+                onPressed: () => setState(_reloadAirports),
+                child: const Text('Retry'),
+              ),
+            );
           }
           if (!snapshot.hasData) {
             return const SizedBox(
@@ -188,8 +226,32 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           }
           return Column(
             children: [
-              _buildSearchBar(context),
-              if (_showFilters) _buildFilters(context, service),
+              _AirportSearchBar(
+                controller: _searchController,
+                onChanged: (value) => setState(() {
+                  _searchQuery = value;
+                  _reloadAirports();
+                }),
+              ),
+              if (_showFilters)
+                _AirportFilters(
+                  countries: _countriesFuture,
+                  selectedCountry: _selectedCountry,
+                  selectedType: _selectedType,
+                  onCountryChanged: (value) => setState(() {
+                    _selectedCountry = value;
+                    _reloadAirports();
+                  }),
+                  onTypeChanged: (value) => setState(() {
+                    _selectedType = value;
+                    _reloadAirports();
+                  }),
+                  onClear: () => setState(() {
+                    _selectedCountry = null;
+                    _selectedType = null;
+                    _reloadAirports();
+                  }),
+                ),
               Expanded(
                 child: snapshot.data == null || snapshot.data!.isEmpty
                     ? EmptyState(
@@ -229,36 +291,66 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
       ),
     );
   }
+}
 
-  Widget _buildSearchBar(BuildContext context) {
+class _AirportSearchBar extends StatelessWidget {
+  const _AirportSearchBar({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: TextField(
-        controller: _searchController,
+        controller: controller,
         decoration: InputDecoration(
           hintText: 'Search airports by name, code, or city...',
           prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchQuery.isNotEmpty
+          suffixIcon: controller.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear),
                   onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
+                    controller.clear();
+                    onChanged('');
                   },
                 )
               : null,
         ),
-        onChanged: (value) => setState(() => _searchQuery = value),
+        onChanged: onChanged,
       ),
     );
   }
+}
 
-  Widget _buildFilters(BuildContext context, AirportsService service) {
-    final countries = service.getCountriesList();
-    final types = AirportType.values;
+class _AirportFilters extends StatelessWidget {
+  const _AirportFilters({
+    required this.countries,
+    required this.selectedCountry,
+    required this.selectedType,
+    required this.onCountryChanged,
+    required this.onTypeChanged,
+    required this.onClear,
+  });
+
+  final Future<List<Country>> countries;
+  final String? selectedCountry;
+  final AirportType? selectedType;
+  final ValueChanged<String?> onCountryChanged;
+  final ValueChanged<AirportType?> onTypeChanged;
+  final VoidCallback onClear;
+
+  static const _fieldPadding = EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 10,
+  );
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,80 +363,61 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (_selectedCountry != null || _selectedType != null) ...[
+              if (selectedCountry != null || selectedType != null) ...[
                 const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () => setState(() {
-                    _selectedCountry = null;
-                    _selectedType = null;
-                  }),
-                  child: const Text('Clear all'),
-                ),
+                TextButton(onPressed: onClear, child: const Text('Clear all')),
               ],
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              FutureBuilder<List<Country>>(
-                future: countries,
-                builder: (context, snapshot) {
-                  final countryList = snapshot.data ?? [];
-                  return Expanded(
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedCountry,
+              Expanded(
+                child: FutureBuilder<List<Country>>(
+                  future: countries,
+                  builder: (context, snapshot) {
+                    final countryList = snapshot.data ?? [];
+                    return DropdownButtonFormField<String>(
+                      initialValue: selectedCountry,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Country',
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
+                        contentPadding: _fieldPadding,
                       ),
                       items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All Countries'),
-                        ),
-                        ...countryList.map(
-                          (c) => DropdownMenuItem(
+                        const DropdownMenuItem(child: Text('All Countries')),
+                        for (final c in countryList)
+                          DropdownMenuItem(
                             value: c.code,
                             child: Text(
                               c.name,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
                       ],
-                      onChanged: (value) =>
-                          setState(() => _selectedCountry = value),
-                    ),
-                  );
-                },
+                      onChanged: onCountryChanged,
+                    );
+                  },
+                ),
               ),
-
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<AirportType>(
-                  initialValue: _selectedType,
+                  initialValue: selectedType,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Type',
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
+                    contentPadding: _fieldPadding,
                   ),
                   items: [
                     const DropdownMenuItem(child: Text('All Types')),
-                    ...types.map(
-                      (t) => DropdownMenuItem(
+                    for (final t in AirportType.values)
+                      DropdownMenuItem(
                         value: t,
                         child: Text(AirportType.getDisplayName(t)),
                       ),
-                    ),
                   ],
-                  onChanged: (value) => setState(() => _selectedType = value),
+                  onChanged: onTypeChanged,
                 ),
               ),
             ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/standalone.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class TZDateTimeParser {
   static TimeOfDay parseTimeOfDay(String text) {

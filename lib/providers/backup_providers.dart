@@ -34,8 +34,10 @@ class DropboxAuthNotifier extends AsyncNotifier<bool> {
 }
 
 final callbackServiceProvider = Provider((ref) {
-  return OAuthCallbackHandler(
-    oauthServices: [ref.read(dropboxBackupProvider)],
+  final handler = OAuthCallbackHandler(
+    oauthServices: [ref.watch(dropboxBackupProvider)],
     onLoginSuccess: () => ref.invalidate(dropboxAuthProvider),
   );
+  ref.onDispose(handler.dispose);
+  return handler;
 });

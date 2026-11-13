@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart';
 import '../repositories/airport_repository.dart';
 import '../services/airport_service.dart';
 import '../services/database.dart';
+import 'database_provider.dart';
 
 // Airport Repository Provider
 // Provided by airport_repository.dart
@@ -44,6 +44,15 @@ final airportsNearStreamProvider =
         delta: params.delta,
         limit: params.limit,
       );
+    });
+
+/// Full details (airport, country, region, runways, frequencies) for one
+/// airport. Resolves to null if the airport doesn't exist.
+final airportDetailsProvider = FutureProvider.autoDispose
+    .family<AirportWithEverything?, int>((ref, airportId) {
+      return ref
+          .watch(airportServiceProvider)
+          .getCompleteAirportData(airportId);
     });
 
 /// Stream of all countries

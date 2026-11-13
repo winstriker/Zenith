@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart';
+import '../providers/database_provider.dart';
 import '../services/database.dart';
 
 /// Repository for aircraft data access using Drift's reactive queries
@@ -87,8 +87,8 @@ class AircraftRepository {
     required String modelFullName,
     required String manufacturer,
     required String designator,
-    required WakeTurbolenceCategory wakeTurbolenceCategory,
-    required WakeTurbolenceGroup wakeTurbolenceGroup,
+    required WakeTurbulenceCategory wakeTurbolenceCategory,
+    required WakeTurbulenceGroup wakeTurbolenceGroup,
     required AircraftDescription description,
     required int engineCount,
     required EngineType engineType,
@@ -126,13 +126,16 @@ class AircraftRepository {
     );
   }
 
-  Future<void> deleteAircraft(int id) async {
-    await (_database.update(_database.flights)
-          ..where((f) => f.aircraftId.equals(id)))
-        .write(const FlightsCompanion(aircraftId: Value(null)));
-    await (_database.delete(
-      _database.aircrafts,
-    )..where((a) => a.id.equals(id))).go();
+  /// Deletes an aircraft and detaches it from its flights, atomically.
+  Future<void> deleteAircraft(int id) {
+    return _database.transaction(() async {
+      await (_database.update(_database.flights)
+            ..where((f) => f.aircraftId.equals(id)))
+          .write(const FlightsCompanion(aircraftId: Value(null)));
+      await (_database.delete(
+        _database.aircrafts,
+      )..where((a) => a.id.equals(id))).go();
+    });
   }
 }
 

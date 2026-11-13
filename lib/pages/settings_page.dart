@@ -3,14 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/backup_providers.dart';
 import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
+import '../providers/user_provider.dart';
 import '../services/pdf_export_service.dart';
 import '../widgets/section_header.dart';
+import 'people_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -67,7 +70,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
 
     try {
-      final file = await PdfExportService.generateLogbook(flights);
+      final pilotName = ref.read(userSignatureNameProvider);
+      final picMode = ref.read(picNameModeProvider);
+      final file = await PdfExportService.generateLogbook(
+        flights,
+        pilotName: pilotName,
+        picNameMode: picMode,
+      );
       await _shareFile(file.path, text: 'Logbook export');
     } catch (e) {
       if (!mounted) return;
@@ -77,42 +86,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  void _editApiKey(String? currentKey) {
-    final controller = TextEditingController(text: currentKey ?? '');
-    showDialog<void>(
+  Future<void> _editApiKey(String? currentKey) async {
+    final result = await showDialog<_ApiKeyResult>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('CARTO API Key'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Paste your API key',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          if (currentKey != null)
-            TextButton(
-              onPressed: () {
-                ref.read(cartoApiKeyProvider.notifier).clearKey();
-                Navigator.pop(ctx);
-              },
-              child: const Text('Remove'),
-            ),
-          FilledButton(
-            onPressed: () {
-              ref.read(cartoApiKeyProvider.notifier).setKey(controller.text);
-              Navigator.pop(ctx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (_) => _ApiKeyDialog(currentKey: currentKey),
     );
+    if (result == null) return;
+    final notifier = ref.read(cartoApiKeyProvider.notifier);
+    switch (result) {
+      case _ApiKeyRemove():
+        await notifier.clearKey();
+      case _ApiKeySave(:final key):
+        await notifier.setKey(key);
+    }
   }
 
   Future<void> _reloadAircraftTypes() async {
@@ -139,6 +125,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final unitMode = ref.watch(unitProvider);
     final cartoKey = ref.watch(cartoApiKeyProvider);
     final dropboxAuth = ref.watch(dropboxAuthProvider);
+    final picNameMode = ref.watch(picNameModeProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings'), centerTitle: true),
@@ -295,6 +282,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     ],
                   ),
                 ),
+                const Divider(height: 1, indent: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.badge_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'PIC Name in Logbook',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<PicNameMode>(
+                          segments: const [
+                            ButtonSegment<PicNameMode>(
+                              value: PicNameMode.self,
+                              icon: Icon(Icons.person_outline),
+                              label: Text('SELF'),
+                            ),
+                            ButtonSegment<PicNameMode>(
+                              value: PicNameMode.name,
+                              icon: Icon(Icons.badge_outlined),
+                              label: Text('Pilot name'),
+                            ),
+                          ],
+                          selected: {picNameMode},
+                          onSelectionChanged: (s) => ref
+                              .read(picNameModeProvider.notifier)
+                              .setMode(s.first),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -303,6 +337,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Card(
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.people_outline),
+                  title: const Text('People'),
+                  subtitle: const Text('Edit, merge or delete crew members'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => const PeoplePage()),
+                  ),
+                ),
+                const Divider(height: 1, indent: 72),
                 ListTile(
                   leading: const Icon(Icons.delete_forever),
                   title: const Text('Clear All Flights'),
@@ -342,11 +387,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ? Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.check, color: Colors.green),
+                              Icon(
+                                Icons.check,
+                                color: context.appColors.success,
+                              ),
                               IconButton(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.logout,
-                                  color: Colors.red,
+                                  color: Theme.of(context).colorScheme.error,
                                 ),
                                 onPressed: () async {
                                   await ref
@@ -364,8 +412,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             },
                             child: const Text("Login"),
                           ),
-                    error: (_, _) =>
-                        const Icon(Icons.cancel, color: Colors.red),
+                    error: (_, _) => Icon(
+                      Icons.cancel,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     loading: () => const SizedBox(
                       height: 20,
                       width: 20,
@@ -414,4 +464,65 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 Future<void> _shareFile(String filePath, {required String text}) async {
   final uri = Uri(path: filePath, scheme: 'file');
   await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
+
+sealed class _ApiKeyResult {
+  const _ApiKeyResult();
+}
+
+class _ApiKeySave extends _ApiKeyResult {
+  const _ApiKeySave(this.key);
+  final String key;
+}
+
+class _ApiKeyRemove extends _ApiKeyResult {
+  const _ApiKeyRemove();
+}
+
+class _ApiKeyDialog extends StatefulWidget {
+  const _ApiKeyDialog({required this.currentKey});
+  final String? currentKey;
+
+  @override
+  State<_ApiKeyDialog> createState() => _ApiKeyDialogState();
+}
+
+class _ApiKeyDialogState extends State<_ApiKeyDialog> {
+  late final _controller = TextEditingController(text: widget.currentKey ?? '');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('CARTO API Key'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          hintText: 'Paste your API key',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        if (widget.currentKey != null)
+          TextButton(
+            onPressed: () => Navigator.pop(context, const _ApiKeyRemove()),
+            child: const Text('Remove'),
+          ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(context, _ApiKeySave(_controller.text)),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
 }

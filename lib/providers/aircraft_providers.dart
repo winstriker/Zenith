@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
+
 import '../repositories/aircraft_repository.dart';
 import '../repositories/flight_repository.dart';
 import '../services/aircraft_types_service.dart';
 import '../services/database.dart';
+import 'database_provider.dart';
 
 // Aircraft Repository Provider
 // Provided by aircraft_repository.dart

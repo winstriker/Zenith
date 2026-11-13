@@ -3567,7 +3567,7 @@ class $IcaoAircraftsTable extends IcaoAircrafts
     requiredDuringInsert: true,
   );
   @override
-  late final GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  late final GeneratedColumnWithTypeConverter<WakeTurbulenceCategory, String>
   wakeTurbolenceCategory =
       GeneratedColumn<String>(
         'wake_turbolence_category',
@@ -3579,11 +3579,11 @@ class $IcaoAircraftsTable extends IcaoAircrafts
         ),
         type: DriftSqlType.string,
         requiredDuringInsert: true,
-      ).withConverter<WakeTurbolenceCategory>(
+      ).withConverter<WakeTurbulenceCategory>(
         $IcaoAircraftsTable.$converterwakeTurbolenceCategory,
       );
   @override
-  late final GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  late final GeneratedColumnWithTypeConverter<WakeTurbulenceGroup, String>
   wakeTurbolenceGroup =
       GeneratedColumn<String>(
         'wake_turbolence_group',
@@ -3595,7 +3595,7 @@ class $IcaoAircraftsTable extends IcaoAircrafts
         ),
         type: DriftSqlType.string,
         requiredDuringInsert: true,
-      ).withConverter<WakeTurbolenceGroup>(
+      ).withConverter<WakeTurbulenceGroup>(
         $IcaoAircraftsTable.$converterwakeTurbolenceGroup,
       );
   static const VerificationMeta _manufacturerMeta = const VerificationMeta(
@@ -3802,14 +3802,14 @@ class $IcaoAircraftsTable extends IcaoAircrafts
     return $IcaoAircraftsTable(attachedDatabase, alias);
   }
 
-  static JsonTypeConverter2<WakeTurbolenceCategory, String, String>
+  static JsonTypeConverter2<WakeTurbulenceCategory, String, String>
   $converterwakeTurbolenceCategory =
-      const EnumNameConverter<WakeTurbolenceCategory>(
-        WakeTurbolenceCategory.values,
+      const EnumNameConverter<WakeTurbulenceCategory>(
+        WakeTurbulenceCategory.values,
       );
-  static JsonTypeConverter2<WakeTurbolenceGroup, String, String>
-  $converterwakeTurbolenceGroup = const EnumNameConverter<WakeTurbolenceGroup>(
-    WakeTurbolenceGroup.values,
+  static JsonTypeConverter2<WakeTurbulenceGroup, String, String>
+  $converterwakeTurbolenceGroup = const EnumNameConverter<WakeTurbulenceGroup>(
+    WakeTurbulenceGroup.values,
   );
   static JsonTypeConverter2<AircraftDescription, String, String>
   $converterdescription = const EnumNameConverter<AircraftDescription>(
@@ -3823,8 +3823,8 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
   final int id;
   final String modelFullName;
   final String designator;
-  final WakeTurbolenceCategory wakeTurbolenceCategory;
-  final WakeTurbolenceGroup wakeTurbolenceGroup;
+  final WakeTurbulenceCategory wakeTurbolenceCategory;
+  final WakeTurbulenceGroup wakeTurbolenceGroup;
   final String manufacturer;
   final AircraftDescription description;
   final int engineCount;
@@ -3953,8 +3953,8 @@ class IcaoAircraft extends DataClass implements Insertable<IcaoAircraft> {
     int? id,
     String? modelFullName,
     String? designator,
-    WakeTurbolenceCategory? wakeTurbolenceCategory,
-    WakeTurbolenceGroup? wakeTurbolenceGroup,
+    WakeTurbulenceCategory? wakeTurbolenceCategory,
+    WakeTurbulenceGroup? wakeTurbolenceGroup,
     String? manufacturer,
     AircraftDescription? description,
     int? engineCount,
@@ -4056,8 +4056,8 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
   final Value<int> id;
   final Value<String> modelFullName;
   final Value<String> designator;
-  final Value<WakeTurbolenceCategory> wakeTurbolenceCategory;
-  final Value<WakeTurbolenceGroup> wakeTurbolenceGroup;
+  final Value<WakeTurbulenceCategory> wakeTurbolenceCategory;
+  final Value<WakeTurbulenceGroup> wakeTurbolenceGroup;
   final Value<String> manufacturer;
   final Value<AircraftDescription> description;
   final Value<int> engineCount;
@@ -4079,8 +4079,8 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
     this.id = const Value.absent(),
     required String modelFullName,
     required String designator,
-    required WakeTurbolenceCategory wakeTurbolenceCategory,
-    required WakeTurbolenceGroup wakeTurbolenceGroup,
+    required WakeTurbulenceCategory wakeTurbolenceCategory,
+    required WakeTurbulenceGroup wakeTurbolenceGroup,
     required String manufacturer,
     required AircraftDescription description,
     required int engineCount,
@@ -4126,8 +4126,8 @@ class IcaoAircraftsCompanion extends UpdateCompanion<IcaoAircraft> {
     Value<int>? id,
     Value<String>? modelFullName,
     Value<String>? designator,
-    Value<WakeTurbolenceCategory>? wakeTurbolenceCategory,
-    Value<WakeTurbolenceGroup>? wakeTurbolenceGroup,
+    Value<WakeTurbulenceCategory>? wakeTurbolenceCategory,
+    Value<WakeTurbulenceGroup>? wakeTurbolenceGroup,
     Value<String>? manufacturer,
     Value<AircraftDescription>? description,
     Value<int>? engineCount,
@@ -4707,6 +4707,17 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pilotRoleMeta = const VerificationMeta(
+    'pilotRole',
+  );
+  @override
+  late final GeneratedColumn<String> pilotRole = GeneratedColumn<String>(
+    'pilot_role',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4724,6 +4735,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     dayLandings,
     flightRules,
     remarks,
+    pilotRole,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4857,6 +4869,12 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         remarks.isAcceptableOrUnknown(data['remarks']!, _remarksMeta),
       );
     }
+    if (data.containsKey('pilot_role')) {
+      context.handle(
+        _pilotRoleMeta,
+        pilotRole.isAcceptableOrUnknown(data['pilot_role']!, _pilotRoleMeta),
+      );
+    }
     return context;
   }
 
@@ -4926,6 +4944,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.string,
         data['${effectivePrefix}remarks'],
       ),
+      pilotRole: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pilot_role'],
+      ),
     );
   }
 
@@ -4951,6 +4973,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   final int? dayLandings;
   final String? flightRules;
   final String? remarks;
+  final String? pilotRole;
   const Flight({
     required this.id,
     required this.title,
@@ -4967,6 +4990,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.dayLandings,
     this.flightRules,
     this.remarks,
+    this.pilotRole,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5007,6 +5031,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     }
     if (!nullToAbsent || remarks != null) {
       map['remarks'] = Variable<String>(remarks);
+    }
+    if (!nullToAbsent || pilotRole != null) {
+      map['pilot_role'] = Variable<String>(pilotRole);
     }
     return map;
   }
@@ -5050,6 +5077,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       remarks: remarks == null && nullToAbsent
           ? const Value.absent()
           : Value(remarks),
+      pilotRole: pilotRole == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pilotRole),
     );
   }
 
@@ -5078,6 +5108,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       dayLandings: serializer.fromJson<int?>(json['dayLandings']),
       flightRules: serializer.fromJson<String?>(json['flightRules']),
       remarks: serializer.fromJson<String?>(json['remarks']),
+      pilotRole: serializer.fromJson<String?>(json['pilotRole']),
     );
   }
   @override
@@ -5101,6 +5132,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       'dayLandings': serializer.toJson<int?>(dayLandings),
       'flightRules': serializer.toJson<String?>(flightRules),
       'remarks': serializer.toJson<String?>(remarks),
+      'pilotRole': serializer.toJson<String?>(pilotRole),
     };
   }
 
@@ -5120,6 +5152,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<int?> dayLandings = const Value.absent(),
     Value<String?> flightRules = const Value.absent(),
     Value<String?> remarks = const Value.absent(),
+    Value<String?> pilotRole = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -5142,6 +5175,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     dayLandings: dayLandings.present ? dayLandings.value : this.dayLandings,
     flightRules: flightRules.present ? flightRules.value : this.flightRules,
     remarks: remarks.present ? remarks.value : this.remarks,
+    pilotRole: pilotRole.present ? pilotRole.value : this.pilotRole,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
@@ -5180,6 +5214,7 @@ class Flight extends DataClass implements Insertable<Flight> {
           ? data.flightRules.value
           : this.flightRules,
       remarks: data.remarks.present ? data.remarks.value : this.remarks,
+      pilotRole: data.pilotRole.present ? data.pilotRole.value : this.pilotRole,
     );
   }
 
@@ -5200,7 +5235,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('nightLandings: $nightLandings, ')
           ..write('dayLandings: $dayLandings, ')
           ..write('flightRules: $flightRules, ')
-          ..write('remarks: $remarks')
+          ..write('remarks: $remarks, ')
+          ..write('pilotRole: $pilotRole')
           ..write(')'))
         .toString();
   }
@@ -5222,6 +5258,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     dayLandings,
     flightRules,
     remarks,
+    pilotRole,
   );
   @override
   bool operator ==(Object other) =>
@@ -5241,7 +5278,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.nightLandings == this.nightLandings &&
           other.dayLandings == this.dayLandings &&
           other.flightRules == this.flightRules &&
-          other.remarks == this.remarks);
+          other.remarks == this.remarks &&
+          other.pilotRole == this.pilotRole);
 }
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
@@ -5260,6 +5298,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<int?> dayLandings;
   final Value<String?> flightRules;
   final Value<String?> remarks;
+  final Value<String?> pilotRole;
   const FlightsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -5276,6 +5315,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.dayLandings = const Value.absent(),
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
+    this.pilotRole = const Value.absent(),
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
@@ -5293,6 +5333,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.dayLandings = const Value.absent(),
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
+    this.pilotRole = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
        isRecording = Value(isRecording);
@@ -5312,6 +5353,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<int>? dayLandings,
     Expression<String>? flightRules,
     Expression<String>? remarks,
+    Expression<String>? pilotRole,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5331,6 +5373,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (dayLandings != null) 'day_landings': dayLandings,
       if (flightRules != null) 'flight_rules': flightRules,
       if (remarks != null) 'remarks': remarks,
+      if (pilotRole != null) 'pilot_role': pilotRole,
     });
   }
 
@@ -5350,6 +5393,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<int?>? dayLandings,
     Value<String?>? flightRules,
     Value<String?>? remarks,
+    Value<String?>? pilotRole,
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
@@ -5368,6 +5412,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       dayLandings: dayLandings ?? this.dayLandings,
       flightRules: flightRules ?? this.flightRules,
       remarks: remarks ?? this.remarks,
+      pilotRole: pilotRole ?? this.pilotRole,
     );
   }
 
@@ -5423,6 +5468,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (remarks.present) {
       map['remarks'] = Variable<String>(remarks.value);
     }
+    if (pilotRole.present) {
+      map['pilot_role'] = Variable<String>(pilotRole.value);
+    }
     return map;
   }
 
@@ -5443,7 +5491,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('nightLandings: $nightLandings, ')
           ..write('dayLandings: $dayLandings, ')
           ..write('flightRules: $flightRules, ')
-          ..write('remarks: $remarks')
+          ..write('remarks: $remarks, ')
+          ..write('pilotRole: $pilotRole')
           ..write(')'))
         .toString();
   }
@@ -5952,6 +6001,577 @@ class FlightDataPointsCompanion extends UpdateCompanion<FlightDataPoint> {
   }
 }
 
+class $PeopleTable extends People with TableInfo<$PeopleTable, Person> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PeopleTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _surnameMeta = const VerificationMeta(
+    'surname',
+  );
+  @override
+  late final GeneratedColumn<String> surname = GeneratedColumn<String>(
+    'surname',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _photoMeta = const VerificationMeta('photo');
+  @override
+  late final GeneratedColumn<String> photo = GeneratedColumn<String>(
+    'photo',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, surname, photo];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'people';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Person> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('surname')) {
+      context.handle(
+        _surnameMeta,
+        surname.isAcceptableOrUnknown(data['surname']!, _surnameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_surnameMeta);
+    }
+    if (data.containsKey('photo')) {
+      context.handle(
+        _photoMeta,
+        photo.isAcceptableOrUnknown(data['photo']!, _photoMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Person map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Person(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      surname: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}surname'],
+      )!,
+      photo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo'],
+      ),
+    );
+  }
+
+  @override
+  $PeopleTable createAlias(String alias) {
+    return $PeopleTable(attachedDatabase, alias);
+  }
+}
+
+class Person extends DataClass implements Insertable<Person> {
+  final int id;
+  final String name;
+  final String surname;
+
+  /// File name of the profile picture inside the app's people photo folder.
+  final String? photo;
+  const Person({
+    required this.id,
+    required this.name,
+    required this.surname,
+    this.photo,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['surname'] = Variable<String>(surname);
+    if (!nullToAbsent || photo != null) {
+      map['photo'] = Variable<String>(photo);
+    }
+    return map;
+  }
+
+  PeopleCompanion toCompanion(bool nullToAbsent) {
+    return PeopleCompanion(
+      id: Value(id),
+      name: Value(name),
+      surname: Value(surname),
+      photo: photo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photo),
+    );
+  }
+
+  factory Person.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Person(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      surname: serializer.fromJson<String>(json['surname']),
+      photo: serializer.fromJson<String?>(json['photo']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'surname': serializer.toJson<String>(surname),
+      'photo': serializer.toJson<String?>(photo),
+    };
+  }
+
+  Person copyWith({
+    int? id,
+    String? name,
+    String? surname,
+    Value<String?> photo = const Value.absent(),
+  }) => Person(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    surname: surname ?? this.surname,
+    photo: photo.present ? photo.value : this.photo,
+  );
+  Person copyWithCompanion(PeopleCompanion data) {
+    return Person(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      surname: data.surname.present ? data.surname.value : this.surname,
+      photo: data.photo.present ? data.photo.value : this.photo,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Person(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('surname: $surname, ')
+          ..write('photo: $photo')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, surname, photo);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Person &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.surname == this.surname &&
+          other.photo == this.photo);
+}
+
+class PeopleCompanion extends UpdateCompanion<Person> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String> surname;
+  final Value<String?> photo;
+  const PeopleCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.surname = const Value.absent(),
+    this.photo = const Value.absent(),
+  });
+  PeopleCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    required String surname,
+    this.photo = const Value.absent(),
+  }) : name = Value(name),
+       surname = Value(surname);
+  static Insertable<Person> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? surname,
+    Expression<String>? photo,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (surname != null) 'surname': surname,
+      if (photo != null) 'photo': photo,
+    });
+  }
+
+  PeopleCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String>? surname,
+    Value<String?>? photo,
+  }) {
+    return PeopleCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      surname: surname ?? this.surname,
+      photo: photo ?? this.photo,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (surname.present) {
+      map['surname'] = Variable<String>(surname.value);
+    }
+    if (photo.present) {
+      map['photo'] = Variable<String>(photo.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PeopleCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('surname: $surname, ')
+          ..write('photo: $photo')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FlightCrewTable extends FlightCrew
+    with TableInfo<$FlightCrewTable, FlightCrewEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FlightCrewTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _flightMeta = const VerificationMeta('flight');
+  @override
+  late final GeneratedColumn<int> flight = GeneratedColumn<int>(
+    'flight',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES flights (id)',
+    ),
+  );
+  static const VerificationMeta _personMeta = const VerificationMeta('person');
+  @override
+  late final GeneratedColumn<int> person = GeneratedColumn<int>(
+    'person',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES people (id)',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<CrewRole, String> role =
+      GeneratedColumn<String>(
+        'role',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<CrewRole>($FlightCrewTable.$converterrole);
+  @override
+  List<GeneratedColumn> get $columns => [flight, person, role];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'flight_crew';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FlightCrewEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('flight')) {
+      context.handle(
+        _flightMeta,
+        flight.isAcceptableOrUnknown(data['flight']!, _flightMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_flightMeta);
+    }
+    if (data.containsKey('person')) {
+      context.handle(
+        _personMeta,
+        person.isAcceptableOrUnknown(data['person']!, _personMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_personMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {flight, person};
+  @override
+  FlightCrewEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FlightCrewEntry(
+      flight: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}flight'],
+      )!,
+      person: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}person'],
+      )!,
+      role: $FlightCrewTable.$converterrole.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}role'],
+        )!,
+      ),
+    );
+  }
+
+  @override
+  $FlightCrewTable createAlias(String alias) {
+    return $FlightCrewTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<CrewRole, String, String> $converterrole =
+      const EnumNameConverter<CrewRole>(CrewRole.values);
+}
+
+class FlightCrewEntry extends DataClass implements Insertable<FlightCrewEntry> {
+  final int flight;
+  final int person;
+  final CrewRole role;
+  const FlightCrewEntry({
+    required this.flight,
+    required this.person,
+    required this.role,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['flight'] = Variable<int>(flight);
+    map['person'] = Variable<int>(person);
+    {
+      map['role'] = Variable<String>(
+        $FlightCrewTable.$converterrole.toSql(role),
+      );
+    }
+    return map;
+  }
+
+  FlightCrewCompanion toCompanion(bool nullToAbsent) {
+    return FlightCrewCompanion(
+      flight: Value(flight),
+      person: Value(person),
+      role: Value(role),
+    );
+  }
+
+  factory FlightCrewEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FlightCrewEntry(
+      flight: serializer.fromJson<int>(json['flight']),
+      person: serializer.fromJson<int>(json['person']),
+      role: $FlightCrewTable.$converterrole.fromJson(
+        serializer.fromJson<String>(json['role']),
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'flight': serializer.toJson<int>(flight),
+      'person': serializer.toJson<int>(person),
+      'role': serializer.toJson<String>(
+        $FlightCrewTable.$converterrole.toJson(role),
+      ),
+    };
+  }
+
+  FlightCrewEntry copyWith({int? flight, int? person, CrewRole? role}) =>
+      FlightCrewEntry(
+        flight: flight ?? this.flight,
+        person: person ?? this.person,
+        role: role ?? this.role,
+      );
+  FlightCrewEntry copyWithCompanion(FlightCrewCompanion data) {
+    return FlightCrewEntry(
+      flight: data.flight.present ? data.flight.value : this.flight,
+      person: data.person.present ? data.person.value : this.person,
+      role: data.role.present ? data.role.value : this.role,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlightCrewEntry(')
+          ..write('flight: $flight, ')
+          ..write('person: $person, ')
+          ..write('role: $role')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(flight, person, role);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FlightCrewEntry &&
+          other.flight == this.flight &&
+          other.person == this.person &&
+          other.role == this.role);
+}
+
+class FlightCrewCompanion extends UpdateCompanion<FlightCrewEntry> {
+  final Value<int> flight;
+  final Value<int> person;
+  final Value<CrewRole> role;
+  final Value<int> rowid;
+  const FlightCrewCompanion({
+    this.flight = const Value.absent(),
+    this.person = const Value.absent(),
+    this.role = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FlightCrewCompanion.insert({
+    required int flight,
+    required int person,
+    required CrewRole role,
+    this.rowid = const Value.absent(),
+  }) : flight = Value(flight),
+       person = Value(person),
+       role = Value(role);
+  static Insertable<FlightCrewEntry> custom({
+    Expression<int>? flight,
+    Expression<int>? person,
+    Expression<String>? role,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (flight != null) 'flight': flight,
+      if (person != null) 'person': person,
+      if (role != null) 'role': role,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FlightCrewCompanion copyWith({
+    Value<int>? flight,
+    Value<int>? person,
+    Value<CrewRole>? role,
+    Value<int>? rowid,
+  }) {
+    return FlightCrewCompanion(
+      flight: flight ?? this.flight,
+      person: person ?? this.person,
+      role: role ?? this.role,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (flight.present) {
+      map['flight'] = Variable<int>(flight.value);
+    }
+    if (person.present) {
+      map['person'] = Variable<int>(person.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(
+        $FlightCrewTable.$converterrole.toSql(role.value),
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FlightCrewCompanion(')
+          ..write('flight: $flight, ')
+          ..write('person: $person, ')
+          ..write('role: $role, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class AircraftWithStats extends DataClass {
   final int id;
   final String tailNumber;
@@ -5963,8 +6583,8 @@ class AircraftWithStats extends DataClass {
   final String manufacturer;
   final int engineCount;
   final EngineType engineType;
-  final WakeTurbolenceCategory wakeTurbolenceCategory;
-  final WakeTurbolenceGroup wakeTurbolenceGroup;
+  final WakeTurbulenceCategory wakeTurbolenceCategory;
+  final WakeTurbulenceGroup wakeTurbolenceGroup;
   final bool userInserted;
   final int? dayLandings;
   final int? nightLandings;
@@ -6070,8 +6690,8 @@ class AircraftWithStats extends DataClass {
     String? manufacturer,
     int? engineCount,
     EngineType? engineType,
-    WakeTurbolenceCategory? wakeTurbolenceCategory,
-    WakeTurbolenceGroup? wakeTurbolenceGroup,
+    WakeTurbulenceCategory? wakeTurbolenceCategory,
+    WakeTurbulenceGroup? wakeTurbolenceGroup,
     bool? userInserted,
     Value<int?> dayLandings = const Value.absent(),
     Value<int?> nightLandings = const Value.absent(),
@@ -6368,7 +6988,7 @@ class $AircraftWithStatssView
         generatedAs: GeneratedAs(icaoAircrafts.engineType, false),
         type: DriftSqlType.string,
       ).withConverter<EngineType>($IcaoAircraftsTable.$converterengineType);
-  late final GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  late final GeneratedColumnWithTypeConverter<WakeTurbulenceCategory, String>
   wakeTurbolenceCategory =
       GeneratedColumn<String>(
         'wake_turbolence_category',
@@ -6376,10 +6996,10 @@ class $AircraftWithStatssView
         false,
         generatedAs: GeneratedAs(icaoAircrafts.wakeTurbolenceCategory, false),
         type: DriftSqlType.string,
-      ).withConverter<WakeTurbolenceCategory>(
+      ).withConverter<WakeTurbulenceCategory>(
         $IcaoAircraftsTable.$converterwakeTurbolenceCategory,
       );
-  late final GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  late final GeneratedColumnWithTypeConverter<WakeTurbulenceGroup, String>
   wakeTurbolenceGroup =
       GeneratedColumn<String>(
         'wake_turbolence_group',
@@ -6387,7 +7007,7 @@ class $AircraftWithStatssView
         false,
         generatedAs: GeneratedAs(icaoAircrafts.wakeTurbolenceGroup, false),
         type: DriftSqlType.string,
-      ).withConverter<WakeTurbolenceGroup>(
+      ).withConverter<WakeTurbulenceGroup>(
         $IcaoAircraftsTable.$converterwakeTurbolenceGroup,
       );
   late final GeneratedColumn<bool> userInserted = GeneratedColumn<bool>(
@@ -6466,6 +7086,9 @@ class $AircraftWithStatssView
     'aircrafts',
     'flights',
     'icao_aircrafts',
+    'airports',
+    'countries',
+    'regions',
   };
 }
 
@@ -6653,7 +7276,14 @@ class $FlightStatsView extends ViewInfo<$FlightStatsView, FlightStat>
   Query? get query =>
       (attachedDatabase.selectOnly(flights)..addColumns($columns));
   @override
-  Set<String> get readTables => const {'flights'};
+  Set<String> get readTables => const {
+    'flights',
+    'airports',
+    'aircrafts',
+    'icao_aircrafts',
+    'countries',
+    'regions',
+  };
 }
 
 class AircraftWithIcao extends DataClass {
@@ -6667,8 +7297,8 @@ class AircraftWithIcao extends DataClass {
   final String manufacturer;
   final int engineCount;
   final EngineType engineType;
-  final WakeTurbolenceCategory wakeTurbolenceCategory;
-  final WakeTurbolenceGroup wakeTurbolenceGroup;
+  final WakeTurbulenceCategory wakeTurbolenceCategory;
+  final WakeTurbulenceGroup wakeTurbolenceGroup;
   final bool userInserted;
   const AircraftWithIcao({
     required this.id,
@@ -6758,8 +7388,8 @@ class AircraftWithIcao extends DataClass {
     String? manufacturer,
     int? engineCount,
     EngineType? engineType,
-    WakeTurbolenceCategory? wakeTurbolenceCategory,
-    WakeTurbolenceGroup? wakeTurbolenceGroup,
+    WakeTurbulenceCategory? wakeTurbolenceCategory,
+    WakeTurbulenceGroup? wakeTurbolenceGroup,
     bool? userInserted,
   }) => AircraftWithIcao(
     id: id ?? this.id,
@@ -7011,7 +7641,7 @@ class $AircraftWithIcaosView
         generatedAs: GeneratedAs(icaoAircrafts.engineType, false),
         type: DriftSqlType.string,
       ).withConverter<EngineType>($IcaoAircraftsTable.$converterengineType);
-  late final GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  late final GeneratedColumnWithTypeConverter<WakeTurbulenceCategory, String>
   wakeTurbolenceCategory =
       GeneratedColumn<String>(
         'wake_turbolence_category',
@@ -7019,10 +7649,10 @@ class $AircraftWithIcaosView
         false,
         generatedAs: GeneratedAs(icaoAircrafts.wakeTurbolenceCategory, false),
         type: DriftSqlType.string,
-      ).withConverter<WakeTurbolenceCategory>(
+      ).withConverter<WakeTurbulenceCategory>(
         $IcaoAircraftsTable.$converterwakeTurbolenceCategory,
       );
-  late final GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  late final GeneratedColumnWithTypeConverter<WakeTurbulenceGroup, String>
   wakeTurbolenceGroup =
       GeneratedColumn<String>(
         'wake_turbolence_group',
@@ -7030,7 +7660,7 @@ class $AircraftWithIcaosView
         false,
         generatedAs: GeneratedAs(icaoAircrafts.wakeTurbolenceGroup, false),
         type: DriftSqlType.string,
-      ).withConverter<WakeTurbolenceGroup>(
+      ).withConverter<WakeTurbulenceGroup>(
         $IcaoAircraftsTable.$converterwakeTurbolenceGroup,
       );
   late final GeneratedColumn<bool> userInserted = GeneratedColumn<bool>(
@@ -7074,6 +7704,8 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $FlightDataPointsTable flightDataPoints = $FlightDataPointsTable(
     this,
   );
+  late final $PeopleTable people = $PeopleTable(this);
+  late final $FlightCrewTable flightCrew = $FlightCrewTable(this);
   late final $AircraftWithStatssView aircraftWithStatss =
       $AircraftWithStatssView(this);
   late final $FlightStatsView flightStats = $FlightStatsView(this);
@@ -7094,6 +7726,8 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     aircrafts,
     flights,
     flightDataPoints,
+    people,
+    flightCrew,
     aircraftWithStatss,
     flightStats,
     aircraftWithIcaos,
@@ -7127,7 +7761,7 @@ final class $$CountriesTableReferences
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.regions,
-    aliasName: $_aliasNameGenerator(db.countries.code, db.regions.isoCountry),
+    aliasName: 'countries__code__regions__iso_country',
   );
 
   $$RegionsTableProcessedTableManager get regionsRefs {
@@ -7146,7 +7780,7 @@ final class $$CountriesTableReferences
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.airports,
-    aliasName: $_aliasNameGenerator(db.countries.code, db.airports.isoCountry),
+    aliasName: 'countries__code__airports__iso_country',
   );
 
   $$AirportsTableProcessedTableManager get airportsRefs {
@@ -7433,7 +8067,7 @@ class $$CountriesTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$CountriesTable, Country>(table),
                   $$CountriesTableReferences(db, table, e),
                 ),
               )
@@ -7532,9 +8166,7 @@ final class $$RegionsTableReferences
   $$RegionsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $CountriesTable _isoCountryTable(_$LogbookDatabase db) =>
-      db.countries.createAlias(
-        $_aliasNameGenerator(db.regions.isoCountry, db.countries.code),
-      );
+      db.countries.createAlias('regions__iso_country__countries__code');
 
   $$CountriesTableProcessedTableManager get isoCountry {
     final $_column = $_itemColumn<String>('iso_country')!;
@@ -7554,7 +8186,7 @@ final class $$RegionsTableReferences
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.airports,
-    aliasName: $_aliasNameGenerator(db.regions.code, db.airports.isoRegion),
+    aliasName: 'regions__code__airports__iso_region',
   );
 
   $$AirportsTableProcessedTableManager get airportsRefs {
@@ -7881,7 +8513,7 @@ class $$RegionsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$RegionsTable, Region>(table),
                   $$RegionsTableReferences(db, table, e),
                 ),
               )
@@ -8009,9 +8641,7 @@ final class $$AirportsTableReferences
   $$AirportsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $CountriesTable _isoCountryTable(_$LogbookDatabase db) =>
-      db.countries.createAlias(
-        $_aliasNameGenerator(db.airports.isoCountry, db.countries.code),
-      );
+      db.countries.createAlias('airports__iso_country__countries__code');
 
   $$CountriesTableProcessedTableManager get isoCountry {
     final $_column = $_itemColumn<String>('iso_country')!;
@@ -8028,9 +8658,7 @@ final class $$AirportsTableReferences
   }
 
   static $RegionsTable _isoRegionTable(_$LogbookDatabase db) =>
-      db.regions.createAlias(
-        $_aliasNameGenerator(db.airports.isoRegion, db.regions.code),
-      );
+      db.regions.createAlias('airports__iso_region__regions__code');
 
   $$RegionsTableProcessedTableManager get isoRegion {
     final $_column = $_itemColumn<String>('iso_region')!;
@@ -8049,7 +8677,7 @@ final class $$AirportsTableReferences
   static MultiTypedResultKey<$FrequenciesTable, List<Frequency>>
   _frequencyRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
     db.frequencies,
-    aliasName: $_aliasNameGenerator(db.airports.id, db.frequencies.airport),
+    aliasName: 'airports__id__frequencies__airport',
   );
 
   $$FrequenciesTableProcessedTableManager get frequencyRefs {
@@ -8068,7 +8696,7 @@ final class $$AirportsTableReferences
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.runways,
-    aliasName: $_aliasNameGenerator(db.airports.id, db.runways.airport),
+    aliasName: 'airports__id__runways__airport',
   );
 
   $$RunwaysTableProcessedTableManager get runwayRefs {
@@ -8087,7 +8715,7 @@ final class $$AirportsTableReferences
   _departureAirportRefsTable(_$LogbookDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.flights,
-        aliasName: $_aliasNameGenerator(db.airports.id, db.flights.departure),
+        aliasName: 'airports__id__flights__departure',
       );
 
   $$FlightsTableProcessedTableManager get departureAirportRefs {
@@ -8108,7 +8736,7 @@ final class $$AirportsTableReferences
   _arrivalAirportsRefsTable(_$LogbookDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.flights,
-        aliasName: $_aliasNameGenerator(db.airports.id, db.flights.arrival),
+        aliasName: 'airports__id__flights__arrival',
       );
 
   $$FlightsTableProcessedTableManager get arrivalAirportsRefs {
@@ -8848,7 +9476,7 @@ class $$AirportsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$AirportsTable, Airport>(table),
                   $$AirportsTableReferences(db, table, e),
                 ),
               )
@@ -9052,9 +9680,7 @@ final class $$FrequenciesTableReferences
   $$FrequenciesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $AirportsTable _airportTable(_$LogbookDatabase db) =>
-      db.airports.createAlias(
-        $_aliasNameGenerator(db.frequencies.airport, db.airports.id),
-      );
+      db.airports.createAlias('frequencies__airport__airports__id');
 
   $$AirportsTableProcessedTableManager get airport {
     final $_column = $_itemColumn<int>('airport')!;
@@ -9283,7 +9909,7 @@ class $$FrequenciesTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$FrequenciesTable, Frequency>(table),
                   $$FrequenciesTableReferences(db, table, e),
                 ),
               )
@@ -9396,8 +10022,8 @@ final class $$RunwaysTableReferences
     extends BaseReferences<_$LogbookDatabase, $RunwaysTable, Runway> {
   $$RunwaysTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $AirportsTable _airportTable(_$LogbookDatabase db) => db.airports
-      .createAlias($_aliasNameGenerator(db.runways.airport, db.airports.id));
+  static $AirportsTable _airportTable(_$LogbookDatabase db) =>
+      db.airports.createAlias('runways__airport__airports__id');
 
   $$AirportsTableProcessedTableManager get airport {
     final $_column = $_itemColumn<int>('airport')!;
@@ -9880,7 +10506,7 @@ class $$RunwaysTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$RunwaysTable, Runway>(table),
                   $$RunwaysTableReferences(db, table, e),
                 ),
               )
@@ -9949,8 +10575,8 @@ typedef $$IcaoAircraftsTableCreateCompanionBuilder =
       Value<int> id,
       required String modelFullName,
       required String designator,
-      required WakeTurbolenceCategory wakeTurbolenceCategory,
-      required WakeTurbolenceGroup wakeTurbolenceGroup,
+      required WakeTurbulenceCategory wakeTurbolenceCategory,
+      required WakeTurbulenceGroup wakeTurbolenceGroup,
       required String manufacturer,
       required AircraftDescription description,
       required int engineCount,
@@ -9962,8 +10588,8 @@ typedef $$IcaoAircraftsTableUpdateCompanionBuilder =
       Value<int> id,
       Value<String> modelFullName,
       Value<String> designator,
-      Value<WakeTurbolenceCategory> wakeTurbolenceCategory,
-      Value<WakeTurbolenceGroup> wakeTurbolenceGroup,
+      Value<WakeTurbulenceCategory> wakeTurbolenceCategory,
+      Value<WakeTurbulenceGroup> wakeTurbolenceGroup,
       Value<String> manufacturer,
       Value<AircraftDescription> description,
       Value<int> engineCount,
@@ -9983,10 +10609,7 @@ final class $$IcaoAircraftsTableReferences
   static MultiTypedResultKey<$AircraftsTable, List<Aircraft>>
   _aircraftsRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
     db.aircrafts,
-    aliasName: $_aliasNameGenerator(
-      db.icaoAircrafts.id,
-      db.aircrafts.icaoAircraft,
-    ),
+    aliasName: 'icao_aircrafts__id__aircrafts__icao_aircraft',
   );
 
   $$AircraftsTableProcessedTableManager get aircraftsRefs {
@@ -10027,8 +10650,8 @@ class $$IcaoAircraftsTableFilterComposer
   );
 
   ColumnWithTypeConverterFilters<
-    WakeTurbolenceCategory,
-    WakeTurbolenceCategory,
+    WakeTurbulenceCategory,
+    WakeTurbulenceCategory,
     String
   >
   get wakeTurbolenceCategory => $composableBuilder(
@@ -10037,8 +10660,8 @@ class $$IcaoAircraftsTableFilterComposer
   );
 
   ColumnWithTypeConverterFilters<
-    WakeTurbolenceGroup,
-    WakeTurbolenceGroup,
+    WakeTurbulenceGroup,
+    WakeTurbulenceGroup,
     String
   >
   get wakeTurbolenceGroup => $composableBuilder(
@@ -10185,13 +10808,13 @@ class $$IcaoAircraftsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumnWithTypeConverter<WakeTurbolenceCategory, String>
+  GeneratedColumnWithTypeConverter<WakeTurbulenceCategory, String>
   get wakeTurbolenceCategory => $composableBuilder(
     column: $table.wakeTurbolenceCategory,
     builder: (column) => column,
   );
 
-  GeneratedColumnWithTypeConverter<WakeTurbolenceGroup, String>
+  GeneratedColumnWithTypeConverter<WakeTurbulenceGroup, String>
   get wakeTurbolenceGroup => $composableBuilder(
     column: $table.wakeTurbolenceGroup,
     builder: (column) => column,
@@ -10283,9 +10906,9 @@ class $$IcaoAircraftsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> modelFullName = const Value.absent(),
                 Value<String> designator = const Value.absent(),
-                Value<WakeTurbolenceCategory> wakeTurbolenceCategory =
+                Value<WakeTurbulenceCategory> wakeTurbolenceCategory =
                     const Value.absent(),
-                Value<WakeTurbolenceGroup> wakeTurbolenceGroup =
+                Value<WakeTurbulenceGroup> wakeTurbolenceGroup =
                     const Value.absent(),
                 Value<String> manufacturer = const Value.absent(),
                 Value<AircraftDescription> description = const Value.absent(),
@@ -10309,8 +10932,8 @@ class $$IcaoAircraftsTableTableManager
                 Value<int> id = const Value.absent(),
                 required String modelFullName,
                 required String designator,
-                required WakeTurbolenceCategory wakeTurbolenceCategory,
-                required WakeTurbolenceGroup wakeTurbolenceGroup,
+                required WakeTurbulenceCategory wakeTurbolenceCategory,
+                required WakeTurbulenceGroup wakeTurbolenceGroup,
                 required String manufacturer,
                 required AircraftDescription description,
                 required int engineCount,
@@ -10331,7 +10954,7 @@ class $$IcaoAircraftsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$IcaoAircraftsTable, IcaoAircraft>(table),
                   $$IcaoAircraftsTableReferences(db, table, e),
                 ),
               )
@@ -10405,10 +11028,9 @@ final class $$AircraftsTableReferences
     extends BaseReferences<_$LogbookDatabase, $AircraftsTable, Aircraft> {
   $$AircraftsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $IcaoAircraftsTable _icaoAircraftTable(_$LogbookDatabase db) =>
-      db.icaoAircrafts.createAlias(
-        $_aliasNameGenerator(db.aircrafts.icaoAircraft, db.icaoAircrafts.id),
-      );
+  static $IcaoAircraftsTable _icaoAircraftTable(_$LogbookDatabase db) => db
+      .icaoAircrafts
+      .createAlias('aircrafts__icao_aircraft__icao_aircrafts__id');
 
   $$IcaoAircraftsTableProcessedTableManager get icaoAircraft {
     final $_column = $_itemColumn<int>('icao_aircraft')!;
@@ -10428,7 +11050,7 @@ final class $$AircraftsTableReferences
     _$LogbookDatabase db,
   ) => MultiTypedResultKey.fromTable(
     db.flights,
-    aliasName: $_aliasNameGenerator(db.aircrafts.id, db.flights.aircraftId),
+    aliasName: 'aircrafts__id__flights__aircraft_id',
   );
 
   $$FlightsTableProcessedTableManager get flightsRefs {
@@ -10687,7 +11309,7 @@ class $$AircraftsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$AircraftsTable, Aircraft>(table),
                   $$AircraftsTableReferences(db, table, e),
                 ),
               )
@@ -10784,6 +11406,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<int?> dayLandings,
       Value<String?> flightRules,
       Value<String?> remarks,
+      Value<String?> pilotRole,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
@@ -10802,14 +11425,15 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<int?> dayLandings,
       Value<String?> flightRules,
       Value<String?> remarks,
+      Value<String?> pilotRole,
     });
 
 final class $$FlightsTableReferences
     extends BaseReferences<_$LogbookDatabase, $FlightsTable, Flight> {
   $$FlightsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
-  static $AirportsTable _departureTable(_$LogbookDatabase db) => db.airports
-      .createAlias($_aliasNameGenerator(db.flights.departure, db.airports.id));
+  static $AirportsTable _departureTable(_$LogbookDatabase db) =>
+      db.airports.createAlias('flights__departure__airports__id');
 
   $$AirportsTableProcessedTableManager? get departure {
     final $_column = $_itemColumn<int>('departure');
@@ -10825,8 +11449,8 @@ final class $$FlightsTableReferences
     );
   }
 
-  static $AirportsTable _arrivalTable(_$LogbookDatabase db) => db.airports
-      .createAlias($_aliasNameGenerator(db.flights.arrival, db.airports.id));
+  static $AirportsTable _arrivalTable(_$LogbookDatabase db) =>
+      db.airports.createAlias('flights__arrival__airports__id');
 
   $$AirportsTableProcessedTableManager? get arrival {
     final $_column = $_itemColumn<int>('arrival');
@@ -10843,9 +11467,7 @@ final class $$FlightsTableReferences
   }
 
   static $AircraftsTable _aircraftIdTable(_$LogbookDatabase db) =>
-      db.aircrafts.createAlias(
-        $_aliasNameGenerator(db.flights.aircraftId, db.aircrafts.id),
-      );
+      db.aircrafts.createAlias('flights__aircraft_id__aircrafts__id');
 
   $$AircraftsTableProcessedTableManager? get aircraftId {
     final $_column = $_itemColumn<int>('aircraft_id');
@@ -10865,10 +11487,7 @@ final class $$FlightsTableReferences
   _flightDataPointsRefsTable(_$LogbookDatabase db) =>
       MultiTypedResultKey.fromTable(
         db.flightDataPoints,
-        aliasName: $_aliasNameGenerator(
-          db.flights.id,
-          db.flightDataPoints.flight,
-        ),
+        aliasName: 'flights__id__flight_data_points__flight',
       );
 
   $$FlightDataPointsTableProcessedTableManager get flightDataPointsRefs {
@@ -10880,6 +11499,24 @@ final class $$FlightsTableReferences
     final cache = $_typedResult.readTableOrNull(
       _flightDataPointsRefsTable($_db),
     );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$FlightCrewTable, List<FlightCrewEntry>>
+  _flightCrewRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
+    db.flightCrew,
+    aliasName: 'flights__id__flight_crew__flight',
+  );
+
+  $$FlightCrewTableProcessedTableManager get flightCrewRefs {
+    final manager = $$FlightCrewTableTableManager(
+      $_db,
+      $_db.flightCrew,
+    ).filter((f) => f.flight.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_flightCrewRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -10952,6 +11589,11 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<String> get remarks => $composableBuilder(
     column: $table.remarks,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pilotRole => $composableBuilder(
+    column: $table.pilotRole,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11048,6 +11690,31 @@ class $$FlightsTableFilterComposer
     );
     return f(composer);
   }
+
+  Expression<bool> flightCrewRefs(
+    Expression<bool> Function($$FlightCrewTableFilterComposer f) f,
+  ) {
+    final $$FlightCrewTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flightCrew,
+      getReferencedColumn: (t) => t.flight,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightCrewTableFilterComposer(
+            $db: $db,
+            $table: $db.flightCrew,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$FlightsTableOrderingComposer
@@ -11116,6 +11783,11 @@ class $$FlightsTableOrderingComposer
 
   ColumnOrderings<String> get remarks => $composableBuilder(
     column: $table.remarks,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pilotRole => $composableBuilder(
+    column: $table.pilotRole,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -11252,6 +11924,9 @@ class $$FlightsTableAnnotationComposer
   GeneratedColumn<String> get remarks =>
       $composableBuilder(column: $table.remarks, builder: (column) => column);
 
+  GeneratedColumn<String> get pilotRole =>
+      $composableBuilder(column: $table.pilotRole, builder: (column) => column);
+
   $$AirportsTableAnnotationComposer get departure {
     final $$AirportsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -11345,6 +12020,31 @@ class $$FlightsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> flightCrewRefs<T extends Object>(
+    Expression<T> Function($$FlightCrewTableAnnotationComposer a) f,
+  ) {
+    final $$FlightCrewTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flightCrew,
+      getReferencedColumn: (t) => t.flight,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightCrewTableAnnotationComposer(
+            $db: $db,
+            $table: $db.flightCrew,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$FlightsTableTableManager
@@ -11365,6 +12065,7 @@ class $$FlightsTableTableManager
             bool arrival,
             bool aircraftId,
             bool flightDataPointsRefs,
+            bool flightCrewRefs,
           })
         > {
   $$FlightsTableTableManager(_$LogbookDatabase db, $FlightsTable table)
@@ -11395,6 +12096,7 @@ class $$FlightsTableTableManager
                 Value<int?> dayLandings = const Value.absent(),
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
+                Value<String?> pilotRole = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
                 title: title,
@@ -11411,6 +12113,7 @@ class $$FlightsTableTableManager
                 dayLandings: dayLandings,
                 flightRules: flightRules,
                 remarks: remarks,
+                pilotRole: pilotRole,
               ),
           createCompanionCallback:
               ({
@@ -11429,6 +12132,7 @@ class $$FlightsTableTableManager
                 Value<int?> dayLandings = const Value.absent(),
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
+                Value<String?> pilotRole = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
                 title: title,
@@ -11445,11 +12149,12 @@ class $$FlightsTableTableManager
                 dayLandings: dayLandings,
                 flightRules: flightRules,
                 remarks: remarks,
+                pilotRole: pilotRole,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$FlightsTable, Flight>(table),
                   $$FlightsTableReferences(db, table, e),
                 ),
               )
@@ -11460,11 +12165,13 @@ class $$FlightsTableTableManager
                 arrival = false,
                 aircraftId = false,
                 flightDataPointsRefs = false,
+                flightCrewRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (flightDataPointsRefs) db.flightDataPoints,
+                    if (flightCrewRefs) db.flightCrew,
                   ],
                   addJoins:
                       <
@@ -11547,6 +12254,27 @@ class $$FlightsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (flightCrewRefs)
+                        await $_getPrefetchedData<
+                          Flight,
+                          $FlightsTable,
+                          FlightCrewEntry
+                        >(
+                          currentTable: table,
+                          referencedTable: $$FlightsTableReferences
+                              ._flightCrewRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$FlightsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).flightCrewRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.flight == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -11572,6 +12300,7 @@ typedef $$FlightsTableProcessedTableManager =
         bool arrival,
         bool aircraftId,
         bool flightDataPointsRefs,
+        bool flightCrewRefs,
       })
     >;
 typedef $$FlightDataPointsTableCreateCompanionBuilder =
@@ -11611,9 +12340,7 @@ final class $$FlightDataPointsTableReferences
   );
 
   static $FlightsTable _flightTable(_$LogbookDatabase db) =>
-      db.flights.createAlias(
-        $_aliasNameGenerator(db.flightDataPoints.flight, db.flights.id),
-      );
+      db.flights.createAlias('flight_data_points__flight__flights__id');
 
   $$FlightsTableProcessedTableManager get flight {
     final $_column = $_itemColumn<int>('flight')!;
@@ -11891,7 +12618,7 @@ class $$FlightDataPointsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable(table),
+                  e.readTable<$FlightDataPointsTable, FlightDataPoint>(table),
                   $$FlightDataPointsTableReferences(db, table, e),
                 ),
               )
@@ -11957,6 +12684,645 @@ typedef $$FlightDataPointsTableProcessedTableManager =
       FlightDataPoint,
       PrefetchHooks Function({bool flight})
     >;
+typedef $$PeopleTableCreateCompanionBuilder =
+    PeopleCompanion Function({
+      Value<int> id,
+      required String name,
+      required String surname,
+      Value<String?> photo,
+    });
+typedef $$PeopleTableUpdateCompanionBuilder =
+    PeopleCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String> surname,
+      Value<String?> photo,
+    });
+
+final class $$PeopleTableReferences
+    extends BaseReferences<_$LogbookDatabase, $PeopleTable, Person> {
+  $$PeopleTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$FlightCrewTable, List<FlightCrewEntry>>
+  _flightCrewRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
+    db.flightCrew,
+    aliasName: 'people__id__flight_crew__person',
+  );
+
+  $$FlightCrewTableProcessedTableManager get flightCrewRefs {
+    final manager = $$FlightCrewTableTableManager(
+      $_db,
+      $_db.flightCrew,
+    ).filter((f) => f.person.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_flightCrewRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$PeopleTableFilterComposer
+    extends Composer<_$LogbookDatabase, $PeopleTable> {
+  $$PeopleTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get surname => $composableBuilder(
+    column: $table.surname,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photo => $composableBuilder(
+    column: $table.photo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> flightCrewRefs(
+    Expression<bool> Function($$FlightCrewTableFilterComposer f) f,
+  ) {
+    final $$FlightCrewTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flightCrew,
+      getReferencedColumn: (t) => t.person,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightCrewTableFilterComposer(
+            $db: $db,
+            $table: $db.flightCrew,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PeopleTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $PeopleTable> {
+  $$PeopleTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get surname => $composableBuilder(
+    column: $table.surname,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photo => $composableBuilder(
+    column: $table.photo,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PeopleTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $PeopleTable> {
+  $$PeopleTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get surname =>
+      $composableBuilder(column: $table.surname, builder: (column) => column);
+
+  GeneratedColumn<String> get photo =>
+      $composableBuilder(column: $table.photo, builder: (column) => column);
+
+  Expression<T> flightCrewRefs<T extends Object>(
+    Expression<T> Function($$FlightCrewTableAnnotationComposer a) f,
+  ) {
+    final $$FlightCrewTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flightCrew,
+      getReferencedColumn: (t) => t.person,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightCrewTableAnnotationComposer(
+            $db: $db,
+            $table: $db.flightCrew,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PeopleTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $PeopleTable,
+          Person,
+          $$PeopleTableFilterComposer,
+          $$PeopleTableOrderingComposer,
+          $$PeopleTableAnnotationComposer,
+          $$PeopleTableCreateCompanionBuilder,
+          $$PeopleTableUpdateCompanionBuilder,
+          (Person, $$PeopleTableReferences),
+          Person,
+          PrefetchHooks Function({bool flightCrewRefs})
+        > {
+  $$PeopleTableTableManager(_$LogbookDatabase db, $PeopleTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PeopleTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PeopleTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PeopleTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> surname = const Value.absent(),
+                Value<String?> photo = const Value.absent(),
+              }) => PeopleCompanion(
+                id: id,
+                name: name,
+                surname: surname,
+                photo: photo,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                required String surname,
+                Value<String?> photo = const Value.absent(),
+              }) => PeopleCompanion.insert(
+                id: id,
+                name: name,
+                surname: surname,
+                photo: photo,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PeopleTable, Person>(table),
+                  $$PeopleTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({flightCrewRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (flightCrewRefs) db.flightCrew],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (flightCrewRefs)
+                    await $_getPrefetchedData<
+                      Person,
+                      $PeopleTable,
+                      FlightCrewEntry
+                    >(
+                      currentTable: table,
+                      referencedTable: $$PeopleTableReferences
+                          ._flightCrewRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$PeopleTableReferences(db, table, p0).flightCrewRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.person == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PeopleTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $PeopleTable,
+      Person,
+      $$PeopleTableFilterComposer,
+      $$PeopleTableOrderingComposer,
+      $$PeopleTableAnnotationComposer,
+      $$PeopleTableCreateCompanionBuilder,
+      $$PeopleTableUpdateCompanionBuilder,
+      (Person, $$PeopleTableReferences),
+      Person,
+      PrefetchHooks Function({bool flightCrewRefs})
+    >;
+typedef $$FlightCrewTableCreateCompanionBuilder =
+    FlightCrewCompanion Function({
+      required int flight,
+      required int person,
+      required CrewRole role,
+      Value<int> rowid,
+    });
+typedef $$FlightCrewTableUpdateCompanionBuilder =
+    FlightCrewCompanion Function({
+      Value<int> flight,
+      Value<int> person,
+      Value<CrewRole> role,
+      Value<int> rowid,
+    });
+
+final class $$FlightCrewTableReferences
+    extends
+        BaseReferences<_$LogbookDatabase, $FlightCrewTable, FlightCrewEntry> {
+  $$FlightCrewTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $FlightsTable _flightTable(_$LogbookDatabase db) =>
+      db.flights.createAlias('flight_crew__flight__flights__id');
+
+  $$FlightsTableProcessedTableManager get flight {
+    final $_column = $_itemColumn<int>('flight')!;
+
+    final manager = $$FlightsTableTableManager(
+      $_db,
+      $_db.flights,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_flightTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $PeopleTable _personTable(_$LogbookDatabase db) =>
+      db.people.createAlias('flight_crew__person__people__id');
+
+  $$PeopleTableProcessedTableManager get person {
+    final $_column = $_itemColumn<int>('person')!;
+
+    final manager = $$PeopleTableTableManager(
+      $_db,
+      $_db.people,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_personTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$FlightCrewTableFilterComposer
+    extends Composer<_$LogbookDatabase, $FlightCrewTable> {
+  $$FlightCrewTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnWithTypeConverterFilters<CrewRole, CrewRole, String> get role =>
+      $composableBuilder(
+        column: $table.role,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  $$FlightsTableFilterComposer get flight {
+    final $$FlightsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.flight,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableFilterComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PeopleTableFilterComposer get person {
+    final $$PeopleTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.person,
+      referencedTable: $db.people,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PeopleTableFilterComposer(
+            $db: $db,
+            $table: $db.people,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FlightCrewTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $FlightCrewTable> {
+  $$FlightCrewTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$FlightsTableOrderingComposer get flight {
+    final $$FlightsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.flight,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableOrderingComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PeopleTableOrderingComposer get person {
+    final $$PeopleTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.person,
+      referencedTable: $db.people,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PeopleTableOrderingComposer(
+            $db: $db,
+            $table: $db.people,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FlightCrewTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $FlightCrewTable> {
+  $$FlightCrewTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumnWithTypeConverter<CrewRole, String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  $$FlightsTableAnnotationComposer get flight {
+    final $$FlightsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.flight,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$PeopleTableAnnotationComposer get person {
+    final $$PeopleTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.person,
+      referencedTable: $db.people,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PeopleTableAnnotationComposer(
+            $db: $db,
+            $table: $db.people,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$FlightCrewTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $FlightCrewTable,
+          FlightCrewEntry,
+          $$FlightCrewTableFilterComposer,
+          $$FlightCrewTableOrderingComposer,
+          $$FlightCrewTableAnnotationComposer,
+          $$FlightCrewTableCreateCompanionBuilder,
+          $$FlightCrewTableUpdateCompanionBuilder,
+          (FlightCrewEntry, $$FlightCrewTableReferences),
+          FlightCrewEntry,
+          PrefetchHooks Function({bool flight, bool person})
+        > {
+  $$FlightCrewTableTableManager(_$LogbookDatabase db, $FlightCrewTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FlightCrewTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FlightCrewTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FlightCrewTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> flight = const Value.absent(),
+                Value<int> person = const Value.absent(),
+                Value<CrewRole> role = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FlightCrewCompanion(
+                flight: flight,
+                person: person,
+                role: role,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required int flight,
+                required int person,
+                required CrewRole role,
+                Value<int> rowid = const Value.absent(),
+              }) => FlightCrewCompanion.insert(
+                flight: flight,
+                person: person,
+                role: role,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$FlightCrewTable, FlightCrewEntry>(table),
+                  $$FlightCrewTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({flight = false, person = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (flight) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.flight,
+                                referencedTable: $$FlightCrewTableReferences
+                                    ._flightTable(db),
+                                referencedColumn: $$FlightCrewTableReferences
+                                    ._flightTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+                    if (person) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.person,
+                                referencedTable: $$FlightCrewTableReferences
+                                    ._personTable(db),
+                                referencedColumn: $$FlightCrewTableReferences
+                                    ._personTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$FlightCrewTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $FlightCrewTable,
+      FlightCrewEntry,
+      $$FlightCrewTableFilterComposer,
+      $$FlightCrewTableOrderingComposer,
+      $$FlightCrewTableAnnotationComposer,
+      $$FlightCrewTableCreateCompanionBuilder,
+      $$FlightCrewTableUpdateCompanionBuilder,
+      (FlightCrewEntry, $$FlightCrewTableReferences),
+      FlightCrewEntry,
+      PrefetchHooks Function({bool flight, bool person})
+    >;
 
 class $LogbookDatabaseManager {
   final _$LogbookDatabase _db;
@@ -11979,4 +13345,8 @@ class $LogbookDatabaseManager {
       $$FlightsTableTableManager(_db, _db.flights);
   $$FlightDataPointsTableTableManager get flightDataPoints =>
       $$FlightDataPointsTableTableManager(_db, _db.flightDataPoints);
+  $$PeopleTableTableManager get people =>
+      $$PeopleTableTableManager(_db, _db.people);
+  $$FlightCrewTableTableManager get flightCrew =>
+      $$FlightCrewTableTableManager(_db, _db.flightCrew);
 }

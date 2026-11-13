@@ -5,10 +5,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:logging/logging.dart';
 
 class LocationService {
-  static final LocationService _instance = LocationService._();
-  final Logger logger = Logger("Location Service");
   factory LocationService() => _instance;
   LocationService._();
+  static final LocationService _instance = LocationService._();
+  final Logger logger = Logger("Location Service");
 
   static const _methodChannel = MethodChannel(
     'it.winstriker.zenith/location_service',
@@ -30,8 +30,10 @@ class LocationService {
   Future<void> requestNotificationPermission() async {
     if (defaultTargetPlatform != TargetPlatform.android) return;
     try {
-      await _methodChannel.invokeMethod('requestNotificationPermission');
-    } catch (_) {}
+      await _methodChannel.invokeMethod<void>('requestNotificationPermission');
+    } on PlatformException catch (e) {
+      logger.warning('Notification permission request failed: $e');
+    }
   }
 
   Future<void> startTracking() async {
@@ -92,7 +94,6 @@ class LocationService {
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.high,
-            distanceFilter: 0,
           ),
         ).listen((position) {
           _latitude = position.latitude;

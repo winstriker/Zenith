@@ -1,9 +1,18 @@
 // ignore_for_file: strict_raw_type
 
+import 'dart:convert';
 import 'dart:math';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+
+import '../models/aircraft_type_enums.dart';
+import '../models/airport_type.dart';
+import '../models/crew.dart';
+
+export '../models/aircraft_type_enums.dart';
+export '../models/airport_type.dart';
+export '../models/crew.dart';
 
 part 'database.g.dart';
 
@@ -32,59 +41,6 @@ class Regions extends Table {
 
   @override
   Set<Column<Object>>? get primaryKey => {id};
-}
-
-enum AirportType {
-  undefined,
-  closed,
-  smallAirport,
-  mediumAirport,
-  largeAirport,
-  heliport,
-  balloonport,
-  seaplaneBase;
-
-  static AirportType fromCsvString(String str) {
-    switch (str) {
-      case "small_airport":
-        return AirportType.smallAirport;
-      case "medium_airport":
-        return AirportType.mediumAirport;
-      case "large_airport":
-        return AirportType.largeAirport;
-      case "balloonport":
-        return AirportType.balloonport;
-      case "heliport":
-        return AirportType.heliport;
-      case "seaplane_base":
-        return AirportType.seaplaneBase;
-      case "closed":
-        return AirportType.closed;
-      default:
-        return AirportType.undefined;
-    }
-  }
-
-  static String getDisplayName(AirportType type) {
-    switch (type) {
-      case AirportType.smallAirport:
-        return "Small Airport";
-      case AirportType.mediumAirport:
-        return "Medium Airport";
-      case AirportType.largeAirport:
-        return "Large Airport";
-      case AirportType.balloonport:
-        return "Balloonport";
-      case AirportType.heliport:
-        return "Heliport";
-      case AirportType.seaplaneBase:
-        return "Seaplane Base";
-      case AirportType.closed:
-        return "Closed";
-      case AirportType.undefined:
-        return "Undefined";
-    }
-  }
 }
 
 class Airports extends Table {
@@ -204,6 +160,7 @@ class Flights extends Table {
   IntColumn get dayLandings => integer().nullable()();
   TextColumn get flightRules => text().nullable()();
   TextColumn get remarks => text().nullable()();
+  TextColumn get pilotRole => text().nullable()();
 
   List<TableIndex> get indexes => [
     TableIndex(name: 'flights_departure_time_idx', columns: {departureTime}),
@@ -211,6 +168,32 @@ class Flights extends Table {
     TableIndex(name: 'flights_is_recording_idx', columns: {isRecording}),
     TableIndex(name: 'flights_departure_idx', columns: {departure}),
     TableIndex(name: 'flights_arrival_idx', columns: {arrival}),
+  ];
+}
+
+@DataClassName('Person')
+class People extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text()();
+  TextColumn get surname => text()();
+
+  /// File name of the profile picture inside the app's people photo folder.
+  TextColumn get photo => text().nullable()();
+}
+
+/// Many-to-many link between [Flights] and [People], with the role the
+/// person had on that flight.
+@DataClassName('FlightCrewEntry')
+class FlightCrew extends Table {
+  IntColumn get flight => integer().references(Flights, #id)();
+  IntColumn get person => integer().references(People, #id)();
+  TextColumn get role => textEnum<CrewRole>()();
+
+  @override
+  Set<Column<Object>>? get primaryKey => {flight, person};
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'flight_crew_person_idx', columns: {person}),
   ];
 }
 
@@ -234,43 +217,14 @@ class FlightDataPoints extends Table {
   ];
 }
 
-/// Z is a fallback for aircrafts without wake category like sailplanes
-enum WakeTurbolenceCategory { J, H, L, M, Z }
-
-/// Z is a fallback for aircrafts without wake group like sailplanes
-enum WakeTurbolenceGroup { A, B, C, D, E, F, G, Z }
-
-enum EngineType { electric, jet, piston, rocket, turboprop, none }
-
-enum AircraftDescription {
-  amphibian,
-  gyrocopter,
-  helicopter,
-  landplane,
-  seaplane,
-  tiltrotor,
-  airship,
-  balloon,
-  glider,
-  motorglider,
-  microlightAutogyro,
-  microlightHelicopter,
-  paraplane,
-  sailplane,
-  ultralightAircraft,
-  ultralightAutogyro,
-  ultralightHelicopter,
-  unsupported,
-}
-
 class IcaoAircrafts extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get modelFullName => text()();
   TextColumn get designator => text()();
   TextColumn get wakeTurbolenceCategory =>
-      textEnum<WakeTurbolenceCategory>().withLength(min: 1, max: 1)();
+      textEnum<WakeTurbulenceCategory>().withLength(min: 1, max: 1)();
   TextColumn get wakeTurbolenceGroup =>
-      textEnum<WakeTurbolenceGroup>().withLength(min: 1, max: 1)();
+      textEnum<WakeTurbulenceGroup>().withLength(min: 1, max: 1)();
   TextColumn get manufacturer => text()();
   TextColumn get description => textEnum<AircraftDescription>()();
   IntColumn get engineCount => integer()();
@@ -362,6 +316,29 @@ class FlightWithStats {
   }
 
   static double _toRadians(double deg) => deg * 3.141592653589793 / 180;
+}
+
+/// A person on a flight together with their role.
+class CrewMember {
+  const CrewMember({required this.person, required this.role});
+  final Person person;
+  final CrewRole role;
+}
+
+/// A person plus when they last flew with the user (null if never).
+class PersonWithLastFlight {
+  const PersonWithLastFlight({
+    required this.person,
+    this.lastFlight,
+    this.flightCount = 0,
+  });
+  final Person person;
+  final DateTime? lastFlight;
+  final int flightCount;
+}
+
+extension PersonFullName on Person {
+  String get fullName => '$name $surname'.trim();
 }
 
 class AirportWithDistance {
@@ -501,6 +478,8 @@ extension ToIcaoAircraft on AircraftWithStats {
     FlightDataPoints,
     Aircrafts,
     IcaoAircrafts,
+    People,
+    FlightCrew,
   ],
   views: [AircraftWithStatss, FlightStats, AircraftWithIcaos],
 )
@@ -517,13 +496,73 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
-    onUpgrade: (m, from, to) async {},
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await customStatement('ALTER TABLE flights ADD COLUMN pilot_role TEXT');
+        await customStatement('ALTER TABLE flights ADD COLUMN crew_json TEXT');
+      }
+      if (from < 3) {
+        await m.createTable(people);
+        await m.createTable(flightCrew);
+        await m.createIndex(
+          Index(
+            'flight_crew_person_idx',
+            'CREATE INDEX IF NOT EXISTS flight_crew_person_idx '
+                'ON flight_crew (person)',
+          ),
+        );
+        await _migrateCrewJson();
+        // Rebuild flights without the crew_json column.
+        await m.alterTable(TableMigration(flights));
+      }
+      // Databases upgraded from < 3 got `people` with this column already.
+      if (from == 3) {
+        await m.addColumn(people, people.photo);
+      }
+    },
   );
+
+  /// Moves the legacy `flights.crew_json` column into [people] and
+  /// [flightCrew]. Names are split on the first space into name / surname.
+  Future<void> _migrateCrewJson() async {
+    final rows = await customSelect(
+      'SELECT id, crew_json FROM flights WHERE crew_json IS NOT NULL',
+    ).get();
+    final personIds = <String, int>{};
+    for (final row in rows) {
+      final flightId = row.read<int>('id');
+      final List<dynamic> members;
+      try {
+        members = jsonDecode(row.read<String>('crew_json')) as List<dynamic>;
+      } catch (_) {
+        continue;
+      }
+      for (final m in members.whereType<Map<String, dynamic>>()) {
+        final fullName = (m['name'] as String? ?? '').trim();
+        if (fullName.isEmpty) continue;
+        final space = fullName.indexOf(' ');
+        final name = space < 0 ? fullName : fullName.substring(0, space);
+        final surname = space < 0 ? '' : fullName.substring(space + 1).trim();
+        final key = fullName.toLowerCase();
+        final personId = personIds[key] ??= await into(
+          people,
+        ).insert(PeopleCompanion.insert(name: name, surname: surname));
+        await into(flightCrew).insert(
+          FlightCrewCompanion.insert(
+            flight: flightId,
+            person: personId,
+            role: CrewRole.fromString(m['role'] as String? ?? 'oth'),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    }
+  }
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
@@ -644,8 +683,8 @@ class LogbookDatabase extends _$LogbookDatabase {
     required String modelFullName,
     required String manufacturer,
     required String designator,
-    required WakeTurbolenceCategory wakeTurbolenceCategory,
-    required WakeTurbolenceGroup wakeTurbolenceGroup,
+    required WakeTurbulenceCategory wakeTurbolenceCategory,
+    required WakeTurbulenceGroup wakeTurbolenceGroup,
     required AircraftDescription description,
     required int engineCount,
     required EngineType engineType,
@@ -702,6 +741,38 @@ class LogbookDatabase extends _$LogbookDatabase {
     await (update(flights)..where((f) => f.id.equals(flightId))).write(
       FlightsCompanion(aircraftId: Value(aircraftId)),
     );
+  }
+
+  /// Crew of a flight (excluding self), in insertion order.
+  Future<List<CrewMember>> getFlightCrew(int flightId) async {
+    final query = select(flightCrew).join([
+      innerJoin(people, people.id.equalsExp(flightCrew.person)),
+    ])..where(flightCrew.flight.equals(flightId));
+    final rows = await query.get();
+    return [
+      for (final row in rows)
+        CrewMember(
+          person: row.readTable(people),
+          role: row.readTable(flightCrew).role,
+        ),
+    ];
+  }
+
+  /// Replaces the whole crew of [flightId] with [crew].
+  Future<void> setFlightCrew(int flightId, List<CrewMember> crew) {
+    return transaction(() async {
+      await (delete(flightCrew)..where((c) => c.flight.equals(flightId))).go();
+      await batch((b) {
+        b.insertAll(flightCrew, [
+          for (final member in crew)
+            FlightCrewCompanion.insert(
+              flight: flightId,
+              person: member.person.id,
+              role: member.role,
+            ),
+        ], mode: InsertMode.insertOrReplace);
+      });
+    });
   }
 
   Future<void> deleteAircraft(int id) async {

@@ -107,39 +107,39 @@ class AircraftTypesService {
     }
   }
 
-  static WakeTurbolenceCategory _mapWakeTurbulenceCategory(String? str) {
+  static WakeTurbulenceCategory _mapWakeTurbulenceCategory(String? str) {
     switch (str) {
       case "J":
-        return WakeTurbolenceCategory.J;
+        return WakeTurbulenceCategory.J;
       case "H":
-        return WakeTurbolenceCategory.H;
+        return WakeTurbulenceCategory.H;
       case "M":
-        return WakeTurbolenceCategory.M;
+        return WakeTurbulenceCategory.M;
       case "L":
-        return WakeTurbolenceCategory.L;
+        return WakeTurbulenceCategory.L;
       default:
-        return WakeTurbolenceCategory.Z;
+        return WakeTurbulenceCategory.Z;
     }
   }
 
-  static WakeTurbolenceGroup _mapWakeTurbulenceGroup(String? str) {
+  static WakeTurbulenceGroup _mapWakeTurbulenceGroup(String? str) {
     switch (str) {
       case "A":
-        return WakeTurbolenceGroup.A;
+        return WakeTurbulenceGroup.A;
       case "B":
-        return WakeTurbolenceGroup.B;
+        return WakeTurbulenceGroup.B;
       case "C":
-        return WakeTurbolenceGroup.C;
+        return WakeTurbulenceGroup.C;
       case "D":
-        return WakeTurbolenceGroup.D;
+        return WakeTurbulenceGroup.D;
       case "E":
-        return WakeTurbolenceGroup.E;
+        return WakeTurbulenceGroup.E;
       case "F":
-        return WakeTurbolenceGroup.F;
+        return WakeTurbulenceGroup.F;
       case "G":
-        return WakeTurbolenceGroup.G;
+        return WakeTurbulenceGroup.G;
       default:
-        return WakeTurbolenceGroup.Z;
+        return WakeTurbulenceGroup.Z;
     }
   }
 

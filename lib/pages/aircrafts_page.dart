@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart';
 import '../providers/aircraft_providers.dart';
+import '../repositories/aircraft_repository.dart';
 import '../services/database.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/empty_state.dart';
@@ -108,8 +108,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
       ),
     );
     if (confirmed == true) {
-      final db = ref.read(databaseProvider);
-      await db.deleteAircraft(aws.id);
+      await ref.read(aircraftRepositoryProvider).deleteAircraft(aws.id);
       // Stream provider automatically updates
     }
   }

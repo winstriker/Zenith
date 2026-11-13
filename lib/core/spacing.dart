@@ -28,10 +28,7 @@ class AppSpacing {
   );
 
   // EdgeInsets for list view with standard vertical padding
-  static const EdgeInsets listPadding = EdgeInsets.only(
-    top: 8,
-    bottom: 80,
-  );
+  static const EdgeInsets listPadding = EdgeInsets.only(top: 8, bottom: 80);
 
   // EdgeInsets for card items in lists
   static const EdgeInsets cardPadding = EdgeInsets.symmetric(

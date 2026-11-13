@@ -6,11 +6,13 @@ class PulsingDot extends StatefulWidget {
   const PulsingDot({
     super.key,
     this.size = 12.0,
-    this.color = Colors.red,
+    this.color,
     this.duration = const Duration(milliseconds: 1000),
   });
   final double size;
-  final Color color;
+
+  /// Defaults to the theme's error color.
+  final Color? color;
   final Duration duration;
 
   @override
@@ -50,7 +52,7 @@ class _PulsingDotState extends State<PulsingDot>
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
-              color: widget.color,
+              color: widget.color ?? Theme.of(context).colorScheme.error,
               shape: BoxShape.circle,
             ),
           ),

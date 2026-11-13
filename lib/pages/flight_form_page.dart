@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/database_provider.dart';
 import '../providers/flight_form_provider.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import '../utils/tz_datetime.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/airport_search_dialog.dart';
+import '../widgets/crew_card.dart';
 import '../widgets/flight_form_card.dart';
 import '../widgets/flight_rules_card.dart';
 import '../widgets/landings_card.dart';
@@ -72,6 +74,14 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     );
     notifier.setRemarks(f.remarks ?? '');
     notifier.setApproachType(f.approachType ?? 'VISUAL');
+    if (f.pilotRole != null) {
+      notifier.setPilotRole(CrewRole.fromString(f.pilotRole!));
+    }
+    final crew = await ref.read(databaseProvider).getFlightCrew(f.id);
+    if (!mounted) return;
+    for (final member in crew) {
+      notifier.addCrewMember(member);
+    }
     notifier.setNightLandings(f.nightLandings ?? 0);
     notifier.setDayLandings(f.dayLandings ?? 1);
     notifier.setFlightRules(f.flightRules ?? 'VFR');
@@ -159,6 +169,15 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             FlightRulesCard(
               flightRules: form.flightRules,
               onFlightRulesChanged: notifier.setFlightRules,
+            ),
+            const SizedBox(height: 16),
+            CrewCard(
+              pilotRole: form.pilotRole,
+              crewMembers: form.crewMembers,
+              onPilotRoleChanged: notifier.setPilotRole,
+              onCrewMemberAdded: notifier.addCrewMember,
+              onCrewMemberRemoved: notifier.removeCrewMember,
+              onCrewMemberChanged: notifier.updateCrewMember,
             ),
             const SizedBox(height: 16),
             RemarksCard(
@@ -283,6 +302,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
         departureIanaLocation: form.depIanaLocation,
         arrivalIanaLocation: form.arrIanaLocation,
+        pilotRole: form.pilotRole.name,
+        crew: form.crewMembers,
       );
     } else {
       await flightService.addFlight(
@@ -299,6 +320,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
         departureIanaLocation: form.depIanaLocation,
         arrivalIanaLocation: form.arrIanaLocation,
+        pilotRole: form.pilotRole.name,
+        crew: form.crewMembers,
       );
     }
 

@@ -2,6 +2,7 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
+
 import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
@@ -20,181 +21,6 @@ class FlightCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool useOuterPadding;
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dateFormat = DateFormat('dd MMM yyyy');
-    final timeFormat = DateFormat('HH:mm');
-
-    final card = BaseCard(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _buildSide(
-              theme: theme,
-              airport: flight.departure,
-              departureTime: flight.flight.departureTime,
-              arrivalTime: flight.flight.arrivalTime,
-              departureIanaLocation: flight.flight.departureIanaLocation,
-              arrivalIanaLocation: flight.flight.arrivalIanaLocation,
-              dateFormat: dateFormat,
-              timeFormat: timeFormat,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              timeAlignment: TextAlign.left,
-            ),
-          ),
-          const SizedBox(width: 12),
-          _buildCenterSection(theme),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildSide(
-              theme: theme,
-              airport: flight.arrival,
-              departureTime: flight.flight.departureTime,
-              arrivalTime: flight.flight.arrivalTime,
-              departureIanaLocation: flight.flight.departureIanaLocation,
-              arrivalIanaLocation: flight.flight.arrivalIanaLocation,
-              dateFormat: dateFormat,
-              timeFormat: timeFormat,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              timeAlignment: TextAlign.right,
-              right: true,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (!useOuterPadding) return card;
-    return Padding(padding: AppSpacing.cardPadding, child: card);
-  }
-
-  Widget _buildSide({
-    required ThemeData theme,
-    required Airport? airport,
-    required DateTime departureTime,
-    required DateTime? arrivalTime,
-    required String? departureIanaLocation,
-    required String? arrivalIanaLocation,
-    required DateFormat dateFormat,
-    required DateFormat timeFormat,
-    required CrossAxisAlignment crossAxisAlignment,
-    required TextAlign timeAlignment,
-    bool right = false,
-  }) {
-    final code =
-        airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
-    final name = airport?.name ?? '';
-    final countryCode = airport?.isoCountry;
-
-    // Reconstruct TZDateTime using stored IANA locations
-    final depLocal = _toLocalTZDateTime(departureTime, departureIanaLocation);
-    final arrLocal = arrivalTime != null
-        ? _toLocalTZDateTime(arrivalTime, arrivalIanaLocation)
-        : null;
-
-    final isDeparture = !right;
-    final localTime = isDeparture ? depLocal : (arrLocal ?? depLocal);
-    final localTz = isDeparture
-        ? (depLocal.timeZone.abbreviation)
-        : (arrLocal?.timeZone.abbreviation ?? depLocal.timeZone.abbreviation);
-
-    final utcTime = localTime.toUtc();
-    final showUtc = localTime.timeZoneOffset != Duration.zero;
-
-    return Column(
-      crossAxisAlignment: crossAxisAlignment,
-      children: [
-        Text(
-          '${dateFormat.format(localTime)} $localTz',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (right) ...[
-              Flexible(
-                child: Text(
-                  code,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-            if (countryCode != null && countryCode.length == 2) ...[
-              if (right) ...[const SizedBox(width: 6)],
-              SizedBox(
-                width: 26,
-                height: 18,
-                child: CountryFlag.fromCountryCode(
-                  countryCode,
-                  theme: const ImageTheme(shape: RoundedRectangle(3)),
-                ),
-              ),
-              if (!right) ...[const SizedBox(width: 6)],
-            ],
-            if (!right) ...[
-              Flexible(
-                child: Text(
-                  code,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
-        ),
-        if (name.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            name,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-        const SizedBox(height: 4),
-        Text(
-          '${timeFormat.format(localTime)} $localTz',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          textAlign: timeAlignment,
-        ),
-        if (showUtc) ...[
-          const SizedBox(height: 2),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.7,
-              ),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'UTC ${timeFormat.format(utcTime)}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
   static tz.TZDateTime _toLocalTZDateTime(
     DateTime utcTime,
     String? ianaLocation,
@@ -205,33 +31,195 @@ class FlightCard extends StatelessWidget {
     return tz.TZDateTime.from(utcTime, location);
   }
 
-  Widget _buildCenterSection(ThemeData theme) {
+  @override
+  Widget build(BuildContext context) {
+    // Reconstruct TZDateTime using stored IANA locations
+    final f = flight.flight;
+    final depLocal = _toLocalTZDateTime(
+      f.departureTime,
+      f.departureIanaLocation,
+    );
+    final arrLocal = f.arrivalTime != null
+        ? _toLocalTZDateTime(f.arrivalTime!, f.arrivalIanaLocation)
+        : null;
+
+    final card = BaseCard(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _FlightEndpoint(
+              airport: flight.departure,
+              localTime: depLocal,
+              alignEnd: false,
+            ),
+          ),
+          const SizedBox(width: 12),
+          _FlightCenter(
+            duration: flight.duration,
+            tailNumber: flight.aircraftWithStats?.tailNumber,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _FlightEndpoint(
+              airport: flight.arrival,
+              localTime: arrLocal ?? depLocal,
+              alignEnd: true,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!useOuterPadding) return card;
+    return Padding(padding: AppSpacing.cardPadding, child: card);
+  }
+}
+
+/// Departure (left aligned) or arrival (right aligned) column of a flight.
+class _FlightEndpoint extends StatelessWidget {
+  const _FlightEndpoint({
+    required this.airport,
+    required this.localTime,
+    required this.alignEnd,
+  });
+
+  final Airport? airport;
+  final tz.TZDateTime localTime;
+  final bool alignEnd;
+
+  static final _dateFormat = DateFormat('dd MMM yyyy');
+  static final _timeFormat = DateFormat('HH:mm');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final code =
+        airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
+    final name = airport?.name ?? '';
+    final countryCode = airport?.isoCountry;
+    final localTz = localTime.timeZone.abbreviation;
+    final showUtc = localTime.timeZoneOffset != Duration.zero;
+
+    final codeText = Flexible(
+      child: Text(
+        code,
+        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    final flag = countryCode != null && countryCode.length == 2
+        ? SizedBox(
+            width: 26,
+            height: 18,
+            child: CountryFlag.fromCountryCode(
+              countryCode,
+              theme: const ImageTheme(shape: RoundedRectangle(3)),
+            ),
+          )
+        : null;
+
+    return Column(
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${_dateFormat.format(localTime)} $localTz',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: alignEnd
+              ? [
+                  codeText,
+                  if (flag != null) ...[const SizedBox(width: 6), flag],
+                ]
+              : [
+                  if (flag != null) ...[flag, const SizedBox(width: 6)],
+                  codeText,
+                ],
+        ),
+        if (name.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            name,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+        const SizedBox(height: 4),
+        Text(
+          '${_timeFormat.format(localTime)} $localTz',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+          textAlign: alignEnd ? TextAlign.right : TextAlign.left,
+        ),
+        if (showUtc) ...[
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'UTC ${_timeFormat.format(localTime.toUtc())}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _FlightCenter extends StatelessWidget {
+  const _FlightCenter({required this.duration, required this.tailNumber});
+
+  final Duration? duration;
+  final String? tailNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         children: [
-          Icon(Icons.flight, size: 20, color: theme.colorScheme.primary),
+          Icon(Icons.flight, size: 20, color: cs.primary),
           const SizedBox(height: 4),
           Text(
-            flight.duration != null
-                ? DurationFormatter.hm(flight.duration!)
-                : '--:--',
+            duration != null ? DurationFormatter.hm(duration!) : '--:--',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
-          if (flight.aircraftWithStats != null)
+          if (tailNumber != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: theme.colorScheme.secondaryContainer,
+                color: cs.secondaryContainer,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                flight.aircraftWithStats!.tailNumber,
+                tailNumber!,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSecondaryContainer,
+                  color: cs.onSecondaryContainer,
                   fontWeight: FontWeight.w600,
                 ),
               ),

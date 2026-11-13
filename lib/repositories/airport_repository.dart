@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../main.dart';
 
+import '../providers/database_provider.dart';
 import '../services/database.dart';
 
 /// Repository for airport data access using Drift's reactive queries
@@ -125,6 +125,25 @@ class AirportRepository {
       runways: refs.runwayRefs.prefetchedData ?? [],
       frequencies: refs.frequencyRefs.prefetchedData ?? [],
     );
+  }
+
+  /// One-off search (no stream), e.g. for type-ahead lookups.
+  Future<List<Airport>> findAirports(String query, {int limit = 15}) {
+    return _database.searchAirports(query: query, limit: limit);
+  }
+
+  /// Airports most recently used in flights.
+  Future<List<Airport>> getRecentAirports({int limit = 5}) {
+    return _database.getRecentAirports(limit: limit);
+  }
+
+  /// Airports inside a lat/lon square centered on the given point.
+  Future<List<Airport>?> getAirportsWithinSquare(
+    double latitude,
+    double longitude, {
+    required double delta,
+  }) {
+    return _database.getAirportsWithinSquare(latitude, longitude, delta: delta);
   }
 
   /// Check if airport is referenced in flights

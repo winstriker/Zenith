@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart';
 import '../repositories/flight_repository.dart';
 import '../services/database.dart';
 import '../services/flight_service.dart';
 import '../services/location_service.dart';
+import 'database_provider.dart';
 
 // Flight Repository Provider
 // Provided by flight_repository.dart

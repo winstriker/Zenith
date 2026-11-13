@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/gps_tracking_provider.dart';
@@ -21,78 +22,80 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final flights = ref.watch(flightListStreamProvider);
-    final isRecording = ref.watch(gpsTrackingControllerProvider.notifier);
+    final gpsController = ref.watch(gpsTrackingControllerProvider.notifier);
     final aircraftList = ref.watch(aircraftListStreamProvider);
     final nickname = ref.watch(userNicknameProvider);
     final totalFlightTime = ref.watch(totalFlightTimeProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          _buildHeader(theme, nickname),
+          _HomeHeader(nickname: nickname),
           SliverToBoxAdapter(
-            child: _buildRecordingBanner(
-              context,
-              theme,
-              isRecording.isTracking(),
-            ),
+            child: _RecordingBanner(isRecording: gpsController.isTracking()),
           ),
           SliverToBoxAdapter(
-            child: _buildQuickStats(
-              context,
-              theme,
-              flights.when(
+            child: _QuickStats(
+              flightCount: flights.when(
                 data: (val) => val.length,
                 error: (_, _) => -1,
                 loading: () => 0,
               ),
-              totalFlightTime.when(
+              totalMinutes: totalFlightTime.when(
                 data: (val) => val,
                 error: (_, _) => -1,
                 loading: () => 0,
               ),
-              aircraftList.when(
+              aircraftCount: aircraftList.when(
                 data: (val) => val.length,
                 error: (_, _) => -1,
                 loading: () => 0,
               ),
             ),
           ),
-          _buildSectionHeader(
-            context,
-            theme,
-            'Recent Flights',
-            Icons.flight,
-            () => _openFlights(context),
+          _SectionHeader(
+            title: 'Recent Flights',
+            icon: Icons.flight,
+            onSeeAll: () => _openFlights(context),
           ),
-
           flights.when(
             data: (val) {
               final recentFlights = val.take(3).toList();
               if (recentFlights.isEmpty) {
-                return SliverToBoxAdapter(child: _buildEmptyFlights(theme));
-              } else {
-                return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => FlightCard(
-                      flight: recentFlights[index],
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => FlightDetailPage(
-                            flightId: recentFlights[index].flight.id,
-                          ),
-                        ),
-                      ),
+                return const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 40),
+                    child: EmptyState(
+                      icon: Icons.flight,
+                      title: 'No flights yet',
+                      subtitle: 'Start recording your first flight!',
+                      iconSize: 48,
                     ),
-                    childCount: recentFlights.length,
                   ),
                 );
               }
+              return SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => FlightCard(
+                    flight: recentFlights[index],
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => FlightDetailPage(
+                          flightId: recentFlights[index].flight.id,
+                        ),
+                      ),
+                    ),
+                  ),
+                  childCount: recentFlights.length,
+                ),
+              );
             },
             error: (_, _) => const SliverToBoxAdapter(
-              child: Text("Error while loading flights."),
+              child: EmptyState(
+                icon: Icons.error_outline,
+                title: 'Error while loading flights',
+              ),
             ),
             loading: () => const SliverToBoxAdapter(
               child: Center(child: CircularProgressIndicator()),
@@ -103,8 +106,37 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildHeader(ThemeData theme, String? nickname) {
+void _openFlights(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(builder: (_) => const FlightsPage()),
+  );
+}
+
+void _openAircrafts(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(builder: (_) => const AircraftsPage()),
+  );
+}
+
+void _openRecording(BuildContext context) {
+  Navigator.push(
+    context,
+    MaterialPageRoute<void>(builder: (_) => const RecordingPage()),
+  );
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({required this.nickname});
+  final String? nickname;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return SliverAppBar(
       expandedHeight: 200,
       pinned: true,
@@ -113,9 +145,9 @@ class HomePage extends ConsumerWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                theme.colorScheme.primary,
-                theme.colorScheme.primary.withValues(alpha: 0.8),
-                theme.colorScheme.secondary,
+                cs.primary,
+                cs.primary.withValues(alpha: 0.8),
+                cs.secondary,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -129,7 +161,7 @@ class HomePage extends ConsumerWidget {
                 child: Icon(
                   Icons.flight,
                   size: 180,
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: cs.onPrimary.withValues(alpha: 0.1),
                 ),
               ),
               Positioned(
@@ -138,7 +170,7 @@ class HomePage extends ConsumerWidget {
                 child: Icon(
                   Icons.flight,
                   size: 120,
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: cs.onPrimary.withValues(alpha: 0.08),
                 ),
               ),
               Padding(
@@ -150,14 +182,14 @@ class HomePage extends ConsumerWidget {
                     Text(
                       'Welcome back,',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: Colors.white70,
+                        color: cs.onPrimary.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       nickname ?? 'Pilot',
                       style: theme.textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
+                        color: cs.onPrimary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -170,35 +202,37 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildRecordingBanner(
-    BuildContext context,
-    ThemeData theme,
-    bool isRecording,
-  ) {
+class _RecordingBanner extends StatelessWidget {
+  const _RecordingBanner({required this.isRecording});
+  final bool isRecording;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final bigButtonStyle = FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      textStyle: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: isRecording
           ? Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.red.shade50, Colors.red.shade100],
-                ),
+                color: cs.errorContainer,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.red.shade200),
+                border: Border.all(color: cs.error.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const PulsingDot(),
-                  ),
+                  const PulsingDot(),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -207,31 +241,26 @@ class HomePage extends ConsumerWidget {
                         Text(
                           'Recording in progress',
                           style: theme.textTheme.titleSmall?.copyWith(
-                            color: Colors.red.shade800,
+                            color: cs.onErrorContainer,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           'Tap to view recording',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.red.shade600,
+                            color: cs.onErrorContainer.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  FilledButton.tonalIcon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const RecordingPage(),
-                      ),
-                    ),
+                  FilledButton.icon(
+                    onPressed: () => _openRecording(context),
                     icon: const Icon(Icons.open_in_new, size: 18),
                     label: const Text('Open'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red.shade100,
-                      foregroundColor: Colors.red.shade800,
+                      backgroundColor: cs.error,
+                      foregroundColor: cs.onError,
                     ),
                   ),
                 ],
@@ -241,23 +270,10 @@ class HomePage extends ConsumerWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const RecordingPage(),
-                      ),
-                    ),
+                    onPressed: () => _openRecording(context),
                     icon: const Icon(Icons.fiber_manual_record, size: 22),
                     label: const Text('Start Recording'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    style: bigButtonStyle,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -271,85 +287,79 @@ class HomePage extends ConsumerWidget {
                     ),
                     icon: const Icon(Icons.add, size: 22),
                     label: const Text('Add Flight'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    style: bigButtonStyle,
                   ),
                 ),
               ],
             ),
     );
   }
+}
 
-  void _openFlights(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(builder: (_) => const FlightsPage()),
-    );
-  }
+class _QuickStats extends StatelessWidget {
+  const _QuickStats({
+    required this.flightCount,
+    required this.totalMinutes,
+    required this.aircraftCount,
+  });
 
-  void _openAircrafts(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(builder: (_) => const AircraftsPage()),
-    );
-  }
+  final int flightCount;
+  final int totalMinutes;
+  final int aircraftCount;
 
-  Widget _buildQuickStats(
-    BuildContext context,
-    ThemeData theme,
-    int flightCount,
-    int totalMinutes,
-    int aircraftCount,
-  ) {
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Row(
         children: [
-          _statCard(
-            theme,
-            Icons.flight_takeoff,
-            '$flightCount',
-            'Total Flights',
-            Colors.blue,
+          _StatCard(
+            icon: Icons.flight_takeoff,
+            value: '$flightCount',
+            label: 'Total Flights',
+            color: colors.info,
             onTap: () => _openFlights(context),
           ),
           const SizedBox(width: 12),
-          _statCard(
-            theme,
-            Icons.schedule,
-            DurationFormatter.hm(Duration(minutes: totalMinutes)),
-            'Flight Time',
-            Colors.green,
+          _StatCard(
+            icon: Icons.schedule,
+            value: DurationFormatter.hm(Duration(minutes: totalMinutes)),
+            label: 'Flight Time',
+            color: colors.success,
           ),
           const SizedBox(width: 12),
-          _statCard(
-            theme,
-            Icons.airplanemode_active,
-            '$aircraftCount',
-            'Aircraft',
-            Colors.orange,
+          _StatCard(
+            icon: Icons.airplanemode_active,
+            value: '$aircraftCount',
+            label: 'Aircraft',
+            color: colors.warning,
             onTap: () => _openAircrafts(context),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _statCard(
-    ThemeData theme,
-    IconData icon,
-    String value,
-    String label,
-    Color color, {
-    VoidCallback? onTap,
-  }) {
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -383,14 +393,22 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _buildSectionHeader(
-    BuildContext context,
-    ThemeData theme,
-    String title,
-    IconData icon,
-    VoidCallback? onSeeAll,
-  ) {
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.icon,
+    this.onSeeAll,
+  });
+
+  final String title;
+  final IconData icon;
+  final VoidCallback? onSeeAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -409,18 +427,6 @@ class HomePage extends ConsumerWidget {
               TextButton(onPressed: onSeeAll, child: const Text('See all')),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyFlights(ThemeData theme) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 40),
-      child: EmptyState(
-        icon: Icons.flight,
-        title: 'No flights yet',
-        subtitle: 'Start recording your first flight!',
-        iconSize: 48,
       ),
     );
   }

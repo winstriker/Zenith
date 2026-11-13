@@ -47,7 +47,7 @@ class LandingCounter extends StatelessWidget {
                 ),
               ),
             ] else ...[
-              SizedBox(width: 20),
+              const SizedBox(width: 20),
             ],
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -72,7 +72,7 @@ class LandingCounter extends StatelessWidget {
                 ),
               ),
             ] else ...[
-              SizedBox(width: 20),
+              const SizedBox(width: 20),
             ],
           ],
         ),

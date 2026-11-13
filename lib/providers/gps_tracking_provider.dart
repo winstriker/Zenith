@@ -14,6 +14,10 @@ class GpsTrackingController extends AsyncNotifier<void> {
 
   @override
   FutureOr<void> build() {
+    ref.onDispose(() {
+      _debounceTimer?.cancel();
+      _locationSubscription?.cancel();
+    });
     return null;
   }
 
@@ -72,9 +76,7 @@ class GpsTrackingController extends AsyncNotifier<void> {
   /// Get the latest location for UI display (non-debounced)
   Map<String, double>? get latestLocation => _latestLocation;
 
-  void cleanup() {
-    stopTracking();
-  }
+  Future<void> cleanup() => stopTracking();
 
   bool isTracking() {
     return _locationSubscription != null;

@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../main.dart';
+import '../providers/database_provider.dart';
 import '../services/database.dart';
 
 /// Repository for flight data access using Drift's reactive queries
@@ -43,6 +43,20 @@ class FlightRepository {
       where: _database.flights.aircraftId.equals(aircraftId),
       limit: limit,
       offset: offset,
+    );
+  }
+
+  /// Stream of flights a person was on as crew
+  Stream<List<FlightWithStats>> watchFlightsForPerson(
+    int personId, {
+    int limit = 500,
+  }) {
+    final crewFlights = _database.selectOnly(_database.flightCrew)
+      ..addColumns([_database.flightCrew.flight])
+      ..where(_database.flightCrew.person.equals(personId));
+    return _watchFlights(
+      where: _database.flights.id.isInQuery(crewFlights),
+      limit: limit,
     );
   }
 
@@ -103,9 +117,11 @@ class FlightRepository {
         return FlightWithStats(
           flight: flight.readTable(_database.flights),
           dataPoints: [],
-          aircraftWithStats: flight.readTable(_database.aircraftWithStatss),
-          departure: flight.readTable(departure),
-          arrival: flight.readTable(arrival),
+          aircraftWithStats: flight.readTableOrNull(
+            _database.aircraftWithStatss,
+          ),
+          departure: flight.readTableOrNull(departure),
+          arrival: flight.readTableOrNull(arrival),
         );
       }).toList();
     });
@@ -180,6 +196,9 @@ class FlightRepository {
     await (_database.delete(
       _database.flightDataPoints,
     )..where((p) => p.flight.equals(sessionId))).go();
+    await (_database.delete(
+      _database.flightCrew,
+    )..where((c) => c.flight.equals(sessionId))).go();
     await (_database.delete(
       _database.flights,
     )..where((f) => f.id.equals(sessionId))).go();

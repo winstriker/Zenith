@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/gps_tracking_provider.dart';
@@ -166,23 +167,59 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
     }
   }
 
+  Future<void> _addNewAircraft() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
+    );
+    // Stream provider automatically updates, no manual refresh needed
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final gpsState = ref.watch(gpsTrackingControllerProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_isRecording ? 'Recording' : 'New Flight'),
         centerTitle: true,
       ),
       body: _isRecording
-          ? _buildRecordingView(theme, gpsState)
-          : _buildSetupForm(theme),
+          ? _RecordingView(elapsed: _elapsed, onStop: _stopRecording)
+          : _RecordingSetupForm(
+              titleController: _titleController,
+              departureController: _departureController,
+              arrivalController: _arrivalController,
+              selectedAircraft: _selectedAircraft,
+              onAircraftChanged: (value) =>
+                  setState(() => _selectedAircraft = value),
+              onAddAircraft: _addNewAircraft,
+              onStart: _startRecording,
+            ),
     );
   }
+}
 
-  Widget _buildSetupForm(ThemeData theme) {
+class _RecordingSetupForm extends ConsumerWidget {
+  const _RecordingSetupForm({
+    required this.titleController,
+    required this.departureController,
+    required this.arrivalController,
+    required this.selectedAircraft,
+    required this.onAircraftChanged,
+    required this.onAddAircraft,
+    required this.onStart,
+  });
+
+  final TextEditingController titleController;
+  final TextEditingController departureController;
+  final TextEditingController arrivalController;
+  final AircraftWithStats? selectedAircraft;
+  final ValueChanged<AircraftWithStats?> onAircraftChanged;
+  final VoidCallback onAddAircraft;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final aircraftListAsync = ref.watch(aircraftListStreamProvider);
 
     return aircraftListAsync.when(
@@ -215,7 +252,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               ),
               const SizedBox(height: 32),
               TextField(
-                controller: _titleController,
+                controller: titleController,
                 decoration: const InputDecoration(
                   labelText: 'Flight Title',
                   prefixIcon: Icon(Icons.label_outline),
@@ -227,30 +264,27 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<AircraftWithStats>(
-                      initialValue: _selectedAircraft,
+                      initialValue: selectedAircraft,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Aircraft (optional)',
                         prefixIcon: Icon(Icons.airplanemode_active),
                       ),
-                      items: aircraftList
-                          .map(
-                            (aws) => DropdownMenuItem(
-                              value: aws,
-                              child: Text(aws.modelFullName),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() => _selectedAircraft = value);
-                      },
+                      items: [
+                        for (final aws in aircraftList)
+                          DropdownMenuItem(
+                            value: aws,
+                            child: Text(aws.modelFullName),
+                          ),
+                      ],
+                      onChanged: onAircraftChanged,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: IconButton.filled(
-                      onPressed: _addNewAircraft,
+                      onPressed: onAddAircraft,
                       icon: const Icon(Icons.add, size: 20),
                       tooltip: 'Add new aircraft',
                       style: IconButton.styleFrom(
@@ -267,7 +301,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: _departureController,
+                      controller: departureController,
                       decoration: const InputDecoration(
                         labelText: 'Departure (optional)',
                         prefixIcon: Icon(Icons.flight_takeoff),
@@ -277,7 +311,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
-                      controller: _arrivalController,
+                      controller: arrivalController,
                       decoration: const InputDecoration(
                         labelText: 'Arrival (optional)',
                         prefixIcon: Icon(Icons.flight_land),
@@ -288,7 +322,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               ),
               const SizedBox(height: 32),
               FilledButton.icon(
-                onPressed: _startRecording,
+                onPressed: onStart,
                 icon: const Icon(Icons.fiber_manual_record, size: 22),
                 label: const Text('Start Recording'),
                 style: FilledButton.styleFrom(
@@ -309,23 +343,25 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       error: (_, _) => const SizedBox.shrink(),
     );
   }
+}
 
-  Future<void> _addNewAircraft() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
-    );
-    // Stream provider automatically updates, no manual refresh needed
-  }
+class _RecordingView extends ConsumerWidget {
+  const _RecordingView({required this.elapsed, required this.onStop});
 
-  Widget _buildRecordingView(ThemeData theme, AsyncValue<void> gpsState) {
+  final Duration elapsed;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final sessionAsync = ref.watch(activeFlightStreamProvider);
 
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          color: Colors.red.shade50,
+          color: cs.errorContainer,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -334,7 +370,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               Text(
                 'RECORDING',
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: Colors.red.shade800,
+                  color: cs.onErrorContainer,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2,
                 ),
@@ -349,106 +385,30 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
               children: [
                 const SizedBox(height: 16),
                 Text(
-                  DurationFormatter.hms(_elapsed),
+                  DurationFormatter.hms(elapsed),
                   style: theme.textTheme.displayLarge?.copyWith(
                     fontWeight: FontWeight.w200,
                     fontFamily: 'monospace',
-                    color: theme.colorScheme.onSurface,
+                    color: cs.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'elapsed time',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: cs.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 32),
                 sessionAsync.when(
-                  data: (session) {
-                    if (session == null) return const SizedBox.shrink();
-                    final hasRoute =
-                        session.departure?.ident != null ||
-                        session.arrival?.ident != null;
-                    final hasAircraft = session.aircraftWithStats != null;
-
-                    if (!hasAircraft && !hasRoute) {
-                      return const SizedBox.shrink();
-                    }
-
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            if (hasAircraft)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.airplanemode_active,
-                                      size: 18,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      session.aircraftWithStats!.modelFullName,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (hasRoute)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (session.departure?.ident != null)
-                                    InfoChip(
-                                      label: session.departure!.ident!,
-                                      icon: Icons.flight_takeoff,
-                                      backgroundColor:
-                                          theme.colorScheme.tertiaryContainer,
-                                      textColor:
-                                          theme.colorScheme.onTertiaryContainer,
-                                    ),
-                                  if (session.departure?.ident != null &&
-                                      session.arrival?.ident != null)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: Icon(
-                                        Icons.arrow_forward,
-                                        size: 16,
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  if (session.arrival?.ident != null)
-                                    InfoChip(
-                                      label: session.arrival!.ident!,
-                                      icon: Icons.flight_land,
-                                      backgroundColor:
-                                          theme.colorScheme.tertiaryContainer,
-                                      textColor:
-                                          theme.colorScheme.onTertiaryContainer,
-                                    ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                  data: (session) => session == null
+                      ? const SizedBox.shrink()
+                      : _SessionSummaryCard(session: session),
                   loading: () => const SizedBox.shrink(),
                   error: (_, _) => const SizedBox.shrink(),
                 ),
                 const SizedBox(height: 24),
-                _buildGpsCard(theme, gpsState),
+                _GpsCard(refreshTick: elapsed),
               ],
             ),
           ),
@@ -457,12 +417,12 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: FilledButton.icon(
-              onPressed: _stopRecording,
+              onPressed: onStop,
               icon: const Icon(Icons.stop, size: 22),
               label: const Text('Stop Recording'),
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
+                backgroundColor: cs.error,
+                foregroundColor: cs.onError,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -477,14 +437,101 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
       ],
     );
   }
+}
 
-  Widget _buildGpsCard(ThemeData theme, AsyncValue<void> gpsState) {
-    final unitMode = ref.watch(unitProvider);
-    final isMetric = unitMode == MeasurementUnit.metric;
+class _SessionSummaryCard extends StatelessWidget {
+  const _SessionSummaryCard({required this.session});
+  final FlightWithStats session;
 
-    // Get latest GPS data from the controller
-    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
-    final latestLocation = gpsController.latestLocation;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final departure = session.departure?.ident;
+    final arrival = session.arrival?.ident;
+    final aircraft = session.aircraftWithStats;
+    final hasRoute = departure != null || arrival != null;
+
+    if (aircraft == null && !hasRoute) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            if (aircraft != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.airplanemode_active,
+                      size: 18,
+                      color: cs.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      aircraft.modelFullName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (hasRoute)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (departure != null)
+                    InfoChip(
+                      label: departure,
+                      icon: Icons.flight_takeoff,
+                      backgroundColor: cs.tertiaryContainer,
+                      textColor: cs.onTertiaryContainer,
+                    ),
+                  if (departure != null && arrival != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        size: 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  if (arrival != null)
+                    InfoChip(
+                      label: arrival,
+                      icon: Icons.flight_land,
+                      backgroundColor: cs.tertiaryContainer,
+                      textColor: cs.onTertiaryContainer,
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GpsCard extends ConsumerWidget {
+  const _GpsCard({required this.refreshTick});
+
+  /// The latest location isn't reactive, so the parent passes its 1s ticker
+  /// to force a rebuild with fresh data.
+  final Duration refreshTick;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final gpsState = ref.watch(gpsTrackingControllerProvider);
+    final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
+
+    // Latest (non-debounced) fix, see [refreshTick].
+    final latestLocation = ref
+        .read(gpsTrackingControllerProvider.notifier)
+        .latestLocation;
 
     final lat = latestLocation?['latitude'] ?? 0.0;
     final lon = latestLocation?['longitude'] ?? 0.0;
@@ -528,7 +575,11 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
                 else if (gpsState.hasError)
                   Icon(Icons.gps_off, color: theme.colorScheme.error, size: 20)
                 else
-                  const Icon(Icons.gps_fixed, color: Colors.green, size: 20),
+                  Icon(
+                    Icons.gps_fixed,
+                    color: context.appColors.success,
+                    size: 20,
+                  ),
               ],
             ),
             const SizedBox(height: 16),

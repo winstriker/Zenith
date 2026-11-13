@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
@@ -8,9 +7,10 @@ import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
+import '../repositories/airport_repository.dart';
 import '../services/database.dart';
+import '../widgets/map_attribution.dart';
 import 'airport_detail_page.dart';
 
 class AirportMapPage extends ConsumerStatefulWidget {
@@ -34,6 +34,12 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
   bool _loading = false;
 
   @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -44,7 +50,6 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
   Future<void> _refreshAirports() async {
     setState(() => _loading = true);
     try {
-      final service = ref.read(airportServiceProvider);
       final camera = _mapController.camera;
       final bounds = camera.visibleBounds;
       final center = camera.center;
@@ -54,11 +59,13 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
       final lngDelta = max((bounds.east - bounds.west) / 2, minDelta);
       final delta = max(latDelta, lngDelta);
 
-      final candidates = await service.database.getAirportsWithinSquare(
-        center.latitude,
-        center.longitude,
-        delta: delta,
-      );
+      final candidates = await ref
+          .read(airportRepositoryProvider)
+          .getAirportsWithinSquare(
+            center.latitude,
+            center.longitude,
+            delta: delta,
+          );
 
       if (candidates == null) {
         if (mounted) setState(() => _airports = []);
@@ -149,27 +156,7 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
               concurrency: 4,
               diskCacheTtl: const Duration(days: 30),
             ),
-            if (kReleaseMode) ...[
-              Align(
-                alignment: Alignment.topLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(0),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.6),
-                    ),
-                    child: Text(
-                      '© OpenStreetMap contributors,© CARTO',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            const MapAttribution(),
             MarkerLayer(
               markers: _airports.map((airport) {
                 final isCenter =

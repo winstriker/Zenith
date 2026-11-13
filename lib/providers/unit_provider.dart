@@ -15,7 +15,9 @@ class UnitNotifier extends Notifier<MeasurementUnit> {
   Future<void> _loadUnit() async {
     final prefs = await SharedPreferences.getInstance();
     final unitIndex = prefs.getInt(_key);
-    if (unitIndex != null && unitIndex >= 0 && unitIndex < MeasurementUnit.values.length) {
+    if (unitIndex != null &&
+        unitIndex >= 0 &&
+        unitIndex < MeasurementUnit.values.length) {
       state = MeasurementUnit.values[unitIndex];
     }
   }
@@ -27,4 +29,6 @@ class UnitNotifier extends Notifier<MeasurementUnit> {
   }
 }
 
-final unitProvider = NotifierProvider<UnitNotifier, MeasurementUnit>(UnitNotifier.new);
+final unitProvider = NotifierProvider<UnitNotifier, MeasurementUnit>(
+  UnitNotifier.new,
+);

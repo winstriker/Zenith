@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/aircraft_providers.dart';
 import '../repositories/aircraft_repository.dart';
 import '../services/database.dart';
+import '../utils/icao_designator.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/model_card.dart';
 
@@ -126,138 +128,190 @@ class _IcaoAircraftSelectPageState
   }
 
   Future<void> _showAddCustomDialog() async {
-    final modelCtrl = TextEditingController();
-    final manufacturerCtrl = TextEditingController();
-    WakeTurbolenceCategory wakeCategory = WakeTurbolenceCategory.Z;
-    WakeTurbolenceGroup wakeGroup = WakeTurbolenceGroup.Z;
-    AircraftDescription description = AircraftDescription.landplane;
-    int engineCount = 1;
-    EngineType engineType = EngineType.piston;
-
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Add Custom Aircraft Type'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: modelCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Model Full Name *',
-                    hintText: 'e.g. Custom Experimental',
-                    prefixIcon: Icon(Icons.model_training),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: manufacturerCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Manufacturer *',
-                    hintText: 'e.g. Custom Builder',
-                    prefixIcon: Icon(Icons.factory),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<WakeTurbolenceCategory>(
-                  initialValue: wakeCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Wake Turbulence Category',
-                    prefixIcon: Icon(Icons.waves),
-                  ),
-                  items: WakeTurbolenceCategory.values.map((e) {
-                    return DropdownMenuItem(value: e, child: Text(e.name));
-                  }).toList(),
-                  onChanged: (v) => setState(() => wakeCategory = v!),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<WakeTurbolenceGroup>(
-                  initialValue: wakeGroup,
-                  decoration: const InputDecoration(
-                    labelText: 'Wake Turbulence Group',
-                    prefixIcon: Icon(Icons.groups),
-                  ),
-                  items: WakeTurbolenceGroup.values.map((e) {
-                    return DropdownMenuItem(value: e, child: Text(e.name));
-                  }).toList(),
-                  onChanged: (v) => setState(() => wakeGroup = v!),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<AircraftDescription>(
-                  initialValue: description,
-                  decoration: const InputDecoration(
-                    labelText: 'Aircraft Description',
-                    prefixIcon: Icon(Icons.description),
-                  ),
-                  items: AircraftDescription.values.map((e) {
-                    return DropdownMenuItem(value: e, child: Text(e.name));
-                  }).toList(),
-                  onChanged: (v) => setState(() => description = v!),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  initialValue: engineCount.toString(),
-                  decoration: const InputDecoration(
-                    labelText: 'Engine Count',
-                    prefixIcon: Icon(Icons.power),
-                  ),
-                  keyboardType: TextInputType.number,
-                  onChanged: (v) => engineCount = int.tryParse(v) ?? 1,
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<EngineType>(
-                  initialValue: engineType,
-                  decoration: const InputDecoration(
-                    labelText: 'Engine Type',
-                    prefixIcon: Icon(Icons.settings),
-                  ),
-                  items: EngineType.values.map((e) {
-                    return DropdownMenuItem(value: e, child: Text(e.name));
-                  }).toList(),
-                  onChanged: (v) => setState(() => engineType = v!),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (modelCtrl.text.trim().isEmpty ||
-                    manufacturerCtrl.text.trim().isEmpty) {
-                  return;
-                }
-                final repository = ref.read(aircraftRepositoryProvider);
-                await repository.addIcaoAircraft(
-                  modelFullName: modelCtrl.text.trim(),
-                  manufacturer: manufacturerCtrl.text.trim(),
-                  designator: modelCtrl.text
-                      .trim()
-                      .substring(0, 4)
-                      .toUpperCase(),
-                  wakeTurbolenceCategory: wakeCategory,
-                  wakeTurbolenceGroup: wakeGroup,
-                  description: description,
-                  engineCount: engineCount,
-                  engineType: engineType,
-                );
-                if (ctx.mounted) Navigator.pop(ctx, true);
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => const _AddCustomIcaoDialog(),
     );
 
     if (result == true && mounted) {
       setState(() {});
     }
+  }
+}
+
+class _AddCustomIcaoDialog extends ConsumerStatefulWidget {
+  const _AddCustomIcaoDialog();
+
+  @override
+  ConsumerState<_AddCustomIcaoDialog> createState() =>
+      _AddCustomIcaoDialogState();
+}
+
+class _AddCustomIcaoDialogState extends ConsumerState<_AddCustomIcaoDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _designatorCtrl = TextEditingController();
+  final _modelCtrl = TextEditingController();
+  final _manufacturerCtrl = TextEditingController();
+  WakeTurbulenceCategory _wakeCategory = WakeTurbulenceCategory.Z;
+  WakeTurbulenceGroup _wakeGroup = WakeTurbulenceGroup.Z;
+  AircraftDescription _description = AircraftDescription.landplane;
+  int _engineCount = 1;
+  EngineType _engineType = EngineType.piston;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _designatorCtrl.dispose();
+    _modelCtrl.dispose();
+    _manufacturerCtrl.dispose();
+    super.dispose();
+  }
+
+  static String? _required(String? v) =>
+      (v == null || v.trim().isEmpty) ? 'Required' : null;
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    await ref
+        .read(aircraftRepositoryProvider)
+        .addIcaoAircraft(
+          modelFullName: _modelCtrl.text.trim(),
+          manufacturer: _manufacturerCtrl.text.trim(),
+          designator: _designatorCtrl.text.trim().toUpperCase(),
+          wakeTurbolenceCategory: _wakeCategory,
+          wakeTurbolenceGroup: _wakeGroup,
+          description: _description,
+          engineCount: _engineCount,
+          engineType: _engineType,
+        );
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Custom Aircraft Type'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _designatorCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'ICAO Type Designator *',
+                  hintText: 'e.g. C172',
+                  prefixIcon: Icon(Icons.tag),
+                ),
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: icaoDesignatorInputFormatters,
+                maxLength: icaoDesignatorLength,
+                validator: validateIcaoDesignator,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _modelCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Model Full Name *',
+                  hintText: 'e.g. Custom Experimental',
+                  prefixIcon: Icon(Icons.model_training),
+                ),
+                validator: _required,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _manufacturerCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Manufacturer *',
+                  hintText: 'e.g. Custom Builder',
+                  prefixIcon: Icon(Icons.factory),
+                ),
+                validator: _required,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<WakeTurbulenceCategory>(
+                initialValue: _wakeCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Wake Turbulence Category',
+                  prefixIcon: Icon(Icons.waves),
+                ),
+                items: [
+                  for (final e in WakeTurbulenceCategory.values)
+                    DropdownMenuItem(value: e, child: Text(e.name)),
+                ],
+                onChanged: (v) => setState(() => _wakeCategory = v!),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<WakeTurbulenceGroup>(
+                initialValue: _wakeGroup,
+                decoration: const InputDecoration(
+                  labelText: 'Wake Turbulence Group',
+                  prefixIcon: Icon(Icons.groups),
+                ),
+                items: [
+                  for (final e in WakeTurbulenceGroup.values)
+                    DropdownMenuItem(value: e, child: Text(e.name)),
+                ],
+                onChanged: (v) => setState(() => _wakeGroup = v!),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<AircraftDescription>(
+                initialValue: _description,
+                decoration: const InputDecoration(
+                  labelText: 'Aircraft Description',
+                  prefixIcon: Icon(Icons.description),
+                ),
+                items: [
+                  for (final e in AircraftDescription.values)
+                    DropdownMenuItem(value: e, child: Text(e.name)),
+                ],
+                onChanged: (v) => setState(() => _description = v!),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                initialValue: _engineCount.toString(),
+                decoration: const InputDecoration(
+                  labelText: 'Engine Count',
+                  prefixIcon: Icon(Icons.power),
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: (v) => (int.tryParse(v ?? '') ?? 0) < 1
+                    ? 'Must be at least 1'
+                    : null,
+                onChanged: (v) => _engineCount = int.tryParse(v) ?? 1,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<EngineType>(
+                initialValue: _engineType,
+                decoration: const InputDecoration(
+                  labelText: 'Engine Type',
+                  prefixIcon: Icon(Icons.settings),
+                ),
+                items: [
+                  for (final e in EngineType.values)
+                    DropdownMenuItem(value: e, child: Text(e.name)),
+                ],
+                onChanged: (v) => setState(() => _engineType = v!),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: const Text('Add'),
+        ),
+      ],
+    );
   }
 }
 

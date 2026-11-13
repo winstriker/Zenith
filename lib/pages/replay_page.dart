@@ -8,6 +8,7 @@ import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../core/theme.dart';
 import '../providers/carto_provider.dart';
 import '../providers/unit_provider.dart';
 import '../services/database.dart';
@@ -256,6 +257,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     _animationController.removeListener(_onAnimationTick);
     _animationController.removeStatusListener(_onAnimationStatusChanged);
     _animationController.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -280,18 +282,15 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final topPad = MediaQuery.of(context).padding.top;
-    final botPad = MediaQuery.of(context).padding.bottom;
+    final cs = Theme.of(context).colorScheme;
+    final overlay = context.appColors.overlay;
+    final padding = MediaQuery.paddingOf(context);
     final points = widget.flight.dataPoints;
-    final unitMode = ref.watch(unitProvider);
-    final isMetric = unitMode == MeasurementUnit.metric;
+    final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
     final cartoStyle = ref.watch(cartoStyleProvider);
 
-    // Use AnimatedBuilder to only rebuild the parts that change
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: overlay,
       body: Stack(
         children: [
           // Map - static, doesn't rebuild on animation
@@ -332,7 +331,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                     }
                     return Stack(
                       children: [
-                        // Trail polyline
                         PolylineLayer(
                           polylines: [
                             Polyline(
@@ -342,7 +340,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                             ),
                           ],
                         ),
-                        // Plane marker
                         MarkerLayer(
                           markers: [
                             Marker(
@@ -350,7 +347,9 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                               width: 48,
                               height: 48,
                               alignment: Alignment.center,
-                              child: _buildPlaneMarker(cs),
+                              child: _PlaneMarker(
+                                headingDeg: _currentHeading ?? 0,
+                              ),
                             ),
                           ],
                         ),
@@ -361,7 +360,12 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
               ],
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => const Center(child: Text('Failed to load map')),
+            error: (e, _) => Center(
+              child: Text(
+                'Failed to load map',
+                style: TextStyle(color: context.appColors.onOverlay),
+              ),
+            ),
           ),
 
           // Top gradient overlay (static)
@@ -369,111 +373,29 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             top: 0,
             left: 0,
             right: 0,
-            height: 140 + topPad,
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.black.withValues(alpha: 0.3),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
+            height: 140 + padding.top,
+            child: _ScrimGradient(
+              colors: [
+                overlay.withValues(alpha: 0.7),
+                overlay.withValues(alpha: 0.3),
+                overlay.withValues(alpha: 0),
+              ],
             ),
           ),
 
-          // Top bar with flight info and speed (static + animated speed)
+          // Top bar with flight info and (animated) speed
           Positioned(
-            top: topPad + 4,
+            top: padding.top + 4,
             left: 4,
             right: 4,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.black26,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.flight.flight.title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '$_pointsCount data points',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Speed display - animated
-                    AnimatedBuilder(
-                      animation: _progressAnimation,
-                      builder: (context, _) {
-                        if (_currentSpeed == null) {
-                          return const SizedBox.shrink();
-                        }
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'SPD',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                _formatSpeed(_currentSpeed, isMetric),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+            child: _ReplayTopBar(
+              title: widget.flight.flight.title,
+              pointsCount: _pointsCount,
+              speedBadge: AnimatedBuilder(
+                animation: _progressAnimation,
+                builder: (context, _) => _currentSpeed == null
+                    ? const SizedBox.shrink()
+                    : _SpeedBadge(value: _formatSpeed(_currentSpeed, isMetric)),
               ),
             ),
           ),
@@ -483,67 +405,207 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             bottom: 0,
             left: 0,
             right: 0,
-            height: 260 + botPad,
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.5),
-                      Colors.black.withValues(alpha: 0.8),
-                    ],
-                  ),
-                ),
-              ),
+            height: 260 + padding.bottom,
+            child: _ScrimGradient(
+              colors: [
+                overlay.withValues(alpha: 0),
+                overlay.withValues(alpha: 0.5),
+                overlay.withValues(alpha: 0.8),
+              ],
             ),
           ),
 
           // Control panel - animated
           Positioned(
-            bottom: botPad + 16,
+            bottom: padding.bottom + 16,
             left: 16,
             right: 16,
             child: AnimatedBuilder(
               animation: _progressAnimation,
-              builder: (context, _) => _buildControlPanel(theme, cs, isMetric),
+              builder: (context, _) {
+                final elapsed = _replayDuration * _progressAnimation.value;
+                return _ReplayControlPanel(
+                  progress: _progressAnimation.value,
+                  elapsed: elapsed,
+                  remaining: _replayDuration - elapsed,
+                  altitude: _formatAltitude(_currentAltitude, isMetric),
+                  speed: _formatSpeed(_currentSpeed, isMetric),
+                  isPlaying: _animationController.isAnimating,
+                  playbackSpeed: _speed,
+                  onSeek: _onSliderChanged,
+                  onTogglePlayback: _togglePlayback,
+                  onPlaybackSpeedChanged: _setSpeed,
+                );
+              },
             ),
           ),
 
           // Empty state for insufficient data
           if (_pathPoints.length < 2)
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.flight,
-                    size: 64,
-                    color: Colors.white.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _pathPoints.isEmpty
-                        ? 'No flight data available'
-                        : 'Not enough points to replay',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white70,
-                    ),
-                  ),
-                ],
-              ),
+            _ReplayEmptyState(
+              message: _pathPoints.isEmpty
+                  ? 'No flight data available'
+                  : 'Not enough points to replay',
             ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildPlaneMarker(ColorScheme cs) {
-    final heading = _currentHeading ?? 0.0;
-    final radians = heading * pi / 180;
+class _ScrimGradient extends StatelessWidget {
+  const _ScrimGradient({required this.colors});
+  final List<Color> colors;
 
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: colors,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReplayTopBar extends StatelessWidget {
+  const _ReplayTopBar({
+    required this.title,
+    required this.pointsCount,
+    required this.speedBadge,
+  });
+
+  final String title;
+  final int pointsCount;
+  final Widget speedBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.arrow_back, color: colors.onOverlay),
+              onPressed: () => Navigator.pop(context),
+              style: IconButton.styleFrom(
+                backgroundColor: colors.overlay.withValues(alpha: 0.26),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.onOverlay,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$pointsCount data points',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onOverlay.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            speedBadge,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeedBadge extends StatelessWidget {
+  const _SpeedBadge({required this.value});
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.overlay.withValues(alpha: 0.26),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'SPD',
+            style: TextStyle(
+              color: colors.onOverlay.withValues(alpha: 0.54),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: colors.onOverlay,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplayEmptyState extends StatelessWidget {
+  const _ReplayEmptyState({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final onOverlay = context.appColors.onOverlay;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.flight, size: 64, color: onOverlay.withValues(alpha: 0.3)),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: onOverlay.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaneMarker extends StatelessWidget {
+  const _PlaneMarker({required this.headingDeg});
+  final double headingDeg;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: 48,
       height: 48,
@@ -557,7 +619,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             spreadRadius: 2,
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: cs.shadow.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -565,15 +627,49 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
       ),
       alignment: Alignment.center,
       child: Transform.rotate(
-        angle: radians,
-        child: const Icon(Icons.flight, color: Colors.white, size: 28),
+        angle: headingDeg * pi / 180,
+        child: Icon(Icons.flight, color: cs.onPrimary, size: 28),
       ),
     );
   }
+}
 
-  Widget _buildControlPanel(ThemeData theme, ColorScheme cs, bool isMetric) {
-    final elapsed = _replayDuration * _progressAnimation.value;
-    final remaining = _replayDuration - elapsed;
+class _ReplayControlPanel extends StatelessWidget {
+  const _ReplayControlPanel({
+    required this.progress,
+    required this.elapsed,
+    required this.remaining,
+    required this.altitude,
+    required this.speed,
+    required this.isPlaying,
+    required this.playbackSpeed,
+    required this.onSeek,
+    required this.onTogglePlayback,
+    required this.onPlaybackSpeedChanged,
+  });
+
+  final double progress;
+  final Duration elapsed;
+  final Duration remaining;
+  final String altitude;
+  final String speed;
+  final bool isPlaying;
+  final double playbackSpeed;
+  final ValueChanged<double> onSeek;
+  final VoidCallback onTogglePlayback;
+  final ValueChanged<double> onPlaybackSpeedChanged;
+
+  static const _speeds = [1.0, 2.0, 4.0];
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final colors = context.appColors;
+    final divider = Container(
+      width: 1,
+      height: 32,
+      color: colors.onOverlay.withValues(alpha: 0.1),
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -582,8 +678,8 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            color: colors.overlay.withValues(alpha: 0.55),
+            border: Border.all(color: colors.onOverlay.withValues(alpha: 0.08)),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -600,16 +696,13 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                           enabledThumbRadius: 7,
                         ),
                         activeTrackColor: cs.primary,
-                        inactiveTrackColor: Colors.white.withValues(
+                        inactiveTrackColor: colors.onOverlay.withValues(
                           alpha: 0.15,
                         ),
-                        thumbColor: Colors.white,
+                        thumbColor: colors.onOverlay,
                         overlayColor: cs.primary.withValues(alpha: 0.15),
                       ),
-                      child: Slider(
-                        value: _progressAnimation.value,
-                        onChanged: _onSliderChanged,
-                      ),
+                      child: Slider(value: progress, onChanged: onSeek),
                     ),
                   ),
                   _TimeLabel(duration: remaining),
@@ -619,26 +712,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _StatTile(
-                    label: 'ALT',
-                    value: _formatAltitude(_currentAltitude, isMetric),
-                    icon: Icons.height,
-                  ),
-                  Container(
-                    width: 1,
-                    height: 32,
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                  _StatTile(
-                    label: 'SPEED',
-                    value: _formatSpeed(_currentSpeed, isMetric),
-                    icon: Icons.speed,
-                  ),
-                  Container(
-                    width: 1,
-                    height: 32,
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
+                  _StatTile(label: 'ALT', value: altitude, icon: Icons.height),
+                  divider,
+                  _StatTile(label: 'SPEED', value: speed, icon: Icons.speed),
+                  divider,
                   _StatTile(
                     label: 'TIME',
                     value: DurationFormatter.hms(elapsed),
@@ -654,32 +731,30 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                     width: 48,
                     height: 48,
                     child: FilledButton(
-                      onPressed: _togglePlayback,
+                      onPressed: onTogglePlayback,
                       style: FilledButton.styleFrom(
-                        backgroundColor: cs.primary,
-                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                         padding: EdgeInsets.zero,
                       ),
                       child: Icon(
-                        _animationController.isAnimating
+                        isPlaying
                             ? Icons.pause
-                            : (_progressAnimation.value >= 1.0
+                            : (progress >= 1.0
                                   ? Icons.replay
                                   : Icons.play_arrow),
                       ),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  for (final s in [1.0, 2.0, 4.0])
+                  for (final s in _speeds)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: _SpeedChip(
                         label: '${s.toInt()}x',
-                        selected: _speed == s,
-                        onTap: () => _setSpeed(s),
+                        selected: playbackSpeed == s,
+                        onTap: () => onPlaybackSpeedChanged(s),
                       ),
                     ),
                 ],
@@ -692,7 +767,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   }
 }
 
-// Stateless widgets for static UI parts
 class _TimeLabel extends StatelessWidget {
   const _TimeLabel({required this.duration});
   final Duration duration;
@@ -709,10 +783,10 @@ class _TimeLabel extends StatelessWidget {
       width: 48,
       child: Text(
         str,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: context.appColors.onOverlay.withValues(alpha: 0.7),
           fontSize: 12,
-          fontFeatures: [FontFeature.tabularFigures()],
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
         textAlign: TextAlign.center,
       ),
@@ -732,15 +806,16 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onOverlay = context.appColors.onOverlay;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.white54),
+        Icon(icon, size: 14, color: onOverlay.withValues(alpha: 0.54)),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white38,
+          style: TextStyle(
+            color: onOverlay.withValues(alpha: 0.38),
             fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
@@ -749,11 +824,11 @@ class _StatTile extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: onOverlay,
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -774,22 +849,23 @@ class _SpeedChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final onOverlay = context.appColors.onOverlay;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? cs.primary : Colors.white.withValues(alpha: 0.08),
+          color: selected ? cs.primary : onOverlay.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? cs.primary : Colors.white.withValues(alpha: 0.12),
+            color: selected ? cs.primary : onOverlay.withValues(alpha: 0.12),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : Colors.white60,
+            color: selected ? cs.onPrimary : onOverlay.withValues(alpha: 0.6),
             fontWeight: selected ? FontWeight.bold : FontWeight.w500,
             fontSize: 13,
           ),

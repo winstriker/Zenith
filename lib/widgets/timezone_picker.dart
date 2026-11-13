@@ -75,7 +75,6 @@ class TimezonePicker {
     required ValueChanged<String?> onIanaLocationChanged,
     required ValueChanged<TimezoneMode> onModeChanged,
   }) {
-    final controller = TextEditingController();
     final allTimezones = _buildTimezoneList(referenceDate);
     List<_TimezoneEntry> filtered = allTimezones;
 
@@ -106,7 +105,6 @@ class TimezonePicker {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: TextField(
-                        controller: controller,
                         autofocus: true,
                         decoration: const InputDecoration(
                           hintText: 'Search name, abbreviation, or offset...',

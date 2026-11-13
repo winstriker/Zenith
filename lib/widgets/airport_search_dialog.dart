@@ -1,17 +1,21 @@
 import 'dart:async';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../repositories/airport_repository.dart';
 import '../services/database.dart';
 
-class AirportSearchDialog extends StatefulWidget {
-  final String title;
+class AirportSearchDialog extends ConsumerStatefulWidget {
   const AirportSearchDialog({super.key, required this.title});
+  final String title;
 
   @override
-  State<AirportSearchDialog> createState() => _AirportSearchDialogState();
+  ConsumerState<AirportSearchDialog> createState() =>
+      _AirportSearchDialogState();
 }
 
-class _AirportSearchDialogState extends State<AirportSearchDialog> {
+class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   Timer? _debounce;
@@ -34,8 +38,9 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
   }
 
   Future<void> _loadRecent() async {
-    final db = LogbookDatabase();
-    final recent = await db.getRecentAirports(limit: 8);
+    final recent = await ref
+        .read(airportRepositoryProvider)
+        .getRecentAirports(limit: 8);
     if (mounted) {
       setState(() {
         _recent = recent;
@@ -51,14 +56,12 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
       return;
     }
     _debounce = Timer(const Duration(milliseconds: 350), () async {
-      final db = LogbookDatabase();
-      final results = await db.searchAirports(query: query.trim(), limit: 15);
+      final results = await ref
+          .read(airportRepositoryProvider)
+          .findAirports(query.trim());
       if (mounted) setState(() => _results = results);
     });
   }
-
-  String _airportCode(Airport a) =>
-      a.ident ?? a.icaoCode ?? a.iataCode ?? a.name ?? '----';
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +75,7 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
           maxWidth: 420,
         ),
         child: Column(
@@ -107,8 +110,13 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
                   hintText: 'Search airport by name, ICAO, IATA...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onChanged: (v) {
                   setState(() {});
@@ -119,12 +127,18 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
             const Divider(height: 1),
             Flexible(
               child: showRecent
-                  ? _buildRecentList(theme)
+                  ? _AirportList(
+                      header: 'RECENT',
+                      airports: _recent,
+                      onSelected: _select,
+                    )
                   : showResults
-                      ? _buildResultList(theme)
-                      : query.isNotEmpty && !_loadingRecent
-                          ? _buildEmptyState(theme, 'No airports found for "$query"')
-                          : _buildEmptyState(theme, 'Type to search airports'),
+                  ? _AirportList(airports: _results, onSelected: _select)
+                  : _DialogMessage(
+                      query.isNotEmpty && !_loadingRecent
+                          ? 'No airports found for "$query"'
+                          : 'Type to search airports',
+                    ),
             ),
           ],
         ),
@@ -132,7 +146,34 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
     );
   }
 
-  Widget _buildRecentList(ThemeData theme) {
+  void _select(Airport airport) => Navigator.pop(context, airport);
+}
+
+class _AirportList extends StatelessWidget {
+  const _AirportList({
+    required this.airports,
+    required this.onSelected,
+    this.header,
+  });
+
+  final List<Airport> airports;
+  final ValueChanged<Airport> onSelected;
+  final String? header;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final list = ListView.builder(
+      shrinkWrap: true,
+      padding: const EdgeInsets.only(bottom: 8),
+      itemCount: airports.length,
+      itemBuilder: (_, i) => _AirportTile(
+        airport: airports[i],
+        onTap: () => onSelected(airports[i]),
+      ),
+    );
+    if (header == null) return list;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -140,36 +181,35 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'RECENT',
+            header!,
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        Flexible(
-          child: ListView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.only(bottom: 8),
-            itemCount: _recent.length,
-            itemBuilder: (_, i) => _buildAirportTile(theme, _recent[i]),
-          ),
-        ),
+        Flexible(child: list),
       ],
     );
   }
+}
 
-  Widget _buildResultList(ThemeData theme) {
-    return ListView.builder(
-      shrinkWrap: true,
-      padding: const EdgeInsets.only(bottom: 8),
-      itemCount: _results.length,
-      itemBuilder: (_, i) => _buildAirportTile(theme, _results[i]),
-    );
-  }
+class _AirportTile extends StatelessWidget {
+  const _AirportTile({required this.airport, required this.onTap});
 
-  Widget _buildAirportTile(ThemeData theme, Airport airport) {
-    final code = _airportCode(airport);
+  final Airport airport;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final code =
+        airport.ident ??
+        airport.icaoCode ??
+        airport.iataCode ??
+        airport.name ??
+        '----';
     final name = airport.name ?? '';
     final city = airport.municipality ?? '';
     final countryCode = airport.isoCountry;
@@ -185,19 +225,21 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
                 theme: const ImageTheme(shape: RoundedRectangle(3)),
               ),
             )
-          : Icon(Icons.local_airport, size: 20, color: theme.colorScheme.primary),
+          : Icon(Icons.local_airport, size: 20, color: cs.primary),
       title: Row(
         children: [
           Text(
             code,
-            style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               name,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: cs.onSurfaceVariant,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -209,15 +251,22 @@ class _AirportSearchDialogState extends State<AirportSearchDialog> {
           ? Text(
               city,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                color: cs.onSurfaceVariant.withValues(alpha: 0.7),
               ),
             )
           : null,
-      onTap: () => Navigator.pop(context, airport),
+      onTap: onTap,
     );
   }
+}
 
-  Widget _buildEmptyState(ThemeData theme, String message) {
+class _DialogMessage extends StatelessWidget {
+  const _DialogMessage(this.message);
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

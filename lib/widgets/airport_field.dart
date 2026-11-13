@@ -3,12 +3,6 @@ import 'package:flutter/material.dart';
 import '../services/database.dart';
 
 class AirportField extends StatelessWidget {
-  final String code;
-  final String label;
-  final Airport? selectedAirport;
-  final VoidCallback onTap;
-  final bool isArrival;
-
   const AirportField({
     super.key,
     required this.code,
@@ -17,6 +11,11 @@ class AirportField extends StatelessWidget {
     required this.onTap,
     this.isArrival = false,
   });
+  final String code;
+  final String label;
+  final Airport? selectedAirport;
+  final VoidCallback onTap;
+  final bool isArrival;
 
   @override
   Widget build(BuildContext context) {
