@@ -44,6 +44,9 @@ class _Totals {
   }
 }
 
+/// Content of column 12 (remarks) in the three totals rows.
+enum _RemarksCell { certification, signature, coveredBySignature }
+
 class PdfExportService {
   static Future<File> generateLogbook(
     List<FlightWithStats> flights, {
@@ -148,12 +151,7 @@ class PdfExportService {
     return t;
   }
 
-  static String _totalsRow(
-    String label,
-    _Totals t,
-    bool showSignatureLabel,
-    bool showSignatureBlock,
-  ) {
+  static String _totalsRow(String label, _Totals t, _RemarksCell remarks) {
     final buf = StringBuffer();
     buf.write('<tr class="row-data">');
     buf.write('<td colspan="7" class="text-right">$label</td>');
@@ -172,16 +170,18 @@ class PdfExportService {
     buf.write('<td>${_fmtDur(t.instructor)}</td>');
     buf.write('<td></td>'); // FSTD type
     buf.write('<td></td>'); // FSTD time
-    if (showSignatureLabel) {
-      buf.write(
-        '<td class="text-top text-left bold" style="font-size: 5pt;">I certify that the entries in this log are true.</td>',
-      );
-    } else if (showSignatureBlock) {
-      buf.write(
-        '<td rowspan="2" class="text-top text-left bold" style="font-size: 6.5pt;">PILOT\'S SIGNATURE</td>',
-      );
-    } else {
-      buf.write('<td></td>');
+    switch (remarks) {
+      case _RemarksCell.certification:
+        buf.write(
+          '<td class="text-top text-left bold" style="font-size: 5pt;">I certify that the entries in this log are true.</td>',
+        );
+      case _RemarksCell.signature:
+        buf.write(
+          '<td rowspan="2" class="text-top text-left bold" style="font-size: 6.5pt;">PILOT\'S SIGNATURE</td>',
+        );
+      case _RemarksCell.coveredBySignature:
+        // Column 12 is occupied by the signature cell's rowspan above.
+        break;
     }
     buf.write('</tr>');
     return buf.toString();
@@ -434,11 +434,19 @@ class PdfExportService {
       }
 
       // Totals rows
-      buf.write(_totalsRow('TOTAL THIS PAGE', pageTotals, true, false));
       buf.write(
-        _totalsRow('TOTAL FROM PREVIOUS PAGES', prevTotals, false, true),
+        _totalsRow('TOTAL THIS PAGE', pageTotals, _RemarksCell.certification),
       );
-      buf.write(_totalsRow('TOTAL TIME', grandTotals, false, false));
+      buf.write(
+        _totalsRow(
+          'TOTAL FROM PREVIOUS PAGES',
+          prevTotals,
+          _RemarksCell.signature,
+        ),
+      );
+      buf.write(
+        _totalsRow('TOTAL TIME', grandTotals, _RemarksCell.coveredBySignature),
+      );
 
       buf.write('</tbody></table></div>');
 
