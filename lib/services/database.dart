@@ -744,19 +744,26 @@ class LogbookDatabase extends _$LogbookDatabase {
   }
 
   /// Crew of a flight (excluding self), in insertion order.
-  Future<List<CrewMember>> getFlightCrew(int flightId) async {
-    final query = select(flightCrew).join([
+  Future<List<CrewMember>> getFlightCrew(int flightId) =>
+      _flightCrewQuery(flightId).get().then(_toCrew);
+
+  /// Live crew of a flight (excluding self).
+  Stream<List<CrewMember>> watchFlightCrew(int flightId) =>
+      _flightCrewQuery(flightId).watch().map(_toCrew);
+
+  JoinedSelectStatement<HasResultSet, dynamic> _flightCrewQuery(int flightId) {
+    return select(flightCrew).join([
       innerJoin(people, people.id.equalsExp(flightCrew.person)),
     ])..where(flightCrew.flight.equals(flightId));
-    final rows = await query.get();
-    return [
-      for (final row in rows)
-        CrewMember(
-          person: row.readTable(people),
-          role: row.readTable(flightCrew).role,
-        ),
-    ];
   }
+
+  List<CrewMember> _toCrew(List<TypedResult> rows) => [
+    for (final row in rows)
+      CrewMember(
+        person: row.readTable(people),
+        role: row.readTable(flightCrew).role,
+      ),
+  ];
 
   /// Replaces the whole crew of [flightId] with [crew].
   Future<void> setFlightCrew(int flightId, List<CrewMember> crew) {

@@ -10,9 +10,11 @@ import 'package:latlong2/latlong.dart';
 import '../core/theme.dart';
 import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
+import '../providers/person_providers.dart';
 import '../providers/unit_provider.dart';
 import '../services/database.dart';
 import '../widgets/aircraft_card.dart';
+import '../widgets/crew_card.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/flight_rules_card.dart';
 import '../widgets/info_row.dart';
@@ -21,6 +23,7 @@ import '../widgets/map_attribution.dart';
 import '../widgets/remarks_card.dart';
 import '../widgets/section_header.dart';
 import 'flight_form_page.dart';
+import 'person_detail_page.dart';
 import 'replay_page.dart';
 
 class FlightDetailPage extends ConsumerWidget {
@@ -91,6 +94,7 @@ class _FlightDetailView extends StatelessWidget {
                     const SizedBox(height: 12),
                     FlightRulesCard(flightRules: flight.flight.flightRules!),
                     const SizedBox(height: 12),
+                    _FlightCrewCard(flight: flight.flight),
                     if (flight.flight.remarks != null)
                       RemarksCard(initialValue: flight.flight.remarks!),
                     if (flight.dataPoints.isNotEmpty) ...[
@@ -108,6 +112,38 @@ class _FlightDetailView extends StatelessWidget {
           ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Crew card
+// -----------------------------------------------------------------------------
+
+/// Read-only crew. Hidden for flights with neither a role nor crew (e.g.
+/// recorded flights never edited). Tapping a person opens their profile.
+class _FlightCrewCard extends ConsumerWidget {
+  const _FlightCrewCard({required this.flight});
+  final Flight flight;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final crew = ref.watch(flightCrewProvider(flight.id)).value ?? const [];
+    final pilotRole = flight.pilotRole;
+    if (pilotRole == null && crew.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: CrewCard.readOnly(
+        pilotRole: CrewRole.fromString(pilotRole ?? CrewRole.pic.name),
+        crewMembers: crew,
+        onCrewMemberTap: (member) => Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => PersonDetailPage(personId: member.person.id),
+          ),
+        ),
       ),
     );
   }

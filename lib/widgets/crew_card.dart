@@ -5,23 +5,41 @@ import '../pages/person_select_page.dart';
 import '../services/database.dart';
 import 'section_header.dart';
 
+/// SELF plus the other crew of a flight. Editable by default; use
+/// [CrewCard.readOnly] to only display it.
 class CrewCard extends StatelessWidget {
   const CrewCard({
     super.key,
     required this.pilotRole,
     required this.crewMembers,
-    required this.onPilotRoleChanged,
-    required this.onCrewMemberAdded,
-    required this.onCrewMemberRemoved,
-    required this.onCrewMemberChanged,
-  });
+    required ValueChanged<CrewRole> this.onPilotRoleChanged,
+    required ValueChanged<CrewMember> this.onCrewMemberAdded,
+    required ValueChanged<int> this.onCrewMemberRemoved,
+    required void Function(int index, CrewMember member)
+    this.onCrewMemberChanged,
+  }) : onCrewMemberTap = null;
+
+  /// No role changes, no add or remove. [onCrewMemberTap], if given, is
+  /// called when a crew member is tapped.
+  const CrewCard.readOnly({
+    super.key,
+    required this.pilotRole,
+    required this.crewMembers,
+    this.onCrewMemberTap,
+  }) : onPilotRoleChanged = null,
+       onCrewMemberAdded = null,
+       onCrewMemberRemoved = null,
+       onCrewMemberChanged = null;
 
   final CrewRole pilotRole;
   final List<CrewMember> crewMembers;
-  final ValueChanged<CrewRole> onPilotRoleChanged;
-  final ValueChanged<CrewMember> onCrewMemberAdded;
-  final ValueChanged<int> onCrewMemberRemoved;
-  final void Function(int index, CrewMember member) onCrewMemberChanged;
+  final ValueChanged<CrewRole>? onPilotRoleChanged;
+  final ValueChanged<CrewMember>? onCrewMemberAdded;
+  final ValueChanged<int>? onCrewMemberRemoved;
+  final void Function(int index, CrewMember member)? onCrewMemberChanged;
+  final ValueChanged<CrewMember>? onCrewMemberTap;
+
+  bool get _editable => onCrewMemberAdded != null;
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +73,15 @@ class CrewCard extends StatelessWidget {
             const SizedBox(height: 12),
             _SelfRow(
               role: pilotRole,
-              onTap: () async {
-                final picked = await showCrewRolePicker(
-                  context,
-                  current: pilotRole,
-                );
-                if (picked != null) onPilotRoleChanged(picked);
-              },
+              onTap: _editable
+                  ? () async {
+                      final picked = await showCrewRolePicker(
+                        context,
+                        current: pilotRole,
+                      );
+                      if (picked != null) onPilotRoleChanged!(picked);
+                    }
+                  : null,
             ),
             ...crewMembers.asMap().entries.map((entry) {
               final i = entry.key;
@@ -71,47 +91,53 @@ class CrewCard extends StatelessWidget {
                   const Divider(height: 1),
                   _CrewMemberRow(
                     member: member,
-                    onRemove: () => onCrewMemberRemoved(i),
-                    onTap: () async {
-                      final role = await showCrewRolePicker(
-                        context,
-                        current: member.role,
-                      );
-                      if (role != null && role != member.role) {
-                        onCrewMemberChanged(
-                          i,
-                          CrewMember(person: member.person, role: role),
-                        );
-                      }
-                    },
+                    onRemove: _editable ? () => onCrewMemberRemoved!(i) : null,
+                    onTap: _editable
+                        ? () async {
+                            final role = await showCrewRolePicker(
+                              context,
+                              current: member.role,
+                            );
+                            if (role != null && role != member.role) {
+                              onCrewMemberChanged!(
+                                i,
+                                CrewMember(person: member.person, role: role),
+                              );
+                            }
+                          }
+                        : onCrewMemberTap == null
+                        ? null
+                        : () => onCrewMemberTap!(member),
                   ),
                 ],
               );
             }),
-            const Divider(height: 1),
-            InkWell(
-              onTap: () => _addCrewMember(context),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.person_add_outlined,
-                      color: cs.onSurfaceVariant,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Add crew member',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+            if (_editable) ...[
+              const Divider(height: 1),
+              InkWell(
+                onTap: () => _addCrewMember(context),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.person_add_outlined,
                         color: cs.onSurfaceVariant,
+                        size: 22,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Text(
+                        'Add crew member',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -132,15 +158,15 @@ class CrewCard extends StatelessWidget {
       ),
     );
     if (person != null) {
-      onCrewMemberAdded(CrewMember(person: person, role: role));
+      onCrewMemberAdded!(CrewMember(person: person, role: role));
     }
   }
 }
 
 class _SelfRow extends StatelessWidget {
-  const _SelfRow({required this.role, required this.onTap});
+  const _SelfRow({required this.role, this.onTap});
   final CrewRole role;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +192,9 @@ class _SelfRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Tap to change your role',
+                    onTap != null
+                        ? 'Tap to change your role'
+                        : role.displayName,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -182,14 +210,10 @@ class _SelfRow extends StatelessWidget {
 }
 
 class _CrewMemberRow extends StatelessWidget {
-  const _CrewMemberRow({
-    required this.member,
-    required this.onRemove,
-    required this.onTap,
-  });
+  const _CrewMemberRow({required this.member, this.onRemove, this.onTap});
   final CrewMember member;
-  final VoidCallback onRemove;
-  final VoidCallback onTap;
+  final VoidCallback? onRemove;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -221,14 +245,20 @@ class _CrewMemberRow extends StatelessWidget {
                 ],
               ),
             ),
-            IconButton(
-              icon: Icon(
-                Icons.remove_circle_outline,
-                color: theme.colorScheme.error,
+            if (onRemove != null)
+              IconButton(
+                icon: Icon(
+                  Icons.remove_circle_outline,
+                  color: theme.colorScheme.error,
+                ),
+                tooltip: 'Remove from crew',
+                onPressed: onRemove,
               ),
-              tooltip: 'Remove from crew',
-              onPressed: onRemove,
-            ),
+            if (onRemove == null && onTap != null)
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
           ],
         ),
       ),

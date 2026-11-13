@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/flight_repository.dart';
 import '../repositories/person_repository.dart';
 import '../services/database.dart';
+import 'database_provider.dart';
 
 /// People matching a search query, most recently flown with first.
 final peopleProvider = StreamProvider.autoDispose
@@ -26,4 +27,10 @@ final personFlightsProvider = StreamProvider.autoDispose
 final personRolesProvider = StreamProvider.autoDispose
     .family<Map<int, CrewRole>, int>((ref, id) {
       return ref.watch(personRepositoryProvider).watchRoles(id);
+    });
+
+/// Crew of a flight (excluding self), live.
+final flightCrewProvider = StreamProvider.autoDispose
+    .family<List<CrewMember>, int>((ref, flightId) {
+      return ref.watch(databaseProvider).watchFlightCrew(flightId);
     });
