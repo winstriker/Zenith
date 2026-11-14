@@ -110,22 +110,29 @@ class AirportsService {
         fraction: _downloadEnd,
         message: 'Processing airport data…',
       );
-      final parsed = await _parseInBackground(bodies);
-
-      _setProgress(
-        AirportSyncPhase.saving,
-        fraction: _parseEnd,
-        message: 'Saving airport data…',
-      );
-      final summary = await syncAirportData(
-        database,
-        parsed,
-        onProgress: (f, message) => _setProgress(
+      // Parsing and writing run entirely in a background isolate: building
+      // and sending ~150k rows from here would block the UI isolate for
+      // seconds, which shows up as stutter in whatever is on screen (the
+      // onboarding animations on first launch).
+      final progressPort = ReceivePort();
+      progressPort.listen((message) {
+        final (double f, String text) = message as (double, String);
+        _setProgress(
           AirportSyncPhase.saving,
           fraction: _parseEnd + f * (1 - _parseEnd),
-          message: message,
-        ),
-      );
+          message: text,
+        );
+      });
+      final AirportSyncSummary summary;
+      try {
+        summary = await _parseAndSyncInBackground(
+          database,
+          bodies,
+          progressPort.sendPort,
+        );
+      } finally {
+        progressPort.close();
+      }
 
       await prefs.setInt(
         _lastTimeUpdatedPrefsKey,
@@ -229,8 +236,24 @@ class AirportsService {
   /// Static on purpose: a closure created inside an instance method shares
   /// its context with sibling closures and may capture `this` (DB, ports,
   /// listeners), which can't be sent to another isolate.
-  static Future<ParsedAirportData> _parseInBackground(List<_Download> bodies) =>
-      Isolate.run(() => _decodeAndParse(bodies));
+  static Future<AirportSyncSummary> _parseAndSyncInBackground(
+    LogbookDatabase database,
+    List<_Download> bodies,
+    SendPort progress,
+  ) {
+    return database.computeWithDatabase(
+      computation: (db) {
+        final parsed = _decodeAndParse(bodies);
+        progress.send((0.0, 'Saving airport data…'));
+        return syncAirportData(
+          db,
+          parsed,
+          onProgress: (f, message) => progress.send((f, message)),
+        );
+      },
+      connect: LogbookDatabase.new,
+    );
+  }
 
   /// Runs in a background isolate: gunzips and decodes the downloaded bytes
   /// (same order as [_files]) and parses them into rows ready to be written.

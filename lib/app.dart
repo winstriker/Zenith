@@ -77,8 +77,10 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     if (apiKey != null && apiKey.isNotEmpty) {
       ref.watch(cartoStyleProvider);
     }
-    // Trigger aircraft types load on app startup
-    ref.watch(aircraftTypesLoadProvider);
+    // Trigger aircraft types load on app startup. Listened, not watched:
+    // the lists read the table through streams, so the whole app (and any
+    // animation on screen) doesn't need to rebuild when the load finishes.
+    ref.listen(aircraftTypesLoadProvider, (_, _) {});
 
     return MaterialApp(
       title: 'Logbook',

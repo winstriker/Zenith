@@ -67,38 +67,16 @@ class AircraftTypesService {
           Uri.parse(url),
         );
       }
-      final List<dynamic> icaoAircrafts =
-          jsonDecode(response.body) as List<dynamic>;
-
-      final companions = icaoAircrafts.map((val) {
-        return IcaoAircraftsCompanion.insert(
-          modelFullName: val["ModelFullName"] as String,
-          designator: val["Designator"] as String,
-          wakeTurbolenceCategory: _mapWakeTurbulenceCategory(
-            val['WTC'] as String?,
-          ),
-          wakeTurbolenceGroup: _mapWakeTurbulenceGroup(val['WTG'] as String?),
-          manufacturer: val["ManufacturerCode"] as String,
-          description: _mapAircraftDescription(
-            val['AircraftDescription'] as String?,
-          ),
-          engineCount: int.tryParse(val["EngineCount"] as String) ?? 0,
-          engineType: _mapEngineType(val["EngineType"] as String?),
-          userInserted: const Value(false),
-        );
-      }).toList();
-      if (companions.isEmpty) {
-        // Never wipe the local list because of an empty response.
-        throw StateError('ICAO types download returned no aircraft types');
-      }
-
-      await database.computeWithDatabase(
-        computation: (db) => syncTypes(db, companions),
+      // Decoding and mapping run in the background isolate too: the list
+      // is large and runs at startup, while the UI is animating.
+      final json = response.body;
+      final count = await database.computeWithDatabase(
+        computation: (db) => _parseAndSync(db, json),
         connect: LogbookDatabase.new,
       );
       logger.log(
         Level.INFO,
-        "Successfully synced ${companions.length} aircraft types in the database.",
+        "Successfully synced $count aircraft types in the database.",
       );
       if (notify != null) {
         notify();
@@ -109,6 +87,37 @@ class AircraftTypesService {
     } finally {
       client.close();
     }
+  }
+
+  /// Runs in a background isolate: decodes the downloaded ICAO list and
+  /// merges it into the table. Returns how many types were synced.
+  static Future<int> _parseAndSync(LogbookDatabase db, String json) async {
+    final List<dynamic> icaoAircrafts = jsonDecode(json) as List<dynamic>;
+
+    final companions = icaoAircrafts.map((val) {
+      return IcaoAircraftsCompanion.insert(
+        modelFullName: val["ModelFullName"] as String,
+        designator: val["Designator"] as String,
+        wakeTurbolenceCategory: _mapWakeTurbulenceCategory(
+          val['WTC'] as String?,
+        ),
+        wakeTurbolenceGroup: _mapWakeTurbulenceGroup(val['WTG'] as String?),
+        manufacturer: val["ManufacturerCode"] as String,
+        description: _mapAircraftDescription(
+          val['AircraftDescription'] as String?,
+        ),
+        engineCount: int.tryParse(val["EngineCount"] as String) ?? 0,
+        engineType: _mapEngineType(val["EngineType"] as String?),
+        userInserted: const Value(false),
+      );
+    }).toList();
+    if (companions.isEmpty) {
+      // Never wipe the local list because of an empty response.
+      throw StateError('ICAO types download returned no aircraft types');
+    }
+
+    await syncTypes(db, companions);
+    return companions.length;
   }
 
   /// Merges a freshly downloaded ICAO list into the table without changing

@@ -16,7 +16,21 @@ class IntroPage extends ConsumerStatefulWidget {
   ConsumerState<IntroPage> createState() => _IntroPageState();
 }
 
-class _IntroPageState extends ConsumerState<IntroPage> {
+class _IntroPageState extends ConsumerState<IntroPage>
+    with SingleTickerProviderStateMixin {
+  static const _logoAsset = AssetImage('assets/images/zenith_logo.png');
+
+  /// Drives the hero's fade-in on first show.
+  late final AnimationController _entrance = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  );
+  late final Animation<double> _entranceCurve = CurvedAnimation(
+    parent: _entrance,
+    curve: Curves.easeOutCubic,
+  );
+  bool _entranceScheduled = false;
+
   bool _requesting = false;
   bool _savingKey = false;
   bool _finishing = false;
@@ -32,17 +46,39 @@ class _IntroPageState extends ConsumerState<IntroPage> {
   @override
   void initState() {
     super.initState();
-    // Start downloading airport data right away, so it's usually done by
-    // the time the user reaches the last step.
-    ref.read(airportLoadProvider);
+    _entrance.addStatusListener((status) {
+      if (status != AnimationStatus.completed || !mounted) return;
+      // Both are deferred until the hero has settled: opening the keyboard
+      // resizes the page every frame (and collapses the hero), and the
+      // airport sync does network work on this isolate. Either one during
+      // the entrance makes it stutter.
+      if (_step == 0) _nicknameFocus.requestFocus();
+      // Start downloading airport data now, so it's usually done by the
+      // time the user reaches the last step.
+      ref.read(airportLoadProvider);
+    });
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _nicknameFocus.requestFocus();
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_entranceScheduled) return;
+    _entranceScheduled = true;
+    // Start the entrance once the logo is decoded and the (expensive) first
+    // frame of the page is out, so the animation doesn't lose its first
+    // frames or pop the logo in halfway through.
+    precacheImage(_logoAsset, context).whenComplete(() {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _entrance.forward();
+      });
+      WidgetsBinding.instance.scheduleFrame();
     });
   }
 
   @override
   void dispose() {
+    _entrance.dispose();
     _nicknameController.dispose();
     _signatureController.dispose();
     _apiKeyController.dispose();
@@ -109,7 +145,7 @@ class _IntroPageState extends ConsumerState<IntroPage> {
 
   Future<void> _onLocationContinue() => _requestPermission();
 
-  Future<void> _skipLocation() => _goToAirportDataStep();
+  void _skipLocation() => _goToAirportDataStep();
 
   Future<void> _requestPermission() async {
     setState(() => _requesting = true);
@@ -119,16 +155,13 @@ class _IntroPageState extends ConsumerState<IntroPage> {
 
     if (!mounted) return;
     setState(() => _requesting = false);
-    await _goToAirportDataStep();
+    _goToAirportDataStep();
   }
 
-  /// Shows the airport download progress, unless it's already finished.
-  Future<void> _goToAirportDataStep() async {
-    if (ref.read(airportLoadProvider).phase == AirportSyncPhase.done) {
-      return _finishSetup();
-    }
-    setState(() => _step = 4);
-  }
+  /// Goes to the last step: the airport download progress, which becomes
+  /// an "all set" confirmation once the data is in, so the user always sees
+  /// 5/5 and enters the app with a tap.
+  void _goToAirportDataStep() => setState(() => _step = 4);
 
   /// Marks onboarding as complete and enters the app. Any running airport
   /// download keeps going in the background.
@@ -176,9 +209,7 @@ class _IntroPageState extends ConsumerState<IntroPage> {
         return _TextInputStep(
           key: const ValueKey('apiKey'),
           title: 'Map API Key (Optional)',
-          subtitle:
-              'Enter a CARTO API key for high-quality vector maps.\n'
-              'Get a free key at carto.com/basemaps',
+          subtitle: 'Enter a CARTO API key for vector maps.',
           controller: _apiKeyController,
           focusNode: _apiKeyFocus,
           label: 'CARTO API Key',
@@ -200,9 +231,17 @@ class _IntroPageState extends ConsumerState<IntroPage> {
           onSkip: _skipLocation,
         );
       default:
+        final progress = ref.watch(airportLoadProvider);
+        if (progress.phase == AirportSyncPhase.done) {
+          return _AllSetStep(
+            key: const ValueKey('allSet'),
+            nickname: _nicknameController.text.trim(),
+            onContinue: _finishSetup,
+          );
+        }
         return _AirportDataStep(
           key: const ValueKey('airportData'),
-          progress: ref.watch(airportLoadProvider),
+          progress: progress,
           onContinue: _finishSetup,
           onRetry: () => ref.read(airportLoadProvider.notifier).refresh(),
         );
@@ -211,13 +250,6 @@ class _IntroPageState extends ConsumerState<IntroPage> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    // Leave setup automatically once the airport data is in.
-    ref.listen(airportLoadProvider, (_, next) {
-      if (_step == 4 && next.phase == AirportSyncPhase.done) _finishSetup();
-    });
-
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -248,7 +280,11 @@ class _IntroPageState extends ConsumerState<IntroPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _IntroHero(compact: compact),
+                      _IntroHero(
+                        compact: compact,
+                        entrance: _entranceCurve,
+                        logo: _logoAsset,
+                      ),
                       Padding(
                         padding: EdgeInsets.only(top: compact ? 20 : 32),
                         child: Column(
@@ -296,9 +332,15 @@ class _IntroPageState extends ConsumerState<IntroPage> {
 /// Zenith logo, welcome title and tagline. Fades in on first show and
 /// shrinks when vertical space is tight (e.g. keyboard open).
 class _IntroHero extends StatelessWidget {
-  const _IntroHero({required this.compact});
+  const _IntroHero({
+    required this.compact,
+    required this.entrance,
+    required this.logo,
+  });
 
   final bool compact;
+  final Animation<double> entrance;
+  final ImageProvider logo;
 
   @override
   Widget build(BuildContext context) {
@@ -306,83 +348,82 @@ class _IntroHero extends StatelessWidget {
     final cs = theme.colorScheme;
     const duration = Duration(milliseconds: 250);
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, 24 * (1 - t)),
-          child: child,
-        ),
-      ),
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            width: compact ? 72 : 112,
-            height: compact ? 72 : 112,
-            // The launcher foreground is a white silhouette: recolor it so it
-            // reads on both light and dark backgrounds. A color matrix keeps
-            // the alpha untouched (a srcIn blend leaves a faint frame around
-            // the image bounds on Impeller).
-            child: ColorFiltered(
-              colorFilter: ColorFilter.matrix([
-                0, 0, 0, 0, cs.primary.r * 255, //
-                0, 0, 0, 0, cs.primary.g * 255, //
-                0, 0, 0, 0, cs.primary.b * 255, //
-                0, 0, 0, 1, 0, //
-              ]),
-              child: Image.asset(
-                'assets/images/zenith_logo.png',
-                semanticLabel: 'Zenith logo',
-              ),
-            ),
-          ),
-          SizedBox(height: compact ? 12 : 24),
-          // Scale down instead of wrapping on narrow screens.
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: AnimatedDefaultTextStyle(
-              duration: duration,
-              style:
-                  (compact
-                          ? theme.textTheme.headlineMedium
-                          : theme.textTheme.displaySmall)!
-                      .copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: cs.onSurface,
-                        letterSpacing: -0.5,
-                      ),
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(text: 'Welcome to '),
-                    TextSpan(
-                      text: 'Zenith',
-                      style: TextStyle(color: cs.primary),
-                    ),
-                    const TextSpan(text: '!'),
-                  ],
+    // Transitions instead of a rebuilding Opacity/Transform: they only
+    // update layer properties each frame, and the RepaintBoundary keeps the
+    // hero (color-filtered logo, text) from being repainted while it moves.
+    return FadeTransition(
+      opacity: entrance,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.12),
+          end: Offset.zero,
+        ).animate(entrance),
+        child: RepaintBoundary(
+          child: Column(
+            children: [
+              AnimatedContainer(
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                width: compact ? 72 : 112,
+                height: compact ? 72 : 112,
+                // The launcher foreground is a white silhouette: recolor it so it
+                // reads on both light and dark backgrounds. A color matrix keeps
+                // the alpha untouched (a srcIn blend leaves a faint frame around
+                // the image bounds on Impeller).
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.matrix([
+                    0, 0, 0, 0, cs.primary.r * 255, //
+                    0, 0, 0, 0, cs.primary.g * 255, //
+                    0, 0, 0, 0, cs.primary.b * 255, //
+                    0, 0, 0, 1, 0, //
+                  ]),
+                  child: Image(image: logo, semanticLabel: 'Zenith logo'),
                 ),
-                maxLines: 1,
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              'Your free & open-source personal logbook',
-              maxLines: 1,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: cs.onSurfaceVariant,
+              SizedBox(height: compact ? 12 : 24),
+              // Scale down instead of wrapping on narrow screens.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: AnimatedDefaultTextStyle(
+                  duration: duration,
+                  style:
+                      (compact
+                              ? theme.textTheme.headlineMedium
+                              : theme.textTheme.displaySmall)!
+                          .copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: cs.onSurface,
+                            letterSpacing: -0.5,
+                          ),
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'Welcome to '),
+                        TextSpan(
+                          text: 'Zenith',
+                          style: TextStyle(color: cs.primary),
+                        ),
+                        const TextSpan(text: '!'),
+                      ],
+                    ),
+                    maxLines: 1,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Your free & open-source personal logbook',
+                  maxLines: 1,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -676,6 +717,42 @@ class _AirportDataStep extends StatelessWidget {
         ],
         _StepSkipButton(
           label: isError ? 'Continue Without Data' : 'Continue in Background',
+          onPressed: onContinue,
+        ),
+      ],
+    );
+  }
+}
+
+/// Last onboarding step when the airport data is already downloaded.
+class _AllSetStep extends StatelessWidget {
+  const _AllSetStep({
+    super.key,
+    required this.nickname,
+    required this.onContinue,
+  });
+
+  final String nickname;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(Icons.check_circle_outline, size: 48, color: cs.primary),
+        const SizedBox(height: 16),
+        _StepHeader(
+          title: nickname.isEmpty
+              ? "You're all set!"
+              : "You're all set, $nickname!",
+          subtitle: 'Airport data is downloaded and ready to use',
+        ),
+        const SizedBox(height: 24),
+        _StepPrimaryButton(
+          label: 'Get Started',
+          icon: const Icon(Icons.arrow_forward, size: 24),
           onPressed: onContinue,
         ),
       ],
