@@ -28,6 +28,7 @@ class AircraftTypesService {
   }
 
   Future<void> loadData({bool forceDownload = false}) async {
+    await repairOrphanedAircraft(database);
     final stat = database.select(database.icaoAircrafts);
     stat.where((val) => val.userInserted.equals(false));
     stat.limit(1);
@@ -60,6 +61,12 @@ class AircraftTypesService {
 
     try {
       final response = await client.post(Uri.parse(url));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw http.ClientException(
+          'ICAO types download failed (${response.statusCode})',
+          Uri.parse(url),
+        );
+      }
       final List<dynamic> icaoAircrafts =
           jsonDecode(response.body) as List<dynamic>;
 
@@ -80,21 +87,18 @@ class AircraftTypesService {
           userInserted: const Value(false),
         );
       }).toList();
+      if (companions.isEmpty) {
+        // Never wipe the local list because of an empty response.
+        throw StateError('ICAO types download returned no aircraft types');
+      }
 
       await database.computeWithDatabase(
-        computation: (db) async {
-          final stat = db.icaoAircrafts.delete();
-          stat.where((ac) => ac.userInserted.equals(false));
-          await stat.go();
-          await db.batch((batch) {
-            batch.insertAll(db.icaoAircrafts, companions);
-          });
-        },
+        computation: (db) => syncTypes(db, companions),
         connect: LogbookDatabase.new,
       );
       logger.log(
         Level.INFO,
-        "Successfully inserted ${companions.length} aircraft types in the database.",
+        "Successfully synced ${companions.length} aircraft types in the database.",
       );
       if (notify != null) {
         notify();
@@ -105,6 +109,113 @@ class AircraftTypesService {
     } finally {
       client.close();
     }
+  }
+
+  /// Merges a freshly downloaded ICAO list into the table without changing
+  /// the id of any type that is still listed, because aircraft point to
+  /// types by id. Types are matched on designator, model and manufacturer:
+  /// matches are updated in place, new types are added, and types that left
+  /// the list are deleted unless an aircraft still uses them.
+  /// User-inserted types are never touched.
+  static Future<void> syncTypes(
+    LogbookDatabase db,
+    List<IcaoAircraftsCompanion> types,
+  ) {
+    String key(String designator, String model, String manufacturer) =>
+        '$designator\u0000$model\u0000$manufacturer';
+
+    return db.transaction(() async {
+      final existing =
+          await (db.select(db.icaoAircrafts)
+                ..where((t) => t.userInserted.equals(false))
+                ..orderBy([(t) => OrderingTerm.asc(t.id)]))
+              .get();
+      // A list per key, in case ICAO lists the same type twice.
+      final idsByKey = <String, List<int>>{};
+      for (final row in existing) {
+        idsByKey
+            .putIfAbsent(
+              key(row.designator, row.modelFullName, row.manufacturer),
+              () => [],
+            )
+            .add(row.id);
+      }
+
+      final matched = <int>{};
+      final updates = <(int, IcaoAircraftsCompanion)>[];
+      final inserts = <IcaoAircraftsCompanion>[];
+      for (final type in types) {
+        final ids =
+            idsByKey[key(
+              type.designator.value,
+              type.modelFullName.value,
+              type.manufacturer.value,
+            )];
+        if (ids != null && ids.isNotEmpty) {
+          final id = ids.removeAt(0);
+          matched.add(id);
+          updates.add((id, type));
+        } else {
+          inserts.add(type);
+        }
+      }
+
+      final used = {
+        for (final row
+            in await db
+                .customSelect('SELECT DISTINCT icao_aircraft FROM aircrafts')
+                .get())
+          row.read<int>('icao_aircraft'),
+      };
+      final stale = [
+        for (final row in existing)
+          if (!matched.contains(row.id) && !used.contains(row.id)) row.id,
+      ];
+
+      await db.batch((batch) {
+        for (final (id, type) in updates) {
+          batch.update(db.icaoAircrafts, type, where: (t) => t.id.equals(id));
+        }
+        batch.insertAll(db.icaoAircrafts, inserts);
+        for (final id in stale) {
+          batch.deleteWhere(db.icaoAircrafts, (t) => t.id.equals(id));
+        }
+      });
+    });
+  }
+
+  /// Older versions replaced every ICAO type with new ids on reload, leaving
+  /// aircraft pointing at types that no longer exist (and so hidden from
+  /// every aircraft list). Gives each such aircraft an "Unknown type" at the
+  /// missing id so it shows up again and its type can be picked anew.
+  /// Returns how many types were recreated.
+  static Future<int> repairOrphanedAircraft(LogbookDatabase db) async {
+    final missing = await db
+        .customSelect(
+          'SELECT DISTINCT icao_aircraft FROM aircrafts '
+          'WHERE icao_aircraft NOT IN (SELECT id FROM icao_aircrafts)',
+        )
+        .get();
+    for (final row in missing) {
+      await db
+          .into(db.icaoAircrafts)
+          .insert(
+            IcaoAircraftsCompanion.insert(
+              id: Value(row.read<int>('icao_aircraft')),
+              modelFullName: 'Unknown type',
+              designator: 'ZZZZ',
+              manufacturer: 'Unknown',
+              wakeTurbolenceCategory: WakeTurbulenceCategory.Z,
+              wakeTurbolenceGroup: WakeTurbulenceGroup.Z,
+              description: AircraftDescription.unsupported,
+              engineCount: 0,
+              engineType: EngineType.none,
+              // Kept out of syncTypes, which only manages downloaded types.
+              userInserted: const Value(true),
+            ),
+          );
+    }
+    return missing.length;
   }
 
   static WakeTurbulenceCategory _mapWakeTurbulenceCategory(String? str) {

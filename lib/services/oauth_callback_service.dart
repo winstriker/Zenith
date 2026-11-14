@@ -6,10 +6,15 @@ import 'package:logging/logging.dart';
 import 'oauth_service.dart';
 
 class OAuthCallbackHandler {
-  OAuthCallbackHandler({required this.oauthServices, this.onLoginSuccess});
+  OAuthCallbackHandler({
+    required this.oauthServices,
+    this.onLoginSuccess,
+    this.onLoginError,
+  });
 
   final List<OAuthService> oauthServices;
-  final void Function()? onLoginSuccess;
+  final void Function(OAuthService service)? onLoginSuccess;
+  final void Function(OAuthService service, Object error)? onLoginError;
 
   final AppLinks _appLinks = AppLinks();
   final Logger logger = Logger("OAuth Callback Service");
@@ -53,16 +58,18 @@ class OAuthCallbackHandler {
     }
     _processing = true;
 
+    final service = oauthServices.firstWhere(
+      (element) => element.provider == uri.host,
+    );
     try {
-      await oauthServices
-          .firstWhere((element) => element.provider == uri.host)
-          .handleCallback(uri);
+      await service.handleCallback(uri);
 
-      onLoginSuccess?.call();
+      onLoginSuccess?.call(service);
 
       logger.info('OAuth login successful.');
     } catch (error) {
       logger.severe('OAuth login failed: $error');
+      onLoginError?.call(service, error);
     } finally {
       _processing = false;
     }

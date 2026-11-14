@@ -22,7 +22,9 @@ class OAuthService {
     this.redirectUri,
     this.scope, {
     FlutterSecureStorage? storage,
-  }) : _storage = storage ?? const FlutterSecureStorage();
+    http.Client? httpClient,
+  }) : _storage = storage ?? const FlutterSecureStorage(),
+       _http = httpClient ?? http.Client();
 
   ///Unique identifier of the service, used to store tokens separately for different providers
   final String provider;
@@ -42,6 +44,7 @@ class OAuthService {
   late String stateKey = '${provider}_pending_state';
 
   final FlutterSecureStorage _storage;
+  final http.Client _http;
 
   Future<Uri> startLogin() async {
     final verifier = _generateCodeVerifier();
@@ -115,7 +118,7 @@ class OAuthService {
     required String code,
     required String verifier,
   }) async {
-    final response = await http.post(
+    final response = await _http.post(
       Uri.parse(tokenEndpoint),
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -175,7 +178,7 @@ class OAuthService {
       );
     }
 
-    final response = await http.post(
+    final response = await _http.post(
       Uri.parse(tokenEndpoint),
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -268,7 +271,7 @@ class OAuthService {
   Future<http.Response> get(String url, {Map<String, String>? headers}) async {
     final accessToken = await getAccessToken();
 
-    final response = await http.get(
+    final response = await _http.get(
       Uri.parse(url),
       headers: {
         'Authorization': 'Bearer $accessToken',
@@ -282,7 +285,7 @@ class OAuthService {
     if (response.statusCode == 401) {
       final newAccessToken = await refreshAccessToken();
 
-      return http.get(
+      return _http.get(
         Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $newAccessToken',
@@ -292,6 +295,25 @@ class OAuthService {
       );
     }
 
+    return response;
+  }
+
+  /// Authenticated post request. Retries once with a fresh token on 401.
+  Future<http.Response> post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    Future<http.Response> send(String token) => _http.post(
+      url,
+      headers: {'Authorization': 'Bearer $token', ...?headers},
+      body: body,
+    );
+
+    final response = await send(await getAccessToken());
+    if (response.statusCode == 401) {
+      return send(await refreshAccessToken());
+    }
     return response;
   }
 

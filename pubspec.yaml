@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   app_links: ^7.2.1
+  archive: ^4.5.2
   country_flags: ^4.1.1
   crypto: ^3.0.7
   cupertino_icons: ^2.0.0
@@ -49,3 +50,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/zenith_logo.png

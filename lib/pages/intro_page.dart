@@ -16,10 +16,7 @@ class IntroPage extends ConsumerStatefulWidget {
   ConsumerState<IntroPage> createState() => _IntroPageState();
 }
 
-class _IntroPageState extends ConsumerState<IntroPage>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
+class _IntroPageState extends ConsumerState<IntroPage> {
   bool _requesting = false;
   bool _savingKey = false;
   bool _finishing = false;
@@ -35,13 +32,6 @@ class _IntroPageState extends ConsumerState<IntroPage>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-
-    _controller.forward();
-
     // Start downloading airport data right away, so it's usually done by
     // the time the user reaches the last step.
     ref.read(airportLoadProvider);
@@ -53,7 +43,6 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
   @override
   void dispose() {
-    _controller.dispose();
     _nicknameController.dispose();
     _signatureController.dispose();
     _apiKeyController.dispose();
@@ -73,8 +62,6 @@ class _IntroPageState extends ConsumerState<IntroPage>
     await ref.read(userNicknameProvider.notifier).setNickname(nickname);
 
     setState(() => _step = 1);
-    _controller.reset();
-    _controller.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _signatureFocus.requestFocus();
@@ -93,8 +80,6 @@ class _IntroPageState extends ConsumerState<IntroPage>
         .setSignatureName(signatureName);
 
     setState(() => _step = 2);
-    _controller.reset();
-    _controller.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apiKeyFocus.requestFocus();
@@ -120,8 +105,6 @@ class _IntroPageState extends ConsumerState<IntroPage>
     setState(() => _savingKey = false);
 
     setState(() => _step = 3);
-    _controller.reset();
-    _controller.forward();
   }
 
   Future<void> _onLocationContinue() => _requestPermission();
@@ -145,8 +128,6 @@ class _IntroPageState extends ConsumerState<IntroPage>
       return _finishSetup();
     }
     setState(() => _step = 4);
-    _controller.reset();
-    _controller.forward();
   }
 
   /// Marks onboarding as complete and enters the app. Any running airport
@@ -230,8 +211,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
 
     // Leave setup automatically once the airport data is in.
     ref.listen(airportLoadProvider, (_, next) {
@@ -240,83 +220,219 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              const _IntroLogo(),
-              const SizedBox(height: 40),
-              Text(
-                'Welcome to Zenith!',
-                style: theme.textTheme.displaySmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: cs.onSurface,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // The available height shrinks when the keyboard is open (the
+            // Scaffold resizes), so the hero collapses to leave room for
+            // the form on short screens.
+            final compact = constraints.maxHeight < 620;
+            final narrow = constraints.maxWidth < 360;
+            final horizontalPadding = narrow ? 20.0 : 28.0;
+
+            // Scrollable so nothing ends up outside the screen (and
+            // therefore untappable) on small phones; the min height keeps
+            // the content spread out when there is room for it.
+            return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: compact ? 16 : 32,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 480,
+                    minHeight: constraints.maxHeight - (compact ? 32 : 64),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _IntroHero(compact: compact),
+                      Padding(
+                        padding: EdgeInsets.only(top: compact ? 20 : 32),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _StepProgress(step: _step, count: _stepCount),
+                            SizedBox(height: compact ? 16 : 24),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 350),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              layoutBuilder: (current, previous) => Stack(
+                                alignment: Alignment.topCenter,
+                                children: [...previous, ?current],
+                              ),
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.08, 0),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _currentStep(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Your free & opensource personal logbook',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-              const Spacer(),
-              const SizedBox(height: 8),
-              Text(
-                'Step ${_step + 1} of $_stepCount',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: cs.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 400),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.2),
-                        end: Offset.zero,
-                      ).animate(animation),
-                      child: ScaleTransition(scale: animation, child: child),
-                    ),
-                  );
-                },
-                child: _currentStep(),
-              ),
-              const Spacer(),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _IntroLogo extends StatelessWidget {
-  const _IntroLogo();
+/// Zenith logo, welcome title and tagline. Fades in on first show and
+/// shrinks when vertical space is tight (e.g. keyboard open).
+class _IntroHero extends StatelessWidget {
+  const _IntroHero({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [cs.primary, cs.tertiary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    const duration = Duration(milliseconds: 250);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 24 * (1 - t)),
+          child: child,
         ),
       ),
-      child: Icon(Icons.flight, size: 60, color: cs.onPrimary),
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: compact ? 72 : 112,
+            height: compact ? 72 : 112,
+            // The launcher foreground is a white silhouette: recolor it so it
+            // reads on both light and dark backgrounds. A color matrix keeps
+            // the alpha untouched (a srcIn blend leaves a faint frame around
+            // the image bounds on Impeller).
+            child: ColorFiltered(
+              colorFilter: ColorFilter.matrix([
+                0, 0, 0, 0, cs.primary.r * 255, //
+                0, 0, 0, 0, cs.primary.g * 255, //
+                0, 0, 0, 0, cs.primary.b * 255, //
+                0, 0, 0, 1, 0, //
+              ]),
+              child: Image.asset(
+                'assets/images/zenith_logo.png',
+                semanticLabel: 'Zenith logo',
+              ),
+            ),
+          ),
+          SizedBox(height: compact ? 12 : 24),
+          // Scale down instead of wrapping on narrow screens.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: AnimatedDefaultTextStyle(
+              duration: duration,
+              style:
+                  (compact
+                          ? theme.textTheme.headlineMedium
+                          : theme.textTheme.displaySmall)!
+                      .copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface,
+                        letterSpacing: -0.5,
+                      ),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: 'Welcome to '),
+                    TextSpan(
+                      text: 'Zenith',
+                      style: TextStyle(color: cs.primary),
+                    ),
+                    const TextSpan(text: '!'),
+                  ],
+                ),
+                maxLines: 1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'Your free & open-source personal logbook',
+              maxLines: 1,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Segmented progress bar for the onboarding steps.
+class _StepProgress extends StatelessWidget {
+  const _StepProgress({required this.step, required this.count});
+
+  final int step;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Semantics(
+      label: 'Step ${step + 1} of $count',
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < count; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: i == step ? 28 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: i <= step ? cs.primary : cs.outlineVariant,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ExcludeSemantics(
+            child: Text(
+              'Step ${step + 1} of $count',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

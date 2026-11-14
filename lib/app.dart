@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,6 +10,7 @@ import 'pages/home_page.dart';
 import 'pages/intro_page.dart';
 import 'pages/settings_page.dart';
 import 'providers/aircraft_providers.dart';
+import 'providers/backup_providers.dart';
 import 'providers/carto_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
@@ -23,11 +26,27 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   int _currentIndex = 0;
   bool _checkingPermission = true;
   bool _permissionGranted = false;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
     _checkLocationPermission();
+    // Automatic backups run shortly after launch and whenever the app comes
+    // back to the foreground; the controller skips them if none is due.
+    _lifecycle = AppLifecycleListener(onResume: _runAutomaticBackups);
+    Future.delayed(const Duration(seconds: 5), _runAutomaticBackups);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  void _runAutomaticBackups() {
+    if (!mounted || !ref.read(onboardingCompleteProvider)) return;
+    unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
   }
 
   void _onPermissionGranted() {

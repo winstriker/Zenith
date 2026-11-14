@@ -35,11 +35,14 @@ class SectionHeader extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
+      // The title stays centered on the full width, like headers without a
+      // trailing widget.
       child: trailing != null
-          ? Row(
+          ? Stack(
+              alignment: Alignment.center,
               children: [
-                Expanded(child: text),
-                trailing!,
+                text,
+                Align(alignment: Alignment.centerRight, child: trailing),
               ],
             )
           : text,

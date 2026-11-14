@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
-import '../providers/backup_providers.dart';
 import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
 import '../widgets/section_header.dart';
+import 'backup_settings_page.dart';
 import 'export_page.dart';
 import 'people_page.dart';
 
@@ -95,7 +94,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final themeMode = ref.watch(themeProvider);
     final unitMode = ref.watch(unitProvider);
     final cartoKey = ref.watch(cartoApiKeyProvider);
-    final dropboxAuth = ref.watch(dropboxAuthProvider);
     final picNameMode = ref.watch(picNameModeProvider);
 
     return Scaffold(
@@ -311,7 +309,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.people_outline),
                   title: const Text('People'),
-                  subtitle: const Text('Edit, merge or delete crew members'),
+                  subtitle: const Text('Manage crew members'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
@@ -330,7 +328,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.file_download_outlined),
                   title: const Text('Export Data'),
-                  subtitle: const Text('Export flights as PDF, CSV or JSON'),
+                  subtitle: const Text('PDF, CSV or Json'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
@@ -341,7 +339,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.refresh),
                   title: const Text('Reload Aircraft Types'),
-                  subtitle: const Text('Fetch latest aircraft types from ICAO'),
+                  subtitle: const Text('from ICAO doc. 8643'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _reloadAircraftTypes,
                 ),
@@ -351,53 +349,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 8),
           const SectionHeader(title: 'Backup', uppercase: true),
           Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.backup),
-                  title: const Text('DropBox'),
-                  trailing: dropboxAuth.when(
-                    data: (isLoggedIn) => isLoggedIn
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check,
-                                color: context.appColors.success,
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.logout,
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                                onPressed: () async {
-                                  await ref
-                                      .read(dropboxAuthProvider.notifier)
-                                      .logout();
-                                },
-                              ),
-                            ],
-                          )
-                        : TextButton(
-                            onPressed: () async {
-                              await ref
-                                  .read(dropboxAuthProvider.notifier)
-                                  .login();
-                            },
-                            child: const Text("Login"),
-                          ),
-                    error: (_, _) => Icon(
-                      Icons.cancel,
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                    loading: () => const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
+            child: ListTile(
+              leading: const Icon(Icons.backup_outlined),
+              title: const Text('Backup Settings'),
+              subtitle: const Text('Manage your backups'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const BackupSettingsPage(),
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 8),

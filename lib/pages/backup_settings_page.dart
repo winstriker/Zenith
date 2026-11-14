@@ -1,0 +1,734 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../core/theme.dart';
+import '../providers/backup_providers.dart';
+import '../services/backup_service.dart';
+import '../services/dropbox_client.dart';
+import '../services/local_backup_store.dart';
+import '../widgets/section_header.dart';
+
+final _dateFormat = DateFormat('d MMM yyyy, HH:mm');
+
+String _formatSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
+String _errorText(Object e) => e is BackupException ? e.message : '$e';
+
+/// Where and how often the logbook is backed up, and restoring from backups.
+class BackupSettingsPage extends ConsumerStatefulWidget {
+  const BackupSettingsPage({super.key});
+
+  @override
+  ConsumerState<BackupSettingsPage> createState() => _BackupSettingsPageState();
+}
+
+class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Drop messages from before the page was opened.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(backupNoticeProvider.notifier).clear();
+    });
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showLocalInfo() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.info_outline),
+        title: const Text('Local backups'),
+        content: const Text(
+          'Backups on this device are deleted if Zenith is uninstalled. '
+          'Open "Backups on this device" to save a copy somewhere else.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _backUp(BackupDestination destination) async {
+    try {
+      await ref.read(backupControllerProvider.notifier).backUp(destination);
+      _snack('Backup complete');
+    } catch (e) {
+      _snack(_errorText(e));
+    }
+  }
+
+  Future<void> _connectDropbox() async {
+    try {
+      await ref.read(dropboxAuthProvider.notifier).login();
+    } catch (e) {
+      _snack(_errorText(e));
+    }
+  }
+
+  Future<void> _disconnectDropbox() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Disconnect Dropbox?'),
+        content: const Text(
+          'Automatic backups to Dropbox will stop. Backups already in your '
+          'Dropbox are kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Disconnect'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(dropboxAuthProvider.notifier).logout();
+  }
+
+  /// Confirms, then restores the backup that [load] returns, with a blocking
+  /// progress dialog in between.
+  Future<void> _restore({
+    required DateTime createdAt,
+    required Future<Uint8List?> Function() load,
+    bool confirm = true,
+  }) async {
+    if (confirm && !await _confirmRestore(createdAt)) return;
+    if (!mounted) return;
+
+    final navigator = Navigator.of(context, rootNavigator: true);
+    var dialogOpen = true;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: AlertDialog(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+                SizedBox(width: 20),
+                Expanded(child: Text('Restoring backup…')),
+              ],
+            ),
+          ),
+        ),
+      ).whenComplete(() => dialogOpen = false),
+    );
+
+    try {
+      final bytes = await load();
+      if (bytes == null) return;
+      final s = await ref
+          .read(backupControllerProvider.notifier)
+          .restore(bytes);
+      _snack(
+        'Restored ${s.flights} flights, ${s.aircraft} aircraft '
+        'and ${s.people} people',
+      );
+    } catch (e) {
+      _snack(_errorText(e));
+    } finally {
+      if (dialogOpen) navigator.pop();
+    }
+  }
+
+  Future<bool> _confirmRestore(DateTime createdAt) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.restore),
+        title: const Text('Restore backup?'),
+        content: Text(
+          'All Zenith data on this device (flights, aircraft, people, '
+          'airports and aircraft types) will be replaced with the backup '
+          'from ${_dateFormat.format(createdAt)}.\n\n'
+          'A copy of your current data is saved to the backups on this '
+          'device first, so you can undo this.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
+  }
+
+  Future<void> _restoreFromFile() async {
+    final Uint8List? bytes;
+    try {
+      bytes = await ref.read(localBackupStoreProvider).pickFile();
+    } catch (e) {
+      _snack('Could not open the file: $e');
+      return;
+    }
+    if (bytes == null) return;
+    final DateTime createdAt;
+    try {
+      final header = await BackupService.readHeader(bytes);
+      createdAt =
+          DateTime.tryParse(header['createdAt'] as String? ?? '')?.toLocal() ??
+          DateTime.now();
+    } catch (e) {
+      _snack(_errorText(e));
+      return;
+    }
+    await _restore(createdAt: createdAt, load: () async => bytes);
+  }
+
+  Future<void> _showDropboxBackups() async {
+    final picked = await showModalBottomSheet<RemoteBackup>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const _DropboxBackupsSheet(),
+    );
+    if (picked == null) return;
+    await _restore(
+      createdAt: picked.createdAt,
+      load: () => ref
+          .read(backupControllerProvider.notifier)
+          .downloadFromDropbox(picked),
+    );
+  }
+
+  Future<void> _showLocalBackups() async {
+    final action = await showModalBottomSheet<(_LocalAction, LocalBackup)>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const _LocalBackupsSheet(),
+    );
+    if (action == null) return;
+    final (kind, backup) = action;
+    switch (kind) {
+      case _LocalAction.restore:
+        await _restore(
+          createdAt: backup.createdAt,
+          load: backup.file.readAsBytes,
+        );
+      case _LocalAction.saveAs:
+        try {
+          final saved = await ref
+              .read(localBackupStoreProvider)
+              .exportCopy(backup.file);
+          if (saved) _snack('Backup saved');
+        } catch (e) {
+          _snack('Could not save the backup: $e');
+        }
+      case _LocalAction.share:
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(backup.file.path, mimeType: BackupService.mimeType)],
+            subject: 'Zenith backup',
+          ),
+        );
+      case _LocalAction.delete:
+        await backup.file.delete();
+        ref.invalidate(localBackupsProvider);
+        _snack('Backup deleted');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(backupNoticeProvider, (_, message) {
+      if (message == null) return;
+      _snack(message);
+      ref.read(backupNoticeProvider.notifier).clear();
+    });
+
+    final theme = Theme.of(context);
+    final settings = ref.watch(backupSettingsProvider).value;
+    final backupState =
+        ref.watch(backupControllerProvider).value ?? const BackupState();
+    final dropboxAuth = ref.watch(dropboxAuthProvider);
+    final dropboxConnected = dropboxAuth.value ?? false;
+    final localCount = ref.watch(localBackupsProvider).value?.length;
+
+    if (settings == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Backup'), centerTitle: true),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final notifier = ref.read(backupSettingsProvider.notifier);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Backup'), centerTitle: true),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        children: [
+          // ---------------------------------------------------------------
+          const SectionHeader(title: 'General', uppercase: true),
+          Card(
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Include crew photos'),
+                  subtitle: const Text('Makes backups larger.'),
+                  value: settings.includePhotos,
+                  onChanged: notifier.setIncludePhotos,
+                ),
+                const Divider(height: 1, indent: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 16),
+                          Text(
+                            'Automatic Backups',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<BackupFrequency>(
+                          showSelectedIcon: false,
+                          segments: [
+                            for (final f in BackupFrequency.values)
+                              ButtonSegment(value: f, label: Text(f.label)),
+                          ],
+                          selected: {settings.frequency},
+                          onSelectionChanged: (s) =>
+                              notifier.setFrequency(s.first),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ---------------------------------------------------------------
+          const SectionHeader(title: 'Dropbox', uppercase: true),
+          Card(
+            child: Column(
+              children: [
+                _DropboxAccountTile(
+                  auth: dropboxAuth,
+                  onConnect: _connectDropbox,
+                  onDisconnect: _disconnectDropbox,
+                ),
+                if (dropboxConnected) ...[
+                  const Divider(height: 1, indent: 72),
+                  _BackupNowTile(
+                    status: backupState.statusOf(BackupDestination.dropbox),
+                    running: backupState.running.contains(
+                      BackupDestination.dropbox,
+                    ),
+                    enabled: !backupState.restoring,
+                    onTap: () => _backUp(BackupDestination.dropbox),
+                  ),
+                  const Divider(height: 1, indent: 72),
+                  ListTile(
+                    leading: const Icon(Icons.cloud_download_outlined),
+                    title: const Text('Restore from DropBox'),
+                    subtitle: const Text('Choose one of your DropBox backups'),
+                    trailing: const Icon(Icons.chevron_right),
+                    enabled: !backupState.busy,
+                    onTap: _showDropboxBackups,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ---------------------------------------------------------------
+          const SectionHeader(title: 'Google Drive', uppercase: true),
+          Card(
+            child: ListTile(
+              enabled: false,
+              leading: const Icon(Icons.add_to_drive),
+              title: const Text('Google Drive'),
+              trailing: Chip(
+                label: const Text('Coming soon'),
+                visualDensity: VisualDensity.compact,
+                labelStyle: theme.textTheme.labelSmall,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ---------------------------------------------------------------
+          SectionHeader(
+            title: 'Local',
+            uppercase: true,
+            trailing: IconButton(
+              icon: const Icon(Icons.info_outline, size: 20),
+              tooltip: 'About local backups',
+              visualDensity: VisualDensity.compact,
+              onPressed: _showLocalInfo,
+            ),
+          ),
+          Card(
+            child: Column(
+              children: [
+                _BackupNowTile(
+                  status: backupState.statusOf(BackupDestination.local),
+                  running: backupState.running.contains(
+                    BackupDestination.local,
+                  ),
+                  enabled: !backupState.restoring,
+                  onTap: () => _backUp(BackupDestination.local),
+                ),
+                const Divider(height: 1, indent: 72),
+                ListTile(
+                  leading: const Icon(Icons.folder_outlined),
+                  title: const Text('Backups on this device'),
+                  subtitle: Text(switch (localCount) {
+                    null => 'Loading…',
+                    0 => 'None yet',
+                    1 => '1 backup',
+                    final n => '$n backups',
+                  }),
+                  trailing: const Icon(Icons.chevron_right),
+                  enabled: !backupState.busy,
+                  onTap: _showLocalBackups,
+                ),
+                const Divider(height: 1, indent: 72),
+                ListTile(
+                  leading: const Icon(Icons.file_open_outlined),
+                  title: const Text('Restore from file'),
+                  trailing: const Icon(Icons.chevron_right),
+                  enabled: !backupState.busy,
+                  onTap: _restoreFromFile,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+}
+
+class _DropboxAccountTile extends ConsumerWidget {
+  const _DropboxAccountTile({
+    required this.auth,
+    required this.onConnect,
+    required this.onDisconnect,
+  });
+
+  final AsyncValue<bool> auth;
+  final VoidCallback onConnect;
+  final VoidCallback onDisconnect;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final connected = auth.value ?? false;
+    final account = connected ? ref.watch(dropboxAccountProvider).value : null;
+
+    return ListTile(
+      leading: Icon(
+        connected ? Icons.cloud_done_outlined : Icons.cloud_outlined,
+        color: connected ? context.appColors.success : null,
+      ),
+      title: const Text('DropBox'),
+      // One line: a long email shrinks to fit instead of wrapping.
+      subtitle: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          auth.isLoading
+              ? 'Checking…'
+              : !connected
+              ? 'Not connected'
+              : account == null
+              ? 'Connected'
+              : account.email.isNotEmpty
+              ? account.email
+              : account.name,
+          maxLines: 1,
+          softWrap: false,
+        ),
+      ),
+      trailing: auth.isLoading
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : connected
+          ? TextButton(
+              onPressed: onDisconnect,
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+              ),
+              child: const Text('Disconnect'),
+            )
+          : FilledButton.tonal(
+              onPressed: onConnect,
+              child: const Text('Connect'),
+            ),
+    );
+  }
+}
+
+class _BackupNowTile extends StatelessWidget {
+  const _BackupNowTile({
+    required this.status,
+    required this.running,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final DestinationStatus status;
+  final bool running;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final last = status.lastBackupAt;
+    return ListTile(
+      leading: const Icon(Icons.backup_outlined),
+      title: const Text('Back up now'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            running
+                ? 'Backing up…'
+                : last == null
+                ? 'No backups yet'
+                : 'Last backup: ${_dateFormat.format(last)}',
+          ),
+          if (status.lastError != null && !running)
+            Text(
+              status.lastError!,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+        ],
+      ),
+      trailing: running
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      enabled: enabled && !running,
+      onTap: onTap,
+    );
+  }
+}
+
+class _DropboxBackupsSheet extends ConsumerWidget {
+  const _DropboxBackupsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final backups = ref.watch(dropboxBackupsProvider);
+    return _BackupsSheet(
+      title: 'Dropbox backups',
+      emptyText: 'No backups in your Dropbox yet.',
+      items: backups,
+      onRetry: () => ref.invalidate(dropboxBackupsProvider),
+      itemBuilder: (b) => ListTile(
+        leading: const Icon(Icons.cloud_outlined),
+        title: Text(_dateFormat.format(b.createdAt)),
+        subtitle: Text(_formatSize(b.size)),
+        trailing: const Icon(Icons.restore),
+        onTap: () => Navigator.pop(context, b),
+      ),
+    );
+  }
+}
+
+enum _LocalAction { restore, saveAs, share, delete }
+
+class _LocalBackupsSheet extends ConsumerWidget {
+  const _LocalBackupsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final backups = ref.watch(localBackupsProvider);
+    return _BackupsSheet(
+      title: 'Backups on this device',
+      emptyText: 'No backups on this device yet.',
+      items: backups,
+      onRetry: () => ref.invalidate(localBackupsProvider),
+      itemBuilder: (b) => ListTile(
+        leading: Icon(
+          b.isPreRestore ? Icons.settings_backup_restore : Icons.save_outlined,
+        ),
+        title: Text(_dateFormat.format(b.createdAt)),
+        subtitle: Text(
+          b.isPreRestore
+              ? '${_formatSize(b.size)} · Before restore'
+              : _formatSize(b.size),
+        ),
+        trailing: PopupMenuButton<_LocalAction>(
+          onSelected: (action) => Navigator.pop(context, (action, b)),
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+              value: _LocalAction.restore,
+              child: ListTile(
+                leading: Icon(Icons.restore),
+                title: Text('Restore'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _LocalAction.saveAs,
+              child: ListTile(
+                leading: Icon(Icons.save_alt),
+                title: Text('Save to…'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _LocalAction.share,
+              child: ListTile(
+                leading: Icon(Icons.share_outlined),
+                title: Text('Share'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _LocalAction.delete,
+              child: ListTile(
+                leading: Icon(Icons.delete_outline),
+                title: Text('Delete'),
+              ),
+            ),
+          ],
+        ),
+        onTap: () => Navigator.pop(context, (_LocalAction.restore, b)),
+      ),
+    );
+  }
+}
+
+/// Shared layout of the backup pickers.
+class _BackupsSheet<T> extends StatelessWidget {
+  const _BackupsSheet({
+    required this.title,
+    required this.emptyText,
+    required this.items,
+    required this.itemBuilder,
+    required this.onRetry,
+  });
+
+  final String title;
+  final String emptyText;
+  final AsyncValue<List<T>> items;
+  final Widget Function(T) itemBuilder;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(title, style: theme.textTheme.titleMedium),
+          ),
+          Flexible(
+            child: items.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _errorText(e),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(
+                      onPressed: onRetry,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              data: (list) => list.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(
+                        emptyText,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [for (final item in list) itemBuilder(item)],
+                    ),
+            ),
+          ),
+          SizedBox(height: 16 + MediaQuery.paddingOf(context).bottom),
+        ],
+      ),
+    );
+  }
+}
