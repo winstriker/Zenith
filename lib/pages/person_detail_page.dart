@@ -8,8 +8,8 @@ import '../services/database.dart';
 import '../widgets/crew_card.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/person_avatar.dart';
-import '../widgets/person_form_dialog.dart';
 import 'flight_detail_page.dart';
+import 'person_form_page.dart';
 import 'person_select_page.dart';
 
 /// Profile of a person: picture, stats and the flights flown together.
@@ -80,9 +80,11 @@ class _PersonDetailView extends ConsumerWidget {
               heroTag: 'editFab',
               icon: const Icon(Icons.edit),
               label: const Text('Edit'),
-              onPressed: () => showDialog<Person>(
-                context: context,
-                builder: (_) => PersonFormDialog(person: person),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<Person>(
+                  builder: (_) => PersonFormPage(person: person),
+                ),
               ),
             ),
           ],

@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/person_providers.dart';
 import '../services/database.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/person_form_dialog.dart';
 import '../widgets/person_tile.dart';
+import 'person_form_page.dart';
 
 /// Lists people from the database, most recently flown with first, and pops
 /// the chosen [Person]. People in [excludeIds] (already on the crew) are hidden.
@@ -123,11 +123,13 @@ class _PersonSelectPageState extends ConsumerState<PersonSelectPage> {
 
   Future<void> _addPerson() async {
     final words = _query.split(RegExp(r'\s+'));
-    final person = await showDialog<Person>(
-      context: context,
-      builder: (_) => PersonFormDialog(
-        initialName: words.isNotEmpty ? words.first : '',
-        initialSurname: words.length > 1 ? words.skip(1).join(' ') : '',
+    final person = await Navigator.push(
+      context,
+      MaterialPageRoute<Person>(
+        builder: (_) => PersonFormPage(
+          initialName: words.isNotEmpty ? words.first : '',
+          initialSurname: words.length > 1 ? words.skip(1).join(' ') : '',
+        ),
       ),
     );
     if (person != null && mounted) Navigator.pop(context, person);

@@ -10,29 +10,31 @@ import 'package:uuid/uuid.dart';
 import '../repositories/person_repository.dart';
 import '../services/database.dart';
 import '../services/person_photo_store.dart';
-import 'person_avatar.dart';
+import '../widgets/person_avatar.dart';
 
 enum _PhotoAction { gallery, camera, remove }
 
-/// Creates a new person, or edits [person] when given. Pops the saved [Person].
-class PersonFormDialog extends ConsumerStatefulWidget {
-  const PersonFormDialog({
+/// Full-page form that creates a new person, or edits [person] when given.
+/// Pops the saved [Person].
+class PersonFormPage extends ConsumerStatefulWidget {
+  const PersonFormPage({
     super.key,
     this.person,
     this.initialName = '',
     this.initialSurname = '',
   });
 
-  /// When set, the dialog edits this person instead of creating a new one.
+  /// When set, the page edits this person instead of creating a new one.
   final Person? person;
   final String initialName;
   final String initialSurname;
 
   @override
-  ConsumerState<PersonFormDialog> createState() => _PersonFormDialogState();
+  ConsumerState<PersonFormPage> createState() => _PersonFormPageState();
 }
 
-class _PersonFormDialogState extends ConsumerState<PersonFormDialog> {
+class _PersonFormPageState extends ConsumerState<PersonFormPage> {
+  final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(
     text: widget.person?.name ?? widget.initialName,
   );
@@ -51,8 +53,8 @@ class _PersonFormDialogState extends ConsumerState<PersonFormDialog> {
   @override
   void initState() {
     super.initState();
+    // The header avatar shows the name's initial while there is no photo.
     _nameController.addListener(_rebuild);
-    _surnameController.addListener(_rebuild);
   }
 
   void _rebuild() => setState(() {});
@@ -64,10 +66,10 @@ class _PersonFormDialogState extends ConsumerState<PersonFormDialog> {
     super.dispose();
   }
 
-  bool get _canSave =>
-      !_saving &&
-      _nameController.text.trim().isNotEmpty &&
-      _surnameController.text.trim().isNotEmpty;
+  Future<void> _submit() async {
+    if (_saving || !_formKey.currentState!.validate()) return;
+    await _save();
+  }
 
   Future<void> _pickPhoto() async {
     final action = await showModalBottomSheet<_PhotoAction>(
@@ -221,53 +223,97 @@ class _PersonFormDialogState extends ConsumerState<PersonFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.person == null ? 'New Person' : 'Edit Person'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PhotoButton(
-            name: _nameController.text,
-            photo: _photoRemoved ? null : widget.person?.photo,
-            file: _pickedPhoto,
-            onTap: _pickPhoto,
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _nameController,
-            autofocus: widget.person == null,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _surnameController,
-            textCapitalization: TextCapitalization.words,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _canSave ? _save() : null,
-            decoration: const InputDecoration(
-              labelText: 'Surname',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
+    final cs = Theme.of(context).colorScheme;
+    final isEditing = widget.person != null;
+
+    return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.pop(context),
+        heroTag: 'closeFab',
+        child: const Icon(Icons.close),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+      body: Scaffold(
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _saving ? null : _submit,
+          heroTag: 'saveFab',
+          label: Text(isEditing ? 'Save' : 'Add'),
+          icon: Icon(isEditing ? Icons.save : Icons.add),
         ),
-        FilledButton(
-          onPressed: _canSave ? _save : null,
-          child: Text(widget.person == null ? 'Add' : 'Save'),
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.paddingOf(context).top + 72,
+                16,
+                32,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    cs.secondaryContainer,
+                    cs.secondaryContainer.withValues(alpha: 0.3),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Center(
+                child: _PhotoButton(
+                  name: _nameController.text,
+                  photo: _photoRemoved ? null : widget.person?.photo,
+                  file: _pickedPhoto,
+                  onTap: _pickPhoto,
+                ),
+              ),
+            ),
+            Padding(
+              // Bottom padding keeps the last field clear of the save button.
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 96),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      autofocus: !isEditing && widget.initialName.isEmpty,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(
+                        labelText: 'Name *',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: _required('Name'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _surnameController,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _submit(),
+                      decoration: const InputDecoration(
+                        labelText: 'Surname *',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      validator: _required('Surname'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
+
+  static FormFieldValidator<String> _required(String label) =>
+      (value) => (value == null || value.trim().isEmpty)
+      ? '$label is required.'
+      : null;
 }
 
 class _PhotoButton extends StatelessWidget {
@@ -292,15 +338,15 @@ class _PhotoButton extends StatelessWidget {
         customBorder: const CircleBorder(),
         child: Stack(
           children: [
-            PersonAvatar(name: name, photo: photo, file: file, radius: 40),
+            PersonAvatar(name: name, photo: photo, file: file, radius: 64),
             Positioned(
-              right: 0,
-              bottom: 0,
+              right: 4,
+              bottom: 4,
               child: CircleAvatar(
-                radius: 14,
+                radius: 20,
                 backgroundColor: cs.primary,
                 foregroundColor: cs.onPrimary,
-                child: const Icon(Icons.photo_camera, size: 16),
+                child: const Icon(Icons.photo_camera, size: 22),
               ),
             ),
           ],

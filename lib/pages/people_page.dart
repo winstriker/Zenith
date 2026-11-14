@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/person_providers.dart';
 import '../services/database.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/person_form_dialog.dart';
 import '../widgets/person_tile.dart';
 import 'person_detail_page.dart';
+import 'person_form_page.dart';
 
 /// The people you fly with. Tap one to open their profile.
 class PeoplePage extends ConsumerStatefulWidget {
@@ -115,9 +115,9 @@ class _PeoplePageState extends ConsumerState<PeoplePage> {
   }
 
   Future<void> _add() async {
-    await showDialog<Person>(
-      context: context,
-      builder: (_) => const PersonFormDialog(),
+    await Navigator.push(
+      context,
+      MaterialPageRoute<Person>(builder: (_) => const PersonFormPage()),
     );
   }
 }
