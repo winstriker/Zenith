@@ -480,10 +480,10 @@ class _StepProgress extends StatelessWidget {
 
 /// Title + subtitle shown at the top of each onboarding step.
 class _StepHeader extends StatelessWidget {
-  const _StepHeader({required this.title, required this.subtitle});
+  const _StepHeader({required this.title, this.subtitle});
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -500,15 +500,17 @@ class _StepHeader extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: cs.onSurfaceVariant,
-            height: 1.4,
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
+        ],
       ],
     );
   }
@@ -747,7 +749,6 @@ class _AllSetStep extends StatelessWidget {
           title: nickname.isEmpty
               ? "You're all set!"
               : "You're all set, $nickname!",
-          subtitle: 'Airport data is downloaded and ready to use',
         ),
         const SizedBox(height: 24),
         _StepPrimaryButton(
