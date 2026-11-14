@@ -46,3 +46,62 @@ class PersonAvatar extends ConsumerWidget {
     );
   }
 }
+
+/// Opens the stored [photo] full screen, with pinch-to-zoom. Tap or swipe
+/// down to close.
+void showPersonPhoto(BuildContext context, String photo, {String? title}) {
+  Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      opaque: false,
+      barrierColor: Colors.black,
+      pageBuilder: (_, _, _) => _PersonPhotoViewer(photo: photo, title: title),
+      transitionsBuilder: (_, animation, _, child) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween(begin: 0.9, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
+          child: child,
+        ),
+      ),
+    ),
+  );
+}
+
+class _PersonPhotoViewer extends ConsumerWidget {
+  const _PersonPhotoViewer({required this.photo, this.title});
+  final String photo;
+  final String? title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dir = ref.watch(personPhotoDirectoryProvider).value;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        title: title == null ? null : Text(title!),
+      ),
+      body: GestureDetector(
+        onTap: () => Navigator.of(context).pop(),
+        onVerticalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).pop();
+        },
+        child: Center(
+          child: dir == null
+              ? const CircularProgressIndicator()
+              : InteractiveViewer(
+                  maxScale: 4,
+                  child: Image.file(
+                    File('${dir.path}/$photo'),
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}

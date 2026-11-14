@@ -294,7 +294,20 @@ class _Header extends StatelessWidget {
       ),
       child: Column(
         children: [
-          PersonAvatar(name: person.name, photo: person.photo, radius: 64),
+          GestureDetector(
+            onTap: person.photo == null
+                ? null
+                : () => showPersonPhoto(
+                    context,
+                    person.photo!,
+                    title: person.fullName,
+                  ),
+            child: PersonAvatar(
+              name: person.name,
+              photo: person.photo,
+              radius: 64,
+            ),
+          ),
           const SizedBox(height: 16),
           Text(
             person.fullName,

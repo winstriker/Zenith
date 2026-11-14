@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
 import '../repositories/person_repository.dart';
 import '../services/database.dart';
@@ -112,12 +114,69 @@ class _PersonFormDialogState extends ConsumerState<PersonFormDialog> {
       source: action == _PhotoAction.gallery
           ? ImageSource.gallery
           : ImageSource.camera,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
+      // Keep enough resolution for the user to crop into; the cropper
+      // produces the final, small file.
+      maxWidth: 2048,
+      maxHeight: 2048,
     );
     if (picked == null || !mounted) return;
-    setState(() => _pickedPhoto = File(picked.path));
+    // image_picker reuses its cache file names (scaled_<id>.jpg), so that
+    // file can vanish while uCrop is still reading it. Crop from a private,
+    // uniquely named copy instead.
+    final source = File(
+      '${Directory.systemTemp.path}/crop_src_${const Uuid().v4()}.jpg',
+    );
+    await File(picked.path).copy(source.path);
+    File? cropped;
+    try {
+      if (!mounted) return;
+      cropped = await _cropSquare(source.path);
+    } finally {
+      if (source.existsSync()) await source.delete();
+    }
+    if (cropped == null || !mounted) return;
+    setState(() {
+      _pickedPhoto = cropped;
+      _photoRemoved = false;
+    });
+  }
+
+  /// Lets the user crop [path] to a square, then downsizes and compresses it
+  /// so stored profile pictures stay small. Returns null if cancelled.
+  Future<File?> _cropSquare(String path) async {
+    final cs = Theme.of(context).colorScheme;
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      maxWidth: 512,
+      maxHeight: 512,
+      compressQuality: 80,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop photo',
+          toolbarColor: cs.surface,
+          toolbarWidgetColor: cs.onSurface,
+          backgroundColor: cs.surface,
+          activeControlsWidgetColor: cs.primary,
+          statusBarLight: cs.brightness == Brightness.light,
+          navBarLight: cs.brightness == Brightness.light,
+          lockAspectRatio: true,
+          initAspectRatio: CropAspectRatioPreset.square,
+          aspectRatioPresets: const [CropAspectRatioPreset.square],
+          hideBottomControls: false,
+          cropStyle: CropStyle.circle,
+        ),
+        IOSUiSettings(
+          title: 'Crop photo',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          aspectRatioPickerButtonHidden: true,
+          aspectRatioPresets: const [CropAspectRatioPreset.square],
+          cropStyle: CropStyle.circle,
+        ),
+      ],
+    );
+    return cropped == null ? null : File(cropped.path);
   }
 
   Future<void> _save() async {
