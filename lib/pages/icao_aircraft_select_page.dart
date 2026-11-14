@@ -33,13 +33,7 @@ class _IcaoAircraftSelectPageState
 
     return icaoAsync.when(
       data: (icaoList) {
-        final filtered = _query.isEmpty
-            ? icaoList
-            : icaoList.where((icao) {
-                final q = _query.toLowerCase();
-                return icao.modelFullName.toLowerCase().contains(q) ||
-                    icao.manufacturer.toLowerCase().contains(q);
-              }).toList();
+        final filtered = _query.isEmpty ? icaoList : _filter(icaoList);
 
         return Scaffold(
           appBar: AppBar(
@@ -125,6 +119,37 @@ class _IcaoAircraftSelectPageState
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
+  }
+
+  /// Splits the query into words; an aircraft matches when every word is
+  /// found in its designator, model name or manufacturer (so "Cessna C150"
+  /// works). Results with a word equal to the designator come first, then
+  /// those with a word that prefixes it, then everything else, preserving
+  /// the original order within each group.
+  List<IcaoAircraft> _filter(List<IcaoAircraft> icaoList) {
+    final tokens = _query
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty)
+        .toList();
+    final exact = <IcaoAircraft>[];
+    final prefix = <IcaoAircraft>[];
+    final other = <IcaoAircraft>[];
+    for (final icao in icaoList) {
+      final d = icao.designator.toLowerCase();
+      final haystack =
+          '$d ${icao.modelFullName.toLowerCase()} '
+          '${icao.manufacturer.toLowerCase()}';
+      if (!tokens.every(haystack.contains)) continue;
+      if (tokens.contains(d)) {
+        exact.add(icao);
+      } else if (tokens.any(d.startsWith)) {
+        prefix.add(icao);
+      } else {
+        other.add(icao);
+      }
+    }
+    return [...exact, ...prefix, ...other];
   }
 
   Future<void> _showAddCustomDialog() async {
