@@ -275,7 +275,10 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                             : 'Data may still be loading',
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.only(top: 8, bottom: 80),
+                        padding: EdgeInsets.only(
+                          top: 8,
+                          bottom: 80 + MediaQuery.paddingOf(context).bottom,
+                        ),
                         itemCount: snapshot.data!.length,
                         itemBuilder: (context, index) {
                           final item = snapshot.data![index];

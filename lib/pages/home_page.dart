@@ -102,8 +102,10 @@ class HomePage extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator()),
             ),
           ),
-          // Keeps the last flight clear of the FAB column.
-          const SliverToBoxAdapter(child: SizedBox(height: 136)),
+          // Keeps the last flight clear of the FAB column and the nav bar.
+          SliverToBoxAdapter(
+            child: SizedBox(height: 136 + MediaQuery.paddingOf(context).bottom),
+          ),
         ],
       ),
     );

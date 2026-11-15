@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'providers/backup_providers.dart';
 import 'providers/carto_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
+import 'widgets/floating_nav_bar.dart';
 
 class LogbookApp extends ConsumerStatefulWidget {
   const LogbookApp({super.key});
@@ -120,33 +122,52 @@ class _MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: [
-          // IndexedStack keeps hidden tabs in the tree, so their heroes would
-          // still take part in transitions (e.g. Home's "Add Flight" FAB
-          // flying in when a page pushed from Settings is popped).
-          for (final (i, page) in _pages.indexed)
-            HeroMode(enabled: i == currentIndex, child: page),
-        ],
+      // Tab content scrolls behind the floating bar; the bar's height reaches
+      // the pages as bottom MediaQuery padding.
+      extendBody: true,
+      body: Builder(
+        builder: (context) {
+          // extendBody only raises the bottom *padding* to the bar's height,
+          // but the pages' Scaffolds place their FABs by *viewPadding*: raise
+          // that too, so the FABs sit above the floating bar.
+          final mq = MediaQuery.of(context);
+          return MediaQuery(
+            data: mq.copyWith(
+              viewPadding: mq.viewPadding.copyWith(
+                bottom: math.max(mq.viewPadding.bottom, mq.padding.bottom),
+              ),
+            ),
+            child: IndexedStack(
+              index: currentIndex,
+              children: [
+                // IndexedStack keeps hidden tabs in the tree, so their heroes
+                // would still take part in transitions (e.g. Home's "Add
+                // Flight" FAB flying in when a page pushed from Settings is
+                // popped).
+                for (final (i, page) in _pages.indexed)
+                  HeroMode(enabled: i == currentIndex, child: page),
+              ],
+            ),
+          );
+        },
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: FloatingNavBar(
         selectedIndex: currentIndex,
         onDestinationSelected: onDestinationSelected,
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
+          FloatingNavDestination(
+            icon: Icons.home_outlined,
+            selectedIcon: Icons.home,
             label: 'Home',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.local_airport_outlined),
-            selectedIcon: Icon(Icons.local_airport),
+          FloatingNavDestination(
+            icon: Icons.local_airport_outlined,
+            selectedIcon: Icons.local_airport,
             label: 'Airports',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
+          FloatingNavDestination(
+            icon: Icons.settings_outlined,
+            selectedIcon: Icons.settings,
             label: 'Settings',
           ),
         ],
