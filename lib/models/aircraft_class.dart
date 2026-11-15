@@ -20,12 +20,12 @@
 import 'aircraft_type_enums.dart';
 
 enum AircraftClass {
-  sepLand('SEP (land)', 'Single-engine piston, land'),
-  sepSea('SEP (sea)', 'Single-engine piston, sea'),
-  mepLand('MEP (land)', 'Multi-engine piston, land'),
-  mepSea('MEP (sea)', 'Multi-engine piston, sea'),
-  setLand('SET (land)', 'Single-engine turboprop, land'),
-  setSea('SET (sea)', 'Single-engine turboprop, sea'),
+  sepLand('SEP (L)', 'Single-engine piston, land'),
+  sepSea('SEP (S)', 'Single-engine piston, sea'),
+  mepLand('MEP (L)', 'Multi-engine piston, land'),
+  mepSea('MEP (S)', 'Multi-engine piston, sea'),
+  setLand('SET (L)', 'Single-engine turboprop, land'),
+  setSea('SET (S)', 'Single-engine turboprop, sea'),
   tmg('TMG', 'Touring motor glider'),
 
   /// Not part of any class: flown on its own type rating. The rating itself
@@ -59,6 +59,11 @@ enum AircraftClass {
   static const nonPartFcl = [sailplane, balloon, other];
 
   bool get isClassRating => classRatings.contains(this);
+
+  /// Whether the class alone tells the engine type and count (SEP, MEP,
+  /// SET), so they don't need to be shown next to it.
+  bool get impliesEngine =>
+      const [sepLand, sepSea, mepLand, mepSea, setLand, setSea].contains(this);
 
   /// Every class an aircraft with these characteristics can be flown under,
   /// most likely first. Empty when nothing can be told (unknown type, engine

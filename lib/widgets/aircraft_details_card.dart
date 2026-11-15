@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
+import 'aircraft_class_chips.dart';
 import 'base_card.dart';
 import 'info_chip.dart';
 
@@ -19,7 +20,6 @@ class AircraftDetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final aircraftClass = aircraft.aircraftClass;
     final card = BaseCard(
       child: Column(
         children: [
@@ -44,40 +44,26 @@ class AircraftDetailsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               InfoChip(
                 label: aircraft.designator,
                 backgroundColor: theme.colorScheme.tertiaryContainer,
                 textColor: theme.colorScheme.onTertiaryContainer,
               ),
-              const SizedBox(width: 8),
-              InfoChip(
-                label: aircraft.description.name.capitalize(),
-                backgroundColor: cs.secondaryContainer,
-                textColor: cs.onSecondaryContainer,
-              ),
-              const SizedBox(width: 8),
-              InfoChip(
-                label:
-                    '${aircraft.engineCount}x ${aircraft.engineType.name.capitalize()}',
+              ...aircraftClassChips(
+                context,
+                aircraftClass: aircraft.aircraftClass,
+                typeRating: aircraft.typeRating,
+                description: aircraft.description,
+                engineCount: aircraft.engineCount,
+                engineType: aircraft.engineType,
               ),
             ],
           ),
-          if (aircraftClass != null) ...[
-            const SizedBox(height: 8),
-            InfoChip(
-              icon: Icons.workspace_premium_outlined,
-              label:
-                  aircraftClass == AircraftClass.type &&
-                      aircraft.typeRating != null
-                  ? 'Type rating: ${aircraft.typeRating}'
-                  : aircraftClass.label,
-              backgroundColor: cs.primaryContainer,
-              textColor: cs.onPrimaryContainer,
-            ),
-          ],
           if (aircraft.totalFlightTime != null) ...[
             const SizedBox(height: 8),
             IntrinsicHeight(
