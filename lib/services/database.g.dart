@@ -4269,7 +4269,95 @@ class $AircraftsTable extends Aircrafts
     requiredDuringInsert: false,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, icaoAircraft, tailNumber, notes];
+  late final GeneratedColumnWithTypeConverter<AircraftClass?, String>
+  aircraftClass = GeneratedColumn<String>(
+    'aircraft_class',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<AircraftClass?>($AircraftsTable.$converteraircraftClassn);
+  static const VerificationMeta _typeRatingMeta = const VerificationMeta(
+    'typeRating',
+  );
+  @override
+  late final GeneratedColumn<String> typeRating = GeneratedColumn<String>(
+    'type_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _photoFileMeta = const VerificationMeta(
+    'photoFile',
+  );
+  @override
+  late final GeneratedColumn<String> photoFile = GeneratedColumn<String>(
+    'photo_file',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _photoUrlMeta = const VerificationMeta(
+    'photoUrl',
+  );
+  @override
+  late final GeneratedColumn<String> photoUrl = GeneratedColumn<String>(
+    'photo_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _photoThumbnailUrlMeta = const VerificationMeta(
+    'photoThumbnailUrl',
+  );
+  @override
+  late final GeneratedColumn<String> photoThumbnailUrl =
+      GeneratedColumn<String>(
+        'photo_thumbnail_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _photoLinkMeta = const VerificationMeta(
+    'photoLink',
+  );
+  @override
+  late final GeneratedColumn<String> photoLink = GeneratedColumn<String>(
+    'photo_link',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _photoCreditMeta = const VerificationMeta(
+    'photoCredit',
+  );
+  @override
+  late final GeneratedColumn<String> photoCredit = GeneratedColumn<String>(
+    'photo_credit',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    icaoAircraft,
+    tailNumber,
+    notes,
+    aircraftClass,
+    typeRating,
+    photoFile,
+    photoUrl,
+    photoThumbnailUrl,
+    photoLink,
+    photoCredit,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4310,6 +4398,48 @@ class $AircraftsTable extends Aircrafts
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('type_rating')) {
+      context.handle(
+        _typeRatingMeta,
+        typeRating.isAcceptableOrUnknown(data['type_rating']!, _typeRatingMeta),
+      );
+    }
+    if (data.containsKey('photo_file')) {
+      context.handle(
+        _photoFileMeta,
+        photoFile.isAcceptableOrUnknown(data['photo_file']!, _photoFileMeta),
+      );
+    }
+    if (data.containsKey('photo_url')) {
+      context.handle(
+        _photoUrlMeta,
+        photoUrl.isAcceptableOrUnknown(data['photo_url']!, _photoUrlMeta),
+      );
+    }
+    if (data.containsKey('photo_thumbnail_url')) {
+      context.handle(
+        _photoThumbnailUrlMeta,
+        photoThumbnailUrl.isAcceptableOrUnknown(
+          data['photo_thumbnail_url']!,
+          _photoThumbnailUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('photo_link')) {
+      context.handle(
+        _photoLinkMeta,
+        photoLink.isAcceptableOrUnknown(data['photo_link']!, _photoLinkMeta),
+      );
+    }
+    if (data.containsKey('photo_credit')) {
+      context.handle(
+        _photoCreditMeta,
+        photoCredit.isAcceptableOrUnknown(
+          data['photo_credit']!,
+          _photoCreditMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4335,6 +4465,36 @@ class $AircraftsTable extends Aircrafts
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      aircraftClass: $AircraftsTable.$converteraircraftClassn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}aircraft_class'],
+        ),
+      ),
+      typeRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type_rating'],
+      ),
+      photoFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_file'],
+      ),
+      photoUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_url'],
+      ),
+      photoThumbnailUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_thumbnail_url'],
+      ),
+      photoLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_link'],
+      ),
+      photoCredit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_credit'],
+      ),
     );
   }
 
@@ -4342,6 +4502,15 @@ class $AircraftsTable extends Aircrafts
   $AircraftsTable createAlias(String alias) {
     return $AircraftsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<AircraftClass, String, String>
+  $converteraircraftClass = const EnumNameConverter<AircraftClass>(
+    AircraftClass.values,
+  );
+  static JsonTypeConverter2<AircraftClass?, String?, String?>
+  $converteraircraftClassn = JsonTypeConverter2.asNullable(
+    $converteraircraftClass,
+  );
 }
 
 class Aircraft extends DataClass implements Insertable<Aircraft> {
@@ -4349,11 +4518,37 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   final int icaoAircraft;
   final String tailNumber;
   final String? notes;
+
+  /// Rating the aircraft is flown under. Null until it is chosen.
+  final AircraftClass? aircraftClass;
+
+  /// Licence endorsement of the type rating (e.g. "A320"), when
+  /// [aircraftClass] is [AircraftClass.type].
+  final String? typeRating;
+
+  /// File name of a photo the user picked themselves, inside the app's
+  /// aircraft photo folder. Shown instead of the online photo.
+  final String? photoFile;
+
+  /// Photo found online (JetPhotos). The picture is never stored, only where
+  /// it is: full size image, small image for lists, the page it comes from
+  /// and who took it.
+  final String? photoUrl;
+  final String? photoThumbnailUrl;
+  final String? photoLink;
+  final String? photoCredit;
   const Aircraft({
     required this.id,
     required this.icaoAircraft,
     required this.tailNumber,
     this.notes,
+    this.aircraftClass,
+    this.typeRating,
+    this.photoFile,
+    this.photoUrl,
+    this.photoThumbnailUrl,
+    this.photoLink,
+    this.photoCredit,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4363,6 +4558,29 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     map['tail_number'] = Variable<String>(tailNumber);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || aircraftClass != null) {
+      map['aircraft_class'] = Variable<String>(
+        $AircraftsTable.$converteraircraftClassn.toSql(aircraftClass),
+      );
+    }
+    if (!nullToAbsent || typeRating != null) {
+      map['type_rating'] = Variable<String>(typeRating);
+    }
+    if (!nullToAbsent || photoFile != null) {
+      map['photo_file'] = Variable<String>(photoFile);
+    }
+    if (!nullToAbsent || photoUrl != null) {
+      map['photo_url'] = Variable<String>(photoUrl);
+    }
+    if (!nullToAbsent || photoThumbnailUrl != null) {
+      map['photo_thumbnail_url'] = Variable<String>(photoThumbnailUrl);
+    }
+    if (!nullToAbsent || photoLink != null) {
+      map['photo_link'] = Variable<String>(photoLink);
+    }
+    if (!nullToAbsent || photoCredit != null) {
+      map['photo_credit'] = Variable<String>(photoCredit);
     }
     return map;
   }
@@ -4375,6 +4593,27 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      aircraftClass: aircraftClass == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aircraftClass),
+      typeRating: typeRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(typeRating),
+      photoFile: photoFile == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoFile),
+      photoUrl: photoUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoUrl),
+      photoThumbnailUrl: photoThumbnailUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoThumbnailUrl),
+      photoLink: photoLink == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoLink),
+      photoCredit: photoCredit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoCredit),
     );
   }
 
@@ -4388,6 +4627,17 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       icaoAircraft: serializer.fromJson<int>(json['icaoAircraft']),
       tailNumber: serializer.fromJson<String>(json['tailNumber']),
       notes: serializer.fromJson<String?>(json['notes']),
+      aircraftClass: $AircraftsTable.$converteraircraftClassn.fromJson(
+        serializer.fromJson<String?>(json['aircraftClass']),
+      ),
+      typeRating: serializer.fromJson<String?>(json['typeRating']),
+      photoFile: serializer.fromJson<String?>(json['photoFile']),
+      photoUrl: serializer.fromJson<String?>(json['photoUrl']),
+      photoThumbnailUrl: serializer.fromJson<String?>(
+        json['photoThumbnailUrl'],
+      ),
+      photoLink: serializer.fromJson<String?>(json['photoLink']),
+      photoCredit: serializer.fromJson<String?>(json['photoCredit']),
     );
   }
   @override
@@ -4398,6 +4648,15 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       'icaoAircraft': serializer.toJson<int>(icaoAircraft),
       'tailNumber': serializer.toJson<String>(tailNumber),
       'notes': serializer.toJson<String?>(notes),
+      'aircraftClass': serializer.toJson<String?>(
+        $AircraftsTable.$converteraircraftClassn.toJson(aircraftClass),
+      ),
+      'typeRating': serializer.toJson<String?>(typeRating),
+      'photoFile': serializer.toJson<String?>(photoFile),
+      'photoUrl': serializer.toJson<String?>(photoUrl),
+      'photoThumbnailUrl': serializer.toJson<String?>(photoThumbnailUrl),
+      'photoLink': serializer.toJson<String?>(photoLink),
+      'photoCredit': serializer.toJson<String?>(photoCredit),
     };
   }
 
@@ -4406,11 +4665,29 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     int? icaoAircraft,
     String? tailNumber,
     Value<String?> notes = const Value.absent(),
+    Value<AircraftClass?> aircraftClass = const Value.absent(),
+    Value<String?> typeRating = const Value.absent(),
+    Value<String?> photoFile = const Value.absent(),
+    Value<String?> photoUrl = const Value.absent(),
+    Value<String?> photoThumbnailUrl = const Value.absent(),
+    Value<String?> photoLink = const Value.absent(),
+    Value<String?> photoCredit = const Value.absent(),
   }) => Aircraft(
     id: id ?? this.id,
     icaoAircraft: icaoAircraft ?? this.icaoAircraft,
     tailNumber: tailNumber ?? this.tailNumber,
     notes: notes.present ? notes.value : this.notes,
+    aircraftClass: aircraftClass.present
+        ? aircraftClass.value
+        : this.aircraftClass,
+    typeRating: typeRating.present ? typeRating.value : this.typeRating,
+    photoFile: photoFile.present ? photoFile.value : this.photoFile,
+    photoUrl: photoUrl.present ? photoUrl.value : this.photoUrl,
+    photoThumbnailUrl: photoThumbnailUrl.present
+        ? photoThumbnailUrl.value
+        : this.photoThumbnailUrl,
+    photoLink: photoLink.present ? photoLink.value : this.photoLink,
+    photoCredit: photoCredit.present ? photoCredit.value : this.photoCredit,
   );
   Aircraft copyWithCompanion(AircraftsCompanion data) {
     return Aircraft(
@@ -4422,6 +4699,21 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           ? data.tailNumber.value
           : this.tailNumber,
       notes: data.notes.present ? data.notes.value : this.notes,
+      aircraftClass: data.aircraftClass.present
+          ? data.aircraftClass.value
+          : this.aircraftClass,
+      typeRating: data.typeRating.present
+          ? data.typeRating.value
+          : this.typeRating,
+      photoFile: data.photoFile.present ? data.photoFile.value : this.photoFile,
+      photoUrl: data.photoUrl.present ? data.photoUrl.value : this.photoUrl,
+      photoThumbnailUrl: data.photoThumbnailUrl.present
+          ? data.photoThumbnailUrl.value
+          : this.photoThumbnailUrl,
+      photoLink: data.photoLink.present ? data.photoLink.value : this.photoLink,
+      photoCredit: data.photoCredit.present
+          ? data.photoCredit.value
+          : this.photoCredit,
     );
   }
 
@@ -4431,13 +4723,32 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           ..write('id: $id, ')
           ..write('icaoAircraft: $icaoAircraft, ')
           ..write('tailNumber: $tailNumber, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('typeRating: $typeRating, ')
+          ..write('photoFile: $photoFile, ')
+          ..write('photoUrl: $photoUrl, ')
+          ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
+          ..write('photoLink: $photoLink, ')
+          ..write('photoCredit: $photoCredit')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, icaoAircraft, tailNumber, notes);
+  int get hashCode => Object.hash(
+    id,
+    icaoAircraft,
+    tailNumber,
+    notes,
+    aircraftClass,
+    typeRating,
+    photoFile,
+    photoUrl,
+    photoThumbnailUrl,
+    photoLink,
+    photoCredit,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4445,7 +4756,14 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           other.id == this.id &&
           other.icaoAircraft == this.icaoAircraft &&
           other.tailNumber == this.tailNumber &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.aircraftClass == this.aircraftClass &&
+          other.typeRating == this.typeRating &&
+          other.photoFile == this.photoFile &&
+          other.photoUrl == this.photoUrl &&
+          other.photoThumbnailUrl == this.photoThumbnailUrl &&
+          other.photoLink == this.photoLink &&
+          other.photoCredit == this.photoCredit);
 }
 
 class AircraftsCompanion extends UpdateCompanion<Aircraft> {
@@ -4453,17 +4771,38 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   final Value<int> icaoAircraft;
   final Value<String> tailNumber;
   final Value<String?> notes;
+  final Value<AircraftClass?> aircraftClass;
+  final Value<String?> typeRating;
+  final Value<String?> photoFile;
+  final Value<String?> photoUrl;
+  final Value<String?> photoThumbnailUrl;
+  final Value<String?> photoLink;
+  final Value<String?> photoCredit;
   const AircraftsCompanion({
     this.id = const Value.absent(),
     this.icaoAircraft = const Value.absent(),
     this.tailNumber = const Value.absent(),
     this.notes = const Value.absent(),
+    this.aircraftClass = const Value.absent(),
+    this.typeRating = const Value.absent(),
+    this.photoFile = const Value.absent(),
+    this.photoUrl = const Value.absent(),
+    this.photoThumbnailUrl = const Value.absent(),
+    this.photoLink = const Value.absent(),
+    this.photoCredit = const Value.absent(),
   });
   AircraftsCompanion.insert({
     this.id = const Value.absent(),
     required int icaoAircraft,
     required String tailNumber,
     this.notes = const Value.absent(),
+    this.aircraftClass = const Value.absent(),
+    this.typeRating = const Value.absent(),
+    this.photoFile = const Value.absent(),
+    this.photoUrl = const Value.absent(),
+    this.photoThumbnailUrl = const Value.absent(),
+    this.photoLink = const Value.absent(),
+    this.photoCredit = const Value.absent(),
   }) : icaoAircraft = Value(icaoAircraft),
        tailNumber = Value(tailNumber);
   static Insertable<Aircraft> custom({
@@ -4471,12 +4810,26 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     Expression<int>? icaoAircraft,
     Expression<String>? tailNumber,
     Expression<String>? notes,
+    Expression<String>? aircraftClass,
+    Expression<String>? typeRating,
+    Expression<String>? photoFile,
+    Expression<String>? photoUrl,
+    Expression<String>? photoThumbnailUrl,
+    Expression<String>? photoLink,
+    Expression<String>? photoCredit,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (icaoAircraft != null) 'icao_aircraft': icaoAircraft,
       if (tailNumber != null) 'tail_number': tailNumber,
       if (notes != null) 'notes': notes,
+      if (aircraftClass != null) 'aircraft_class': aircraftClass,
+      if (typeRating != null) 'type_rating': typeRating,
+      if (photoFile != null) 'photo_file': photoFile,
+      if (photoUrl != null) 'photo_url': photoUrl,
+      if (photoThumbnailUrl != null) 'photo_thumbnail_url': photoThumbnailUrl,
+      if (photoLink != null) 'photo_link': photoLink,
+      if (photoCredit != null) 'photo_credit': photoCredit,
     });
   }
 
@@ -4485,12 +4838,26 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     Value<int>? icaoAircraft,
     Value<String>? tailNumber,
     Value<String?>? notes,
+    Value<AircraftClass?>? aircraftClass,
+    Value<String?>? typeRating,
+    Value<String?>? photoFile,
+    Value<String?>? photoUrl,
+    Value<String?>? photoThumbnailUrl,
+    Value<String?>? photoLink,
+    Value<String?>? photoCredit,
   }) {
     return AircraftsCompanion(
       id: id ?? this.id,
       icaoAircraft: icaoAircraft ?? this.icaoAircraft,
       tailNumber: tailNumber ?? this.tailNumber,
       notes: notes ?? this.notes,
+      aircraftClass: aircraftClass ?? this.aircraftClass,
+      typeRating: typeRating ?? this.typeRating,
+      photoFile: photoFile ?? this.photoFile,
+      photoUrl: photoUrl ?? this.photoUrl,
+      photoThumbnailUrl: photoThumbnailUrl ?? this.photoThumbnailUrl,
+      photoLink: photoLink ?? this.photoLink,
+      photoCredit: photoCredit ?? this.photoCredit,
     );
   }
 
@@ -4509,6 +4876,29 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (aircraftClass.present) {
+      map['aircraft_class'] = Variable<String>(
+        $AircraftsTable.$converteraircraftClassn.toSql(aircraftClass.value),
+      );
+    }
+    if (typeRating.present) {
+      map['type_rating'] = Variable<String>(typeRating.value);
+    }
+    if (photoFile.present) {
+      map['photo_file'] = Variable<String>(photoFile.value);
+    }
+    if (photoUrl.present) {
+      map['photo_url'] = Variable<String>(photoUrl.value);
+    }
+    if (photoThumbnailUrl.present) {
+      map['photo_thumbnail_url'] = Variable<String>(photoThumbnailUrl.value);
+    }
+    if (photoLink.present) {
+      map['photo_link'] = Variable<String>(photoLink.value);
+    }
+    if (photoCredit.present) {
+      map['photo_credit'] = Variable<String>(photoCredit.value);
+    }
     return map;
   }
 
@@ -4518,7 +4908,14 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
           ..write('id: $id, ')
           ..write('icaoAircraft: $icaoAircraft, ')
           ..write('tailNumber: $tailNumber, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('typeRating: $typeRating, ')
+          ..write('photoFile: $photoFile, ')
+          ..write('photoUrl: $photoUrl, ')
+          ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
+          ..write('photoLink: $photoLink, ')
+          ..write('photoCredit: $photoCredit')
           ..write(')'))
         .toString();
   }
@@ -6577,6 +6974,13 @@ class AircraftWithStats extends DataClass {
   final String tailNumber;
   final String? notes;
   final int icaoAircraft;
+  final AircraftClass? aircraftClass;
+  final String? typeRating;
+  final String? photoFile;
+  final String? photoUrl;
+  final String? photoThumbnailUrl;
+  final String? photoLink;
+  final String? photoCredit;
   final AircraftDescription description;
   final String modelFullName;
   final String designator;
@@ -6595,6 +6999,13 @@ class AircraftWithStats extends DataClass {
     required this.tailNumber,
     this.notes,
     required this.icaoAircraft,
+    this.aircraftClass,
+    this.typeRating,
+    this.photoFile,
+    this.photoUrl,
+    this.photoThumbnailUrl,
+    this.photoLink,
+    this.photoCredit,
     required this.description,
     required this.modelFullName,
     required this.designator,
@@ -6619,6 +7030,17 @@ class AircraftWithStats extends DataClass {
       tailNumber: serializer.fromJson<String>(json['tailNumber']),
       notes: serializer.fromJson<String?>(json['notes']),
       icaoAircraft: serializer.fromJson<int>(json['icaoAircraft']),
+      aircraftClass: $AircraftsTable.$converteraircraftClassn.fromJson(
+        serializer.fromJson<String?>(json['aircraftClass']),
+      ),
+      typeRating: serializer.fromJson<String?>(json['typeRating']),
+      photoFile: serializer.fromJson<String?>(json['photoFile']),
+      photoUrl: serializer.fromJson<String?>(json['photoUrl']),
+      photoThumbnailUrl: serializer.fromJson<String?>(
+        json['photoThumbnailUrl'],
+      ),
+      photoLink: serializer.fromJson<String?>(json['photoLink']),
+      photoCredit: serializer.fromJson<String?>(json['photoCredit']),
       description: $IcaoAircraftsTable.$converterdescription.fromJson(
         serializer.fromJson<String>(json['description']),
       ),
@@ -6651,6 +7073,15 @@ class AircraftWithStats extends DataClass {
       'tailNumber': serializer.toJson<String>(tailNumber),
       'notes': serializer.toJson<String?>(notes),
       'icaoAircraft': serializer.toJson<int>(icaoAircraft),
+      'aircraftClass': serializer.toJson<String?>(
+        $AircraftsTable.$converteraircraftClassn.toJson(aircraftClass),
+      ),
+      'typeRating': serializer.toJson<String?>(typeRating),
+      'photoFile': serializer.toJson<String?>(photoFile),
+      'photoUrl': serializer.toJson<String?>(photoUrl),
+      'photoThumbnailUrl': serializer.toJson<String?>(photoThumbnailUrl),
+      'photoLink': serializer.toJson<String?>(photoLink),
+      'photoCredit': serializer.toJson<String?>(photoCredit),
       'description': serializer.toJson<String>(
         $IcaoAircraftsTable.$converterdescription.toJson(description),
       ),
@@ -6684,6 +7115,13 @@ class AircraftWithStats extends DataClass {
     String? tailNumber,
     Value<String?> notes = const Value.absent(),
     int? icaoAircraft,
+    Value<AircraftClass?> aircraftClass = const Value.absent(),
+    Value<String?> typeRating = const Value.absent(),
+    Value<String?> photoFile = const Value.absent(),
+    Value<String?> photoUrl = const Value.absent(),
+    Value<String?> photoThumbnailUrl = const Value.absent(),
+    Value<String?> photoLink = const Value.absent(),
+    Value<String?> photoCredit = const Value.absent(),
     AircraftDescription? description,
     String? modelFullName,
     String? designator,
@@ -6702,6 +7140,17 @@ class AircraftWithStats extends DataClass {
     tailNumber: tailNumber ?? this.tailNumber,
     notes: notes.present ? notes.value : this.notes,
     icaoAircraft: icaoAircraft ?? this.icaoAircraft,
+    aircraftClass: aircraftClass.present
+        ? aircraftClass.value
+        : this.aircraftClass,
+    typeRating: typeRating.present ? typeRating.value : this.typeRating,
+    photoFile: photoFile.present ? photoFile.value : this.photoFile,
+    photoUrl: photoUrl.present ? photoUrl.value : this.photoUrl,
+    photoThumbnailUrl: photoThumbnailUrl.present
+        ? photoThumbnailUrl.value
+        : this.photoThumbnailUrl,
+    photoLink: photoLink.present ? photoLink.value : this.photoLink,
+    photoCredit: photoCredit.present ? photoCredit.value : this.photoCredit,
     description: description ?? this.description,
     modelFullName: modelFullName ?? this.modelFullName,
     designator: designator ?? this.designator,
@@ -6728,6 +7177,13 @@ class AircraftWithStats extends DataClass {
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
           ..write('icaoAircraft: $icaoAircraft, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('typeRating: $typeRating, ')
+          ..write('photoFile: $photoFile, ')
+          ..write('photoUrl: $photoUrl, ')
+          ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
+          ..write('photoLink: $photoLink, ')
+          ..write('photoCredit: $photoCredit, ')
           ..write('description: $description, ')
           ..write('modelFullName: $modelFullName, ')
           ..write('designator: $designator, ')
@@ -6746,11 +7202,18 @@ class AircraftWithStats extends DataClass {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     tailNumber,
     notes,
     icaoAircraft,
+    aircraftClass,
+    typeRating,
+    photoFile,
+    photoUrl,
+    photoThumbnailUrl,
+    photoLink,
+    photoCredit,
     description,
     modelFullName,
     designator,
@@ -6764,7 +7227,7 @@ class AircraftWithStats extends DataClass {
     nightLandings,
     flightCount,
     totalFlightTime,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6773,6 +7236,13 @@ class AircraftWithStats extends DataClass {
           other.tailNumber == this.tailNumber &&
           other.notes == this.notes &&
           other.icaoAircraft == this.icaoAircraft &&
+          other.aircraftClass == this.aircraftClass &&
+          other.typeRating == this.typeRating &&
+          other.photoFile == this.photoFile &&
+          other.photoUrl == this.photoUrl &&
+          other.photoThumbnailUrl == this.photoThumbnailUrl &&
+          other.photoLink == this.photoLink &&
+          other.photoCredit == this.photoCredit &&
           other.description == this.description &&
           other.modelFullName == this.modelFullName &&
           other.designator == this.designator &&
@@ -6805,6 +7275,13 @@ class $AircraftWithStatssView
     tailNumber,
     notes,
     icaoAircraft,
+    aircraftClass,
+    typeRating,
+    photoFile,
+    photoUrl,
+    photoThumbnailUrl,
+    photoLink,
+    photoCredit,
     description,
     modelFullName,
     designator,
@@ -6847,6 +7324,36 @@ class $AircraftWithStatssView
         DriftSqlType.int,
         data['${effectivePrefix}icao_aircraft'],
       )!,
+      aircraftClass: $AircraftsTable.$converteraircraftClassn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}aircraft_class'],
+        ),
+      ),
+      typeRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type_rating'],
+      ),
+      photoFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_file'],
+      ),
+      photoUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_url'],
+      ),
+      photoThumbnailUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_thumbnail_url'],
+      ),
+      photoLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_link'],
+      ),
+      photoCredit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_credit'],
+      ),
       description: $IcaoAircraftsTable.$converterdescription.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -6940,6 +7447,57 @@ class $AircraftWithStatssView
     false,
     generatedAs: GeneratedAs(aircrafts.icaoAircraft, false),
     type: DriftSqlType.int,
+  );
+  late final GeneratedColumnWithTypeConverter<AircraftClass?, String>
+  aircraftClass = GeneratedColumn<String>(
+    'aircraft_class',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.aircraftClass, false),
+    type: DriftSqlType.string,
+  ).withConverter<AircraftClass?>($AircraftsTable.$converteraircraftClassn);
+  late final GeneratedColumn<String> typeRating = GeneratedColumn<String>(
+    'type_rating',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.typeRating, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoFile = GeneratedColumn<String>(
+    'photo_file',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoFile, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoUrl = GeneratedColumn<String>(
+    'photo_url',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoUrl, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoThumbnailUrl =
+      GeneratedColumn<String>(
+        'photo_thumbnail_url',
+        aliasedName,
+        true,
+        generatedAs: GeneratedAs(aircrafts.photoThumbnailUrl, false),
+        type: DriftSqlType.string,
+      );
+  late final GeneratedColumn<String> photoLink = GeneratedColumn<String>(
+    'photo_link',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoLink, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoCredit = GeneratedColumn<String>(
+    'photo_credit',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoCredit, false),
+    type: DriftSqlType.string,
   );
   late final GeneratedColumnWithTypeConverter<AircraftDescription, String>
   description =
@@ -7291,6 +7849,13 @@ class AircraftWithIcao extends DataClass {
   final String tailNumber;
   final String? notes;
   final int icaoAircraft;
+  final AircraftClass? aircraftClass;
+  final String? typeRating;
+  final String? photoFile;
+  final String? photoUrl;
+  final String? photoThumbnailUrl;
+  final String? photoLink;
+  final String? photoCredit;
   final AircraftDescription description;
   final String modelFullName;
   final String designator;
@@ -7305,6 +7870,13 @@ class AircraftWithIcao extends DataClass {
     required this.tailNumber,
     this.notes,
     required this.icaoAircraft,
+    this.aircraftClass,
+    this.typeRating,
+    this.photoFile,
+    this.photoUrl,
+    this.photoThumbnailUrl,
+    this.photoLink,
+    this.photoCredit,
     required this.description,
     required this.modelFullName,
     required this.designator,
@@ -7325,6 +7897,17 @@ class AircraftWithIcao extends DataClass {
       tailNumber: serializer.fromJson<String>(json['tailNumber']),
       notes: serializer.fromJson<String?>(json['notes']),
       icaoAircraft: serializer.fromJson<int>(json['icaoAircraft']),
+      aircraftClass: $AircraftsTable.$converteraircraftClassn.fromJson(
+        serializer.fromJson<String?>(json['aircraftClass']),
+      ),
+      typeRating: serializer.fromJson<String?>(json['typeRating']),
+      photoFile: serializer.fromJson<String?>(json['photoFile']),
+      photoUrl: serializer.fromJson<String?>(json['photoUrl']),
+      photoThumbnailUrl: serializer.fromJson<String?>(
+        json['photoThumbnailUrl'],
+      ),
+      photoLink: serializer.fromJson<String?>(json['photoLink']),
+      photoCredit: serializer.fromJson<String?>(json['photoCredit']),
       description: $IcaoAircraftsTable.$converterdescription.fromJson(
         serializer.fromJson<String>(json['description']),
       ),
@@ -7353,6 +7936,15 @@ class AircraftWithIcao extends DataClass {
       'tailNumber': serializer.toJson<String>(tailNumber),
       'notes': serializer.toJson<String?>(notes),
       'icaoAircraft': serializer.toJson<int>(icaoAircraft),
+      'aircraftClass': serializer.toJson<String?>(
+        $AircraftsTable.$converteraircraftClassn.toJson(aircraftClass),
+      ),
+      'typeRating': serializer.toJson<String?>(typeRating),
+      'photoFile': serializer.toJson<String?>(photoFile),
+      'photoUrl': serializer.toJson<String?>(photoUrl),
+      'photoThumbnailUrl': serializer.toJson<String?>(photoThumbnailUrl),
+      'photoLink': serializer.toJson<String?>(photoLink),
+      'photoCredit': serializer.toJson<String?>(photoCredit),
       'description': serializer.toJson<String>(
         $IcaoAircraftsTable.$converterdescription.toJson(description),
       ),
@@ -7382,6 +7974,13 @@ class AircraftWithIcao extends DataClass {
     String? tailNumber,
     Value<String?> notes = const Value.absent(),
     int? icaoAircraft,
+    Value<AircraftClass?> aircraftClass = const Value.absent(),
+    Value<String?> typeRating = const Value.absent(),
+    Value<String?> photoFile = const Value.absent(),
+    Value<String?> photoUrl = const Value.absent(),
+    Value<String?> photoThumbnailUrl = const Value.absent(),
+    Value<String?> photoLink = const Value.absent(),
+    Value<String?> photoCredit = const Value.absent(),
     AircraftDescription? description,
     String? modelFullName,
     String? designator,
@@ -7396,6 +7995,17 @@ class AircraftWithIcao extends DataClass {
     tailNumber: tailNumber ?? this.tailNumber,
     notes: notes.present ? notes.value : this.notes,
     icaoAircraft: icaoAircraft ?? this.icaoAircraft,
+    aircraftClass: aircraftClass.present
+        ? aircraftClass.value
+        : this.aircraftClass,
+    typeRating: typeRating.present ? typeRating.value : this.typeRating,
+    photoFile: photoFile.present ? photoFile.value : this.photoFile,
+    photoUrl: photoUrl.present ? photoUrl.value : this.photoUrl,
+    photoThumbnailUrl: photoThumbnailUrl.present
+        ? photoThumbnailUrl.value
+        : this.photoThumbnailUrl,
+    photoLink: photoLink.present ? photoLink.value : this.photoLink,
+    photoCredit: photoCredit.present ? photoCredit.value : this.photoCredit,
     description: description ?? this.description,
     modelFullName: modelFullName ?? this.modelFullName,
     designator: designator ?? this.designator,
@@ -7414,6 +8024,13 @@ class AircraftWithIcao extends DataClass {
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
           ..write('icaoAircraft: $icaoAircraft, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('typeRating: $typeRating, ')
+          ..write('photoFile: $photoFile, ')
+          ..write('photoUrl: $photoUrl, ')
+          ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
+          ..write('photoLink: $photoLink, ')
+          ..write('photoCredit: $photoCredit, ')
           ..write('description: $description, ')
           ..write('modelFullName: $modelFullName, ')
           ..write('designator: $designator, ')
@@ -7433,6 +8050,13 @@ class AircraftWithIcao extends DataClass {
     tailNumber,
     notes,
     icaoAircraft,
+    aircraftClass,
+    typeRating,
+    photoFile,
+    photoUrl,
+    photoThumbnailUrl,
+    photoLink,
+    photoCredit,
     description,
     modelFullName,
     designator,
@@ -7451,6 +8075,13 @@ class AircraftWithIcao extends DataClass {
           other.tailNumber == this.tailNumber &&
           other.notes == this.notes &&
           other.icaoAircraft == this.icaoAircraft &&
+          other.aircraftClass == this.aircraftClass &&
+          other.typeRating == this.typeRating &&
+          other.photoFile == this.photoFile &&
+          other.photoUrl == this.photoUrl &&
+          other.photoThumbnailUrl == this.photoThumbnailUrl &&
+          other.photoLink == this.photoLink &&
+          other.photoCredit == this.photoCredit &&
           other.description == this.description &&
           other.modelFullName == this.modelFullName &&
           other.designator == this.designator &&
@@ -7478,6 +8109,13 @@ class $AircraftWithIcaosView
     tailNumber,
     notes,
     icaoAircraft,
+    aircraftClass,
+    typeRating,
+    photoFile,
+    photoUrl,
+    photoThumbnailUrl,
+    photoLink,
+    photoCredit,
     description,
     modelFullName,
     designator,
@@ -7516,6 +8154,36 @@ class $AircraftWithIcaosView
         DriftSqlType.int,
         data['${effectivePrefix}icao_aircraft'],
       )!,
+      aircraftClass: $AircraftsTable.$converteraircraftClassn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}aircraft_class'],
+        ),
+      ),
+      typeRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type_rating'],
+      ),
+      photoFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_file'],
+      ),
+      photoUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_url'],
+      ),
+      photoThumbnailUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_thumbnail_url'],
+      ),
+      photoLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_link'],
+      ),
+      photoCredit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_credit'],
+      ),
       description: $IcaoAircraftsTable.$converterdescription.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -7593,6 +8261,57 @@ class $AircraftWithIcaosView
     false,
     generatedAs: GeneratedAs(aircrafts.icaoAircraft, false),
     type: DriftSqlType.int,
+  );
+  late final GeneratedColumnWithTypeConverter<AircraftClass?, String>
+  aircraftClass = GeneratedColumn<String>(
+    'aircraft_class',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.aircraftClass, false),
+    type: DriftSqlType.string,
+  ).withConverter<AircraftClass?>($AircraftsTable.$converteraircraftClassn);
+  late final GeneratedColumn<String> typeRating = GeneratedColumn<String>(
+    'type_rating',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.typeRating, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoFile = GeneratedColumn<String>(
+    'photo_file',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoFile, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoUrl = GeneratedColumn<String>(
+    'photo_url',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoUrl, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoThumbnailUrl =
+      GeneratedColumn<String>(
+        'photo_thumbnail_url',
+        aliasedName,
+        true,
+        generatedAs: GeneratedAs(aircrafts.photoThumbnailUrl, false),
+        type: DriftSqlType.string,
+      );
+  late final GeneratedColumn<String> photoLink = GeneratedColumn<String>(
+    'photo_link',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoLink, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> photoCredit = GeneratedColumn<String>(
+    'photo_credit',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.photoCredit, false),
+    type: DriftSqlType.string,
   );
   late final GeneratedColumnWithTypeConverter<AircraftDescription, String>
   description =
@@ -11015,6 +11734,13 @@ typedef $$AircraftsTableCreateCompanionBuilder =
       required int icaoAircraft,
       required String tailNumber,
       Value<String?> notes,
+      Value<AircraftClass?> aircraftClass,
+      Value<String?> typeRating,
+      Value<String?> photoFile,
+      Value<String?> photoUrl,
+      Value<String?> photoThumbnailUrl,
+      Value<String?> photoLink,
+      Value<String?> photoCredit,
     });
 typedef $$AircraftsTableUpdateCompanionBuilder =
     AircraftsCompanion Function({
@@ -11022,6 +11748,13 @@ typedef $$AircraftsTableUpdateCompanionBuilder =
       Value<int> icaoAircraft,
       Value<String> tailNumber,
       Value<String?> notes,
+      Value<AircraftClass?> aircraftClass,
+      Value<String?> typeRating,
+      Value<String?> photoFile,
+      Value<String?> photoUrl,
+      Value<String?> photoThumbnailUrl,
+      Value<String?> photoLink,
+      Value<String?> photoCredit,
     });
 
 final class $$AircraftsTableReferences
@@ -11087,6 +11820,42 @@ class $$AircraftsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<AircraftClass?, AircraftClass, String>
+  get aircraftClass => $composableBuilder(
+    column: $table.aircraftClass,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get typeRating => $composableBuilder(
+    column: $table.typeRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoFile => $composableBuilder(
+    column: $table.photoFile,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoUrl => $composableBuilder(
+    column: $table.photoUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoThumbnailUrl => $composableBuilder(
+    column: $table.photoThumbnailUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoLink => $composableBuilder(
+    column: $table.photoLink,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoCredit => $composableBuilder(
+    column: $table.photoCredit,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11163,6 +11932,41 @@ class $$AircraftsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get aircraftClass => $composableBuilder(
+    column: $table.aircraftClass,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get typeRating => $composableBuilder(
+    column: $table.typeRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoFile => $composableBuilder(
+    column: $table.photoFile,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoUrl => $composableBuilder(
+    column: $table.photoUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoThumbnailUrl => $composableBuilder(
+    column: $table.photoThumbnailUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoLink => $composableBuilder(
+    column: $table.photoLink,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoCredit => $composableBuilder(
+    column: $table.photoCredit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$IcaoAircraftsTableOrderingComposer get icaoAircraft {
     final $$IcaoAircraftsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -11206,6 +12010,36 @@ class $$AircraftsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<AircraftClass?, String> get aircraftClass =>
+      $composableBuilder(
+        column: $table.aircraftClass,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get typeRating => $composableBuilder(
+    column: $table.typeRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get photoFile =>
+      $composableBuilder(column: $table.photoFile, builder: (column) => column);
+
+  GeneratedColumn<String> get photoUrl =>
+      $composableBuilder(column: $table.photoUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get photoThumbnailUrl => $composableBuilder(
+    column: $table.photoThumbnailUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get photoLink =>
+      $composableBuilder(column: $table.photoLink, builder: (column) => column);
+
+  GeneratedColumn<String> get photoCredit => $composableBuilder(
+    column: $table.photoCredit,
+    builder: (column) => column,
+  );
 
   $$IcaoAircraftsTableAnnotationComposer get icaoAircraft {
     final $$IcaoAircraftsTableAnnotationComposer composer = $composerBuilder(
@@ -11288,11 +12122,25 @@ class $$AircraftsTableTableManager
                 Value<int> icaoAircraft = const Value.absent(),
                 Value<String> tailNumber = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<AircraftClass?> aircraftClass = const Value.absent(),
+                Value<String?> typeRating = const Value.absent(),
+                Value<String?> photoFile = const Value.absent(),
+                Value<String?> photoUrl = const Value.absent(),
+                Value<String?> photoThumbnailUrl = const Value.absent(),
+                Value<String?> photoLink = const Value.absent(),
+                Value<String?> photoCredit = const Value.absent(),
               }) => AircraftsCompanion(
                 id: id,
                 icaoAircraft: icaoAircraft,
                 tailNumber: tailNumber,
                 notes: notes,
+                aircraftClass: aircraftClass,
+                typeRating: typeRating,
+                photoFile: photoFile,
+                photoUrl: photoUrl,
+                photoThumbnailUrl: photoThumbnailUrl,
+                photoLink: photoLink,
+                photoCredit: photoCredit,
               ),
           createCompanionCallback:
               ({
@@ -11300,11 +12148,25 @@ class $$AircraftsTableTableManager
                 required int icaoAircraft,
                 required String tailNumber,
                 Value<String?> notes = const Value.absent(),
+                Value<AircraftClass?> aircraftClass = const Value.absent(),
+                Value<String?> typeRating = const Value.absent(),
+                Value<String?> photoFile = const Value.absent(),
+                Value<String?> photoUrl = const Value.absent(),
+                Value<String?> photoThumbnailUrl = const Value.absent(),
+                Value<String?> photoLink = const Value.absent(),
+                Value<String?> photoCredit = const Value.absent(),
               }) => AircraftsCompanion.insert(
                 id: id,
                 icaoAircraft: icaoAircraft,
                 tailNumber: tailNumber,
                 notes: notes,
+                aircraftClass: aircraftClass,
+                typeRating: typeRating,
+                photoFile: photoFile,
+                photoUrl: photoUrl,
+                photoThumbnailUrl: photoThumbnailUrl,
+                photoLink: photoLink,
+                photoCredit: photoCredit,
               ),
           withReferenceMapper: (p0) => p0
               .map(

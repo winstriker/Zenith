@@ -5,11 +5,27 @@ import '../providers/aircraft_providers.dart';
 import '../repositories/aircraft_repository.dart';
 import '../services/database.dart';
 import '../utils/icao_designator.dart';
+import '../utils/icao_type_matcher.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/model_card.dart';
 
 class IcaoAircraftSelectPage extends ConsumerStatefulWidget {
-  const IcaoAircraftSelectPage({super.key});
+  const IcaoAircraftSelectPage({
+    super.key,
+    this.suggestFor,
+    this.suggestDesignator,
+    this.suggestNames = const [],
+  });
+
+  /// An aircraft name found elsewhere (e.g. "Cessna 172R Skyhawk II"), shown
+  /// above the types that best fit it. Those are listed first, until the
+  /// user searches.
+  final String? suggestFor;
+
+  /// What else is known about that aircraft, to find the fitting types: its
+  /// ICAO designator and other names it goes by.
+  final String? suggestDesignator;
+  final List<String> suggestNames;
 
   @override
   ConsumerState<IcaoAircraftSelectPage> createState() =>
@@ -20,6 +36,24 @@ class _IcaoAircraftSelectPageState
     extends ConsumerState<IcaoAircraftSelectPage> {
   final _searchController = TextEditingController();
   String _query = '';
+
+  // Suggestions are only recomputed when the list of types changes.
+  List<IcaoAircraft>? _suggestedFrom;
+  List<IcaoAircraft> _suggestions = const [];
+
+  List<IcaoAircraft> _suggestionsFrom(List<IcaoAircraft> icaoList) {
+    final name = widget.suggestFor;
+    if (name == null) return const [];
+    if (!identical(_suggestedFrom, icaoList)) {
+      _suggestedFrom = icaoList;
+      _suggestions = IcaoTypeMatcher.resolve(
+        designator: widget.suggestDesignator,
+        names: {name, ...widget.suggestNames}.toList(),
+        types: icaoList,
+      ).suggestions;
+    }
+    return _suggestions;
+  }
 
   @override
   void dispose() {
@@ -34,6 +68,12 @@ class _IcaoAircraftSelectPageState
     return icaoAsync.when(
       data: (icaoList) {
         final filtered = _query.isEmpty ? icaoList : _filter(icaoList);
+        final suggestions = _query.isEmpty
+            ? _suggestionsFrom(icaoList)
+            : const <IcaoAircraft>[];
+        // With suggestions, the list starts with a header, the suggestions
+        // and a second header above all the types.
+        final leading = suggestions.isEmpty ? 0 : suggestions.length + 2;
 
         return Scaffold(
           appBar: AppBar(
@@ -52,7 +92,8 @@ class _IcaoAircraftSelectPageState
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: TextField(
                   controller: _searchController,
-                  autofocus: true,
+                  // The keyboard would hide the suggestions.
+                  autofocus: widget.suggestFor == null,
                   decoration: InputDecoration(
                     hintText: 'Search aircraft type...',
                     prefixIcon: const Icon(Icons.search, size: 20),
@@ -100,10 +141,25 @@ class _IcaoAircraftSelectPageState
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.only(top: 4, bottom: 80),
-                        itemCount: filtered.length,
+                        itemCount: leading + filtered.length,
 
                         itemBuilder: (context, index) {
-                          final icao = filtered[index];
+                          if (index < leading) {
+                            if (index == 0) {
+                              return _ListHeader(
+                                'Suggested for “${widget.suggestFor}”',
+                              );
+                            }
+                            if (index == leading - 1) {
+                              return const _ListHeader('All types');
+                            }
+                            final icao = suggestions[index - 1];
+                            return ModelCard(
+                              aircraft: icao,
+                              onTap: () => Navigator.pop(context, icao),
+                            );
+                          }
+                          final icao = filtered[index - leading];
                           return ModelCard(
                             aircraft: icao,
                             onTap: () => Navigator.pop(context, icao),
@@ -161,6 +217,25 @@ class _IcaoAircraftSelectPageState
     if (result == true && mounted) {
       setState(() {});
     }
+  }
+}
+
+class _ListHeader extends StatelessWidget {
+  const _ListHeader(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        text,
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.primary,
+        ),
+      ),
+    );
   }
 }
 

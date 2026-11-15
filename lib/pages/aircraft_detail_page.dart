@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/aircraft_providers.dart';
+import '../services/database.dart';
 import '../widgets/aircraft_details_card.dart';
+import '../widgets/aircraft_photo_view.dart';
 import '../widgets/flight_card.dart';
 import 'aircraft_form_page.dart';
 import 'flight_detail_page.dart';
@@ -21,6 +23,7 @@ class AircraftDetailPage extends ConsumerWidget {
         }
         final theme = Theme.of(context);
         final cs = theme.colorScheme;
+        final photo = aircraft.photo;
 
         return Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -34,12 +37,18 @@ class AircraftDetailPage extends ConsumerWidget {
               heroTag: "editFab",
               label: const Text("Edit"),
               icon: const Icon(Icons.edit),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => AircraftFormPage(aircraft: aircraft),
-                ),
-              ),
+              onPressed: () async {
+                final deleted = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AircraftFormPage(aircraft: aircraft),
+                  ),
+                );
+                // Nothing left to show once the aircraft is gone.
+                if (deleted == true && context.mounted) {
+                  Navigator.pop(context);
+                }
+              },
             ),
             body: CustomScrollView(
               slivers: [
@@ -48,21 +57,23 @@ class AircraftDetailPage extends ConsumerWidget {
                     children: [
                       SizedBox(
                         height: 280,
-                        //TODO: Airplane image
-                        child: Container(
-                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                cs.secondaryContainer,
-                                cs.secondaryContainer.withValues(alpha: 0.3),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
+                        width: double.infinity,
+                        child: AircraftPhotoView(
+                          photo: photo,
+                          placeholder: const AircraftHeaderGradient(),
                         ),
                       ),
+                      // Above the part of the photo the details card covers.
+                      if (photo != null && photo.isOnline)
+                        Positioned(
+                          top: 172,
+                          left: 16,
+                          right: 16,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: AircraftPhotoCredit(photo: photo),
+                          ),
+                        ),
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(

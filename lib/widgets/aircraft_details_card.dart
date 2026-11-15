@@ -19,6 +19,7 @@ class AircraftDetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final aircraftClass = aircraft.aircraftClass;
     final card = BaseCard(
       child: Column(
         children: [
@@ -64,6 +65,19 @@ class AircraftDetailsCard extends StatelessWidget {
               ),
             ],
           ),
+          if (aircraftClass != null) ...[
+            const SizedBox(height: 8),
+            InfoChip(
+              icon: Icons.workspace_premium_outlined,
+              label:
+                  aircraftClass == AircraftClass.type &&
+                      aircraft.typeRating != null
+                  ? 'Type rating: ${aircraft.typeRating}'
+                  : aircraftClass.label,
+              backgroundColor: cs.primaryContainer,
+              textColor: cs.onPrimaryContainer,
+            ),
+          ],
           if (aircraft.totalFlightTime != null) ...[
             const SizedBox(height: 8),
             IntrinsicHeight(

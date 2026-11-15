@@ -6,10 +6,14 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../models/aircraft_class.dart';
+import '../models/aircraft_photo.dart';
 import '../models/aircraft_type_enums.dart';
 import '../models/airport_type.dart';
 import '../models/crew.dart';
 
+export '../models/aircraft_class.dart';
+export '../models/aircraft_photo.dart';
 export '../models/aircraft_type_enums.dart';
 export '../models/airport_type.dart';
 export '../models/crew.dart';
@@ -140,6 +144,25 @@ class Aircrafts extends Table {
   IntColumn get icaoAircraft => integer().references(IcaoAircrafts, #id)();
   TextColumn get tailNumber => text()();
   TextColumn get notes => text().nullable()();
+
+  /// Rating the aircraft is flown under. Null until it is chosen.
+  TextColumn get aircraftClass => textEnum<AircraftClass>().nullable()();
+
+  /// Licence endorsement of the type rating (e.g. "A320"), when
+  /// [aircraftClass] is [AircraftClass.type].
+  TextColumn get typeRating => text().nullable()();
+
+  /// File name of a photo the user picked themselves, inside the app's
+  /// aircraft photo folder. Shown instead of the online photo.
+  TextColumn get photoFile => text().nullable()();
+
+  /// Photo found online (JetPhotos). The picture is never stored, only where
+  /// it is: full size image, small image for lists, the page it comes from
+  /// and who took it.
+  TextColumn get photoUrl => text().nullable()();
+  TextColumn get photoThumbnailUrl => text().nullable()();
+  TextColumn get photoLink => text().nullable()();
+  TextColumn get photoCredit => text().nullable()();
 }
 
 class Flights extends Table {
@@ -397,6 +420,13 @@ abstract class AircraftWithStatss extends View {
           aircrafts.tailNumber,
           aircrafts.notes,
           aircrafts.icaoAircraft,
+          aircrafts.aircraftClass,
+          aircrafts.typeRating,
+          aircrafts.photoFile,
+          aircrafts.photoUrl,
+          aircrafts.photoThumbnailUrl,
+          aircrafts.photoLink,
+          aircrafts.photoCredit,
           icaoAircrafts.description,
           icaoAircrafts.modelFullName,
           icaoAircrafts.designator,
@@ -432,6 +462,13 @@ abstract class AircraftWithIcaos extends View {
           aircrafts.tailNumber,
           aircrafts.notes,
           aircrafts.icaoAircraft,
+          aircrafts.aircraftClass,
+          aircrafts.typeRating,
+          aircrafts.photoFile,
+          aircrafts.photoUrl,
+          aircrafts.photoThumbnailUrl,
+          aircrafts.photoLink,
+          aircrafts.photoCredit,
           icaoAircrafts.description,
           icaoAircrafts.modelFullName,
           icaoAircrafts.designator,
@@ -450,10 +487,21 @@ abstract class AircraftWithIcaos extends View {
         ..groupBy([aircrafts.id]);
 }
 
+extension AircraftWithStatsPhoto on AircraftWithStats {
+  /// The aircraft's photo, or null when it has none.
+  AircraftPhoto? get photo => AircraftPhoto.fromColumns(
+    file: photoFile,
+    url: photoUrl,
+    thumbnailUrl: photoThumbnailUrl,
+    link: photoLink,
+    credit: photoCredit,
+  );
+}
+
 extension ToIcaoAircraft on AircraftWithStats {
   IcaoAircraft toIcaoAircraft() {
     return IcaoAircraft(
-      id: id,
+      id: icaoAircraft,
       modelFullName: modelFullName,
       designator: designator,
       wakeTurbolenceCategory: wakeTurbolenceCategory,
@@ -496,7 +544,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -524,8 +572,73 @@ class LogbookDatabase extends _$LogbookDatabase {
       if (from == 3) {
         await m.addColumn(people, people.photo);
       }
+      if (from < 5) {
+        // Only the missing ones: the migration tests start from the current
+        // schema, where these columns already exist.
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(aircrafts)',
+          ).get())
+            row.read<String>('name'),
+        };
+        for (final column in [
+          aircrafts.aircraftClass,
+          aircrafts.typeRating,
+          aircrafts.photoFile,
+          aircrafts.photoUrl,
+          aircrafts.photoThumbnailUrl,
+          aircrafts.photoLink,
+          aircrafts.photoCredit,
+        ]) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(aircrafts, column);
+          }
+        }
+        // The aircraft views list the new columns.
+        await m.recreateAllViews();
+        await assignDeducedAircraftClasses();
+      }
     },
   );
+
+  /// Gives every aircraft that has no class yet the class rating its type
+  /// implies (see [AircraftClass.deduce]), so aircraft added before classes
+  /// existed don't all have to be edited by hand. Aircraft that can't be
+  /// told apart from their type alone, or that need a type rating (whose
+  /// name only the pilot knows), are left for the user. Returns how many
+  /// aircraft got a class.
+  Future<int> assignDeducedAircraftClasses() async {
+    final rows = await customSelect(
+      'SELECT a.id AS id, t.description AS description, '
+      't.engine_count AS engine_count, t.engine_type AS engine_type '
+      'FROM aircrafts a JOIN icao_aircrafts t ON t.id = a.icao_aircraft '
+      'WHERE a.aircraft_class IS NULL',
+    ).get();
+    var assigned = 0;
+    for (final row in rows) {
+      final description = AircraftDescription.values
+          .asNameMap()[row.read<String>('description')];
+      final engineType = EngineType.values
+          .asNameMap()[row.read<String>('engine_type')];
+      if (description == null || engineType == null) continue;
+      final deduced = AircraftClass.deduce(
+        description: description,
+        engineCount: row.read<int>('engine_count'),
+        engineType: engineType,
+      );
+      if (deduced == null || !deduced.isClassRating) continue;
+      await customUpdate(
+        'UPDATE aircrafts SET aircraft_class = ? WHERE id = ?',
+        variables: [
+          Variable.withString(deduced.name),
+          Variable.withInt(row.read<int>('id')),
+        ],
+        updates: {aircrafts},
+      );
+      assigned++;
+    }
+    return assigned;
+  }
 
   /// Moves the legacy `flights.crew_json` column into [people] and
   /// [flightCrew]. Names are split on the first space into name / surname.

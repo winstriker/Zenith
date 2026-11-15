@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' hide isNull;
+import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zenith/services/backup_service.dart';
@@ -37,11 +37,13 @@ void main() {
     sourceBackup = BackupService(
       source,
       PersonPhotoStore(() async => sourceRoot),
+      AircraftPhotoStore(() async => sourceRoot),
       () async => Directory('${sourceRoot.path}/tmp'),
     );
     targetBackup = BackupService(
       target,
       PersonPhotoStore(() async => targetRoot),
+      AircraftPhotoStore(() async => targetRoot),
       () async => Directory('${targetRoot.path}/tmp'),
     );
   });
@@ -198,6 +200,79 @@ void main() {
     final crew = await target.getFlightCrew(flight.id);
     expect(crew.single.role, CrewRole.ins);
   });
+
+  test(
+    'picked aircraft photos travel with the backup, links stay links',
+    () async {
+      final icaoId = await source
+          .into(source.icaoAircrafts)
+          .insert(_icao('C172'));
+      final photos = Directory('${sourceRoot.path}/aircraft_photos')
+        ..createSync(recursive: true);
+      File('${photos.path}/mine.jpg').writeAsBytesSync([9, 8, 7]);
+      await source
+          .into(source.aircrafts)
+          .insert(
+            AircraftsCompanion.insert(
+              icaoAircraft: icaoId,
+              tailNumber: 'I-FILE',
+              photoFile: const Value('mine.jpg'),
+              aircraftClass: const Value(AircraftClass.sepLand),
+            ),
+          );
+      await source
+          .into(source.aircrafts)
+          .insert(
+            AircraftsCompanion.insert(
+              icaoAircraft: icaoId,
+              tailNumber: 'I-LINK',
+              photoUrl: const Value('https://cdn.jetphotos.com/full/1/a.jpg'),
+              photoLink: const Value('https://www.jetphotos.com/photo/1'),
+            ),
+          );
+      // A leftover in the target that no restored aircraft uses.
+      final targetPhotos = Directory('${targetRoot.path}/aircraft_photos')
+        ..createSync(recursive: true);
+      File('${targetPhotos.path}/stale.jpg').writeAsBytesSync([0]);
+
+      final withPhotos = await sourceBackup.create(includePhotos: true);
+      final summary = await targetBackup.restore(withPhotos.bytes);
+
+      expect(summary.photos, 1);
+      expect(File('${targetPhotos.path}/mine.jpg').readAsBytesSync(), [
+        9,
+        8,
+        7,
+      ]);
+      expect(File('${targetPhotos.path}/stale.jpg').existsSync(), isFalse);
+      var aircraft = {
+        for (final a in await target.select(target.aircrafts).get())
+          a.tailNumber: a,
+      };
+      expect(aircraft['I-FILE']!.photoFile, 'mine.jpg');
+      expect(aircraft['I-FILE']!.aircraftClass, AircraftClass.sepLand);
+      expect(
+        aircraft['I-LINK']!.photoUrl,
+        'https://cdn.jetphotos.com/full/1/a.jpg',
+      );
+      expect(
+        aircraft['I-LINK']!.photoLink,
+        'https://www.jetphotos.com/photo/1',
+      );
+
+      // Restored without photos on a device that doesn't have the file, the
+      // picked photo is cleared; links need no file.
+      File('${targetPhotos.path}/mine.jpg').deleteSync();
+      final withoutPhotos = await sourceBackup.create(includePhotos: false);
+      await targetBackup.restore(withoutPhotos.bytes);
+      aircraft = {
+        for (final a in await target.select(target.aircrafts).get())
+          a.tailNumber: a,
+      };
+      expect(aircraft['I-FILE']!.photoFile, isNull);
+      expect(aircraft['I-LINK']!.photoUrl, isNotNull);
+    },
+  );
 
   test('without photos, missing pictures are cleared on restore', () async {
     await seed();

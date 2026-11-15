@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/spacing.dart';
 import '../services/database.dart';
 import 'aircraft_details_card.dart';
+import 'aircraft_photo_view.dart';
 import 'base_card.dart';
 import 'info_chip.dart';
 
@@ -26,6 +27,12 @@ class AircraftCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final icon = Icon(
+      Icons.airplanemode_active,
+      size: 32,
+      color: colorScheme.onSecondaryContainer,
+    );
+
     final card = BaseCard(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -34,15 +41,20 @@ class AircraftCard extends StatelessWidget {
           Container(
             width: 100,
             height: 70,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: colorScheme.secondaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.airplanemode_active,
-              size: 32,
-              color: colorScheme.onSecondaryContainer,
-            ),
+            // The photo replaces the icon when the aircraft has one. Its
+            // photographer and link are shown on the aircraft's page.
+            child: aircraft?.photo == null
+                ? icon
+                : AircraftPhotoView(
+                    photo: aircraft!.photo,
+                    thumbnail: true,
+                    placeholder: Center(child: icon),
+                  ),
           ),
           const SizedBox(width: 16),
           Expanded(

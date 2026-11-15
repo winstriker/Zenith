@@ -64,17 +64,21 @@ class RestoreSummary {
 /// - `manifest.json`: format, schema version, date, what is inside;
 /// - `zenith.sqlite`: a consistent snapshot of the entire database (logbook,
 ///   airports, aircraft types...), taken with `VACUUM INTO`;
-/// - `photos/<name>`: people's profile pictures, when included.
+/// - `photos/<name>`: people's profile pictures, when included;
+/// - `aircraft_photos/<name>`: aircraft photos picked by the user, when
+///   photos are included. Aircraft photos found online are only links, and
+///   travel inside the database.
 ///
 /// Restoring copies every table of the snapshot over the live database
 /// inside one transaction, so the app keeps its open connection and a failed
 /// restore changes nothing. A snapshot from an older schema still restores:
 /// only the columns both sides have are copied.
 class BackupService {
-  BackupService(this._db, this._photos, this._workDir);
+  BackupService(this._db, this._photos, this._aircraftPhotos, this._workDir);
 
   final LogbookDatabase _db;
   final PersonPhotoStore _photos;
+  final AircraftPhotoStore _aircraftPhotos;
 
   /// Scratch space for the database snapshot while it is packed/unpacked.
   final Future<Directory> Function() _workDir;
@@ -89,6 +93,7 @@ class BackupService {
   static const _manifestEntry = 'manifest.json';
   static const _databaseEntry = 'zenith.sqlite';
   static const _photosPrefix = 'photos/';
+  static const _aircraftPhotosPrefix = 'aircraft_photos/';
 
   static String fileNameFor(DateTime time, {String suffix = ''}) {
     String two(int n) => n.toString().padLeft(2, '0');
@@ -129,17 +134,22 @@ class BackupService {
       if (snapshot.existsSync()) await snapshot.delete();
     }
 
+    // Keyed by their path inside the ZIP.
     final photos = <String, Uint8List>{};
     if (includePhotos) {
-      final dir = await _photos.directory;
-      final rows = await _db
-          .customSelect('SELECT photo FROM people WHERE photo IS NOT NULL')
-          .get();
-      for (final row in rows) {
-        final name = row.read<String>('photo');
-        final file = File('${dir.path}/$name');
-        if (file.existsSync()) photos[name] = await file.readAsBytes();
-      }
+      await _collectPhotos(
+        photos,
+        _photos,
+        _photosPrefix,
+        'SELECT photo AS name FROM people WHERE photo IS NOT NULL',
+      );
+      await _collectPhotos(
+        photos,
+        _aircraftPhotos,
+        _aircraftPhotosPrefix,
+        'SELECT photo_file AS name FROM aircrafts '
+        'WHERE photo_file IS NOT NULL',
+      );
     }
 
     final manifest = jsonEncode({
@@ -160,7 +170,7 @@ class BackupService {
         ..add(ArchiveFile.bytes(_databaseEntry, database));
       for (final MapEntry(:key, :value) in photos.entries) {
         parts.add('$key:${sha256.convert(value)}');
-        archive.add(ArchiveFile.bytes('$_photosPrefix$key', value));
+        archive.add(ArchiveFile.bytes(key, value));
       }
       final zip = ZipEncoder().encodeBytes(
         archive,
@@ -179,6 +189,26 @@ class BackupService {
       createdAt: createdAt,
       isEmpty: counts.values.every((n) => n == 0),
     );
+  }
+
+  /// Reads into [photos] the files of [store] that the rows returned by
+  /// [sql] name, each under [prefix].
+  ///
+  /// A method and not a closure inside [create]: a closure there would put
+  /// `this`, and so the database, in the context that the isolate closure of
+  /// [create] also captures, and a database can't be sent to an isolate.
+  Future<void> _collectPhotos(
+    Map<String, Uint8List> photos,
+    PhotoStore store,
+    String prefix,
+    String sql,
+  ) async {
+    final dir = await store.directory;
+    for (final row in await _db.customSelect(sql).get()) {
+      final name = row.read<String>('name');
+      final file = File('${dir.path}/$name');
+      if (file.existsSync()) photos['$prefix$name'] = await file.readAsBytes();
+    }
   }
 
   Future<Map<String, int>> _counts() async {
@@ -238,7 +268,7 @@ class BackupService {
       );
     }
 
-    final (database, photos) = content!;
+    final (database, photos, aircraftPhotos) = content!;
     final file = await _tempFile('restore');
     await file.writeAsBytes(database, flush: true);
     try {
@@ -247,7 +277,21 @@ class BackupService {
       if (file.existsSync()) await file.delete();
     }
 
-    final restoredPhotos = await _restorePhotos(photos);
+    final restoredPhotos =
+        await _restorePhotos(
+          _photos,
+          photos,
+          table: 'people',
+          column: 'photo',
+        ) +
+        await _restorePhotos(
+          _aircraftPhotos,
+          aircraftPhotos,
+          table: 'aircrafts',
+          column: 'photo_file',
+        );
+    // Backups older than aircraft classes come back without any.
+    if (schema is int && schema < 5) await _db.assignDeducedAircraftClasses();
     _db.markTablesUpdated(_db.allTables);
 
     final counts = await _counts();
@@ -260,8 +304,13 @@ class BackupService {
   }
 
   /// Unzips and validates a backup. With [withContent], also returns the
-  /// database snapshot and photos.
-  static Future<(Map<String, Object?>, (Uint8List, Map<String, Uint8List>)?)>
+  /// database snapshot, people's photos and aircraft photos.
+  static Future<
+    (
+      Map<String, Object?>,
+      (Uint8List, Map<String, Uint8List>, Map<String, Uint8List>)?,
+    )
+  >
   _open(Uint8List bytes, {required bool withContent}) async {
     try {
       return await Isolate.run(() {
@@ -293,12 +342,15 @@ class BackupService {
           return (manifest, null);
         }
 
-        final photos = <String, Uint8List>{
+        Map<String, Uint8List> under(String prefix) => {
           for (final f in archive.files)
-            if (f.isFile && f.name.startsWith(_photosPrefix))
-              f.name.substring(_photosPrefix.length): f.content,
+            if (f.isFile && f.name.startsWith(prefix))
+              f.name.substring(prefix.length): f.content,
         };
-        return (manifest, (database, photos));
+        return (
+          manifest,
+          (database, under(_photosPrefix), under(_aircraftPhotosPrefix)),
+        );
       });
     } on BackupException {
       rethrow;
@@ -361,10 +413,16 @@ class BackupService {
     return [for (final r in info) r.read<String>('name')];
   }
 
-  /// Writes the backup's photos, then makes the photo folder match the
-  /// restored people: missing pictures are cleared, unused files deleted.
-  Future<int> _restorePhotos(Map<String, Uint8List> photos) async {
-    final dir = await _photos.directory;
+  /// Writes the backup's photos into [store], then makes that folder match
+  /// the restored rows of [table], whose [column] holds the file name:
+  /// missing pictures are cleared, unused files deleted.
+  Future<int> _restorePhotos(
+    PhotoStore store,
+    Map<String, Uint8List> photos, {
+    required String table,
+    required String column,
+  }) async {
+    final dir = await store.directory;
     var written = 0;
     for (final MapEntry(:key, :value) in photos.entries) {
       // Names come from the file; never let one escape the folder.
@@ -374,16 +432,18 @@ class BackupService {
     }
 
     final rows = await _db
-        .customSelect('SELECT id, photo FROM people WHERE photo IS NOT NULL')
+        .customSelect(
+          'SELECT id, $column AS name FROM $table WHERE $column IS NOT NULL',
+        )
         .get();
     final referenced = <String>{};
     for (final row in rows) {
-      final name = row.read<String>('photo');
+      final name = row.read<String>('name');
       if (File('${dir.path}/$name').existsSync()) {
         referenced.add(name);
       } else {
         await _db.customStatement(
-          'UPDATE people SET photo = NULL WHERE id = ?',
+          'UPDATE $table SET $column = NULL WHERE id = ?',
           [row.read<int>('id')],
         );
       }
