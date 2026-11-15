@@ -54,40 +54,44 @@ class AircraftDetailPage extends ConsumerWidget {
             body: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
-                  child: Stack(
-                    children: [
-                      SizedBox(
-                        height: 280,
-                        width: double.infinity,
-                        child: AircraftPhotoView(
-                          photo: photo,
-                          placeholder: const AircraftHeaderGradient(),
-                        ),
-                      ),
-                      // Above the part of the photo the details card covers.
-                      if (photo != null && photo.isOnline)
-                        Positioned(
-                          top: 172,
-                          left: 16,
-                          right: 16,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: AircraftPhotoCredit(photo: photo),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const cardOverlap = 48.0;
+                      final photoHeight =
+                          constraints.maxWidth / aircraftPhotoAspectRatio;
+                      final cardTop = photoHeight - cardOverlap;
+                      return Stack(
+                        children: [
+                          SizedBox(
+                            height: photoHeight,
+                            width: double.infinity,
+                            child: AircraftPhotoView(
+                              photo: photo,
+                              placeholder: const AircraftHeaderGradient(),
+                            ),
                           ),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 200),
-                            AircraftDetailsCard(
+                          // Above the part of the photo the details card
+                          // covers.
+                          if (photo != null && photo.isOnline)
+                            Positioned(
+                              top: cardTop - 26,
+                              left: 16,
+                              right: 16,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: AircraftPhotoCredit(photo: photo),
+                              ),
+                            ),
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(16, cardTop, 16, 16),
+                            child: AircraftDetailsCard(
                               aircraft: aircraft,
                               useOuterPadding: false,
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -164,8 +168,9 @@ class AircraftDetailPage extends ConsumerWidget {
                   },
                   loading: () {
                     return const SliverToBoxAdapter(
-                      child: Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Center(child: CircularProgressIndicator()),
                       ),
                     );
                   },

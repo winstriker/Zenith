@@ -9,6 +9,11 @@ import '../models/aircraft_photo.dart';
 import '../services/aircraft_image_cache.dart';
 import '../services/person_photo_store.dart';
 
+/// Width over height of the frames aircraft photos are shown in. Spotting
+/// sites center the aircraft, so a centered crop of a wider shot (e.g. 16:9)
+/// keeps nose and tail in the frame.
+const aircraftPhotoAspectRatio = 3 / 2;
+
 /// Shows the photo of an aircraft, filling the space it is given, or
 /// [placeholder] when there is no photo or it can't be loaded.
 ///
@@ -84,29 +89,40 @@ class AircraftPhotoView extends ConsumerWidget {
 }
 
 /// Who took an online photo and where it comes from, on a dark pill to stay
-/// readable on any picture. Opens the photo's page when tapped.
+/// readable on any picture. Opens the photo's page when tapped, unless
+/// [small].
 class AircraftPhotoCredit extends StatelessWidget {
-  const AircraftPhotoCredit({super.key, required this.photo});
+  const AircraftPhotoCredit({
+    super.key,
+    required this.photo,
+    this.small = false,
+  });
   final AircraftPhoto photo;
+
+  /// A smaller pill that doesn't open the photo's page, for photos in lists
+  /// where a tap belongs to the item.
+  final bool small;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final link = photo.link == null ? null : Uri.tryParse(photo.link!);
+    final link = small || photo.link == null ? null : Uri.tryParse(photo.link!);
     final credit = photo.credit;
     final label = [if (credit != null) '© $credit', ?photo.source].join(' · ');
     if (label.isEmpty) return const SizedBox.shrink();
 
     return Material(
       color: colors.overlay.withValues(alpha: 0.6),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(small ? 2 : 8),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: link == null
             ? null
             : () => launchUrl(link, mode: LaunchMode.externalApplication),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: small
+              ? const EdgeInsets.symmetric(horizontal: 2, vertical: 0.5)
+              : const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -115,9 +131,11 @@ class AircraftPhotoCredit extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: colors.onOverlay),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.onOverlay,
+                    fontSize: small ? 6 : null,
+                    height: small ? 1.1 : null,
+                  ),
                 ),
               ),
               if (link != null) ...[

@@ -485,8 +485,8 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
         body: ListView(
           padding: EdgeInsets.zero,
           children: [
-            SizedBox(
-              height: 280,
+            AspectRatio(
+              aspectRatio: aircraftPhotoAspectRatio,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

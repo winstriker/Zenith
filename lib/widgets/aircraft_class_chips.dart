@@ -43,7 +43,7 @@ List<Widget> aircraftClassChips(
         backgroundColor: cs.secondaryContainer,
         textColor: cs.onSecondaryContainer,
       ),
-    if (showEngines)
+    if (showEngines && !compact)
       InfoChip(
         padding: padding,
         label: '${engineCount}x ${engineType.name.capitalize()}',

@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/spacing.dart';
 import '../services/database.dart';
-import 'aircraft_class_chips.dart';
 import 'aircraft_photo_view.dart';
 import 'base_card.dart';
-import 'info_chip.dart';
 
 class AircraftCard extends StatelessWidget {
   const AircraftCard({
@@ -33,7 +31,11 @@ class AircraftCard extends StatelessWidget {
       color: colorScheme.onSecondaryContainer,
     );
 
-    const imageWidth = 120.0;
+    // 16:9 at the height of a card with two lines of text, the shape of
+    // JetPhotos thumbnails, so they are shown whole.
+    const minHeight = 80.0;
+    final photo = aircraft?.photo;
+    const imageWidth = minHeight * 16 / 9;
 
     final card = BaseCard(
       onTap: onTap,
@@ -52,18 +54,36 @@ class AircraftCard extends StatelessWidget {
             child: ColoredBox(
               color: colorScheme.secondaryContainer,
               // The photo replaces the icon when the aircraft has one. Its
-              // photographer and link are shown on the aircraft's page.
-              child: aircraft?.photo == null
+              // link is on the aircraft's page.
+              child: photo == null
                   ? icon
-                  : AircraftPhotoView(
-                      photo: aircraft!.photo,
-                      thumbnail: true,
-                      placeholder: Center(child: icon),
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        AircraftPhotoView(
+                          photo: photo,
+                          thumbnail: true,
+                          placeholder: Center(child: icon),
+                        ),
+                        if (photo.isOnline)
+                          Positioned(
+                            left: 2,
+                            right: 2,
+                            bottom: 2,
+                            child: Align(
+                              alignment: Alignment.bottomRight,
+                              child: AircraftPhotoCredit(
+                                photo: photo,
+                                small: true,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
             ),
           ),
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 96),
+            constraints: const BoxConstraints(minHeight: minHeight),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(imageWidth + 16, 16, 16, 16),
               child: _content(context),
@@ -80,13 +100,13 @@ class AircraftCard extends StatelessWidget {
   Widget _content(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    const chipPadding = EdgeInsets.symmetric(horizontal: 8, vertical: 2);
     return Row(
       children: [
         Expanded(
           child: aircraft == null
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'No Aircraft Selected',
@@ -105,6 +125,7 @@ class AircraftCard extends StatelessWidget {
                 )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       aircraft!.tailNumber,
@@ -113,66 +134,15 @@ class AircraftCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      "${aircraft!.manufacturer} ${aircraft!.modelFullName}",
+                      showStats
+                          ? _stats(aircraft!)
+                          : "${aircraft!.manufacturer} ${aircraft!.modelFullName}",
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-
-                    const SizedBox(height: 3),
-
-                    if (showStats && aircraft is AircraftWithStats) ...[
-                      Row(
-                        children: [
-                          InfoChip(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            label:
-                                '${(aircraft as AircraftWithStats).flightCount} flights',
-                            icon: Icons.flight,
-                            backgroundColor:
-                                theme.colorScheme.surfaceContainerHighest,
-                            textColor: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          if ((aircraft as AircraftWithStats).totalFlightTime !=
-                              null) ...[
-                            const SizedBox(width: 8),
-                            InfoChip(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              label:
-                                  '${((aircraft as AircraftWithStats).totalFlightTime! / 60).toStringAsFixed(1)}h',
-                              icon: Icons.schedule,
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              textColor: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ] else ...[
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          ...aircraftClassChips(
-                            context,
-                            aircraftClass: aircraft!.aircraftClass,
-                            typeRating: aircraft!.typeRating,
-                            description: aircraft!.description,
-                            engineCount: aircraft!.engineCount,
-                            engineType: aircraft!.engineType,
-                            compact: true,
-                            padding: chipPadding,
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
         ),
@@ -195,5 +165,15 @@ class AircraftCard extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  /// Hours and flights with the aircraft on one line, e.g. "2100.2 hrs / 10
+  /// flights".
+  static String _stats(AircraftWithStats aircraft) {
+    final count = aircraft.flightCount;
+    final flights = '$count ${count == 1 ? 'flight' : 'flights'}';
+    final minutes = aircraft.totalFlightTime;
+    if (minutes == null) return flights;
+    return '${(minutes / 60).toStringAsFixed(1)} hrs / $flights';
   }
 }
