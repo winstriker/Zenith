@@ -150,13 +150,24 @@ class _NavItem extends StatelessWidget {
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  AnimatedSwitcher(
-                    duration: _duration,
-                    child: Icon(
-                      selected ? destination.selectedIcon : destination.icon,
-                      key: ValueKey(selected),
-                      color: foreground,
-                    ),
+                  // Cross-fade outline → filled icon on the same t, rather
+                  // than an AnimatedSwitcher: toggling back mid-transition
+                  // would make it hold two children with the same key.
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Opacity(
+                        opacity: 1 - t,
+                        child: Icon(destination.icon, color: foreground),
+                      ),
+                      Opacity(
+                        opacity: t,
+                        child: Icon(
+                          destination.selectedIcon,
+                          color: foreground,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
