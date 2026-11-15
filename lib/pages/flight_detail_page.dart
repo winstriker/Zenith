@@ -1,20 +1,18 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
-    hide Theme;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import '../core/fab_hero_tags.dart';
 
 import '../core/theme.dart';
-import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/person_providers.dart';
 import '../providers/unit_provider.dart';
 import '../services/database.dart';
 import '../widgets/aircraft_card.dart';
+import '../widgets/base_map_layer.dart';
 import '../widgets/crew_card.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/flight_rules_card.dart';
@@ -227,8 +225,6 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     final flight = widget.flight;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final cartoStyle = ref.watch(cartoStyleProvider);
-
     final depLat = flight.departure?.latitudeDeg;
     final depLon = flight.departure?.longitudeDeg;
     final arrLat = flight.arrival?.latitudeDeg;
@@ -258,97 +254,74 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     } else {
       final points = flight.dataPoints;
       final hasData = points.isNotEmpty;
-      content = cartoStyle.when(
-        data: (style) {
-          if (style == null) {
-            return const Text(
-              "Error: Style file is null. Are you sure your API key is correct?",
-            );
-          }
-          return FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: LatLng(depLat, depLon),
-              initialZoom: 10.0,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
-              ),
-              onMapReady: () {
-                _mapReady = true;
-                _fitMapBounds(flight, hasData);
-              },
-            ),
-            children: [
-              VectorTileLayer(
-                tileProviders: style.providers,
-                theme: style.theme,
-                concurrency: 4,
-                diskCacheTtl: const Duration(days: 30),
-              ),
-              const MapAttribution(),
-              // Route polyline
-              if (hasData && points.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: points
-                          .map((p) => LatLng(p.latitude, p.longitude))
-                          .toList(),
-                      strokeWidth: 3,
-                      color: cs.primary,
-                    ),
-                  ],
-                )
-              else if (!hasData && arrLat != null && arrLon != null)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: [LatLng(depLat, depLon), LatLng(arrLat, arrLon)],
-                      strokeWidth: 3,
-                      color: cs.primary,
-                    ),
-                  ],
-                ),
-              // Departure / Arrival markers
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: LatLng(depLat, depLon),
-                    width: 24,
-                    height: 24,
-                    alignment: Alignment.center,
-                    child: _RouteMarker(
-                      icon: Icons.flight_takeoff,
-                      color: cs.primary,
-                      foreground: cs.onPrimary,
-                    ),
-                  ),
-                  if (arrLat != null && arrLon != null)
-                    Marker(
-                      point: LatLng(arrLat, arrLon),
-                      width: 24,
-                      height: 24,
-                      alignment: Alignment.center,
-                      child: _RouteMarker(
-                        icon: Icons.flight_land,
-                        color: cs.error,
-                        foreground: cs.onError,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text(
-            'Failed to load map style',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+      content = FlutterMap(
+        mapController: _mapController,
+        options: MapOptions(
+          initialCenter: LatLng(depLat, depLon),
+          initialZoom: 10.0,
+          interactionOptions: const InteractionOptions(
+            flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
           ),
+          onMapReady: () {
+            _mapReady = true;
+            _fitMapBounds(flight, hasData);
+          },
         ),
+        children: [
+          const BaseMapLayer(),
+          const MapAttribution(),
+          // Route polyline
+          if (hasData && points.length >= 2)
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: points
+                      .map((p) => LatLng(p.latitude, p.longitude))
+                      .toList(),
+                  strokeWidth: 3,
+                  color: cs.primary,
+                ),
+              ],
+            )
+          else if (!hasData && arrLat != null && arrLon != null)
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: [LatLng(depLat, depLon), LatLng(arrLat, arrLon)],
+                  strokeWidth: 3,
+                  color: cs.primary,
+                ),
+              ],
+            ),
+          // Departure / Arrival markers
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: LatLng(depLat, depLon),
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                child: _RouteMarker(
+                  icon: Icons.flight_takeoff,
+                  color: cs.primary,
+                  foreground: cs.onPrimary,
+                ),
+              ),
+              if (arrLat != null && arrLon != null)
+                Marker(
+                  point: LatLng(arrLat, arrLon),
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  child: _RouteMarker(
+                    icon: Icons.flight_land,
+                    color: cs.error,
+                    foreground: cs.onError,
+                  ),
+                ),
+            ],
+          ),
+        ],
       );
     }
 

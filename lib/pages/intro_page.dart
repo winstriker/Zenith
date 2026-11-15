@@ -209,7 +209,9 @@ class _IntroPageState extends ConsumerState<IntroPage>
         return _TextInputStep(
           key: const ValueKey('apiKey'),
           title: 'Map API Key (Optional)',
-          subtitle: 'Enter a CARTO API key for vector maps.',
+          subtitle:
+              'Enter a CARTO API key for vector maps, or skip to use '
+              'OpenStreetMap.',
           controller: _apiKeyController,
           focusNode: _apiKeyFocus,
           label: 'CARTO API Key',

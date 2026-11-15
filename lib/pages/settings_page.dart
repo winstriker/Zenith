@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/aircraft_providers.dart';
-import '../providers/carto_provider.dart';
 import '../providers/flight_providers.dart';
+import '../providers/map_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
@@ -12,6 +12,7 @@ import '../services/aircraft_image_cache.dart';
 import '../widgets/section_header.dart';
 import 'backup_settings_page.dart';
 import 'export_page.dart';
+import 'map_settings_page.dart';
 import 'people_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -161,21 +162,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _editApiKey(String? currentKey) async {
-    final result = await showDialog<_ApiKeyResult>(
-      context: context,
-      builder: (_) => _ApiKeyDialog(currentKey: currentKey),
-    );
-    if (result == null) return;
-    final notifier = ref.read(cartoApiKeyProvider.notifier);
-    switch (result) {
-      case _ApiKeyRemove():
-        await notifier.clearKey();
-      case _ApiKeySave(:final key):
-        await notifier.setKey(key);
-    }
-  }
-
   Future<void> _reloadAircraftTypes() async {
     try {
       await ref.read(aircraftTypesLoadProvider.notifier).refresh();
@@ -198,7 +184,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
     final unitMode = ref.watch(unitProvider);
-    final cartoKey = ref.watch(cartoApiKeyProvider);
+    final mapSource = ref.watch(effectiveMapSourceProvider);
     final picNameMode = ref.watch(picNameModeProvider);
 
     return Scaffold(
@@ -319,46 +305,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
                 const Divider(height: 1, indent: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.map, color: theme.colorScheme.primary),
-                          const SizedBox(width: 16),
-                          Text(
-                            'Map API Key',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              cartoKey != null
-                                  ? '${cartoKey.substring(0, cartoKey.length > 8 ? 8 : cartoKey.length)}...'
-                                  : 'Not set',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: cartoKey != null
-                                    ? theme.colorScheme.onSurfaceVariant
-                                    : theme.colorScheme.error,
-                              ),
-                            ),
-                          ),
-                          FilledButton.tonal(
-                            onPressed: () => _editApiKey(cartoKey),
-                            child: Text(cartoKey != null ? 'Change' : 'Add'),
-                          ),
-                        ],
-                      ),
-                    ],
+                ListTile(
+                  leading: Icon(Icons.map, color: theme.colorScheme.primary),
+                  title: Text('Map', style: theme.textTheme.titleMedium),
+                  subtitle: Text(switch (mapSource) {
+                    MapSource.carto => 'CARTO Voyager',
+                    MapSource.osm => 'OpenStreetMap',
+                  }),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const MapSettingsPage(),
+                    ),
                   ),
                 ),
                 const Divider(height: 1, indent: 16),
@@ -538,67 +497,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           const SizedBox(height: 80),
         ],
       ),
-    );
-  }
-}
-
-sealed class _ApiKeyResult {
-  const _ApiKeyResult();
-}
-
-class _ApiKeySave extends _ApiKeyResult {
-  const _ApiKeySave(this.key);
-  final String key;
-}
-
-class _ApiKeyRemove extends _ApiKeyResult {
-  const _ApiKeyRemove();
-}
-
-class _ApiKeyDialog extends StatefulWidget {
-  const _ApiKeyDialog({required this.currentKey});
-  final String? currentKey;
-
-  @override
-  State<_ApiKeyDialog> createState() => _ApiKeyDialogState();
-}
-
-class _ApiKeyDialogState extends State<_ApiKeyDialog> {
-  late final _controller = TextEditingController(text: widget.currentKey ?? '');
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('CARTO API Key'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(
-          hintText: 'Paste your API key',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        if (widget.currentKey != null)
-          TextButton(
-            onPressed: () => Navigator.pop(context, const _ApiKeyRemove()),
-            child: const Text('Remove'),
-          ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.pop(context, _ApiKeySave(_controller.text)),
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

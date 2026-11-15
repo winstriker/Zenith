@@ -3,16 +3,15 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
-    hide Theme;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/theme.dart';
-import '../providers/carto_provider.dart';
 import '../providers/unit_provider.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
+import '../widgets/base_map_layer.dart';
+import '../widgets/map_attribution.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
   const ReplayPage({super.key, required this.flight});
@@ -287,85 +286,70 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     final padding = MediaQuery.paddingOf(context);
     final points = widget.flight.dataPoints;
     final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
-    final cartoStyle = ref.watch(cartoStyleProvider);
 
     return Scaffold(
       backgroundColor: overlay,
       body: Stack(
         children: [
           // Map - static, doesn't rebuild on animation
-          cartoStyle.when(
-            data: (style) => FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: points.isNotEmpty
-                    ? LatLng(points.first.latitude, points.first.longitude)
-                    : const LatLng(51.5, -0.09),
-                initialZoom: 10.0,
-                onMapReady: _onMapReady,
-              ),
-              children: [
-                VectorTileLayer(
-                  tileProviders: style!.providers,
-                  theme: style.theme,
-                  concurrency: 4,
-                  diskCacheTtl: const Duration(days: 30),
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: points.isNotEmpty
+                  ? LatLng(points.first.latitude, points.first.longitude)
+                  : const LatLng(51.5, -0.09),
+              initialZoom: 10.0,
+              onMapReady: _onMapReady,
+            ),
+            children: [
+              const BaseMapLayer(),
+              // Static full path
+              if (_pathPoints.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _pathPoints,
+                      strokeWidth: 3,
+                      color: cs.primary.withValues(alpha: 0.25),
+                    ),
+                  ],
                 ),
-                // Static full path
-                if (_pathPoints.length >= 2)
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(
-                        points: _pathPoints,
-                        strokeWidth: 3,
-                        color: cs.primary.withValues(alpha: 0.25),
+              // Animated trail + plane marker
+              AnimatedBuilder(
+                animation: _progressAnimation,
+                builder: (context, _) {
+                  if (_pathPoints.length < 2 || _currentPosition == null) {
+                    return const SizedBox.shrink();
+                  }
+                  return Stack(
+                    children: [
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: _buildTrailPoints(),
+                            strokeWidth: 4,
+                            color: cs.primary,
+                          ),
+                        ],
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _currentPosition!,
+                            width: 48,
+                            height: 48,
+                            alignment: Alignment.center,
+                            child: _PlaneMarker(
+                              headingDeg: _currentHeading ?? 0,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                // Animated trail + plane marker
-                AnimatedBuilder(
-                  animation: _progressAnimation,
-                  builder: (context, _) {
-                    if (_pathPoints.length < 2 || _currentPosition == null) {
-                      return const SizedBox.shrink();
-                    }
-                    return Stack(
-                      children: [
-                        PolylineLayer(
-                          polylines: [
-                            Polyline(
-                              points: _buildTrailPoints(),
-                              strokeWidth: 4,
-                              color: cs.primary,
-                            ),
-                          ],
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _currentPosition!,
-                              width: 48,
-                              height: 48,
-                              alignment: Alignment.center,
-                              child: _PlaneMarker(
-                                headingDeg: _currentHeading ?? 0,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(
-              child: Text(
-                'Failed to load map',
-                style: TextStyle(color: context.appColors.onOverlay),
+                  );
+                },
               ),
-            ),
+            ],
           ),
 
           // Top gradient overlay (static)
@@ -388,15 +372,27 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             top: padding.top + 4,
             left: 4,
             right: 4,
-            child: _ReplayTopBar(
-              title: widget.flight.flight.title,
-              pointsCount: _pointsCount,
-              speedBadge: AnimatedBuilder(
-                animation: _progressAnimation,
-                builder: (context, _) => _currentSpeed == null
-                    ? const SizedBox.shrink()
-                    : _SpeedBadge(value: _formatSpeed(_currentSpeed, isMetric)),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ReplayTopBar(
+                  title: widget.flight.flight.title,
+                  pointsCount: _pointsCount,
+                  speedBadge: AnimatedBuilder(
+                    animation: _progressAnimation,
+                    builder: (context, _) => _currentSpeed == null
+                        ? const SizedBox.shrink()
+                        : _SpeedBadge(
+                            value: _formatSpeed(_currentSpeed, isMetric),
+                          ),
+                  ),
+                ),
+                // The top-left corner of the map is under the top bar.
+                const Padding(
+                  padding: EdgeInsets.only(left: 8, top: 4),
+                  child: MapAttributionLabel(),
+                ),
+              ],
             ),
           ),
 

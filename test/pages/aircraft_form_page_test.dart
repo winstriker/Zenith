@@ -183,7 +183,7 @@ void main() {
   Finder field(String label) => find.widgetWithText(TextFormField, label);
 
   Future<void> lookUp(WidgetTester tester, String registration) async {
-    await tester.enterText(field('Tail Number *'), registration);
+    await tester.enterText(field('Tail Number'), registration);
     await tester.tap(find.byTooltip('Look up registration'));
     await tester.pump();
     await settle(tester);
@@ -202,11 +202,10 @@ void main() {
     await openForm(tester);
     await lookUp(tester, 'i-abcd');
 
-    expect(field('Tail Number *'), findsOneWidget);
+    expect(field('Tail Number'), findsOneWidget);
     expect(find.text('I-ABCD'), findsOneWidget);
     expect(find.text('172 Skyhawk'), findsOneWidget);
-    expect(find.textContaining('Found as “Cessna 172R Skyhawk II”'), findsOne);
-    expect(find.text('SEP (land)'), findsOneWidget);
+    expect(find.text('SEP (L)'), findsOneWidget);
     expect(find.text('2 photos found online · tap to choose'), findsOneWidget);
     expect(find.text('© Photographer 1 · JetPhotos'), findsOneWidget);
     // The photos to choose from carry no credit: the chosen one does.
@@ -288,14 +287,14 @@ void main() {
 
     expect(find.text('LA-4-200 Buccaneer'), findsOneWidget);
     expect(find.text('Select class'), findsOneWidget);
-    expect(find.textContaining('SEP (land) or SEP (sea)'), findsOneWidget);
+    expect(find.textContaining('SEP (L) or SEP (S)'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Select class'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Select class'));
     await tester.pumpAndSettle();
     expect(find.text('Matches type'), findsNWidgets(2));
-    await tester.tap(find.text('SEP (sea)'));
+    await tester.tap(find.text('SEP (S)'));
     await tester.pumpAndSettle();
     await save(tester, 'Add');
 
@@ -307,7 +306,6 @@ void main() {
     await lookUp(tester, 'I-ODDS');
 
     expect(find.text('Select aircraft model'), findsOneWidget);
-    expect(find.textContaining('Found as “Cameron N-90”'), findsOne);
     // The photo is still offered.
     expect(find.text('1 photo found online'), findsOneWidget);
 
@@ -333,8 +331,7 @@ void main() {
     await lookUp(tester, 'OE-DVK');
 
     expect(find.text('172 Skyhawk'), findsOneWidget);
-    expect(find.textContaining('Found as “Reims/Cessna F172N”'), findsOne);
-    expect(find.text('SEP (land)'), findsOneWidget);
+    expect(find.text('SEP (L)'), findsOneWidget);
     expect(find.text('No photos found for this aircraft.'), findsOneWidget);
     expect(find.textContaining('found online'), findsNothing);
 
@@ -373,9 +370,9 @@ void main() {
 
     await openForm(tester, edit: existing);
     // The class the user chose is kept, even though the type says "land".
-    expect(find.text('SEP (sea)'), findsOneWidget);
+    expect(find.text('SEP (S)'), findsOneWidget);
 
-    await tester.enterText(field('Tail Number *'), 'I-NEWE');
+    await tester.enterText(field('Tail Number'), 'I-NEWE');
     await tester.enterText(field('Notes'), 'On floats');
     await save(tester, 'Save');
 

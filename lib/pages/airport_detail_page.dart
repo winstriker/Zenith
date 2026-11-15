@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
-    hide Theme;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../providers/airport_providers.dart';
-import '../providers/carto_provider.dart';
 import '../services/database.dart';
+import '../widgets/base_map_layer.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/info_row.dart';
 import '../widgets/map_attribution.dart';
@@ -214,54 +212,41 @@ class _InfoSection extends StatelessWidget {
   }
 }
 
-class _MapSection extends ConsumerWidget {
+class _MapSection extends StatelessWidget {
   const _MapSection({required this.airport});
   final Airport airport;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final lat = airport.latitudeDeg;
     final lng = airport.longitudeDeg;
     if (lat == null || lng == null) return const SizedBox.shrink();
-    final cartoStyle = ref.watch(cartoStyleProvider);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
         height: 200,
-        child: cartoStyle.when(
-          data: (style) => FlutterMap(
-            options: MapOptions(
-              initialCenter: LatLng(lat, lng),
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.none,
-              ),
-              onTap: (tap, point) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => AirportMapPage(
-                      latitude: lat,
-                      longitude: lng,
-                      airportName: airport.name ?? '',
-                    ),
-                  ),
-                );
-              },
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(lat, lng),
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.none,
             ),
-            children: [
-              VectorTileLayer(
-                tileProviders: style!.providers,
-                theme: style.theme,
-                concurrency: 4,
-                diskCacheTtl: const Duration(days: 30),
-              ),
-              const MapAttribution(),
-            ],
+            onTap: (tap, point) {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => AirportMapPage(
+                    latitude: lat,
+                    longitude: lng,
+                    airportName: airport.name ?? '',
+                  ),
+                ),
+              );
+            },
           ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => const SizedBox.shrink(),
+          children: const [BaseMapLayer(), MapAttribution()],
         ),
       ),
     );

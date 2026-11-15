@@ -8,9 +8,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CartoApiKeyNotifier extends Notifier<String?> {
   static const _key = 'carto_api_key';
 
+  /// Completes once the saved key has been read, so `null` can be told
+  /// apart from "not loaded yet".
+  late Future<void> loaded;
+
   @override
   String? build() {
-    _loadKey();
+    loaded = _loadKey();
     return null; // while loading
   }
 

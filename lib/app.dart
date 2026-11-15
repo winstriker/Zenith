@@ -12,7 +12,7 @@ import 'pages/intro_page.dart';
 import 'pages/settings_page.dart';
 import 'providers/aircraft_providers.dart';
 import 'providers/backup_providers.dart';
-import 'providers/carto_provider.dart';
+import 'providers/map_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
 import 'widgets/floating_nav_bar.dart';
@@ -69,16 +69,14 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
-    final apiKey = ref.watch(cartoApiKeyProvider);
     final nickname = ref.watch(userNicknameProvider);
     final signatureName = ref.watch(userSignatureNameProvider);
     final onboardingComplete = ref.watch(onboardingCompleteProvider);
     final needsIntro =
         nickname == null || signatureName == null || !onboardingComplete;
-    // Pre-load CARTO style as soon as the API key is available
-    if (apiKey != null && apiKey.isNotEmpty) {
-      ref.watch(cartoStyleProvider);
-    }
+    // Pre-load the map tiles (the CARTO style, when used) so maps open
+    // ready. Listened, not watched, for the same reason as below.
+    ref.listen(mapTilesProvider, (_, _) {});
     // Trigger aircraft types load on app startup. Listened, not watched:
     // the lists read the table through streams, so the whole app (and any
     // animation on screen) doesn't need to rebuild when the load finishes.
