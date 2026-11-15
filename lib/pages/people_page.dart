@@ -14,7 +14,8 @@ class PeoplePage extends StatelessWidget {
       onTap: (entry) => Navigator.push(
         context,
         MaterialPageRoute<void>(
-          builder: (_) => PersonDetailPage(personId: entry.person.id),
+          builder: (_) =>
+              PersonDetailPage(personId: entry.person.id, initial: entry),
         ),
       ),
     );

@@ -16,12 +16,21 @@ import 'person_select_page.dart';
 /// Profile of a person: picture, stats and the flights flown together.
 /// Edit, merge and delete live in the FABs.
 class PersonDetailPage extends ConsumerWidget {
-  const PersonDetailPage({super.key, required this.personId});
+  const PersonDetailPage({super.key, required this.personId, this.initial});
   final int personId;
+
+  /// The person as the caller already has them, shown until the stream
+  /// delivers. Rendering the full page on the first frame lets the FAB hero
+  /// morph from the previous page instead of hitting a loading spinner.
+  final PersonWithLastFlight? initial;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final personAsync = ref.watch(personProvider(personId));
+    final initial = this.initial;
+    if (initial != null && !personAsync.hasValue && !personAsync.hasError) {
+      return _PersonDetailView(entry: initial);
+    }
 
     return personAsync.when(
       loading: () =>
