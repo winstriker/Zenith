@@ -18,7 +18,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_map: ^8.3.0
-  flutter_map_vector_tiles: ^2.8.1
+  flutter_map_vector_tiles: ^2.11.0
   flutter_native_html_to_pdf: ^3.1.0
   flutter_riverpod: ^3.3.1
   flutter_secure_storage: ^11.2.0
@@ -37,9 +37,6 @@ dependencies:
   timezone: ^0.11.1
   url_launcher: ^6.3.3
   uuid: ^4.5.1
-dependency_overrides:
-  flutter_map_vector_tiles:
-    path: packages/flutter_map_vector_tiles
 
 dev_dependencies:
   build_runner: ^2.15.0
