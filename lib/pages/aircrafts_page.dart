@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/aircraft_providers.dart';
 import '../repositories/aircraft_repository.dart';
 import '../services/database.dart';
-import '../widgets/aircraft_card.dart';
-import '../widgets/empty_state.dart';
+import '../widgets/aircraft_list_scaffold.dart';
 import 'aircraft_detail_page.dart';
-import 'aircraft_form_page.dart';
 
 class AircraftsPage extends ConsumerStatefulWidget {
   const AircraftsPage({super.key});
@@ -19,61 +16,11 @@ class AircraftsPage extends ConsumerStatefulWidget {
 class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   @override
   Widget build(BuildContext context) {
-    final aircraftAsync = ref.watch(aircraftListStreamProvider);
-
-    return aircraftAsync.when(
-      data: (aircraftList) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('My Aircraft'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.add),
-                tooltip: 'Add aircraft',
-                onPressed: _showAddDialog,
-              ),
-            ],
-          ),
-          body: aircraftList.isEmpty
-              ? EmptyState(
-                  icon: Icons.airplanemode_active,
-                  title: 'No aircraft yet',
-                  subtitle:
-                      'Add your first aircraft to start tracking flights.',
-                  action: FilledButton.icon(
-                    onPressed: _showAddDialog,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Aircraft'),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(top: 8, bottom: 80),
-                  itemCount: aircraftList.length,
-                  itemBuilder: (context, index) {
-                    final aws = aircraftList[index];
-                    return AircraftCard(
-                      aircraft: aws,
-                      onTap: () => _showDetailPage(aws),
-                      onLongPress: () => _confirmDelete(aws),
-                    );
-                  },
-                ),
-        );
-      },
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, stck) {
-        return Scaffold(body: Center(child: Text('Error: $e')));
-      },
+    return AircraftListScaffold(
+      title: 'My Aircrafts',
+      onTap: _showDetailPage,
+      onLongPress: _confirmDelete,
     );
-  }
-
-  Future<void> _showAddDialog() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
-    );
-    // Stream provider automatically updates, no manual refresh needed
   }
 
   Future<void> _showDetailPage(AircraftWithStats aws) async {

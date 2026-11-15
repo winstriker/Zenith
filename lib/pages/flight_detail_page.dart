@@ -56,62 +56,72 @@ class _FlightDetailView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => FlightFormPage(flightToEdit: flight),
-            ),
-          );
-        },
-        icon: const Icon(Icons.edit),
-        label: const Text('Edit'),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'closeFab',
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
       ),
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              _FlightMapCard(flight: flight),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 270),
-                    FlightCard(flight: flight, useOuterPadding: false),
-                    const SizedBox(height: 12),
-                    AircraftCard(
-                      aircraft: flight.aircraftWithStats,
-                      useOuterPadding: false,
-                    ),
-                    const SizedBox(height: 12),
-                    LandingsCard(
-                      approachType: flight.flight.approachType!,
-                      nightLandings: flight.flight.nightLandings!,
-                      dayLandings: flight.flight.dayLandings!,
-                    ),
-                    const SizedBox(height: 12),
-                    FlightRulesCard(flightRules: flight.flight.flightRules!),
-                    const SizedBox(height: 12),
-                    _FlightCrewCard(flight: flight.flight),
-                    if (flight.flight.remarks != null)
-                      RemarksCard(initialValue: flight.flight.remarks!),
-                    if (flight.dataPoints.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      _AltitudeChartCard(points: flight.dataPoints),
-                      const SizedBox(height: 12),
-                      _FlightDetailsCard(flight: flight),
-                      const SizedBox(height: 12),
-                      _ReplayButtonCard(flight: flight),
-                    ],
-                  ],
-                ),
+      body: Scaffold(
+        floatingActionButton: FloatingActionButton.extended(
+          heroTag: 'editFab',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => FlightFormPage(flightToEdit: flight),
               ),
-            ],
-          ),
-          const SizedBox(height: 32),
-        ],
+            );
+          },
+          icon: const Icon(Icons.edit),
+          label: const Text('Edit'),
+        ),
+        body: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _FlightMapCard(flight: flight),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 270),
+                      FlightCard(flight: flight, useOuterPadding: false),
+                      const SizedBox(height: 12),
+                      AircraftCard(
+                        aircraft: flight.aircraftWithStats,
+                        useOuterPadding: false,
+                      ),
+                      const SizedBox(height: 12),
+                      LandingsCard(
+                        approachType: flight.flight.approachType!,
+                        nightLandings: flight.flight.nightLandings!,
+                        dayLandings: flight.flight.dayLandings!,
+                      ),
+                      const SizedBox(height: 12),
+                      FlightRulesCard(flightRules: flight.flight.flightRules!),
+                      const SizedBox(height: 12),
+                      _FlightCrewCard(flight: flight.flight),
+                      if (flight.flight.remarks != null)
+                        RemarksCard(initialValue: flight.flight.remarks!),
+                      if (flight.dataPoints.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _AltitudeChartCard(points: flight.dataPoints),
+                        const SizedBox(height: 12),
+                        _FlightDetailsCard(flight: flight),
+                        const SizedBox(height: 12),
+                        _ReplayButtonCard(flight: flight),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }

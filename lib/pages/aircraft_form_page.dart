@@ -466,9 +466,6 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
     final isEditing = widget.aircraft != null;
     final lookup = _lookup;
     final photo = _photo;
-    final caption = theme.textTheme.bodySmall?.copyWith(
-      color: cs.onSurfaceVariant,
-    );
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,

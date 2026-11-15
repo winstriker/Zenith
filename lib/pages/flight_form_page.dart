@@ -112,84 +112,108 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     final notifier = _formNotifier;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit Flight' : 'Log Flight'),
-        centerTitle: true,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'closeFab',
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: form.isValid ? () => _save(notifier) : null,
-        icon: const Icon(Icons.save),
-        label: const Text('Save'),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            FlightFormCard(
-              departureDate: form.departureDate,
-              arrivalDate: form.arrivalDate,
-              departureCode: form.departureCode,
-              arrivalCode: form.arrivalCode,
-              depTime: form.depTime,
-              arrTime: form.arrTime,
-              selectedDeparture: form.selectedDeparture,
-              selectedArrival: form.selectedArrival,
-              depTzLabel: form.depTzLabel,
-              arrTzLabel: form.arrTzLabel,
-              blockTime: form.blockTimeFormatted,
-              onDepartureDateTap: () => _pickDate(notifier, isDeparture: true),
-              onArrivalDateTap: () => _pickDate(notifier, isDeparture: false),
-              onDepartureTzTap: () =>
-                  _showTzPicker(notifier, isDeparture: true),
-              onArrivalTzTap: () => _showTzPicker(notifier, isDeparture: false),
-              onDepartureAirportTap: () =>
-                  _pickAirport(notifier, isDeparture: true),
-              onArrivalAirportTap: () =>
-                  _pickAirport(notifier, isDeparture: false),
-              onDepTimeChanged: notifier.setDepTime,
-              onArrTimeChanged: notifier.setArrTime,
-              parseDateTime: TZDateTimeParser.parseDateTimeFromText,
-              depIanaLocation: form.depIanaLocation,
-              arrIanaLocation: form.arrIanaLocation,
+      body: Scaffold(
+        floatingActionButton: FloatingActionButton.extended(
+          heroTag: 'saveFab',
+          onPressed: form.isValid ? () => _save(notifier) : null,
+          icon: const Icon(Icons.save),
+          label: const Text('Save'),
+        ),
+        body: Form(
+          key: _formKey,
+          child: ListView(
+            // Top padding leaves room for the close FAB pinned at the top-left.
+            padding: EdgeInsets.fromLTRB(
+              16,
+              MediaQuery.paddingOf(context).top + 80,
+              16,
+              16,
             ),
-            const SizedBox(height: 16),
-            AircraftCard(
-              aircraft: form.selectedAircraft,
-              onTap: () => _pickAircraft(notifier),
-              useOuterPadding: false,
-            ),
-            const SizedBox(height: 16),
-            LandingsCard(
-              approachType: form.approachType,
-              onApproachTypeChanged: notifier.setApproachType,
-              nightLandings: form.nightLandings,
-              onNightLandingsChanged: notifier.setNightLandings,
-              dayLandings: form.dayLandings,
-              onDayLandingsChanged: notifier.setDayLandings,
-            ),
-            const SizedBox(height: 16),
-            FlightRulesCard(
-              flightRules: form.flightRules,
-              onFlightRulesChanged: notifier.setFlightRules,
-            ),
-            const SizedBox(height: 16),
-            CrewCard(
-              pilotRole: form.pilotRole,
-              crewMembers: form.crewMembers,
-              errorText: form.crewError,
-              onPilotRoleChanged: notifier.setPilotRole,
-              onCrewMemberAdded: notifier.addCrewMember,
-              onCrewMemberRemoved: notifier.removeCrewMember,
-              onCrewMemberChanged: notifier.updateCrewMember,
-            ),
-            const SizedBox(height: 16),
-            RemarksCard(
-              initialValue: widget.flightToEdit?.flight.remarks ?? form.remarks,
-              onChanged: notifier.setRemarks,
-            ),
-            const SizedBox(height: 80),
-          ],
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  widget.isEditing ? 'Edit Flight' : 'Log Flight',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              FlightFormCard(
+                departureDate: form.departureDate,
+                arrivalDate: form.arrivalDate,
+                departureCode: form.departureCode,
+                arrivalCode: form.arrivalCode,
+                depTime: form.depTime,
+                arrTime: form.arrTime,
+                selectedDeparture: form.selectedDeparture,
+                selectedArrival: form.selectedArrival,
+                depTzLabel: form.depTzLabel,
+                arrTzLabel: form.arrTzLabel,
+                blockTime: form.blockTimeFormatted,
+                onDepartureDateTap: () =>
+                    _pickDate(notifier, isDeparture: true),
+                onArrivalDateTap: () => _pickDate(notifier, isDeparture: false),
+                onDepartureTzTap: () =>
+                    _showTzPicker(notifier, isDeparture: true),
+                onArrivalTzTap: () =>
+                    _showTzPicker(notifier, isDeparture: false),
+                onDepartureAirportTap: () =>
+                    _pickAirport(notifier, isDeparture: true),
+                onArrivalAirportTap: () =>
+                    _pickAirport(notifier, isDeparture: false),
+                onDepTimeChanged: notifier.setDepTime,
+                onArrTimeChanged: notifier.setArrTime,
+                parseDateTime: TZDateTimeParser.parseDateTimeFromText,
+                depIanaLocation: form.depIanaLocation,
+                arrIanaLocation: form.arrIanaLocation,
+              ),
+              const SizedBox(height: 16),
+              AircraftCard(
+                aircraft: form.selectedAircraft,
+                onTap: () => _pickAircraft(notifier),
+                useOuterPadding: false,
+              ),
+              const SizedBox(height: 16),
+              LandingsCard(
+                approachType: form.approachType,
+                onApproachTypeChanged: notifier.setApproachType,
+                nightLandings: form.nightLandings,
+                onNightLandingsChanged: notifier.setNightLandings,
+                dayLandings: form.dayLandings,
+                onDayLandingsChanged: notifier.setDayLandings,
+              ),
+              const SizedBox(height: 16),
+              FlightRulesCard(
+                flightRules: form.flightRules,
+                onFlightRulesChanged: notifier.setFlightRules,
+              ),
+              const SizedBox(height: 16),
+              CrewCard(
+                pilotRole: form.pilotRole,
+                crewMembers: form.crewMembers,
+                errorText: form.crewError,
+                onPilotRoleChanged: notifier.setPilotRole,
+                onCrewMemberAdded: notifier.addCrewMember,
+                onCrewMemberRemoved: notifier.removeCrewMember,
+                onCrewMemberChanged: notifier.updateCrewMember,
+              ),
+              const SizedBox(height: 16),
+              RemarksCard(
+                initialValue:
+                    widget.flightToEdit?.flight.remarks ?? form.remarks,
+                onChanged: notifier.setRemarks,
+              ),
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );
