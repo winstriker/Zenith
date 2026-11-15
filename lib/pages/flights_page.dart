@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../core/fab_hero_tags.dart';
 import '../core/search.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
@@ -122,14 +123,14 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
-        heroTag: 'closeFab',
+        heroTag: closeFabHeroTag,
         tooltip: 'Close',
         onPressed: () => Navigator.pop(context),
         child: const Icon(Icons.close),
       ),
       body: Scaffold(
         floatingActionButton: FloatingActionButton.extended(
-          heroTag: 'addFab',
+          heroTag: primaryFabHeroTag,
           icon: const Icon(Icons.add),
           label: const Text('Add'),
           onPressed: _addFlight,

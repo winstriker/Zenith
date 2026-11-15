@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/fab_hero_tags.dart';
 
 import '../pages/person_form_page.dart';
 import '../providers/person_providers.dart';
@@ -61,7 +62,7 @@ class _PeopleListScaffoldState extends ConsumerState<PeopleListScaffold> {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
-        heroTag: 'closeFab',
+        heroTag: closeFabHeroTag,
         tooltip: 'Close',
         onPressed: () => Navigator.pop(context),
         child: const Icon(Icons.close),
@@ -69,7 +70,7 @@ class _PeopleListScaffoldState extends ConsumerState<PeopleListScaffold> {
       body: Scaffold(
         floatingActionButton: widget.allowCreate
             ? FloatingActionButton.extended(
-                heroTag: 'addFab',
+                heroTag: primaryFabHeroTag,
                 icon: const Icon(Icons.person_add_outlined),
                 label: const Text('Add'),
                 onPressed: _addPerson,

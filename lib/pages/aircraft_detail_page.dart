@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/fab_hero_tags.dart';
 import '../providers/aircraft_providers.dart';
 import '../services/database.dart';
 import '../widgets/aircraft_details_card.dart';
@@ -28,13 +29,13 @@ class AircraftDetailPage extends ConsumerWidget {
         return Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
           floatingActionButton: FloatingActionButton(
-            heroTag: "closeFab",
+            heroTag: closeFabHeroTag,
             onPressed: () => Navigator.pop(context),
             child: const Icon(Icons.close),
           ),
           body: Scaffold(
             floatingActionButton: FloatingActionButton.extended(
-              heroTag: "editFab",
+              heroTag: primaryFabHeroTag,
               label: const Text("Edit"),
               icon: const Icon(Icons.edit),
               onPressed: () async {

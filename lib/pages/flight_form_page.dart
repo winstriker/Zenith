@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/fab_hero_tags.dart';
 
 import '../providers/database_provider.dart';
 import '../providers/flight_form_provider.dart';
@@ -114,14 +115,14 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
-        heroTag: 'closeFab',
+        heroTag: closeFabHeroTag,
         tooltip: 'Close',
         onPressed: () => Navigator.pop(context),
         child: const Icon(Icons.close),
       ),
       body: Scaffold(
         floatingActionButton: FloatingActionButton.extended(
-          heroTag: 'saveFab',
+          heroTag: primaryFabHeroTag,
           onPressed: form.isValid ? () => _save(notifier) : null,
           icon: const Icon(Icons.save),
           label: const Text('Save'),

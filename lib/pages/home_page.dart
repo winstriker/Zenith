@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/fab_hero_tags.dart';
 
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
@@ -26,14 +27,14 @@ class HomePage extends ConsumerWidget {
     final aircraftList = ref.watch(aircraftListStreamProvider);
     final nickname = ref.watch(userNicknameProvider);
     final totalFlightTime = ref.watch(totalFlightTimeProvider);
+    final isRecording = gpsController.isTracking();
 
     return Scaffold(
+      floatingActionButton: const _HomeFabs(),
       body: CustomScrollView(
         slivers: [
           _HomeHeader(nickname: nickname),
-          SliverToBoxAdapter(
-            child: _RecordingBanner(isRecording: gpsController.isTracking()),
-          ),
+          if (isRecording) const SliverToBoxAdapter(child: _RecordingBanner()),
           SliverToBoxAdapter(
             child: _QuickStats(
               flightCount: flights.when(
@@ -101,7 +102,8 @@ class HomePage extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator()),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          // Keeps the last flight clear of the FAB column.
+          const SliverToBoxAdapter(child: SizedBox(height: 136)),
         ],
       ),
     );
@@ -127,6 +129,207 @@ void _openRecording(BuildContext context) {
     context,
     MaterialPageRoute<void>(builder: (_) => const RecordingPage()),
   );
+}
+
+/// "Add Flight" FAB with a small "more" FAB above it that pops up the less
+/// common ways to log a flight (recording, ADS-B import).
+class _HomeFabs extends StatefulWidget {
+  const _HomeFabs();
+
+  @override
+  State<_HomeFabs> createState() => _HomeFabsState();
+}
+
+class _HomeFabsState extends State<_HomeFabs>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 350),
+    reverseDuration: const Duration(milliseconds: 220),
+  );
+  bool _open = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    _open ? _controller.forward() : _controller.reverse();
+  }
+
+  /// Closes the menu before running [action], so it is closed on return.
+  void _run(VoidCallback action) {
+    if (_open) _toggle();
+    action();
+  }
+
+  void _importAdsb() {
+    // TODO: import flights from ADS-B data.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('ADS-B import is coming soon')),
+      );
+  }
+
+  /// Pops [child] up from the "more" FAB: it fades in, slides up and scales
+  /// with a slight overshoot. [start] (0..0.2) staggers the entries so the
+  /// one nearest the FAB appears first.
+  Widget _popIn(Widget child, {required double start}) {
+    final pop = _controller.drive(
+      CurveTween(
+        curve: Interval(start, start + 0.8, curve: Curves.easeOutBack),
+      ),
+    );
+    return FadeTransition(
+      opacity: _controller.drive(
+        CurveTween(curve: Interval(start, start + 0.5, curve: Curves.easeOut)),
+      ),
+      child: SlideTransition(
+        position: pop.drive(
+          Tween(begin: const Offset(0, 0.5), end: Offset.zero),
+        ),
+        child: ScaleTransition(
+          scale: pop.drive(Tween(begin: 0.6, end: 1.0)),
+          alignment: Alignment.bottomRight,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Grows the room for the entries along with their pop-in.
+        SizeTransition(
+          sizeFactor: _controller.drive(CurveTween(curve: Curves.easeOutCubic)),
+          alignment: Alignment.bottomRight,
+          child: IgnorePointer(
+            ignoring: !_open,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _popIn(
+                  start: 0.2,
+                  _SpeedDialAction(
+                    heroTag: 'adsbFab',
+                    icon: Icons.settings_input_antenna,
+                    label: 'Import from ADS-B',
+                    onPressed: () => _run(_importAdsb),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _popIn(
+                  start: 0,
+                  _SpeedDialAction(
+                    heroTag: 'recordFab',
+                    icon: Icons.fiber_manual_record,
+                    label: 'Record',
+                    backgroundColor: cs.error,
+                    foregroundColor: cs.onError,
+                    onPressed: () => _run(() => _openRecording(context)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ),
+        FloatingActionButton.small(
+          heroTag: 'moreFab',
+          tooltip: _open ? 'Close' : 'More',
+          onPressed: _toggle,
+          // Cross-fades "more" into "close" while turning a quarter.
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              FadeTransition(
+                opacity: _controller.drive(Tween(begin: 1.0, end: 0.0)),
+                child: RotationTransition(
+                  turns: _controller
+                      .drive(CurveTween(curve: Curves.easeOutCubic))
+                      .drive(Tween(begin: 0.0, end: 0.25)),
+                  child: const Icon(Icons.more_horiz),
+                ),
+              ),
+              FadeTransition(
+                opacity: _controller,
+                child: RotationTransition(
+                  turns: _controller
+                      .drive(CurveTween(curve: Curves.easeOutCubic))
+                      .drive(Tween(begin: -0.25, end: 0.0)),
+                  child: const Icon(Icons.close),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        FloatingActionButton.extended(
+          heroTag: primaryFabHeroTag,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Flight'),
+          onPressed: () => _run(
+            () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const FlightFormPage()),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Compact extended FAB used for the speed-dial entries.
+class _SpeedDialAction extends StatelessWidget {
+  const _SpeedDialAction({
+    required this.heroTag,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.backgroundColor,
+    this.foregroundColor,
+  });
+
+  final Object heroTag;
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        floatingActionButtonTheme: theme.floatingActionButtonTheme.copyWith(
+          extendedSizeConstraints: const BoxConstraints.tightFor(height: 40),
+          extendedPadding: const EdgeInsetsDirectional.only(start: 12, end: 16),
+          extendedIconLabelSpacing: 8,
+        ),
+      ),
+      child: FloatingActionButton.extended(
+        heroTag: heroTag,
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        icon: Icon(icon, size: 20),
+        label: Text(label),
+        onPressed: onPressed,
+      ),
+    );
+  }
 }
 
 class _HomeHeader extends StatelessWidget {
@@ -204,94 +407,60 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
+/// Shown while a flight is being recorded.
 class _RecordingBanner extends StatelessWidget {
-  const _RecordingBanner({required this.isRecording});
-  final bool isRecording;
+  const _RecordingBanner();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final bigButtonStyle = FilledButton.styleFrom(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      textStyle: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w600,
-      ),
-    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: isRecording
-          ? Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cs.errorContainer,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.error.withValues(alpha: 0.4)),
-              ),
-              child: Row(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.errorContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.error.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const PulsingDot(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const PulsingDot(),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recording in progress',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: cs.onErrorContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          'Tap to view recording',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onErrorContainer.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Recording in progress',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: cs.onErrorContainer,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  FilledButton.icon(
-                    onPressed: () => _openRecording(context),
-                    icon: const Icon(Icons.open_in_new, size: 18),
-                    label: const Text('Open'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: cs.error,
-                      foregroundColor: cs.onError,
+                  Text(
+                    'Tap to view recording',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onErrorContainer.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
               ),
-            )
-          : Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _openRecording(context),
-                    icon: const Icon(Icons.fiber_manual_record, size: 22),
-                    label: const Text('Start Recording'),
-                    style: bigButtonStyle,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const FlightFormPage(),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add, size: 22),
-                    label: const Text('Add Flight'),
-                    style: bigButtonStyle,
-                  ),
-                ),
-              ],
             ),
+            FilledButton.icon(
+              onPressed: () => _openRecording(context),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text('Open'),
+              style: FilledButton.styleFrom(
+                backgroundColor: cs.error,
+                foregroundColor: cs.onError,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

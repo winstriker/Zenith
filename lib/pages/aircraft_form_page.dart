@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import '../core/fab_hero_tags.dart';
 
 import '../repositories/aircraft_repository.dart';
 import '../services/aircraft_lookup_service.dart';
@@ -471,13 +472,13 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pop(context),
-        heroTag: "closeFab",
+        heroTag: closeFabHeroTag,
         child: const Icon(Icons.close),
       ),
       body: Scaffold(
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _saving ? null : _save,
-          heroTag: "saveFab",
+          heroTag: primaryFabHeroTag,
           label: Text(isEditing ? "Save" : "Add"),
           icon: Icon(isEditing ? Icons.save : Icons.add),
         ),

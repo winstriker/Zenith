@@ -6,6 +6,7 @@ import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import '../core/fab_hero_tags.dart';
 
 import '../core/theme.dart';
 import '../providers/carto_provider.dart';
@@ -58,14 +59,14 @@ class _FlightDetailView extends StatelessWidget {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
-        heroTag: 'closeFab',
+        heroTag: closeFabHeroTag,
         tooltip: 'Close',
         onPressed: () => Navigator.pop(context),
         child: const Icon(Icons.close),
       ),
       body: Scaffold(
         floatingActionButton: FloatingActionButton.extended(
-          heroTag: 'editFab',
+          heroTag: primaryFabHeroTag,
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(

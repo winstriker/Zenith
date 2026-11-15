@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../core/fab_hero_tags.dart';
 
 import '../providers/person_providers.dart';
 import '../repositories/person_repository.dart';
@@ -51,7 +52,7 @@ class _PersonDetailView extends ConsumerWidget {
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
-        heroTag: 'closeFab',
+        heroTag: closeFabHeroTag,
         onPressed: () => Navigator.pop(context),
         child: const Icon(Icons.close),
       ),
@@ -77,7 +78,7 @@ class _PersonDetailView extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             FloatingActionButton.extended(
-              heroTag: 'editFab',
+              heroTag: primaryFabHeroTag,
               icon: const Icon(Icons.edit),
               label: const Text('Edit'),
               onPressed: () => Navigator.push(

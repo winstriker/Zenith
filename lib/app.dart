@@ -120,7 +120,16 @@ class _MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: currentIndex, children: _pages),
+      body: IndexedStack(
+        index: currentIndex,
+        children: [
+          // IndexedStack keeps hidden tabs in the tree, so their heroes would
+          // still take part in transitions (e.g. Home's "Add Flight" FAB
+          // flying in when a page pushed from Settings is popped).
+          for (final (i, page) in _pages.indexed)
+            HeroMode(enabled: i == currentIndex, child: page),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: onDestinationSelected,
