@@ -8,6 +8,7 @@ import '../core/fab_hero_tags.dart';
 
 import '../core/theme.dart';
 import '../models/flight_track.dart';
+import '../models/logbook_entry.dart';
 import '../providers/adsb_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/person_providers.dart';
@@ -25,8 +26,10 @@ import '../widgets/landings_card.dart';
 import '../widgets/map_attribution.dart';
 import '../widgets/remarks_card.dart';
 import '../widgets/section_header.dart';
+import '../widgets/speed_dial_fab.dart';
 import 'adsb_track_page.dart';
 import 'flight_form_page.dart';
+import 'logbook_overrides_page.dart';
 import 'person_detail_page.dart';
 import 'replay_page.dart';
 
@@ -86,17 +89,22 @@ class _FlightDetailView extends ConsumerWidget {
         child: const Icon(Icons.close),
       ),
       body: Scaffold(
-        floatingActionButton: FloatingActionButton.extended(
-          heroTag: primaryFabHeroTag,
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => FlightFormPage(flightToEdit: flight),
-              ),
-            );
-          },
-          icon: const Icon(Icons.edit),
-          label: const Text('Edit'),
+        floatingActionButton: SpeedDialFab(
+          actions: [
+            SpeedDialAction(
+              heroTag: 'logbookOverridesFab',
+              icon: Icons.edit_note,
+              label: 'Logbook overrides',
+              onPressed: () => _openOverrides(context, flight),
+            ),
+          ],
+          primaryIcon: Icons.edit,
+          primaryLabel: 'Edit',
+          onPrimaryPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => FlightFormPage(flightToEdit: flight),
+            ),
+          ),
         ),
         body: ListView(
           padding: EdgeInsets.zero,
@@ -110,7 +118,14 @@ class _FlightDetailView extends ConsumerWidget {
                   child: Column(
                     children: [
                       const SizedBox(height: _cardsTop),
-                      FlightCard(flight: flight, useOuterPadding: false),
+                      FlightCard(
+                        flight: flight,
+                        useOuterPadding: false,
+                        totalTimeOverride: flight
+                            .flight
+                            .logbookOverrides
+                            ?.times[LogbookTimeField.total],
+                      ),
                       const SizedBox(height: 12),
                       AircraftCard(
                         aircraft: flight.aircraftWithStats,
@@ -128,7 +143,7 @@ class _FlightDetailView extends ConsumerWidget {
                       ],
                       if (flightRules != null) ...[
                         const SizedBox(height: 12),
-                        FlightRulesCard(flightRules: flightRules),
+                        _FlightRulesTimesCard(flight: flight),
                       ],
                       const SizedBox(height: 12),
                       _FlightCrewCard(flight: flight.flight),
@@ -156,6 +171,71 @@ class _FlightDetailView extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+void _openOverrides(BuildContext context, FlightWithStats flight) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => LogbookOverridesPage(flight: flight),
+    ),
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Flight rules
+// -----------------------------------------------------------------------------
+
+/// Flight rules with the IFR, VFR and night time logged for the flight,
+/// overrides included. A value that differs from the flight's own (directly
+/// overridden, or following an overridden total) is marked.
+class _FlightRulesTimesCard extends StatelessWidget {
+  const _FlightRulesTimesCard({required this.flight});
+  final FlightWithStats flight;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = flight.flight;
+    final original = LogbookEntry.of(flight, overrides: LogbookOverrides.empty);
+    final logged = LogbookEntry.of(flight);
+    final duration = flight.duration;
+    final blockKnown = duration != null && !duration.isNegative;
+
+    // What a value is, from the flight alone or with the overrides: null
+    // when it isn't known (and not overridden).
+    Duration? total(LogbookEntry e) =>
+        blockKnown || e.isOverridden(LogbookTimeField.total)
+        ? e.time(LogbookTimeField.total)
+        : null;
+    Duration? ifr(LogbookEntry e) =>
+        e.isOverridden(LogbookTimeField.ifr) ||
+            FlightRulesKind.of(f.flightRules) != FlightRulesKind.mixed ||
+            f.instrumentMinutes != null
+        ? e.time(LogbookTimeField.ifr)
+        : null;
+    Duration? vfr(LogbookEntry e) {
+      final t = total(e);
+      final i = ifr(e);
+      return t == null || i == null ? null : t - i;
+    }
+
+    Duration? night(LogbookEntry e) =>
+        e.isOverridden(LogbookTimeField.night) || f.nightMinutes != null
+        ? e.time(LogbookTimeField.night)
+        : null;
+
+    bool changed(LogbookTimeField field, Duration? Function(LogbookEntry) of) =>
+        logged.isOverridden(field) || of(logged) != of(original);
+
+    return FlightRulesCard(
+      flightRules: f.flightRules!,
+      instrumentTime: ifr(logged),
+      visualTime: vfr(logged),
+      nightTime: night(logged),
+      instrumentOverridden: changed(LogbookTimeField.ifr, ifr),
+      visualOverridden: vfr(logged) != vfr(original),
+      nightOverridden: changed(LogbookTimeField.night, night),
     );
   }
 }

@@ -97,13 +97,18 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       notifier.setPilotRole(CrewRole.fromString(f.pilotRole!));
     }
     final crew = await ref.read(databaseProvider).getFlightCrew(f.id);
+    final track = await ref.read(flightRepositoryProvider).getTrack(f.id);
     if (!mounted) return;
+    notifier.setTrack([for (final p in track) p.timedPosition]);
     for (final member in crew) {
       notifier.addCrewMember(member);
     }
     notifier.setNightLandings(f.nightLandings ?? 0);
     notifier.setDayLandings(f.dayLandings ?? 1);
     notifier.setFlightRules(f.flightRules ?? 'VFR');
+    if (f.instrumentMinutes != null) {
+      notifier.setInstrumentTime(Duration(minutes: f.instrumentMinutes!));
+    }
 
     if (depAirport != null) {
       notifier.setSelectedDeparture(depAirport);
@@ -178,6 +183,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       setTime: notifier.setArrTime,
     );
     if (draft.aircraft != null) notifier.setSelectedAircraft(draft.aircraft);
+    notifier.setTrack([
+      for (final p in draft.points)
+        (time: p.time, latitude: p.latitude, longitude: p.longitude),
+    ]);
   }
 
   /// Adds the aircraft of the imported flight, which the user doesn't have
@@ -303,6 +312,14 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               FlightRulesCard(
                 flightRules: form.flightRules,
                 onFlightRulesChanged: notifier.setFlightRules,
+                instrumentTime: form.instrumentTime,
+                visualTime: form.visualTime,
+                nightTime: form.nightTime,
+                onInstrumentTimeChanged: notifier.setInstrumentTime,
+                onVisualTimeChanged: notifier.setVisualTime,
+                blockTimeKnown:
+                    form.blockTime != null && !form.blockTime!.isNegative,
+                timeError: form.instrumentError,
               ),
               const SizedBox(height: 16),
               CrewCard(
@@ -449,6 +466,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           departureIanaLocation: form.depIanaLocation,
           arrivalIanaLocation: form.arrIanaLocation,
           pilotRole: form.pilotRole.name,
+          instrumentMinutes: form.instrumentTime?.inMinutes,
+          nightMinutes: form.nightTime?.inMinutes,
           crew: form.crewMembers,
         );
       } else {
@@ -467,6 +486,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           departureIanaLocation: form.depIanaLocation,
           arrivalIanaLocation: form.arrIanaLocation,
           pilotRole: form.pilotRole.name,
+          instrumentMinutes: form.instrumentTime?.inMinutes,
+          nightMinutes: form.nightTime?.inMinutes,
           crew: form.crewMembers,
         );
         final draft = widget.adsbImport;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/fab_hero_tags.dart';
 
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
@@ -11,6 +10,7 @@ import '../utils/duration_formatter.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/pulsing_dot.dart';
+import '../widgets/speed_dial_fab.dart';
 import 'adsb_track_page.dart';
 import 'aircrafts_page.dart';
 import 'flight_detail_page.dart';
@@ -136,40 +136,10 @@ void _openRecording(BuildContext context) {
 
 /// "Add Flight" FAB with a small "more" FAB above it that pops up the less
 /// common ways to log a flight (recording, ADS-B import).
-class _HomeFabs extends StatefulWidget {
+class _HomeFabs extends StatelessWidget {
   const _HomeFabs();
 
-  @override
-  State<_HomeFabs> createState() => _HomeFabsState();
-}
-
-class _HomeFabsState extends State<_HomeFabs>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 350),
-    reverseDuration: const Duration(milliseconds: 220),
-  );
-  bool _open = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _toggle() {
-    setState(() => _open = !_open);
-    _open ? _controller.forward() : _controller.reverse();
-  }
-
-  /// Closes the menu before running [action], so it is closed on return.
-  void _run(VoidCallback action) {
-    if (_open) _toggle();
-    action();
-  }
-
-  Future<void> _importAdsb() async {
+  Future<void> _importAdsb(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final imported = await Navigator.push<bool>(
       context,
@@ -182,158 +152,31 @@ class _HomeFabsState extends State<_HomeFabs>
     }
   }
 
-  /// Pops [child] up from the "more" FAB: it fades in, slides up and scales
-  /// with a slight overshoot. [start] (0..0.2) staggers the entries so the
-  /// one nearest the FAB appears first.
-  Widget _popIn(Widget child, {required double start}) {
-    final pop = _controller.drive(
-      CurveTween(
-        curve: Interval(start, start + 0.8, curve: Curves.easeOutBack),
-      ),
-    );
-    return FadeTransition(
-      opacity: _controller.drive(
-        CurveTween(curve: Interval(start, start + 0.5, curve: Curves.easeOut)),
-      ),
-      child: SlideTransition(
-        position: pop.drive(
-          Tween(begin: const Offset(0, 0.5), end: Offset.zero),
-        ),
-        child: ScaleTransition(
-          scale: pop.drive(Tween(begin: 0.6, end: 1.0)),
-          alignment: Alignment.bottomRight,
-          child: child,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Grows the room for the entries along with their pop-in.
-        SizeTransition(
-          sizeFactor: _controller.drive(CurveTween(curve: Curves.easeOutCubic)),
-          alignment: Alignment.bottomRight,
-          child: IgnorePointer(
-            ignoring: !_open,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _popIn(
-                  start: 0.2,
-                  _SpeedDialAction(
-                    heroTag: 'adsbFab',
-                    icon: Icons.settings_input_antenna,
-                    label: 'Import from ADS-B',
-                    onPressed: () => _run(_importAdsb),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _popIn(
-                  start: 0,
-                  _SpeedDialAction(
-                    heroTag: 'recordFab',
-                    icon: Icons.fiber_manual_record,
-                    label: 'Record',
-                    backgroundColor: cs.error,
-                    foregroundColor: cs.onError,
-                    onPressed: () => _run(() => _openRecording(context)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
+    return SpeedDialFab(
+      actions: [
+        SpeedDialAction(
+          heroTag: 'adsbFab',
+          icon: Icons.settings_input_antenna,
+          label: 'Import from ADS-B',
+          onPressed: () => _importAdsb(context),
         ),
-        FloatingActionButton.small(
-          heroTag: 'moreFab',
-          tooltip: _open ? 'Close' : 'More',
-          onPressed: _toggle,
-          // Cross-fades "more" into "close" while turning a quarter.
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              FadeTransition(
-                opacity: _controller.drive(Tween(begin: 1.0, end: 0.0)),
-                child: RotationTransition(
-                  turns: _controller
-                      .drive(CurveTween(curve: Curves.easeOutCubic))
-                      .drive(Tween(begin: 0.0, end: 0.25)),
-                  child: const Icon(Icons.more_horiz),
-                ),
-              ),
-              FadeTransition(
-                opacity: _controller,
-                child: RotationTransition(
-                  turns: _controller
-                      .drive(CurveTween(curve: Curves.easeOutCubic))
-                      .drive(Tween(begin: -0.25, end: 0.0)),
-                  child: const Icon(Icons.close),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        FloatingActionButton.extended(
-          heroTag: primaryFabHeroTag,
-          icon: const Icon(Icons.add),
-          label: const Text('Add Flight'),
-          onPressed: () => _run(
-            () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(builder: (_) => const FlightFormPage()),
-            ),
-          ),
+        SpeedDialAction(
+          heroTag: 'recordFab',
+          icon: Icons.fiber_manual_record,
+          label: 'Record',
+          backgroundColor: cs.error,
+          foregroundColor: cs.onError,
+          onPressed: () => _openRecording(context),
         ),
       ],
-    );
-  }
-}
-
-/// Compact extended FAB used for the speed-dial entries.
-class _SpeedDialAction extends StatelessWidget {
-  const _SpeedDialAction({
-    required this.heroTag,
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.backgroundColor,
-    this.foregroundColor,
-  });
-
-  final Object heroTag;
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-  final Color? backgroundColor;
-  final Color? foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Theme(
-      data: theme.copyWith(
-        floatingActionButtonTheme: theme.floatingActionButtonTheme.copyWith(
-          extendedSizeConstraints: const BoxConstraints.tightFor(height: 40),
-          extendedPadding: const EdgeInsetsDirectional.only(start: 12, end: 16),
-          extendedIconLabelSpacing: 8,
-        ),
-      ),
-      child: FloatingActionButton.extended(
-        heroTag: heroTag,
-        backgroundColor: backgroundColor,
-        foregroundColor: foregroundColor,
-        icon: Icon(icon, size: 20),
-        label: Text(label),
-        onPressed: onPressed,
+      primaryIcon: Icons.add,
+      primaryLabel: 'Add Flight',
+      onPrimaryPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (_) => const FlightFormPage()),
       ),
     );
   }

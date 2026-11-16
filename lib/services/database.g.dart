@@ -5115,6 +5115,37 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _instrumentMinutesMeta = const VerificationMeta(
+    'instrumentMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> instrumentMinutes = GeneratedColumn<int>(
+    'instrument_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nightMinutesMeta = const VerificationMeta(
+    'nightMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> nightMinutes = GeneratedColumn<int>(
+    'night_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<LogbookOverrides?, String>
+  logbookOverrides = GeneratedColumn<String>(
+    'logbook_overrides',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<LogbookOverrides?>($FlightsTable.$converterlogbookOverridesn);
   static const VerificationMeta _trackSourceMeta = const VerificationMeta(
     'trackSource',
   );
@@ -5144,6 +5175,9 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     flightRules,
     remarks,
     pilotRole,
+    instrumentMinutes,
+    nightMinutes,
+    logbookOverrides,
     trackSource,
   ];
   @override
@@ -5284,6 +5318,24 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         pilotRole.isAcceptableOrUnknown(data['pilot_role']!, _pilotRoleMeta),
       );
     }
+    if (data.containsKey('instrument_minutes')) {
+      context.handle(
+        _instrumentMinutesMeta,
+        instrumentMinutes.isAcceptableOrUnknown(
+          data['instrument_minutes']!,
+          _instrumentMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('night_minutes')) {
+      context.handle(
+        _nightMinutesMeta,
+        nightMinutes.isAcceptableOrUnknown(
+          data['night_minutes']!,
+          _nightMinutesMeta,
+        ),
+      );
+    }
     if (data.containsKey('track_source')) {
       context.handle(
         _trackSourceMeta,
@@ -5366,6 +5418,20 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.string,
         data['${effectivePrefix}pilot_role'],
       ),
+      instrumentMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}instrument_minutes'],
+      ),
+      nightMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}night_minutes'],
+      ),
+      logbookOverrides: $FlightsTable.$converterlogbookOverridesn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}logbook_overrides'],
+        ),
+      ),
       trackSource: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}track_source'],
@@ -5377,6 +5443,11 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
   $FlightsTable createAlias(String alias) {
     return $FlightsTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<LogbookOverrides, String> $converterlogbookOverrides =
+      LogbookOverrides.converter;
+  static TypeConverter<LogbookOverrides?, String?> $converterlogbookOverridesn =
+      NullAwareTypeConverter.wrap($converterlogbookOverrides);
 }
 
 class Flight extends DataClass implements Insertable<Flight> {
@@ -5396,6 +5467,20 @@ class Flight extends DataClass implements Insertable<Flight> {
   final String? flightRules;
   final String? remarks;
   final String? pilotRole;
+
+  /// Time flown under instrument flight rules, in minutes: none for a VFR
+  /// flight, all of it for an IFR one, what the pilot entered for one that
+  /// changes rules on the way. Null when not known.
+  final int? instrumentMinutes;
+
+  /// Time flown at night, in minutes, worked out from the airports and times
+  /// (see [NightTime]). Null when it can't be: an airport without a position,
+  /// no arrival time.
+  final int? nightMinutes;
+
+  /// Logbook values the pilot entered by hand, replacing the computed ones
+  /// in the exported logbook.
+  final LogbookOverrides? logbookOverrides;
 
   /// Where the track in [FlightDataPoints] comes from: the id of the ADS-B
   /// provider it was fetched from (`AdsbTrackSource.id`). Null for a track
@@ -5418,6 +5503,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.flightRules,
     this.remarks,
     this.pilotRole,
+    this.instrumentMinutes,
+    this.nightMinutes,
+    this.logbookOverrides,
     this.trackSource,
   });
   @override
@@ -5462,6 +5550,17 @@ class Flight extends DataClass implements Insertable<Flight> {
     }
     if (!nullToAbsent || pilotRole != null) {
       map['pilot_role'] = Variable<String>(pilotRole);
+    }
+    if (!nullToAbsent || instrumentMinutes != null) {
+      map['instrument_minutes'] = Variable<int>(instrumentMinutes);
+    }
+    if (!nullToAbsent || nightMinutes != null) {
+      map['night_minutes'] = Variable<int>(nightMinutes);
+    }
+    if (!nullToAbsent || logbookOverrides != null) {
+      map['logbook_overrides'] = Variable<String>(
+        $FlightsTable.$converterlogbookOverridesn.toSql(logbookOverrides),
+      );
     }
     if (!nullToAbsent || trackSource != null) {
       map['track_source'] = Variable<String>(trackSource);
@@ -5511,6 +5610,15 @@ class Flight extends DataClass implements Insertable<Flight> {
       pilotRole: pilotRole == null && nullToAbsent
           ? const Value.absent()
           : Value(pilotRole),
+      instrumentMinutes: instrumentMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(instrumentMinutes),
+      nightMinutes: nightMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nightMinutes),
+      logbookOverrides: logbookOverrides == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logbookOverrides),
       trackSource: trackSource == null && nullToAbsent
           ? const Value.absent()
           : Value(trackSource),
@@ -5543,6 +5651,11 @@ class Flight extends DataClass implements Insertable<Flight> {
       flightRules: serializer.fromJson<String?>(json['flightRules']),
       remarks: serializer.fromJson<String?>(json['remarks']),
       pilotRole: serializer.fromJson<String?>(json['pilotRole']),
+      instrumentMinutes: serializer.fromJson<int?>(json['instrumentMinutes']),
+      nightMinutes: serializer.fromJson<int?>(json['nightMinutes']),
+      logbookOverrides: serializer.fromJson<LogbookOverrides?>(
+        json['logbookOverrides'],
+      ),
       trackSource: serializer.fromJson<String?>(json['trackSource']),
     );
   }
@@ -5568,6 +5681,11 @@ class Flight extends DataClass implements Insertable<Flight> {
       'flightRules': serializer.toJson<String?>(flightRules),
       'remarks': serializer.toJson<String?>(remarks),
       'pilotRole': serializer.toJson<String?>(pilotRole),
+      'instrumentMinutes': serializer.toJson<int?>(instrumentMinutes),
+      'nightMinutes': serializer.toJson<int?>(nightMinutes),
+      'logbookOverrides': serializer.toJson<LogbookOverrides?>(
+        logbookOverrides,
+      ),
       'trackSource': serializer.toJson<String?>(trackSource),
     };
   }
@@ -5589,6 +5707,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<String?> flightRules = const Value.absent(),
     Value<String?> remarks = const Value.absent(),
     Value<String?> pilotRole = const Value.absent(),
+    Value<int?> instrumentMinutes = const Value.absent(),
+    Value<int?> nightMinutes = const Value.absent(),
+    Value<LogbookOverrides?> logbookOverrides = const Value.absent(),
     Value<String?> trackSource = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
@@ -5613,6 +5734,13 @@ class Flight extends DataClass implements Insertable<Flight> {
     flightRules: flightRules.present ? flightRules.value : this.flightRules,
     remarks: remarks.present ? remarks.value : this.remarks,
     pilotRole: pilotRole.present ? pilotRole.value : this.pilotRole,
+    instrumentMinutes: instrumentMinutes.present
+        ? instrumentMinutes.value
+        : this.instrumentMinutes,
+    nightMinutes: nightMinutes.present ? nightMinutes.value : this.nightMinutes,
+    logbookOverrides: logbookOverrides.present
+        ? logbookOverrides.value
+        : this.logbookOverrides,
     trackSource: trackSource.present ? trackSource.value : this.trackSource,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
@@ -5653,6 +5781,15 @@ class Flight extends DataClass implements Insertable<Flight> {
           : this.flightRules,
       remarks: data.remarks.present ? data.remarks.value : this.remarks,
       pilotRole: data.pilotRole.present ? data.pilotRole.value : this.pilotRole,
+      instrumentMinutes: data.instrumentMinutes.present
+          ? data.instrumentMinutes.value
+          : this.instrumentMinutes,
+      nightMinutes: data.nightMinutes.present
+          ? data.nightMinutes.value
+          : this.nightMinutes,
+      logbookOverrides: data.logbookOverrides.present
+          ? data.logbookOverrides.value
+          : this.logbookOverrides,
       trackSource: data.trackSource.present
           ? data.trackSource.value
           : this.trackSource,
@@ -5678,6 +5815,9 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('flightRules: $flightRules, ')
           ..write('remarks: $remarks, ')
           ..write('pilotRole: $pilotRole, ')
+          ..write('instrumentMinutes: $instrumentMinutes, ')
+          ..write('nightMinutes: $nightMinutes, ')
+          ..write('logbookOverrides: $logbookOverrides, ')
           ..write('trackSource: $trackSource')
           ..write(')'))
         .toString();
@@ -5701,6 +5841,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     flightRules,
     remarks,
     pilotRole,
+    instrumentMinutes,
+    nightMinutes,
+    logbookOverrides,
     trackSource,
   );
   @override
@@ -5723,6 +5866,9 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.flightRules == this.flightRules &&
           other.remarks == this.remarks &&
           other.pilotRole == this.pilotRole &&
+          other.instrumentMinutes == this.instrumentMinutes &&
+          other.nightMinutes == this.nightMinutes &&
+          other.logbookOverrides == this.logbookOverrides &&
           other.trackSource == this.trackSource);
 }
 
@@ -5743,6 +5889,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<String?> flightRules;
   final Value<String?> remarks;
   final Value<String?> pilotRole;
+  final Value<int?> instrumentMinutes;
+  final Value<int?> nightMinutes;
+  final Value<LogbookOverrides?> logbookOverrides;
   final Value<String?> trackSource;
   const FlightsCompanion({
     this.id = const Value.absent(),
@@ -5761,6 +5910,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
     this.pilotRole = const Value.absent(),
+    this.instrumentMinutes = const Value.absent(),
+    this.nightMinutes = const Value.absent(),
+    this.logbookOverrides = const Value.absent(),
     this.trackSource = const Value.absent(),
   });
   FlightsCompanion.insert({
@@ -5780,6 +5932,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
     this.pilotRole = const Value.absent(),
+    this.instrumentMinutes = const Value.absent(),
+    this.nightMinutes = const Value.absent(),
+    this.logbookOverrides = const Value.absent(),
     this.trackSource = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
@@ -5801,6 +5956,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<String>? flightRules,
     Expression<String>? remarks,
     Expression<String>? pilotRole,
+    Expression<int>? instrumentMinutes,
+    Expression<int>? nightMinutes,
+    Expression<String>? logbookOverrides,
     Expression<String>? trackSource,
   }) {
     return RawValuesInsertable({
@@ -5822,6 +5980,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (flightRules != null) 'flight_rules': flightRules,
       if (remarks != null) 'remarks': remarks,
       if (pilotRole != null) 'pilot_role': pilotRole,
+      if (instrumentMinutes != null) 'instrument_minutes': instrumentMinutes,
+      if (nightMinutes != null) 'night_minutes': nightMinutes,
+      if (logbookOverrides != null) 'logbook_overrides': logbookOverrides,
       if (trackSource != null) 'track_source': trackSource,
     });
   }
@@ -5843,6 +6004,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<String?>? flightRules,
     Value<String?>? remarks,
     Value<String?>? pilotRole,
+    Value<int?>? instrumentMinutes,
+    Value<int?>? nightMinutes,
+    Value<LogbookOverrides?>? logbookOverrides,
     Value<String?>? trackSource,
   }) {
     return FlightsCompanion(
@@ -5863,6 +6027,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       flightRules: flightRules ?? this.flightRules,
       remarks: remarks ?? this.remarks,
       pilotRole: pilotRole ?? this.pilotRole,
+      instrumentMinutes: instrumentMinutes ?? this.instrumentMinutes,
+      nightMinutes: nightMinutes ?? this.nightMinutes,
+      logbookOverrides: logbookOverrides ?? this.logbookOverrides,
       trackSource: trackSource ?? this.trackSource,
     );
   }
@@ -5922,6 +6089,17 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (pilotRole.present) {
       map['pilot_role'] = Variable<String>(pilotRole.value);
     }
+    if (instrumentMinutes.present) {
+      map['instrument_minutes'] = Variable<int>(instrumentMinutes.value);
+    }
+    if (nightMinutes.present) {
+      map['night_minutes'] = Variable<int>(nightMinutes.value);
+    }
+    if (logbookOverrides.present) {
+      map['logbook_overrides'] = Variable<String>(
+        $FlightsTable.$converterlogbookOverridesn.toSql(logbookOverrides.value),
+      );
+    }
     if (trackSource.present) {
       map['track_source'] = Variable<String>(trackSource.value);
     }
@@ -5947,6 +6125,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('flightRules: $flightRules, ')
           ..write('remarks: $remarks, ')
           ..write('pilotRole: $pilotRole, ')
+          ..write('instrumentMinutes: $instrumentMinutes, ')
+          ..write('nightMinutes: $nightMinutes, ')
+          ..write('logbookOverrides: $logbookOverrides, ')
           ..write('trackSource: $trackSource')
           ..write(')'))
         .toString();
@@ -12338,6 +12519,9 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<String?> flightRules,
       Value<String?> remarks,
       Value<String?> pilotRole,
+      Value<int?> instrumentMinutes,
+      Value<int?> nightMinutes,
+      Value<LogbookOverrides?> logbookOverrides,
       Value<String?> trackSource,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
@@ -12358,6 +12542,9 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<String?> flightRules,
       Value<String?> remarks,
       Value<String?> pilotRole,
+      Value<int?> instrumentMinutes,
+      Value<int?> nightMinutes,
+      Value<LogbookOverrides?> logbookOverrides,
       Value<String?> trackSource,
     });
 
@@ -12528,6 +12715,22 @@ class $$FlightsTableFilterComposer
   ColumnFilters<String> get pilotRole => $composableBuilder(
     column: $table.pilotRole,
     builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get instrumentMinutes => $composableBuilder(
+    column: $table.instrumentMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nightMinutes => $composableBuilder(
+    column: $table.nightMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<LogbookOverrides?, LogbookOverrides, String>
+  get logbookOverrides => $composableBuilder(
+    column: $table.logbookOverrides,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get trackSource => $composableBuilder(
@@ -12729,6 +12932,21 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get instrumentMinutes => $composableBuilder(
+    column: $table.instrumentMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nightMinutes => $composableBuilder(
+    column: $table.nightMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logbookOverrides => $composableBuilder(
+    column: $table.logbookOverrides,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get trackSource => $composableBuilder(
     column: $table.trackSource,
     builder: (column) => ColumnOrderings(column),
@@ -12869,6 +13087,22 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<String> get pilotRole =>
       $composableBuilder(column: $table.pilotRole, builder: (column) => column);
+
+  GeneratedColumn<int> get instrumentMinutes => $composableBuilder(
+    column: $table.instrumentMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nightMinutes => $composableBuilder(
+    column: $table.nightMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<LogbookOverrides?, String>
+  get logbookOverrides => $composableBuilder(
+    column: $table.logbookOverrides,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get trackSource => $composableBuilder(
     column: $table.trackSource,
@@ -13045,6 +13279,10 @@ class $$FlightsTableTableManager
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
                 Value<String?> pilotRole = const Value.absent(),
+                Value<int?> instrumentMinutes = const Value.absent(),
+                Value<int?> nightMinutes = const Value.absent(),
+                Value<LogbookOverrides?> logbookOverrides =
+                    const Value.absent(),
                 Value<String?> trackSource = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
@@ -13063,6 +13301,9 @@ class $$FlightsTableTableManager
                 flightRules: flightRules,
                 remarks: remarks,
                 pilotRole: pilotRole,
+                instrumentMinutes: instrumentMinutes,
+                nightMinutes: nightMinutes,
+                logbookOverrides: logbookOverrides,
                 trackSource: trackSource,
               ),
           createCompanionCallback:
@@ -13083,6 +13324,10 @@ class $$FlightsTableTableManager
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
                 Value<String?> pilotRole = const Value.absent(),
+                Value<int?> instrumentMinutes = const Value.absent(),
+                Value<int?> nightMinutes = const Value.absent(),
+                Value<LogbookOverrides?> logbookOverrides =
+                    const Value.absent(),
                 Value<String?> trackSource = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
@@ -13101,6 +13346,9 @@ class $$FlightsTableTableManager
                 flightRules: flightRules,
                 remarks: remarks,
                 pilotRole: pilotRole,
+                instrumentMinutes: instrumentMinutes,
+                nightMinutes: nightMinutes,
+                logbookOverrides: logbookOverrides,
                 trackSource: trackSource,
               ),
           withReferenceMapper: (p0) => p0

@@ -11,12 +11,15 @@ import '../models/aircraft_photo.dart';
 import '../models/aircraft_type_enums.dart';
 import '../models/airport_type.dart';
 import '../models/crew.dart';
+import '../models/logbook_overrides.dart';
+import '../utils/night_time.dart';
 
 export '../models/aircraft_class.dart';
 export '../models/aircraft_photo.dart';
 export '../models/aircraft_type_enums.dart';
 export '../models/airport_type.dart';
 export '../models/crew.dart';
+export '../models/logbook_overrides.dart';
 
 part 'database.g.dart';
 
@@ -185,6 +188,21 @@ class Flights extends Table {
   TextColumn get remarks => text().nullable()();
   TextColumn get pilotRole => text().nullable()();
 
+  /// Time flown under instrument flight rules, in minutes: none for a VFR
+  /// flight, all of it for an IFR one, what the pilot entered for one that
+  /// changes rules on the way. Null when not known.
+  IntColumn get instrumentMinutes => integer().nullable()();
+
+  /// Time flown at night, in minutes, worked out from the airports and times
+  /// (see [NightTime]). Null when it can't be: an airport without a position,
+  /// no arrival time.
+  IntColumn get nightMinutes => integer().nullable()();
+
+  /// Logbook values the pilot entered by hand, replacing the computed ones
+  /// in the exported logbook.
+  TextColumn get logbookOverrides =>
+      text().map(LogbookOverrides.converter).nullable()();
+
   /// Where the track in [FlightDataPoints] comes from: the id of the ADS-B
   /// provider it was fetched from (`AdsbTrackSource.id`). Null for a track
   /// the app recorded itself, and for flights without a track.
@@ -265,6 +283,53 @@ class IcaoAircrafts extends Table {
   IntColumn get engineCount => integer()();
   TextColumn get engineType => textEnum<EngineType>()();
   BoolColumn get userInserted => boolean().withDefault(const Constant(false))();
+}
+
+/// The night time of a flight from [departure] to [arrival] (see
+/// [NightTime]), or null when it can't be worked out: no arrival time, or
+/// neither a [track] nor airports with a position.
+///
+/// The [track] (recorded or from ADS-B) is the route when there is one, with
+/// the airports at either end for the time it doesn't cover (taxiing, or
+/// before the aircraft was first seen). Without one, the route is the great
+/// circle between the airports.
+Duration? nightTimeOf({
+  required DateTime departureTime,
+  required DateTime? arrivalTime,
+  required Airport? departure,
+  required Airport? arrival,
+  Iterable<TimedPosition> track = const [],
+}) {
+  if (arrivalTime == null) return null;
+  TimedPosition? at(Airport? a, DateTime time) {
+    final lat = a?.latitudeDeg;
+    final lon = a?.longitudeDeg;
+    return lat == null || lon == null
+        ? null
+        : (time: time, latitude: lat, longitude: lon);
+  }
+
+  final from = at(departure, departureTime);
+  final to = at(arrival, arrivalTime);
+  final flown =
+      track
+          .where(
+            (p) =>
+                !p.time.isBefore(departureTime) && !p.time.isAfter(arrivalTime),
+          )
+          .toList()
+        ..sort((a, b) => a.time.compareTo(b.time));
+  if (flown.isEmpty && (from == null || to == null)) return null;
+  return NightTime.along(
+    [?from, ...flown, ?to],
+    departure: departureTime,
+    arrival: arrivalTime,
+  );
+}
+
+extension FlightDataPointPosition on FlightDataPoint {
+  TimedPosition get timedPosition =>
+      (time: timestamp, latitude: latitude, longitude: longitude);
 }
 
 class AirportWithEverything {
@@ -556,7 +621,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -626,8 +691,75 @@ class LogbookDatabase extends _$LogbookDatabase {
           'ON flight_data_points (flight, timestamp)',
         );
       }
+      if (from < 7) {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(flights)',
+          ).get())
+            row.read<String>('name'),
+        };
+        for (final column in <GeneratedColumn>[
+          flights.instrumentMinutes,
+          flights.nightMinutes,
+          flights.logbookOverrides,
+        ]) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(flights, column);
+          }
+        }
+        await _backfillLogbookTimes();
+      }
     },
   );
+
+  /// Works out the instrument and night time of the flights logged before
+  /// they were stored. Instrument time is only known for plain VFR and IFR
+  /// flights: the others are left for the pilot.
+  Future<void> _backfillLogbookTimes() async {
+    final logged = await (select(
+      flights,
+    )..where((f) => f.arrivalTime.isNotNull())).get();
+    for (final flight in logged) {
+      final block = flight.arrivalTime!.difference(flight.departureTime);
+      if (block.isNegative) continue;
+      final instrument = switch (flight.flightRules) {
+        null || 'VFR' => 0,
+        'IFR' => block.inMinutes,
+        _ => null,
+      };
+      await (update(flights)..where((f) => f.id.equals(flight.id))).write(
+        FlightsCompanion(instrumentMinutes: Value(instrument)),
+      );
+      await updateNightTime(flight.id);
+    }
+  }
+
+  /// Works the night time of [flightId] out again from what is stored: its
+  /// airports, times and track. For when one of them changes outside the
+  /// flight form (a track recorded, fetched or removed).
+  Future<void> updateNightTime(int flightId) async {
+    final departure = alias(airports, 'dep');
+    final arrival = alias(airports, 'arr');
+    final row = await (select(flights).join([
+      leftOuterJoin(departure, flights.departure.equalsExp(departure.id)),
+      leftOuterJoin(arrival, flights.arrival.equalsExp(arrival.id)),
+    ])..where(flights.id.equals(flightId))).getSingleOrNull();
+    if (row == null) return;
+    final flight = row.readTable(flights);
+    final track = await (select(
+      flightDataPoints,
+    )..where((p) => p.flight.equals(flightId))).get();
+    final night = nightTimeOf(
+      departureTime: flight.departureTime,
+      arrivalTime: flight.arrivalTime,
+      departure: row.readTableOrNull(departure),
+      arrival: row.readTableOrNull(arrival),
+      track: track.map((p) => p.timedPosition),
+    );
+    await (update(flights)..where((f) => f.id.equals(flightId))).write(
+      FlightsCompanion(nightMinutes: Value(night?.inMinutes)),
+    );
+  }
 
   /// Gives every aircraft that has no class yet the class rating its type
   /// implies (see [AircraftClass.deduce]), so aircraft added before classes

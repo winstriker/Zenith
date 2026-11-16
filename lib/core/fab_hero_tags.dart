@@ -9,5 +9,8 @@ library;
 /// "Save" on forms.
 const primaryFabHeroTag = 'primaryFab';
 
+/// The small "more" button above the primary one, opening a speed dial.
+const moreFabHeroTag = 'moreFab';
+
 /// The top-left close button.
 const closeFabHeroTag = 'closeFab';

@@ -17,6 +17,16 @@ class DurationFormatter {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 
+  /// Reads a duration typed as HH:MM (what [hm] writes and `TimeInputFormatter`
+  /// produces). Null when incomplete or invalid ('1:3', '01:75').
+  static Duration? parseHm(String text) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(text.trim());
+    if (match == null) return null;
+    final minutes = int.parse(match.group(2)!);
+    if (minutes >= 60) return null;
+    return Duration(hours: int.parse(match.group(1)!), minutes: minutes);
+  }
+
   /// Format as descriptive: '2h 30m'
   static String descriptive(Duration duration) {
     final hours = duration.inHours;

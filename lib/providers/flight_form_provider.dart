@@ -4,7 +4,9 @@ import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/crew_rules.dart';
+import '../models/logbook_entry.dart';
 import '../services/database.dart';
+import '../utils/night_time.dart';
 import '../utils/tz_datetime.dart';
 
 enum TimezoneMode { utc, local, iana }
@@ -29,8 +31,10 @@ class FlightFormState {
     this.nightLandings = 0,
     this.dayLandings = 1,
     this.flightRules = 'VFR',
+    this.instrumentMinutes,
     this.pilotRole = CrewRole.pic,
     List<CrewMember>? crewMembers,
+    this.track = const [],
   }) : departureDate = departureDate ?? DateTime.now(),
        crewMembers = crewMembers ?? const [];
 
@@ -52,8 +56,16 @@ class FlightFormState {
   final int nightLandings;
   final int dayLandings;
   final String flightRules;
+
+  /// IFR time the pilot entered, for flights that change rules on the way.
+  /// VFR and IFR flights don't use it: theirs follows from the block time.
+  final int? instrumentMinutes;
   final CrewRole pilotRole;
   final List<CrewMember> crewMembers;
+
+  /// The flight's track (recorded, or from ADS-B), when it has one: the
+  /// route night time is worked out along.
+  final List<TimedPosition> track;
 
   FlightFormState copyWith({
     String? departureCode,
@@ -74,8 +86,11 @@ class FlightFormState {
     int? nightLandings,
     int? dayLandings,
     String? flightRules,
+    int? instrumentMinutes,
     CrewRole? pilotRole,
     List<CrewMember>? crewMembers,
+    List<TimedPosition>? track,
+    bool clearInstrument = false,
     bool clearArrivalDate = false,
     bool clearDepIana = false,
     bool clearArrIana = false,
@@ -103,8 +118,12 @@ class FlightFormState {
       nightLandings: nightLandings ?? this.nightLandings,
       dayLandings: dayLandings ?? this.dayLandings,
       flightRules: flightRules ?? this.flightRules,
+      instrumentMinutes: clearInstrument
+          ? null
+          : (instrumentMinutes ?? this.instrumentMinutes),
       pilotRole: pilotRole ?? this.pilotRole,
       crewMembers: crewMembers ?? this.crewMembers,
+      track: track ?? this.track,
     );
   }
 
@@ -187,6 +206,53 @@ class FlightFormState {
     return '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
   }
 
+  FlightRulesKind get rulesKind => FlightRulesKind.of(flightRules);
+
+  /// Block time, or null when it isn't known or makes no sense.
+  Duration? get _validBlockTime {
+    final d = blockTime;
+    return d == null || d.isNegative ? null : d;
+  }
+
+  /// Time under IFR: none for VFR, the block time for IFR, what was entered
+  /// otherwise. Null when not known yet.
+  Duration? get instrumentTime => switch (rulesKind) {
+    FlightRulesKind.vfr => Duration.zero,
+    FlightRulesKind.ifr => _validBlockTime,
+    FlightRulesKind.mixed =>
+      instrumentMinutes == null ? null : Duration(minutes: instrumentMinutes!),
+  };
+
+  /// Time under VFR: the rest of the block time.
+  Duration? get visualTime {
+    final block = _validBlockTime;
+    final instrument = instrumentTime;
+    if (block == null || instrument == null) return null;
+    return block - instrument;
+  }
+
+  /// Non-null when the IFR time entered doesn't fit in the block time.
+  String? get instrumentError {
+    if (rulesKind != FlightRulesKind.mixed) return null;
+    final block = _validBlockTime;
+    final instrument = instrumentTime;
+    if (block == null || instrument == null) return null;
+    return instrument.isNegative || instrument > block
+        ? 'IFR and VFR time must add up to the block time'
+        : null;
+  }
+
+  /// Time flown at night (after civil twilight), along the track when there
+  /// is one, between the airports otherwise. Null when it can't be worked
+  /// out.
+  Duration? get nightTime => nightTimeOf(
+    departureTime: depTZDateTime,
+    arrivalTime: arrTZDateTime,
+    departure: selectedDeparture,
+    arrival: selectedArrival,
+    track: track,
+  );
+
   /// Non-null when SELF's role and the crew roles are inconsistent.
   String? get crewError => crewValidationError(pilotRole, crewMembers);
 
@@ -194,7 +260,9 @@ class FlightFormState {
     return departureCode.isNotEmpty &&
         arrivalCode.isNotEmpty &&
         depTime.isNotEmpty &&
-        crewError == null;
+        crewError == null &&
+        (rulesKind != FlightRulesKind.mixed || instrumentMinutes != null) &&
+        instrumentError == null;
   }
 }
 
@@ -323,6 +391,22 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
   void setFlightRules(String rules) =>
       state = state.copyWith(flightRules: rules);
 
+  /// IFR time of a flight that changes rules: the VFR time is the rest.
+  void setInstrumentTime(Duration? time) => state = time == null
+      ? state.copyWith(clearInstrument: true)
+      : state.copyWith(instrumentMinutes: time.inMinutes);
+
+  /// VFR time of a flight that changes rules: the IFR time is the rest.
+  /// Needs the block time.
+  void setVisualTime(Duration? time) {
+    final block = state.blockTime;
+    if (time == null || block == null || block.isNegative) {
+      state = state.copyWith(clearInstrument: true);
+      return;
+    }
+    state = state.copyWith(instrumentMinutes: (block - time).inMinutes);
+  }
+
   void incrementNightLandings() =>
       state = state.copyWith(nightLandings: state.nightLandings + 1);
   void decrementNightLandings() => state = state.copyWith(
@@ -332,6 +416,9 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
       state = state.copyWith(dayLandings: state.dayLandings + 1);
   void decrementDayLandings() =>
       state = state.copyWith(dayLandings: (state.dayLandings - 1).clamp(0, 99));
+
+  void setTrack(List<TimedPosition> track) =>
+      state = state.copyWith(track: track);
 
   void setPilotRole(CrewRole role) => state = state.copyWith(pilotRole: role);
 

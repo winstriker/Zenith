@@ -145,6 +145,8 @@ class FlightService {
     String? departureIanaLocation,
     String? arrivalIanaLocation,
     String? pilotRole,
+    int? instrumentMinutes,
+    int? nightMinutes,
     List<CrewMember> crew = const [],
   }) async {
     final flightId = await database
@@ -166,6 +168,8 @@ class FlightService {
             flightRules: Value(flightRules),
             remarks: Value(remarks),
             pilotRole: Value(pilotRole),
+            instrumentMinutes: Value(instrumentMinutes),
+            nightMinutes: Value(nightMinutes),
           ),
         );
 
@@ -190,6 +194,8 @@ class FlightService {
           flightRules: flightRules,
           remarks: remarks,
           pilotRole: pilotRole,
+          instrumentMinutes: instrumentMinutes,
+          nightMinutes: nightMinutes,
         ),
         dataPoints: [],
         departure: await resolveAirport(departureId),
@@ -216,11 +222,13 @@ class FlightService {
     String? departureIanaLocation,
     String? arrivalIanaLocation,
     String? pilotRole,
+    int? instrumentMinutes,
+    int? nightMinutes,
     List<CrewMember> crew = const [],
     bool isRecording = false,
   }) async {
     // write(), not replace(): editing a flight must not wipe the columns the
-    // form knows nothing of (where its track comes from).
+    // form knows nothing of (where its track comes from, logbook overrides).
     await (database.update(
       database.flights,
     )..where((f) => f.id.equals(flightId))).write(
@@ -239,6 +247,8 @@ class FlightService {
         flightRules: Value(flightRules),
         remarks: Value(remarks),
         pilotRole: Value(pilotRole),
+        instrumentMinutes: Value(instrumentMinutes),
+        nightMinutes: Value(nightMinutes),
         isRecording: Value(isRecording),
       ),
     );
@@ -266,6 +276,10 @@ class FlightService {
           flightRules: flightRules,
           remarks: remarks,
           pilotRole: pilotRole,
+          instrumentMinutes: instrumentMinutes,
+          nightMinutes: nightMinutes,
+          trackSource: _sessions[index].flight.trackSource,
+          logbookOverrides: _sessions[index].flight.logbookOverrides,
         ),
         dataPoints: _sessions[index].dataPoints,
         departure: await resolveAirport(departureId),

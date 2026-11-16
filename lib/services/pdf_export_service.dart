@@ -4,7 +4,7 @@ import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
 
-import '../models/crew_rules.dart';
+import '../models/logbook_entry.dart';
 import '../providers/user_provider.dart';
 import 'database.dart';
 import 'file_opener.dart';
@@ -105,48 +105,21 @@ class PdfExportService {
 
   static String _fmtInt(int n) => n > 0 ? '$n' : '';
 
-  static LogbookFunction _logbookFunction(
-    FlightWithStats f,
-    Map<int, List<CrewMember>> crewByFlight,
-  ) {
-    final role = f.flight.pilotRole != null
-        ? CrewRole.fromString(f.flight.pilotRole!)
-        : CrewRole.pic;
-    return LogbookFunction.resolve(role, crewByFlight[f.flight.id] ?? const []);
-  }
-
-  static _Totals _calcPageTotals(
-    List<FlightWithStats> page,
-    Map<int, List<CrewMember>> crewByFlight,
-  ) {
+  static _Totals _calcPageTotals(List<LogbookEntry> page) {
     final t = _Totals();
-    for (final f in page) {
-      final dur = f.duration;
-      if (dur == null || dur.isNegative || dur == Duration.zero) continue;
-
-      final engineCount = f.aircraftWithStats?.engineCount ?? 1;
-      if (engineCount <= 1) {
-        t.se = t.se + dur;
-      } else {
-        t.me = t.me + dur;
-      }
-
-      t.total = t.total + dur;
-      t.dayLandings += f.flight.dayLandings ?? 0;
-      t.nightLandings += f.flight.nightLandings ?? 0;
-
-      if (f.flight.flightRules == 'IFR') t.ifr = t.ifr + dur;
-
-      switch (_logbookFunction(f, crewByFlight).function) {
-        case PilotFunction.pic:
-          t.pic = t.pic + dur;
-        case PilotFunction.coPilot:
-          t.coPilot = t.coPilot + dur;
-        case PilotFunction.dual:
-          t.dual = t.dual + dur;
-        case PilotFunction.instructor:
-          t.instructor = t.instructor + dur;
-      }
+    for (final e in page) {
+      t.se += e.time(LogbookTimeField.singlePilotSe);
+      t.me += e.time(LogbookTimeField.singlePilotMe);
+      t.multiPilot += e.time(LogbookTimeField.multiPilot);
+      t.total += e.time(LogbookTimeField.total);
+      t.dayLandings += e.dayLandings;
+      t.nightLandings += e.nightLandings;
+      t.night += e.time(LogbookTimeField.night);
+      t.ifr += e.time(LogbookTimeField.ifr);
+      t.pic += e.time(LogbookTimeField.pic);
+      t.coPilot += e.time(LogbookTimeField.coPilot);
+      t.dual += e.time(LogbookTimeField.dual);
+      t.instructor += e.time(LogbookTimeField.instructor);
     }
     return t;
   }
@@ -244,10 +217,21 @@ class PdfExportService {
         ? 'SELF'
         : (pilotName ?? '');
 
-    final pages = <List<FlightWithStats>>[];
-    for (var i = 0; i < flights.length; i += _rowsPerPage) {
+    final entries = [
+      for (final f in flights)
+        (
+          flight: f,
+          entry: LogbookEntry.of(
+            f,
+            crew: crewByFlight[f.flight.id] ?? const [],
+            selfPicName: selfPicName,
+          ),
+        ),
+    ];
+    final pages = <List<({FlightWithStats flight, LogbookEntry entry})>>[];
+    for (var i = 0; i < entries.length; i += _rowsPerPage) {
       pages.add(
-        flights.sublist(i, (i + _rowsPerPage).clamp(0, flights.length)),
+        entries.sublist(i, (i + _rowsPerPage).clamp(0, entries.length)),
       );
     }
     if (pages.isEmpty) pages.add([]);
@@ -329,7 +313,9 @@ class PdfExportService {
 
     for (int pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       final pageFlights = pages[pageIdx];
-      final pageTotals = _calcPageTotals(pageFlights, crewByFlight);
+      final pageTotals = _calcPageTotals([
+        for (final row in pageFlights) row.entry,
+      ]);
       final grandTotals = prevTotals + pageTotals;
 
       buf.write('<div class="logbook-page">');
@@ -369,34 +355,11 @@ class PdfExportService {
         buf.write('<tr class="row-data$grey">');
 
         if (i < pageFlights.length) {
-          final f = pageFlights[i];
-          final dur = f.duration;
-          final engineCount = f.aircraftWithStats?.engineCount ?? 1;
-          final isIfr = f.flight.flightRules == 'IFR';
+          final (flight: f, :entry) = pageFlights[i];
+          String time(LogbookTimeField field) => _fmtDur(entry.time(field));
 
-          final seTime = (dur != null && !dur.isNegative && engineCount <= 1)
-              ? _fmtDur(dur)
-              : '';
-          final meTime = (dur != null && !dur.isNegative && engineCount > 1)
-              ? _fmtDur(dur)
-              : '';
-          final totalTime = (dur != null && !dur.isNegative)
-              ? _fmtDur(dur)
-              : '';
-          final ifrTime = (dur != null && !dur.isNegative && isIfr)
-              ? _fmtDur(dur)
-              : '';
-          final logbook = _logbookFunction(f, crewByFlight);
-          final picName = logbook.picPerson != null
-              ? _escape(logbook.picPerson!.surname)
-              : selfPicName;
-          String fnTime(PilotFunction fn) =>
-              logbook.function == fn ? totalTime : '';
-
-          final dayLandings = _fmtInt(f.flight.dayLandings ?? 0);
-          final nightLandings = _fmtInt(f.flight.nightLandings ?? 0);
-
-          final remarks = f.flight.remarks ?? '';
+          final dayLandings = _fmtInt(entry.dayLandings);
+          final nightLandings = _fmtInt(entry.nightLandings);
 
           buf
             ..write('<td>${dateFmt.format(f.flight.departureTime)}</td>')
@@ -408,22 +371,22 @@ class PdfExportService {
             )
             ..write('<td>${f.aircraftWithStats?.designator ?? ''}</td>')
             ..write('<td>${f.aircraftWithStats?.tailNumber ?? ''}</td>')
-            ..write('<td>$seTime</td>')
-            ..write('<td>$meTime</td>')
-            ..write('<td></td>') // multi-pilot
-            ..write('<td>$totalTime</td>')
-            ..write('<td>$picName</td>')
+            ..write('<td>${time(LogbookTimeField.singlePilotSe)}</td>')
+            ..write('<td>${time(LogbookTimeField.singlePilotMe)}</td>')
+            ..write('<td>${time(LogbookTimeField.multiPilot)}</td>')
+            ..write('<td>${time(LogbookTimeField.total)}</td>')
+            ..write('<td>${_escape(entry.picName)}</td>')
             ..write('<td>$dayLandings</td>')
             ..write('<td>$nightLandings</td>')
-            ..write('<td></td>') // night time
-            ..write('<td>$ifrTime</td>')
-            ..write('<td>${fnTime(PilotFunction.pic)}</td>')
-            ..write('<td>${fnTime(PilotFunction.coPilot)}</td>')
-            ..write('<td>${fnTime(PilotFunction.dual)}</td>')
-            ..write('<td>${fnTime(PilotFunction.instructor)}</td>')
+            ..write('<td>${time(LogbookTimeField.night)}</td>')
+            ..write('<td>${time(LogbookTimeField.ifr)}</td>')
+            ..write('<td>${time(LogbookTimeField.pic)}</td>')
+            ..write('<td>${time(LogbookTimeField.coPilot)}</td>')
+            ..write('<td>${time(LogbookTimeField.dual)}</td>')
+            ..write('<td>${time(LogbookTimeField.instructor)}</td>')
             ..write('<td></td>') // FSTD type
             ..write('<td></td>') // FSTD time
-            ..write('<td class="text-left">$remarks</td>');
+            ..write('<td class="text-left">${_escape(entry.remarks)}</td>');
         } else {
           for (int j = 0; j < 23; j++) {
             buf.write('<td></td>');

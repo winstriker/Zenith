@@ -133,6 +133,7 @@ class FlightRepository {
       await (_database.update(_database.flights)
             ..where((f) => f.id.equals(flightId)))
           .write(FlightsCompanion(trackSource: Value(source)));
+      await _database.updateNightTime(flightId);
       return points.length;
     });
   }
@@ -146,6 +147,7 @@ class FlightRepository {
       await (_database.update(_database.flights)
             ..where((f) => f.id.equals(flightId)))
           .write(const FlightsCompanion(trackSource: Value(null)));
+      await _database.updateNightTime(flightId);
     });
   }
 
@@ -253,6 +255,21 @@ class FlightRepository {
       FlightsCompanion(
         isRecording: const Value(false),
         arrivalTime: Value(now),
+      ),
+    );
+    await _database.updateNightTime(flightId);
+  }
+
+  /// Replaces the logbook overrides of [flightId]; empty ones are removed.
+  Future<void> setLogbookOverrides(
+    int flightId,
+    LogbookOverrides overrides,
+  ) async {
+    await (_database.update(
+      _database.flights,
+    )..where((f) => f.id.equals(flightId))).write(
+      FlightsCompanion(
+        logbookOverrides: Value(overrides.isEmpty ? null : overrides),
       ),
     );
   }

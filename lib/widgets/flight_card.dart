@@ -7,6 +7,7 @@ import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import 'base_card.dart';
+import 'overridden_icon.dart';
 
 class FlightCard extends StatelessWidget {
   const FlightCard({
@@ -15,8 +16,13 @@ class FlightCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.useOuterPadding = true,
+    this.totalTimeOverride,
   });
   final FlightWithStats flight;
+
+  /// Shown instead of the block time, marked as overridden, when the pilot
+  /// overrode the total time for the logbook.
+  final Duration? totalTimeOverride;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool useOuterPadding;
@@ -58,7 +64,8 @@ class FlightCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           _FlightCenter(
-            duration: flight.duration,
+            duration: totalTimeOverride ?? flight.duration,
+            overridden: totalTimeOverride != null,
             tailNumber: flight.aircraftWithStats?.tailNumber,
           ),
           const SizedBox(width: 12),
@@ -187,9 +194,14 @@ class _FlightEndpoint extends StatelessWidget {
 }
 
 class _FlightCenter extends StatelessWidget {
-  const _FlightCenter({required this.duration, required this.tailNumber});
+  const _FlightCenter({
+    required this.duration,
+    required this.tailNumber,
+    this.overridden = false,
+  });
 
   final Duration? duration;
+  final bool overridden;
   final String? tailNumber;
 
   @override
@@ -202,11 +214,20 @@ class _FlightCenter extends StatelessWidget {
         children: [
           Icon(Icons.flight, size: 20, color: cs.primary),
           const SizedBox(height: 4),
-          Text(
-            duration != null ? DurationFormatter.hm(duration!) : '--:--',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                duration != null ? DurationFormatter.hm(duration!) : '--:--',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (overridden) ...[
+                const SizedBox(width: 2),
+                const OverriddenIcon(size: 18),
+              ],
+            ],
           ),
           const SizedBox(height: 4),
           if (tailNumber != null)
