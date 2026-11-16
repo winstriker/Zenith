@@ -5,13 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/map_provider.dart';
-import '../providers/provider_toggles.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
-import '../services/adsb_track_source.dart';
-import '../services/aircraft_image_cache.dart';
-import '../services/aircraft_lookup_service.dart';
 import '../widgets/section_header.dart';
 import 'adsb_settings_page.dart';
 import 'backup_settings_page.dart';
@@ -28,32 +24,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  /// Which track providers are switched on.
-  static String _adsbSummary(WidgetRef ref) {
-    final off = ref.watch(disabledTrackProvidersProvider);
-    final on = [
-      for (final provider in AdsbProvider.values)
-        if (!off.contains(provider.id)) provider.label,
-    ];
-    return on.isEmpty ? 'No track provider' : 'Tracks from ${on.join(', ')}';
-  }
-
-  /// How many photo providers are switched on, and how much is kept.
-  static String _photoSummary(WidgetRef ref) {
-    final sources = ref.watch(photoSourcesProvider);
-    final off = ref.watch(disabledPhotoSourcesProvider);
-    final limit = ref.watch(aircraftImageCacheLimitProvider);
-    final on = sources.where((source) => !off.contains(source.id)).length;
-    final providers = on == sources.length
-        ? 'All providers'
-        : on == 0
-        ? 'No provider'
-        : '$on of ${sources.length} providers';
-    return limit == 0
-        ? '$providers · none kept offline'
-        : '$providers · keep up to ${PhotoSettingsPage.limitLabel(limit)}';
-  }
-
   void _clearAllFlights() {
     showDialog<void>(
       context: context,
@@ -350,7 +320,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.radar),
                   title: const Text('ADS-B Providers'),
-                  subtitle: Text(_adsbSummary(ref)),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
@@ -362,8 +331,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 const Divider(height: 1, indent: 72),
                 ListTile(
                   leading: const Icon(Icons.photo_library_outlined),
-                  title: const Text('Aircraft Photos'),
-                  subtitle: Text(_photoSummary(ref)),
+                  title: const Text('Photo Providers'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,

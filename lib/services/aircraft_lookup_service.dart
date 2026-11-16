@@ -128,16 +128,16 @@ abstract class AircraftLookupSource {
 
 /// JetPhotos, through JetAPI (https://www.jetapi.dev): several full size
 /// photos with their photographer, and a model name. No designator.
-class JetPhotosSource extends AircraftLookupSource {
-  const JetPhotosSource();
+class JetApiSource extends AircraftLookupSource {
+  const JetApiSource();
 
-  static const sourceId = 'jetphotos';
+  static const sourceId = 'jetapi';
 
   @override
   String get id => sourceId;
 
   @override
-  String get label => 'JetPhotos';
+  String get label => 'jetapi.dev';
 
   /// How many photos to ask for, so there is something to choose from.
   static const photoCount = 8;
@@ -407,7 +407,7 @@ class AircraftLookupService {
   }) {
     final contact = planespottersContact.trim();
     return [
-      const JetPhotosSource(),
+      const JetApiSource(),
       const HexdbSource(),
       const AdsbdbSource(),
       if (contact.isNotEmpty)

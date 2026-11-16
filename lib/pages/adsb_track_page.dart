@@ -109,6 +109,27 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
     ).toUtc();
   }
 
+  void _showAroundInfo() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.info_outline),
+        title: const Text('Departs around'),
+        content: const Text(
+          'Low-cost airlines mostly fly callsigns '
+          "that aren't the flight number: with the airports "
+          'and about when it left, their flight is found by route.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickAround() async {
     final picked = await showTimePicker(
       context: context,
@@ -418,12 +439,6 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
                       labelText: _by.label,
                       hintText: _by.hint,
                       prefixIcon: Icon(_by.icon),
-                      helperText: switch (_by) {
-                        _SearchBy.registration => null,
-                        _SearchBy.callsign =>
-                          'The flight number, or the callsign transmitted',
-                        _SearchBy.hex => 'Six hexadecimal digits',
-                      },
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (_) => _search(),
@@ -452,23 +467,22 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _AroundPicker(
-                      time: _around,
-                      airport: _from,
-                      onTap: _pickAround,
-                      onClear: () => setState(() => _around = null),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                      child: Text(
-                        'Optional. Low-cost airlines mostly fly callsigns '
-                        "that aren't the flight number: with the airports "
-                        'and about when it left, their flight is found by '
-                        'route.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _AroundPicker(
+                            time: _around,
+                            airport: _from,
+                            onTap: _pickAround,
+                            onClear: () => setState(() => _around = null),
+                          ),
                         ),
-                      ),
+                        IconButton(
+                          icon: const Icon(Icons.info_outline),
+                          tooltip: 'About departure time',
+                          onPressed: _showAroundInfo,
+                        ),
+                      ],
                     ),
                   ],
                   const SizedBox(height: 4),

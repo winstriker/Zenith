@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/carto_provider.dart';
 import '../providers/map_provider.dart';
+import '../widgets/secret_status.dart';
 import '../widgets/section_header.dart';
 
 /// Which base map the app draws, and the CARTO API key it needs.
@@ -11,12 +12,12 @@ class MapSettingsPage extends ConsumerWidget {
 
   Future<void> _editApiKey(
     BuildContext context,
-    WidgetRef ref,
-    String? currentKey,
-  ) async {
+    WidgetRef ref, {
+    required bool isSet,
+  }) async {
     final result = await showDialog<_ApiKeyResult>(
       context: context,
-      builder: (_) => _ApiKeyDialog(currentKey: currentKey),
+      builder: (_) => _ApiKeyDialog(isSet: isSet),
     );
     if (result == null) return;
     final notifier = ref.read(cartoApiKeyProvider.notifier);
@@ -108,20 +109,10 @@ class MapSettingsPage extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          cartoKey != null
-                              ? '${cartoKey.substring(0, cartoKey.length > 8 ? 8 : cartoKey.length)}...'
-                              : 'Not set',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: cartoKey != null
-                                ? theme.colorScheme.onSurfaceVariant
-                                : theme.colorScheme.error,
-                          ),
-                        ),
-                      ),
+                      Expanded(child: SecretStatus(isSet: cartoKey != null)),
                       FilledButton.tonal(
-                        onPressed: () => _editApiKey(context, ref, cartoKey),
+                        onPressed: () =>
+                            _editApiKey(context, ref, isSet: cartoKey != null),
                         child: Text(cartoKey != null ? 'Change' : 'Add'),
                       ),
                     ],
@@ -150,15 +141,20 @@ class _ApiKeyRemove extends _ApiKeyResult {
 }
 
 class _ApiKeyDialog extends StatefulWidget {
-  const _ApiKeyDialog({required this.currentKey});
-  final String? currentKey;
+  const _ApiKeyDialog({required this.isSet});
+
+  /// Whether a key is saved already. It is never shown: a new one
+  /// replaces it.
+  final bool isSet;
 
   @override
   State<_ApiKeyDialog> createState() => _ApiKeyDialogState();
 }
 
 class _ApiKeyDialogState extends State<_ApiKeyDialog> {
-  late final _controller = TextEditingController(text: widget.currentKey ?? '');
+  final _controller = TextEditingController();
+  bool _show = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -166,32 +162,50 @@ class _ApiKeyDialogState extends State<_ApiKeyDialog> {
     super.dispose();
   }
 
+  void _save() {
+    final key = _controller.text.trim();
+    if (key.isEmpty) {
+      setState(() => _error = 'Paste your API key');
+      return;
+    }
+    Navigator.pop(context, _ApiKeySave(key));
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('CARTO API Key'),
+      title: Text(widget.isSet ? 'Change CARTO API Key' : 'CARTO API Key'),
       content: TextField(
         controller: _controller,
-        decoration: const InputDecoration(
-          hintText: 'Paste your API key',
-          border: OutlineInputBorder(),
+        autofocus: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        obscureText: !_show,
+        decoration: InputDecoration(
+          hintText: widget.isSet
+              ? 'Paste a new key to replace the saved one'
+              : 'Paste your API key',
+          border: const OutlineInputBorder(),
+          errorText: _error,
+          suffixIcon: IconButton(
+            tooltip: _show ? 'Hide' : 'Show',
+            icon: Icon(_show ? Icons.visibility_off : Icons.visibility),
+            onPressed: () => setState(() => _show = !_show),
+          ),
         ),
+        onSubmitted: (_) => _save(),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        if (widget.currentKey != null)
+        if (widget.isSet)
           TextButton(
             onPressed: () => Navigator.pop(context, const _ApiKeyRemove()),
             child: const Text('Remove'),
           ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.pop(context, _ApiKeySave(_controller.text)),
-          child: const Text('Save'),
-        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
       ],
     );
   }

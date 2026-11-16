@@ -2,9 +2,12 @@ import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/secret_store.dart';
+
 // ---------------------------------------------------------------------------
 // API Key persistence
 // ---------------------------------------------------------------------------
+/// The CARTO API key, kept in the device's keystore.
 class CartoApiKeyNotifier extends Notifier<String?> {
   static const _key = 'carto_api_key';
 
@@ -19,26 +22,35 @@ class CartoApiKeyNotifier extends Notifier<String?> {
   }
 
   Future<void> _loadKey() async {
+    final store = ref.read(secretStoreProvider);
+    String? key;
+    try {
+      key = await store.read(_key);
+    } catch (_) {
+      // A keystore that can't be read (restored onto another device, say)
+      // is the same as nothing entered: the user enters it again.
+    }
+    // Older versions kept the key in the preferences: moved to the
+    // keystore, and out of the preferences.
     final prefs = await SharedPreferences.getInstance();
-    state = prefs.getString(_key);
+    final legacy = prefs.getString(_key);
+    if (legacy != null) {
+      if (key == null) {
+        key = legacy;
+        await store.write(_key, legacy);
+      }
+      await prefs.remove(_key);
+    }
+    if (ref.mounted) state = key;
   }
 
   Future<void> setKey(String key) async {
     final trimmed = key.trim();
     state = trimmed.isEmpty ? null : trimmed;
-    final prefs = await SharedPreferences.getInstance();
-    if (trimmed.isEmpty) {
-      await prefs.remove(_key);
-    } else {
-      await prefs.setString(_key, trimmed);
-    }
+    await ref.read(secretStoreProvider).write(_key, trimmed);
   }
 
-  Future<void> clearKey() async {
-    state = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
-  }
+  Future<void> clearKey() => setKey('');
 }
 
 final cartoApiKeyProvider = NotifierProvider<CartoApiKeyNotifier, String?>(

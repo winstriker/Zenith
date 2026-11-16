@@ -11,13 +11,6 @@ import '../widgets/section_header.dart';
 class PhotoSettingsPage extends ConsumerWidget {
   const PhotoSettingsPage({super.key});
 
-  static const _subtitles = {
-    JetPhotosSource.sourceId: 'Several full size photos, with photographer',
-    HexdbSource.sourceId: 'One photo',
-    AdsbdbSource.sourceId: 'One photo, from Airport-Data.com',
-    PlanespottersSource.sourceId: 'Small photos, with photographer',
-  };
-
   /// "100 MB", "1 GB", or "Off" for 0.
   static String limitLabel(int bytes) {
     if (bytes == 0) return 'Off';
@@ -128,19 +121,10 @@ class PhotoSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final sources = ref.watch(photoSourcesProvider);
     final off = ref.watch(disabledPhotoSourcesProvider);
     final limit = ref.watch(aircraftImageCacheLimitProvider);
     final saved = ref.watch(aircraftImageCacheSizeProvider).value;
-    final allOff = sources.every((source) => off.contains(source.id));
-    // Sources that are asked what an aircraft is, whatever happens to
-    // their photos.
-    final typeSources = [
-      for (final source in sources)
-        if (source.knowsType) source.label,
-    ];
-
     return Scaffold(
       appBar: AppBar(title: const Text('Aircraft Photos'), centerTitle: true),
       body: ListView(
@@ -164,30 +148,9 @@ class PhotoSettingsPage extends ConsumerWidget {
                         .read(disabledPhotoSourcesProvider.notifier)
                         .setEnabled(source.id, enabled: on),
                     title: Text(source.label),
-                    subtitle: Text(_subtitles[source.id] ?? 'Photos'),
                   ),
                 ],
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-            child: Text(
-              [
-                if (allOff)
-                  'With every provider switched off, looking a registration '
-                      'up finds no photos.'
-                else
-                  'Looking a registration up asks every provider that is '
-                      'switched on, and offers their photos in this order.',
-                if (typeSources.isNotEmpty)
-                  '${typeSources.join(' and ')} also say what type an '
-                      'aircraft is, and are still asked for that when '
-                      'switched off.',
-              ].join(' '),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
             ),
           ),
           const SizedBox(height: 8),

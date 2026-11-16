@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/theme.dart';
 import '../models/sync_progress.dart';
 import '../providers/adsb_providers.dart';
 import '../providers/provider_toggles.dart';
@@ -12,6 +13,7 @@ import '../services/adsb_track_source.dart';
 import '../services/aircraft_hex_resolver.dart';
 import '../services/aircraft_lookup_service.dart';
 import '../services/aircraft_registry_service.dart';
+import '../widgets/secret_status.dart';
 import '../widgets/section_header.dart';
 import '../widgets/sync_progress_indicator.dart';
 
@@ -54,23 +56,20 @@ class AdsbSettingsPage extends ConsumerWidget {
                   title: Text(AdsbProvider.flyItalyAdsb.label),
                   subtitle: Text(
                     credentials.hasFlyItalyKey
-                        ? 'Tracks for as far back as your plan goes'
+                        ? 'Tracks of the last 7 days'
                         : 'Needs an API key · free ones cover the last 7 days',
                   ),
                 ),
                 if (flyItalyOn)
                   _CredentialRow(
                     label: 'API key',
-                    value: credentials.hasFlyItalyKey
-                        ? _masked(credentials.flyItalyApiKey!)
-                        : null,
+                    isSet: credentials.hasFlyItalyKey,
                     missing: 'Not set',
                     isRequired: true,
                     onEdit: () => showDialog<void>(
                       context: context,
-                      builder: (_) => _FlyItalyKeyDialog(
-                        currentKey: credentials.flyItalyApiKey,
-                      ),
+                      builder: (_) =>
+                          _FlyItalyKeyDialog(isSet: credentials.hasFlyItalyKey),
                     ),
                   ),
                 const Divider(height: 1, indent: 16),
@@ -81,46 +80,38 @@ class AdsbSettingsPage extends ConsumerWidget {
                   subtitle: Text(
                     credentials.hasOpenSky
                         ? 'Tracks of the last 30 days'
-                        : 'Tracks of the last 30 days · a few a day without '
-                              'an account',
+                        : 'Tracks of the last 30 days · rate limited ',
                   ),
                 ),
                 if (openSkyOn)
                   _CredentialRow(
                     label: 'API client',
-                    value: credentials.hasOpenSky
-                        ? _masked(credentials.openSkyClientId!, keep: 16)
-                        : null,
+                    isSet: credentials.hasOpenSky,
                     missing: 'Anonymous',
                     isRequired: false,
                     onEdit: () => showDialog<void>(
                       context: context,
-                      builder: (_) => _OpenSkyDialog(
-                        currentId: credentials.openSkyClientId,
-                        currentSecret: credentials.openSkyClientSecret,
-                      ),
+                      builder: (_) =>
+                          _OpenSkyDialog(isSet: credentials.hasOpenSky),
                     ),
                   ),
               ],
             ),
           ),
-          _Caption(
-            flyItalyOn || openSkyOn
-                ? "A flight's track is looked for on every provider that is "
-                      'switched on.'
-                : 'With no provider switched on, tracks can only be recorded '
-                      'by the app.',
-            isWarning: !flyItalyOn && !openSkyOn,
-          ),
+          if (!flyItalyOn && !openSkyOn) ...[
+            const _Caption(
+              'No provider on: tracks can only be recorded by the app',
+              isWarning: true,
+            ),
+          ],
           const SizedBox(height: 8),
           const SectionHeader(title: 'ICAO Address Lookup', uppercase: true),
           const _HexSourcesCard(),
-          const _Caption(
-            'ADS-B data is filed under the 24-bit ICAO address ("hex code") '
-            'of an aircraft, not its registration. These are asked which '
-            'address a registration has.',
+          const SizedBox(height: 8),
+          const SectionHeader(
+            title: 'Attributions & huge thanks to',
+            uppercase: true,
           ),
-          const SizedBox(height: 16),
           for (final provider in AdsbProvider.values)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
@@ -136,10 +127,6 @@ class AdsbSettingsPage extends ConsumerWidget {
       ),
     );
   }
-
-  /// The start of a secret, enough to tell which one it is.
-  static String _masked(String value, {int keep = 6}) =>
-      value.length <= keep ? value : '${value.substring(0, keep)}…';
 }
 
 class _Caption extends StatelessWidget {
@@ -164,12 +151,12 @@ class _Caption extends StatelessWidget {
   }
 }
 
-/// A key or account under its provider's switch: what is saved, and a
-/// button to change it.
+/// A key or account under its provider's switch: whether one is saved
+/// (never what it is), and a button to change it.
 class _CredentialRow extends StatelessWidget {
   const _CredentialRow({
     required this.label,
-    required this.value,
+    required this.isSet,
     required this.missing,
     required this.isRequired,
     required this.onEdit,
@@ -177,8 +164,7 @@ class _CredentialRow extends StatelessWidget {
 
   final String label;
 
-  /// What is saved, shortened. Null when nothing is.
-  final String? value;
+  final bool isSet;
 
   /// What to show when nothing is saved.
   final String missing;
@@ -205,22 +191,17 @@ class _CredentialRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: theme.textTheme.labelMedium),
-                Text(
-                  value ?? missing,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: value == null && isRequired
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
-                  ),
+                SecretStatus(
+                  isSet: isSet,
+                  missing: missing,
+                  isRequired: isRequired,
                 ),
               ],
             ),
           ),
           FilledButton.tonal(
             onPressed: onEdit,
-            child: Text(value != null ? 'Change' : 'Add'),
+            child: Text(isSet ? 'Change' : 'Add'),
           ),
         ],
       ),
@@ -291,13 +272,12 @@ class _LocalDatabaseTile extends ConsumerWidget {
   static final _number = NumberFormat.decimalPattern();
 
   static String _describe(RegistryStatus? status) {
-    if (status == null) return 'On this device · tar1090-db';
+    if (status == null) return '';
     if (!status.isDownloaded) {
       return 'On this device · tar1090-db · not downloaded yet (about 9 MB)';
     }
     final updated = status.updatedAt;
-    return 'On this device · tar1090-db · '
-        '${_number.format(status.aircraft)} aircraft'
+    return '${_number.format(status.aircraft)} aircraft'
         '${updated == null ? '' : ' · ${_date.format(updated)}'}';
   }
 
@@ -305,12 +285,8 @@ class _LocalDatabaseTile extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Aircraft Database'),
-        content: const Text(
-          'The downloaded list of aircraft is removed from this device and '
-          'the local database is switched off. Switching it on again '
-          'downloads the list anew.',
-        ),
+        title: const Text('Delete tar1090-db'),
+        content: const Text('Local database will be deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -318,6 +294,10 @@ class _LocalDatabaseTile extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -349,7 +329,7 @@ class _LocalDatabaseTile extends ConsumerWidget {
           onChanged: (on) => ref
               .read(disabledHexSourcesProvider.notifier)
               .setEnabled(LocalHexSource.sourceId, enabled: on),
-          title: const Text('Local database'),
+          title: const Text('Local tar1090-db'),
           subtitle: Text(_describe(status)),
         ),
         if (showProgress)
@@ -372,7 +352,7 @@ class _LocalDatabaseTile extends ConsumerWidget {
                       progress.phase == SyncPhase.error
                           ? 'Retry'
                           : downloaded
-                          ? 'Check for update'
+                          ? 'Check for updates'
                           : 'Download',
                     ),
                   ),
@@ -434,16 +414,20 @@ class _HelpLink extends StatelessWidget {
 }
 
 class _FlyItalyKeyDialog extends ConsumerStatefulWidget {
-  const _FlyItalyKeyDialog({required this.currentKey});
-  final String? currentKey;
+  const _FlyItalyKeyDialog({required this.isSet});
+
+  /// Whether a key is saved already. It is never shown: a new one
+  /// replaces it.
+  final bool isSet;
 
   @override
   ConsumerState<_FlyItalyKeyDialog> createState() => _FlyItalyKeyDialogState();
 }
 
 class _FlyItalyKeyDialogState extends ConsumerState<_FlyItalyKeyDialog> {
-  late final _controller = TextEditingController(text: widget.currentKey ?? '');
+  final _controller = TextEditingController();
   bool _checking = false;
+  bool _show = false;
   String? _error;
 
   @override
@@ -506,7 +490,9 @@ class _FlyItalyKeyDialogState extends ConsumerState<_FlyItalyKeyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('FlyItalyADSB API Key'),
+      title: Text(
+        widget.isSet ? 'Change FlyItalyADSB API Key' : 'FlyItalyADSB API Key',
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -515,12 +501,22 @@ class _FlyItalyKeyDialogState extends ConsumerState<_FlyItalyKeyDialog> {
             TextField(
               controller: _controller,
               enabled: !_checking,
+              autofocus: true,
               autocorrect: false,
               enableSuggestions: false,
+              obscureText: !_show,
               decoration: InputDecoration(
-                hintText: 'Paste your API key',
+                hintText: widget.isSet
+                    ? 'Paste a new key to replace the saved one'
+                    : 'Paste your API key',
                 border: const OutlineInputBorder(),
                 errorText: _error,
+                errorMaxLines: 2,
+                suffixIcon: IconButton(
+                  tooltip: _show ? 'Hide' : 'Show',
+                  icon: Icon(_show ? Icons.visibility_off : Icons.visibility),
+                  onPressed: () => setState(() => _show = !_show),
+                ),
               ),
               onSubmitted: (_) => _save(),
             ),
@@ -540,7 +536,7 @@ class _FlyItalyKeyDialogState extends ConsumerState<_FlyItalyKeyDialog> {
           onPressed: _checking ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        if (widget.currentKey != null)
+        if (widget.isSet)
           TextButton(
             onPressed: _checking ? null : _remove,
             child: const Text('Remove'),
@@ -561,23 +557,22 @@ class _FlyItalyKeyDialogState extends ConsumerState<_FlyItalyKeyDialog> {
 }
 
 class _OpenSkyDialog extends ConsumerStatefulWidget {
-  const _OpenSkyDialog({required this.currentId, required this.currentSecret});
-  final String? currentId;
-  final String? currentSecret;
+  const _OpenSkyDialog({required this.isSet});
+
+  /// Whether an API client is saved already. It is never shown: a new
+  /// one replaces it.
+  final bool isSet;
 
   @override
   ConsumerState<_OpenSkyDialog> createState() => _OpenSkyDialogState();
 }
 
 class _OpenSkyDialogState extends ConsumerState<_OpenSkyDialog> {
-  late final _id = TextEditingController(text: widget.currentId ?? '');
-  late final _secret = TextEditingController(text: widget.currentSecret ?? '');
+  final _id = TextEditingController();
+  final _secret = TextEditingController();
   bool _checking = false;
   bool _showSecret = false;
   String? _error;
-
-  bool get _hasCurrent =>
-      widget.currentId != null && widget.currentSecret != null;
 
   @override
   void dispose() {
@@ -649,7 +644,9 @@ class _OpenSkyDialogState extends ConsumerState<_OpenSkyDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('OpenSky API Client'),
+      title: Text(
+        widget.isSet ? 'Change OpenSky API Client' : 'OpenSky API Client',
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -658,11 +655,16 @@ class _OpenSkyDialogState extends ConsumerState<_OpenSkyDialog> {
             TextField(
               controller: _id,
               enabled: !_checking,
+              autofocus: true,
               autocorrect: false,
               enableSuggestions: false,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Client ID',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                helperText: widget.isSet
+                    ? 'Enter a new client to replace the saved one'
+                    : null,
+                helperMaxLines: 2,
               ),
               onChanged: _onPasted,
             ),
@@ -707,7 +709,7 @@ class _OpenSkyDialogState extends ConsumerState<_OpenSkyDialog> {
           onPressed: _checking ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        if (_hasCurrent)
+        if (widget.isSet)
           TextButton(
             onPressed: _checking ? null : _remove,
             child: const Text('Remove'),

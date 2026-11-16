@@ -308,7 +308,7 @@ void main() {
   });
 
   test('links that are not https are dropped', () {
-    final jet = JetPhotosSource.parse({
+    final jet = JetApiSource.parse({
       'Images': [
         {'Image': 'file:///etc/passwd', 'Aircraft': 'Nope'},
         {'Image': 'https://cdn.jetphotos.com/full/1/a.jpg', 'Link': 'ftp://x'},
@@ -407,8 +407,8 @@ void main() {
   });
 
   test('answers of an unexpected shape give nothing', () {
-    expect(JetPhotosSource.parse({'Reg': 'X', 'Images': null}), isNull);
-    expect(JetPhotosSource.parse({'Reg': 'X', 'Images': <Object>[]}), isNull);
+    expect(JetApiSource.parse({'Reg': 'X', 'Images': null}), isNull);
+    expect(JetApiSource.parse({'Reg': 'X', 'Images': <Object>[]}), isNull);
     expect(AdsbdbSource.parse({'response': 'unknown aircraft'}), isNull);
     expect(HexdbSource.parse({'count': 0, 'results': <Object>[]}), isNull);
     expect(PlanespottersSource.parse({'photos': <Object>[]}), isNull);

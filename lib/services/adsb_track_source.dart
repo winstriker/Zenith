@@ -10,13 +10,13 @@ enum AdsbProvider {
     id: 'flyitalyadsb',
     label: 'FlyItalyADSB',
     // The wording their licence (CC BY-SA 4.0) asks for.
-    attribution: 'Flight data: FlyItalyADSB (flyitalyadsb.com), CC BY-SA 4.0',
+    attribution: 'FlyItalyADSB (flyitalyadsb.com), CC BY-SA 4.0',
     website: 'https://flyitalyadsb.com',
   ),
   openSky(
     id: 'opensky',
     label: 'OpenSky Network',
-    attribution: 'Flight data: The OpenSky Network (opensky-network.org)',
+    attribution: 'The OpenSky Network (opensky-network.org)',
     website: 'https://opensky-network.org',
   );
 
