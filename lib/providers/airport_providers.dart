@@ -66,11 +66,11 @@ final countriesStreamProvider = StreamProvider<List<Country>>((ref) {
 // ---------------------------------------------------------------------------
 
 /// Progress of the OurAirports sync. Watching it starts the (daily) sync.
-class AirportLoadNotifier extends Notifier<AirportSyncProgress> {
+class AirportLoadNotifier extends Notifier<SyncProgress> {
   late AirportsService _service;
 
   @override
-  AirportSyncProgress build() {
+  SyncProgress build() {
     _service = ref.watch(airportServiceProvider);
     void onChange() => state = _service.progress.value;
     _service.progress.addListener(onChange);
@@ -84,10 +84,9 @@ class AirportLoadNotifier extends Notifier<AirportSyncProgress> {
   Future<void> refresh() => _service.loadData(forceDownload: true);
 }
 
-final airportLoadProvider =
-    NotifierProvider<AirportLoadNotifier, AirportSyncProgress>(
-      AirportLoadNotifier.new,
-    );
+final airportLoadProvider = NotifierProvider<AirportLoadNotifier, SyncProgress>(
+  AirportLoadNotifier.new,
+);
 
 final airportServiceProvider = Provider<AirportsService>((ref) {
   final db = ref.watch(databaseProvider);

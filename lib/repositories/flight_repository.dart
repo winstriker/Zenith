@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/flight_track.dart';
 import '../providers/database_provider.dart';
 import '../services/database.dart';
 
@@ -76,6 +77,76 @@ class FlightRepository {
   /// Stream of recent flights (for home page)
   Stream<List<FlightWithStats>> watchRecentFlights({int limit = 20}) {
     return watchRecordedFlights(limit: limit);
+  }
+
+  // Tracks ------------------------------------------------------------------
+  //
+  // The lists above never load tracks (`dataPoints` stays empty): thousands
+  // of rows per flight are only wanted by the one page that draws them.
+
+  SimpleSelectStatement<$FlightDataPointsTable, FlightDataPoint> _trackQuery(
+    int flightId,
+  ) {
+    // Answered straight out of the (flight, timestamp) index, in order.
+    return _database.select(_database.flightDataPoints)
+      ..where((p) => p.flight.equals(flightId))
+      ..orderBy([
+        (p) => OrderingTerm.asc(p.timestamp),
+        (p) => OrderingTerm.asc(p.id),
+      ]);
+  }
+
+  /// The track of a flight, in order, as it changes.
+  Stream<List<FlightDataPoint>> watchTrack(int flightId) =>
+      _trackQuery(flightId).watch();
+
+  /// The track of a flight, in order.
+  Future<List<FlightDataPoint>> getTrack(int flightId) =>
+      _trackQuery(flightId).get();
+
+  /// Replaces the track of [flightId] with [points], which were fetched
+  /// from the ADS-B provider [source] (`AdsbProvider.id`). All or nothing.
+  /// Returns how many points were stored.
+  Future<int> replaceTrack(
+    int flightId,
+    List<TrackPoint> points, {
+    required String source,
+  }) {
+    return _database.transaction(() async {
+      await (_database.delete(
+        _database.flightDataPoints,
+      )..where((p) => p.flight.equals(flightId))).go();
+      await _database.batch((batch) {
+        batch.insertAll(_database.flightDataPoints, [
+          for (final point in points)
+            FlightDataPointsCompanion.insert(
+              flight: flightId,
+              longitude: point.longitude,
+              latitude: point.latitude,
+              altitude: (point.altitude ?? 0).round(),
+              timestamp: point.time,
+              speed: Value(point.speed),
+              heading: Value(point.heading),
+            ),
+        ]);
+      });
+      await (_database.update(_database.flights)
+            ..where((f) => f.id.equals(flightId)))
+          .write(FlightsCompanion(trackSource: Value(source)));
+      return points.length;
+    });
+  }
+
+  /// Removes the track of [flightId]. The flight itself stays.
+  Future<void> deleteTrack(int flightId) {
+    return _database.transaction(() async {
+      await (_database.delete(
+        _database.flightDataPoints,
+      )..where((p) => p.flight.equals(flightId))).go();
+      await (_database.update(_database.flights)
+            ..where((f) => f.id.equals(flightId)))
+          .write(const FlightsCompanion(trackSource: Value(null)));
+    });
   }
 
   /// Internal method to watch flights with joins for related data
@@ -258,27 +329,28 @@ class FlightRepository {
     String? arrivalIanaLocation,
     bool isRecording = false,
   }) async {
-    await _database
-        .update(_database.flights)
-        .replace(
-          FlightsCompanion(
-            id: Value(flightId),
-            title: Value(title),
-            departure: Value(departureId),
-            arrival: Value(arrivalId),
-            departureTime: Value(departureTime),
-            arrivalTime: Value(arrivalTime),
-            departureIanaLocation: Value(departureIanaLocation),
-            arrivalIanaLocation: Value(arrivalIanaLocation),
-            aircraftId: Value(aircraftId),
-            approachType: Value(approachType),
-            nightLandings: Value(nightLandings),
-            dayLandings: Value(dayLandings),
-            flightRules: Value(flightRules),
-            remarks: Value(remarks),
-            isRecording: Value(isRecording),
-          ),
-        );
+    // write(), not replace(): the columns not listed here (pilot role, where
+    // the track comes from) keep their values.
+    await (_database.update(
+      _database.flights,
+    )..where((f) => f.id.equals(flightId))).write(
+      FlightsCompanion(
+        title: Value(title),
+        departure: Value(departureId),
+        arrival: Value(arrivalId),
+        departureTime: Value(departureTime),
+        arrivalTime: Value(arrivalTime),
+        departureIanaLocation: Value(departureIanaLocation),
+        arrivalIanaLocation: Value(arrivalIanaLocation),
+        aircraftId: Value(aircraftId),
+        approachType: Value(approachType),
+        nightLandings: Value(nightLandings),
+        dayLandings: Value(dayLandings),
+        flightRules: Value(flightRules),
+        remarks: Value(remarks),
+        isRecording: Value(isRecording),
+      ),
+    );
   }
 }
 

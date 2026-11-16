@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../core/theme.dart';
 import '../providers/unit_provider.dart';
+import '../services/adsb_track_source.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/base_map_layer.dart';
@@ -25,16 +26,21 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     with TickerProviderStateMixin {
   final MapController _mapController = MapController();
 
-  // Animation controller for smooth 60fps playback
+  // Animation controller for smooth 60fps playback. Its value is how far
+  // into the flight the replay is, from 0 to 1.
   late final AnimationController _animationController;
-  late final Animation<double> _progressAnimation;
 
   // Flight data (pre-computed)
+  late final List<FlightDataPoint> _points;
   late final List<LatLng> _pathPoints;
-  late final List<double> _cumulativeDistances;
-  late final double _totalDistance;
-  late final Duration _replayDuration;
-  late final int _pointsCount;
+
+  /// Seconds from the first position to each one. The replay follows the
+  /// clock of the flight: the aircraft moves at the speed it flew, and
+  /// waits where it waited.
+  late final List<double> _elapsed;
+
+  /// From the first position to the last.
+  late final Duration _trackDuration;
 
   // Current state (updated by animation)
   LatLng? _currentPosition;
@@ -43,79 +49,70 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   double? _currentHeading;
   int _currentSegmentIndex = 0;
 
-  // Playback state
-  double _speed = 1.0;
+  // Playback state: how many times faster than the flight.
+  late double _speed;
   bool _mapReady = false;
+
+  /// Without a faster choice, a replay would last as long as the flight.
+  static const _speeds = [1.0, 10.0, 30.0, 100.0];
+
+  /// What the replay of a whole flight should about last to start with.
+  static const _comfortable = Duration(minutes: 2);
 
   @override
   void initState() {
     super.initState();
     _initFlightData();
-    _initAnimationController();
-  }
-
-  void _initFlightData() {
-    final points = widget.flight.dataPoints;
-    _pointsCount = points.length;
-    _pathPoints = points.map((p) => LatLng(p.latitude, p.longitude)).toList();
-
-    if (points.length >= 2) {
-      const dist = Distance();
-      _cumulativeDistances = [0.0];
-      for (int i = 1; i < points.length; i++) {
-        final d = dist(_pathPoints[i - 1], _pathPoints[i]);
-        _cumulativeDistances.add(_cumulativeDistances.last + d);
-      }
-      _totalDistance = _cumulativeDistances.last;
-    } else {
-      _cumulativeDistances = [0.0];
-      _totalDistance = 0;
-    }
-
-    _replayDuration = _calculateDuration();
-    _currentPosition = _pathPoints.isNotEmpty ? _pathPoints.first : null;
-    if (points.isNotEmpty) {
-      _currentAltitude = points.first.altitude.toDouble();
-      _currentSpeed = points.first.speed;
-      _currentHeading = points.first.heading;
-    }
-  }
-
-  void _initAnimationController() {
     _animationController = AnimationController(
       vsync: this,
-      duration: _replayDuration,
+      duration: _playbackDuration,
     );
-
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.linear),
-    );
-
     _animationController.addListener(_onAnimationTick);
     _animationController.addStatusListener(_onAnimationStatusChanged);
   }
 
-  Duration _calculateDuration() {
-    if (widget.flight.duration != null &&
-        widget.flight.duration!.inMicroseconds > 0) {
-      return widget.flight.duration!;
+  void _initFlightData() {
+    _points = widget.flight.dataPoints;
+    _pathPoints = [for (final p in _points) LatLng(p.latitude, p.longitude)];
+
+    var elapsed = <double>[
+      for (final p in _points)
+        p.timestamp.difference(_points.first.timestamp).inMilliseconds / 1000,
+    ];
+    if (_points.length >= 2 && elapsed.last <= 0) {
+      // Positions that all carry the same time: spread them evenly.
+      elapsed = [
+        for (var i = 0; i < _points.length; i++)
+          30.0 * i / (_points.length - 1),
+      ];
     }
-    final points = widget.flight.dataPoints;
-    if (points.length >= 2) {
-      final d = points.last.timestamp.difference(points.first.timestamp);
-      if (d.inMicroseconds > 0) return d;
+    _elapsed = elapsed;
+    _trackDuration = Duration(
+      milliseconds: elapsed.isEmpty ? 0 : (elapsed.last * 1000).round(),
+    );
+    // The slowest speed that shows the whole flight in a couple of minutes.
+    _speed = _speeds.firstWhere(
+      (speed) => _trackDuration * (1 / speed) <= _comfortable,
+      orElse: () => _speeds.last,
+    );
+
+    _currentPosition = _pathPoints.isNotEmpty ? _pathPoints.first : null;
+    if (_points.isNotEmpty) {
+      _currentAltitude = _points.first.altitude.toDouble();
+      _currentSpeed = _points.first.speed;
+      _currentHeading = _points.first.heading;
     }
-    return const Duration(seconds: 30);
   }
 
-  void _onAnimationTick() {
-    final progress = _progressAnimation.value * _speed;
-    if (progress >= 1.0) {
-      _animationController.stop();
-      return;
-    }
-    _updateCurrentPoint(progress.clamp(0.0, 1.0));
+  /// How long the replay lasts at the chosen speed.
+  Duration get _playbackDuration {
+    final duration = _trackDuration * (1 / _speed);
+    return duration > Duration.zero
+        ? duration
+        : const Duration(milliseconds: 1);
   }
+
+  void _onAnimationTick() => _updateCurrentPoint(_animationController.value);
 
   void _onAnimationStatusChanged(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
@@ -129,57 +126,45 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
       _currentPosition = _pathPoints.first;
       return;
     }
-    if (progress <= 0) {
-      _currentPosition = _pathPoints.first;
-      _currentSegmentIndex = 0;
-      return;
-    }
-    if (progress >= 1) {
-      _currentPosition = _pathPoints.last;
-      _currentSegmentIndex = _pathPoints.length - 1;
-      return;
-    }
 
-    final target = progress * _totalDistance;
+    final target = progress.clamp(0.0, 1.0) * _elapsed.last;
 
-    // Binary search for segment index (O(log n) instead of O(n))
-    int low = 1;
-    int high = _cumulativeDistances.length - 1;
-    while (low <= high) {
-      final mid = (low + high) ~/ 2;
-      if (_cumulativeDistances[mid] < target) {
-        low = mid + 1;
+    // Binary search for the last position not after the target time
+    // (O(log n) instead of O(n)).
+    var low = 0;
+    var high = _elapsed.length - 1;
+    while (low < high) {
+      final mid = (low + high + 1) ~/ 2;
+      if (_elapsed[mid] <= target) {
+        low = mid;
       } else {
         high = mid - 1;
       }
     }
-    _currentSegmentIndex = high.clamp(0, _cumulativeDistances.length - 2);
+    _currentSegmentIndex = low.clamp(0, _elapsed.length - 2);
 
-    final segStart = _cumulativeDistances[_currentSegmentIndex];
-    final segEnd = _cumulativeDistances[_currentSegmentIndex + 1];
+    final segStart = _elapsed[_currentSegmentIndex];
+    final segEnd = _elapsed[_currentSegmentIndex + 1];
     final t = segEnd > segStart
-        ? ((target - segStart) / (segEnd - segStart))
+        ? ((target - segStart) / (segEnd - segStart)).clamp(0.0, 1.0)
         : 0.0;
 
     final p1 = _pathPoints[_currentSegmentIndex];
     final p2 = _pathPoints[_currentSegmentIndex + 1];
-
     _currentPosition = LatLng(
       p1.latitude + (p2.latitude - p1.latitude) * t,
       p1.longitude + (p2.longitude - p1.longitude) * t,
     );
 
     // Interpolate altitude, speed, heading from data points
-    if (_currentSegmentIndex < widget.flight.dataPoints.length - 1) {
-      final dp1 = widget.flight.dataPoints[_currentSegmentIndex];
-      final dp2 = widget.flight.dataPoints[_currentSegmentIndex + 1];
-
-      _currentAltitude = dp1.altitude + (dp2.altitude - dp1.altitude) * t;
-      _currentSpeed = dp1.speed != null && dp2.speed != null
-          ? dp1.speed! + (dp2.speed! - dp1.speed!) * t
-          : (dp1.speed ?? dp2.speed);
-      _currentHeading = _computeBearing(dp1, dp2);
-    }
+    final dp1 = _points[_currentSegmentIndex];
+    final dp2 = _points[_currentSegmentIndex + 1];
+    _currentAltitude = dp1.altitude + (dp2.altitude - dp1.altitude) * t;
+    _currentSpeed = dp1.speed != null && dp2.speed != null
+        ? dp1.speed! + (dp2.speed! - dp1.speed!) * t
+        : (dp1.speed ?? dp2.speed);
+    // Standing still there is no way it is going: keep the last heading.
+    if (p1 != p2) _currentHeading = _computeBearing(dp1, dp2);
   }
 
   double _computeBearing(FlightDataPoint p1, FlightDataPoint p2) {
@@ -192,34 +177,28 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   }
 
   void _togglePlayback() {
-    if (_progressAnimation.value >= 1.0) {
-      _animationController.reset();
-    }
+    if (_pathPoints.length < 2) return;
     if (_animationController.isAnimating) {
       _animationController.stop();
     } else {
-      // Adjust duration based on speed
-      _animationController.duration = Duration(
-        microseconds: (_replayDuration.inMicroseconds / _speed).round(),
+      _animationController.duration = _playbackDuration;
+      _animationController.forward(
+        from: _animationController.value >= 1.0
+            ? 0.0
+            : _animationController.value,
       );
-      _animationController.forward(from: _progressAnimation.value);
     }
     setState(() {});
   }
 
   void _setSpeed(double speed) {
     final wasPlaying = _animationController.isAnimating;
-    final currentProgress = _progressAnimation.value;
-
-    setState(() {
-      _speed = speed;
-    });
-
+    setState(() => _speed = speed);
+    // The speed only changes how fast the flight goes by, not where in it
+    // the replay is.
+    _animationController.duration = _playbackDuration;
     if (wasPlaying) {
-      _animationController.duration = Duration(
-        microseconds: (_replayDuration.inMicroseconds / _speed).round(),
-      );
-      _animationController.forward(from: currentProgress);
+      _animationController.forward(from: _animationController.value);
     }
   }
 
@@ -227,8 +206,8 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     if (_animationController.isAnimating) {
       _animationController.stop();
     }
+    // Moving the controller updates the position through its listener.
     _animationController.value = value;
-    _updateCurrentPoint(value);
     setState(() {});
   }
 
@@ -246,7 +225,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   }
 
   List<LatLng> _buildTrailPoints() {
-    if (_progressAnimation.value <= 0 || _currentPosition == null) return [];
+    if (_animationController.value <= 0 || _currentPosition == null) return [];
     final idx = _currentSegmentIndex;
     return [..._pathPoints.sublist(0, idx + 1), _currentPosition!];
   }
@@ -265,10 +244,26 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     _fitMapBounds();
   }
 
+  /// Shows the whole flight, clear of the bars drawn over the map.
   void _fitMapBounds() {
     if (!_mapReady || _pathPoints.isEmpty) return;
-    final startPoint = _pathPoints.first;
-    _mapController.move(startPoint, 13.0);
+    final bounds = LatLngBounds.fromPoints(_pathPoints);
+    if (bounds.southWest == bounds.northEast) {
+      _mapController.move(_pathPoints.first, 13.0);
+    } else {
+      final padding = MediaQuery.paddingOf(context);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: EdgeInsets.fromLTRB(
+            40,
+            padding.top + 110,
+            40,
+            padding.bottom + 270,
+          ),
+        ),
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _mapController.move(
@@ -284,8 +279,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     final cs = Theme.of(context).colorScheme;
     final overlay = context.appColors.overlay;
     final padding = MediaQuery.paddingOf(context);
-    final points = widget.flight.dataPoints;
+    final points = _points;
     final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
+    // An ADS-B track is shown with the credit its provider asks for.
+    final provider = AdsbProvider.byId(widget.flight.flight.trackSource);
 
     return Scaffold(
       backgroundColor: overlay,
@@ -316,22 +313,26 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                 ),
               // Animated trail + plane marker
               AnimatedBuilder(
-                animation: _progressAnimation,
+                animation: _animationController,
                 builder: (context, _) {
                   if (_pathPoints.length < 2 || _currentPosition == null) {
                     return const SizedBox.shrink();
                   }
+                  final trail = _buildTrailPoints();
                   return Stack(
                     children: [
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: _buildTrailPoints(),
-                            strokeWidth: 4,
-                            color: cs.primary,
-                          ),
-                        ],
-                      ),
+                      // At the very start nothing has been flown yet, and a
+                      // polyline can't be empty.
+                      if (trail.length >= 2)
+                        PolylineLayer(
+                          polylines: [
+                            Polyline(
+                              points: trail,
+                              strokeWidth: 4,
+                              color: cs.primary,
+                            ),
+                          ],
+                        ),
                       MarkerLayer(
                         markers: [
                           Marker(
@@ -377,9 +378,9 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
               children: [
                 _ReplayTopBar(
                   title: widget.flight.flight.title,
-                  pointsCount: _pointsCount,
+                  pointsCount: _points.length,
                   speedBadge: AnimatedBuilder(
-                    animation: _progressAnimation,
+                    animation: _animationController,
                     builder: (context, _) => _currentSpeed == null
                         ? const SizedBox.shrink()
                         : _SpeedBadge(
@@ -392,6 +393,19 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                   padding: EdgeInsets.only(left: 8, top: 4),
                   child: MapAttributionLabel(),
                 ),
+                if (provider != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 4),
+                    child: Text(
+                      provider.attribution,
+                      style: TextStyle(
+                        color: context.appColors.onOverlay.withValues(
+                          alpha: 0.7,
+                        ),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -417,17 +431,18 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             left: 16,
             right: 16,
             child: AnimatedBuilder(
-              animation: _progressAnimation,
+              animation: _animationController,
               builder: (context, _) {
-                final elapsed = _replayDuration * _progressAnimation.value;
+                final elapsed = _trackDuration * _animationController.value;
                 return _ReplayControlPanel(
-                  progress: _progressAnimation.value,
+                  progress: _animationController.value,
                   elapsed: elapsed,
-                  remaining: _replayDuration - elapsed,
+                  remaining: _trackDuration - elapsed,
                   altitude: _formatAltitude(_currentAltitude, isMetric),
                   speed: _formatSpeed(_currentSpeed, isMetric),
                   isPlaying: _animationController.isAnimating,
                   playbackSpeed: _speed,
+                  playbackSpeeds: _speeds,
                   onSeek: _onSliderChanged,
                   onTogglePlayback: _togglePlayback,
                   onPlaybackSpeedChanged: _setSpeed,
@@ -639,6 +654,7 @@ class _ReplayControlPanel extends StatelessWidget {
     required this.speed,
     required this.isPlaying,
     required this.playbackSpeed,
+    required this.playbackSpeeds,
     required this.onSeek,
     required this.onTogglePlayback,
     required this.onPlaybackSpeedChanged,
@@ -651,11 +667,10 @@ class _ReplayControlPanel extends StatelessWidget {
   final String speed;
   final bool isPlaying;
   final double playbackSpeed;
+  final List<double> playbackSpeeds;
   final ValueChanged<double> onSeek;
   final VoidCallback onTogglePlayback;
   final ValueChanged<double> onPlaybackSpeedChanged;
-
-  static const _speeds = [1.0, 2.0, 4.0];
 
   @override
   Widget build(BuildContext context) {
@@ -743,10 +758,10 @@ class _ReplayControlPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  for (final s in _speeds)
+                  const SizedBox(width: 12),
+                  for (final s in playbackSpeeds)
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: _SpeedChip(
                         label: '${s.toInt()}x',
                         selected: playbackSpeed == s,
@@ -850,7 +865,7 @@ class _SpeedChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? cs.primary : onOverlay.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),

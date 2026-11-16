@@ -6,7 +6,7 @@ import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/airport_service.dart';
-import '../widgets/airport_sync_progress.dart';
+import '../widgets/sync_progress_indicator.dart';
 
 class IntroPage extends ConsumerStatefulWidget {
   const IntroPage({super.key, required this.onPermissionGranted});
@@ -234,7 +234,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
         );
       default:
         final progress = ref.watch(airportLoadProvider);
-        if (progress.phase == AirportSyncPhase.done) {
+        if (progress.phase == SyncPhase.done) {
           return _AllSetStep(
             key: const ValueKey('allSet'),
             nickname: _nicknameController.text.trim(),
@@ -691,13 +691,13 @@ class _AirportDataStep extends StatelessWidget {
     required this.onRetry,
   });
 
-  final AirportSyncProgress progress;
+  final SyncProgress progress;
   final VoidCallback onContinue;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    final isError = progress.phase == AirportSyncPhase.error;
+    final isError = progress.phase == SyncPhase.error;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -709,7 +709,7 @@ class _AirportDataStep extends StatelessWidget {
               : 'Fetching airports, runways and frequencies from OurAirports',
         ),
         const SizedBox(height: 24),
-        AirportSyncProgressIndicator(progress: progress),
+        SyncProgressIndicator(progress: progress),
         const SizedBox(height: 24),
         if (isError) ...[
           _StepPrimaryButton(

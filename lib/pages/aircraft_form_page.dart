@@ -12,6 +12,7 @@ import '../repositories/aircraft_repository.dart';
 import '../services/aircraft_lookup_service.dart';
 import '../services/database.dart';
 import '../services/person_photo_store.dart';
+import '../services/registry_database.dart';
 import '../utils/icao_type_matcher.dart';
 import '../widgets/aircraft_class_card.dart';
 import '../widgets/aircraft_photo_view.dart';
@@ -21,10 +22,15 @@ import 'icao_aircraft_select_page.dart';
 enum _PhotoAction { online, gallery, camera, remove }
 
 /// Full-page form that creates a new aircraft, or edits [aircraft] when
-/// given. Pops `true` when the aircraft was deleted.
+/// given. Pops `true` when the aircraft was deleted, and the id of the new
+/// aircraft when one was added.
 class AircraftFormPage extends ConsumerStatefulWidget {
-  const AircraftFormPage({super.key, this.aircraft});
+  const AircraftFormPage({super.key, this.aircraft, this.initialTailNumber});
   final AircraftWithStats? aircraft;
+
+  /// For a new aircraft: the registration to start with, which is looked
+  /// up straight away.
+  final String? initialTailNumber;
 
   @override
   ConsumerState<AircraftFormPage> createState() => _AircraftFormPageState();
@@ -84,7 +90,8 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
   void initState() {
     super.initState();
     final aircraft = widget.aircraft;
-    _tailController.text = aircraft?.tailNumber ?? '';
+    _tailController.text =
+        aircraft?.tailNumber ?? widget.initialTailNumber ?? '';
     _notesController.text = aircraft?.notes ?? '';
 
     if (aircraft != null) {
@@ -100,6 +107,12 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
     ref.read(aircraftRepositoryProvider).getTypeRatings().then((ratings) {
       if (mounted) setState(() => _knownTypeRatings = ratings);
     });
+
+    if (aircraft == null && _tailController.text.trim().isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _lookUp();
+      });
+    }
   }
 
   @override
@@ -171,8 +184,8 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
       _lookup = found;
 
       // Take the source's spelling, unless the field changed meanwhile.
-      if (_tailController.text.trim().toUpperCase() ==
-          found.registration.toUpperCase()) {
+      if (RegistryDatabase.normalizeRegistration(_tailController.text) ==
+          RegistryDatabase.normalizeRegistration(found.registration)) {
         _tailController.text = found.registration;
       }
       if (!_hasPhoto && found.photos.isNotEmpty) {
@@ -392,6 +405,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
       final notes = _notesController.text.trim();
       final existing = widget.aircraft;
 
+      int? addedId;
       if (existing != null) {
         await repository.updateAircraft(
           existing.id,
@@ -403,7 +417,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
           photo: _photoChanged ? Value(photo) : const Value.absent(),
         );
       } else {
-        await repository.addAircraft(
+        addedId = await repository.addAircraft(
           icaoAircraftId: type.id,
           tailNumber: tailNumber,
           notes: notes.isEmpty ? null : notes,
@@ -413,7 +427,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
         );
       }
 
-      if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context, addedId);
     } catch (e) {
       // Don't leave a photo behind that no aircraft points to.
       await photos.delete(storedFile);

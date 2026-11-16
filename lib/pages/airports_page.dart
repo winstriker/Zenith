@@ -7,8 +7,8 @@ import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
 import '../services/database.dart';
 import '../widgets/airport_card.dart';
-import '../widgets/airport_sync_progress.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/sync_progress_indicator.dart';
 import 'airport_detail_page.dart';
 
 class AirportsPage extends ConsumerStatefulWidget {
@@ -111,8 +111,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     final sync = ref.watch(airportLoadProvider);
     // Reload the list once a sync has written new data.
     ref.listen(airportLoadProvider, (prev, next) {
-      if (next.phase == AirportSyncPhase.done &&
-          prev?.phase != AirportSyncPhase.done) {
+      if (next.phase == SyncPhase.done && prev?.phase != SyncPhase.done) {
         setState(() {
           _countriesFuture = ref
               .read(airportServiceProvider)
@@ -209,7 +208,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                   },
           ),
         ],
-        bottom: sync.isRunning || sync.phase == AirportSyncPhase.error
+        bottom: sync.isRunning || sync.phase == SyncPhase.error
             ? _SyncBanner(
                 progress: sync,
                 onRetry: () => ref.read(airportLoadProvider.notifier).refresh(),
@@ -311,7 +310,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
 class _SyncBanner extends StatelessWidget implements PreferredSizeWidget {
   const _SyncBanner({required this.progress, required this.onRetry});
 
-  final AirportSyncProgress progress;
+  final SyncProgress progress;
   final VoidCallback onRetry;
 
   @override
@@ -319,7 +318,7 @@ class _SyncBanner extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isError = progress.phase == AirportSyncPhase.error;
+    final isError = progress.phase == SyncPhase.error;
     return SizedBox(
       height: preferredSize.height,
       child: Padding(
@@ -327,10 +326,7 @@ class _SyncBanner extends StatelessWidget implements PreferredSizeWidget {
         child: Row(
           children: [
             Expanded(
-              child: AirportSyncProgressIndicator(
-                progress: progress,
-                compact: true,
-              ),
+              child: SyncProgressIndicator(progress: progress, compact: true),
             ),
             if (isError)
               TextButton(onPressed: onRetry, child: const Text('Retry')),

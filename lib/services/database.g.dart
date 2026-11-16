@@ -5115,6 +5115,17 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _trackSourceMeta = const VerificationMeta(
+    'trackSource',
+  );
+  @override
+  late final GeneratedColumn<String> trackSource = GeneratedColumn<String>(
+    'track_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5133,6 +5144,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     flightRules,
     remarks,
     pilotRole,
+    trackSource,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5272,6 +5284,15 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         pilotRole.isAcceptableOrUnknown(data['pilot_role']!, _pilotRoleMeta),
       );
     }
+    if (data.containsKey('track_source')) {
+      context.handle(
+        _trackSourceMeta,
+        trackSource.isAcceptableOrUnknown(
+          data['track_source']!,
+          _trackSourceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5345,6 +5366,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.string,
         data['${effectivePrefix}pilot_role'],
       ),
+      trackSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}track_source'],
+      ),
     );
   }
 
@@ -5371,6 +5396,11 @@ class Flight extends DataClass implements Insertable<Flight> {
   final String? flightRules;
   final String? remarks;
   final String? pilotRole;
+
+  /// Where the track in [FlightDataPoints] comes from: the id of the ADS-B
+  /// provider it was fetched from (`AdsbTrackSource.id`). Null for a track
+  /// the app recorded itself, and for flights without a track.
+  final String? trackSource;
   const Flight({
     required this.id,
     required this.title,
@@ -5388,6 +5418,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.flightRules,
     this.remarks,
     this.pilotRole,
+    this.trackSource,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5431,6 +5462,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     }
     if (!nullToAbsent || pilotRole != null) {
       map['pilot_role'] = Variable<String>(pilotRole);
+    }
+    if (!nullToAbsent || trackSource != null) {
+      map['track_source'] = Variable<String>(trackSource);
     }
     return map;
   }
@@ -5477,6 +5511,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       pilotRole: pilotRole == null && nullToAbsent
           ? const Value.absent()
           : Value(pilotRole),
+      trackSource: trackSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackSource),
     );
   }
 
@@ -5506,6 +5543,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       flightRules: serializer.fromJson<String?>(json['flightRules']),
       remarks: serializer.fromJson<String?>(json['remarks']),
       pilotRole: serializer.fromJson<String?>(json['pilotRole']),
+      trackSource: serializer.fromJson<String?>(json['trackSource']),
     );
   }
   @override
@@ -5530,6 +5568,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       'flightRules': serializer.toJson<String?>(flightRules),
       'remarks': serializer.toJson<String?>(remarks),
       'pilotRole': serializer.toJson<String?>(pilotRole),
+      'trackSource': serializer.toJson<String?>(trackSource),
     };
   }
 
@@ -5550,6 +5589,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<String?> flightRules = const Value.absent(),
     Value<String?> remarks = const Value.absent(),
     Value<String?> pilotRole = const Value.absent(),
+    Value<String?> trackSource = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -5573,6 +5613,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     flightRules: flightRules.present ? flightRules.value : this.flightRules,
     remarks: remarks.present ? remarks.value : this.remarks,
     pilotRole: pilotRole.present ? pilotRole.value : this.pilotRole,
+    trackSource: trackSource.present ? trackSource.value : this.trackSource,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
@@ -5612,6 +5653,9 @@ class Flight extends DataClass implements Insertable<Flight> {
           : this.flightRules,
       remarks: data.remarks.present ? data.remarks.value : this.remarks,
       pilotRole: data.pilotRole.present ? data.pilotRole.value : this.pilotRole,
+      trackSource: data.trackSource.present
+          ? data.trackSource.value
+          : this.trackSource,
     );
   }
 
@@ -5633,7 +5677,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('dayLandings: $dayLandings, ')
           ..write('flightRules: $flightRules, ')
           ..write('remarks: $remarks, ')
-          ..write('pilotRole: $pilotRole')
+          ..write('pilotRole: $pilotRole, ')
+          ..write('trackSource: $trackSource')
           ..write(')'))
         .toString();
   }
@@ -5656,6 +5701,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     flightRules,
     remarks,
     pilotRole,
+    trackSource,
   );
   @override
   bool operator ==(Object other) =>
@@ -5676,7 +5722,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.dayLandings == this.dayLandings &&
           other.flightRules == this.flightRules &&
           other.remarks == this.remarks &&
-          other.pilotRole == this.pilotRole);
+          other.pilotRole == this.pilotRole &&
+          other.trackSource == this.trackSource);
 }
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
@@ -5696,6 +5743,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<String?> flightRules;
   final Value<String?> remarks;
   final Value<String?> pilotRole;
+  final Value<String?> trackSource;
   const FlightsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -5713,6 +5761,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
     this.pilotRole = const Value.absent(),
+    this.trackSource = const Value.absent(),
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
@@ -5731,6 +5780,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
     this.pilotRole = const Value.absent(),
+    this.trackSource = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
        isRecording = Value(isRecording);
@@ -5751,6 +5801,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<String>? flightRules,
     Expression<String>? remarks,
     Expression<String>? pilotRole,
+    Expression<String>? trackSource,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5771,6 +5822,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (flightRules != null) 'flight_rules': flightRules,
       if (remarks != null) 'remarks': remarks,
       if (pilotRole != null) 'pilot_role': pilotRole,
+      if (trackSource != null) 'track_source': trackSource,
     });
   }
 
@@ -5791,6 +5843,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<String?>? flightRules,
     Value<String?>? remarks,
     Value<String?>? pilotRole,
+    Value<String?>? trackSource,
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
@@ -5810,6 +5863,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       flightRules: flightRules ?? this.flightRules,
       remarks: remarks ?? this.remarks,
       pilotRole: pilotRole ?? this.pilotRole,
+      trackSource: trackSource ?? this.trackSource,
     );
   }
 
@@ -5868,6 +5922,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (pilotRole.present) {
       map['pilot_role'] = Variable<String>(pilotRole.value);
     }
+    if (trackSource.present) {
+      map['track_source'] = Variable<String>(trackSource.value);
+    }
     return map;
   }
 
@@ -5889,7 +5946,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('dayLandings: $dayLandings, ')
           ..write('flightRules: $flightRules, ')
           ..write('remarks: $remarks, ')
-          ..write('pilotRole: $pilotRole')
+          ..write('pilotRole: $pilotRole, ')
+          ..write('trackSource: $trackSource')
           ..write(')'))
         .toString();
   }
@@ -6123,9 +6181,15 @@ class FlightDataPoint extends DataClass implements Insertable<FlightDataPoint> {
   final int flight;
   final double longitude;
   final double latitude;
+
+  /// Metres.
   final int altitude;
   final DateTime timestamp;
+
+  /// Ground speed, km/h.
   final double? speed;
+
+  /// Degrees.
   final double? heading;
   const FlightDataPoint({
     required this.id,
@@ -8431,6 +8495,10 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $AircraftWithIcaosView aircraftWithIcaos = $AircraftWithIcaosView(
     this,
   );
+  late final Index flightDataPointsFlightTimestampIdx = Index(
+    'flight_data_points_flight_timestamp_idx',
+    'CREATE INDEX flight_data_points_flight_timestamp_idx ON flight_data_points (flight, timestamp)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8450,6 +8518,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     aircraftWithStatss,
     flightStats,
     aircraftWithIcaos,
+    flightDataPointsFlightTimestampIdx,
   ];
 }
 
@@ -12269,6 +12338,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<String?> flightRules,
       Value<String?> remarks,
       Value<String?> pilotRole,
+      Value<String?> trackSource,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
@@ -12288,6 +12358,7 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<String?> flightRules,
       Value<String?> remarks,
       Value<String?> pilotRole,
+      Value<String?> trackSource,
     });
 
 final class $$FlightsTableReferences
@@ -12456,6 +12527,11 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<String> get pilotRole => $composableBuilder(
     column: $table.pilotRole,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trackSource => $composableBuilder(
+    column: $table.trackSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12653,6 +12729,11 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get trackSource => $composableBuilder(
+    column: $table.trackSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AirportsTableOrderingComposer get departure {
     final $$AirportsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -12788,6 +12869,11 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<String> get pilotRole =>
       $composableBuilder(column: $table.pilotRole, builder: (column) => column);
+
+  GeneratedColumn<String> get trackSource => $composableBuilder(
+    column: $table.trackSource,
+    builder: (column) => column,
+  );
 
   $$AirportsTableAnnotationComposer get departure {
     final $$AirportsTableAnnotationComposer composer = $composerBuilder(
@@ -12959,6 +13045,7 @@ class $$FlightsTableTableManager
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
                 Value<String?> pilotRole = const Value.absent(),
+                Value<String?> trackSource = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
                 title: title,
@@ -12976,6 +13063,7 @@ class $$FlightsTableTableManager
                 flightRules: flightRules,
                 remarks: remarks,
                 pilotRole: pilotRole,
+                trackSource: trackSource,
               ),
           createCompanionCallback:
               ({
@@ -12995,6 +13083,7 @@ class $$FlightsTableTableManager
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
                 Value<String?> pilotRole = const Value.absent(),
+                Value<String?> trackSource = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
                 title: title,
@@ -13012,6 +13101,7 @@ class $$FlightsTableTableManager
                 flightRules: flightRules,
                 remarks: remarks,
                 pilotRole: pilotRole,
+                trackSource: trackSource,
               ),
           withReferenceMapper: (p0) => p0
               .map(

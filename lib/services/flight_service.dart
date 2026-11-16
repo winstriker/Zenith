@@ -129,7 +129,8 @@ class FlightService {
       );
   }
 
-  Future<void> addFlight({
+  /// Returns the id of the new flight.
+  Future<int> addFlight({
     required int? departureId,
     required int? arrivalId,
     required String title,
@@ -196,6 +197,7 @@ class FlightService {
       ),
     );
     _notify();
+    return flightId;
   }
 
   Future<void> updateFlight({
@@ -217,28 +219,29 @@ class FlightService {
     List<CrewMember> crew = const [],
     bool isRecording = false,
   }) async {
-    await database
-        .update(database.flights)
-        .replace(
-          FlightsCompanion(
-            id: Value(flightId),
-            title: Value(title),
-            departure: Value(departureId),
-            arrival: Value(arrivalId),
-            departureTime: Value(departureTime),
-            arrivalTime: Value(arrivalTime),
-            departureIanaLocation: Value(departureIanaLocation),
-            arrivalIanaLocation: Value(arrivalIanaLocation),
-            aircraftId: Value(aircraftId),
-            approachType: Value(approachType),
-            nightLandings: Value(nightLandings),
-            dayLandings: Value(dayLandings),
-            flightRules: Value(flightRules),
-            remarks: Value(remarks),
-            pilotRole: Value(pilotRole),
-            isRecording: Value(isRecording),
-          ),
-        );
+    // write(), not replace(): editing a flight must not wipe the columns the
+    // form knows nothing of (where its track comes from).
+    await (database.update(
+      database.flights,
+    )..where((f) => f.id.equals(flightId))).write(
+      FlightsCompanion(
+        title: Value(title),
+        departure: Value(departureId),
+        arrival: Value(arrivalId),
+        departureTime: Value(departureTime),
+        arrivalTime: Value(arrivalTime),
+        departureIanaLocation: Value(departureIanaLocation),
+        arrivalIanaLocation: Value(arrivalIanaLocation),
+        aircraftId: Value(aircraftId),
+        approachType: Value(approachType),
+        nightLandings: Value(nightLandings),
+        dayLandings: Value(dayLandings),
+        flightRules: Value(flightRules),
+        remarks: Value(remarks),
+        pilotRole: Value(pilotRole),
+        isRecording: Value(isRecording),
+      ),
+    );
 
     await database.setFlightCrew(flightId, crew);
 

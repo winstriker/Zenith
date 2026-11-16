@@ -10,8 +10,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/sync_progress.dart';
 import '../utils/csv_parser.dart';
 import 'database.dart';
+
+export '../models/sync_progress.dart';
 
 /// Called with the overall fraction (0–1) of the current stage and a
 /// human-readable description of what is happening.
@@ -51,8 +54,8 @@ class AirportsService {
   static const _parseEnd = 0.50;
 
   /// Live progress of the OurAirports sync.
-  final progress = ValueNotifier<AirportSyncProgress>(
-    const AirportSyncProgress(AirportSyncPhase.idle),
+  final progress = ValueNotifier<SyncProgress>(
+    const SyncProgress(SyncPhase.idle),
   );
 
   var isLocating = false;
@@ -63,12 +66,12 @@ class AirportsService {
   void dispose() => progress.dispose();
 
   void _setProgress(
-    AirportSyncPhase phase, {
+    SyncPhase phase, {
     double? fraction,
     String message = '',
     Object? error,
   }) {
-    progress.value = AirportSyncProgress(
+    progress.value = SyncProgress(
       phase,
       fraction: fraction,
       message: message,
@@ -82,7 +85,7 @@ class AirportsService {
     if (isBusy) return;
     // Mark as running synchronously so concurrent calls bail out above.
     _setProgress(
-      AirportSyncPhase.downloading,
+      SyncPhase.downloading,
       fraction: 0,
       message: 'Preparing download…',
     );
@@ -91,7 +94,7 @@ class AirportsService {
     if (!forceDownload && _downloadedToday(prefs)) {
       _syncLogger.info("Already downloaded today!");
       _setProgress(
-        AirportSyncPhase.done,
+        SyncPhase.done,
         fraction: 1,
         message: 'Airport data is up to date',
       );
@@ -106,7 +109,7 @@ class AirportsService {
       final bodies = await _downloadAll(client);
 
       _setProgress(
-        AirportSyncPhase.parsing,
+        SyncPhase.parsing,
         fraction: _downloadEnd,
         message: 'Processing airport data…',
       );
@@ -118,7 +121,7 @@ class AirportsService {
       progressPort.listen((message) {
         final (double f, String text) = message as (double, String);
         _setProgress(
-          AirportSyncPhase.saving,
+          SyncPhase.saving,
           fraction: _parseEnd + f * (1 - _parseEnd),
           message: text,
         );
@@ -140,14 +143,14 @@ class AirportsService {
       );
       _syncLogger.info('$summary in ${stopwatch.elapsedMilliseconds} ms');
       _setProgress(
-        AirportSyncPhase.done,
+        SyncPhase.done,
         fraction: 1,
         message: 'Airport data updated',
       );
     } catch (e, st) {
       logger.severe('Airport data sync failed', e, st);
       _setProgress(
-        AirportSyncPhase.error,
+        SyncPhase.error,
         message: 'Could not download airport data',
         error: e,
       );
@@ -192,7 +195,7 @@ class AirportsService {
         message = 'Downloading airport data — ${_mb(receivedBytes)} MB';
       }
       _setProgress(
-        AirportSyncPhase.downloading,
+        SyncPhase.downloading,
         fraction: fraction.clamp(0, 1) * _downloadEnd,
         message: message,
       );
@@ -695,34 +698,6 @@ class _Download {
   const _Download(this.bytes, {required this.gzipped});
   final Uint8List bytes;
   final bool gzipped;
-}
-
-enum AirportSyncPhase { idle, downloading, parsing, saving, done, error }
-
-/// Snapshot of the OurAirports sync progress.
-@immutable
-class AirportSyncProgress {
-  const AirportSyncProgress(
-    this.phase, {
-    this.fraction,
-    this.message = '',
-    this.error,
-  });
-
-  final AirportSyncPhase phase;
-
-  /// Overall completion between 0 and 1, or null when unknown.
-  final double? fraction;
-  final String message;
-  final Object? error;
-
-  bool get isRunning =>
-      phase == AirportSyncPhase.downloading ||
-      phase == AirportSyncPhase.parsing ||
-      phase == AirportSyncPhase.saving;
-
-  /// Rounded percentage, or null when [fraction] is unknown.
-  int? get percent => fraction == null ? null : (fraction! * 100).round();
 }
 
 /// Rows parsed from the OurAirports CSVs, ready to be written.

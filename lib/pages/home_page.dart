@@ -11,6 +11,7 @@ import '../utils/duration_formatter.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/pulsing_dot.dart';
+import 'adsb_track_page.dart';
 import 'aircrafts_page.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
@@ -168,13 +169,17 @@ class _HomeFabsState extends State<_HomeFabs>
     action();
   }
 
-  void _importAdsb() {
-    // TODO: import flights from ADS-B data.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('ADS-B import is coming soon')),
-      );
+  Future<void> _importAdsb() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final imported = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AdsbTrackPage.import()),
+    );
+    if (imported == true) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Flight imported')));
+    }
   }
 
   /// Pops [child] up from the "more" FAB: it fades in, slides up and scales

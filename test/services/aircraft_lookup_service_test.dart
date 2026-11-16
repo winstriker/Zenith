@@ -103,10 +103,12 @@ AircraftLookupService _service(
   Map<String, Object> answers, {
   List<http.Request>? requests,
   String contact = _contact,
+  Set<String> photosOff = const {},
 }) => AircraftLookupService(
   AircraftLookupService.defaultSources(
     appVersion: '1.2.3',
     planespottersContact: contact,
+    photosOff: photosOff,
   ),
   _client(answers, requests: requests),
 );
@@ -327,6 +329,81 @@ void main() {
     })!;
     expect(adsbdb.photos, isEmpty);
     expect(adsbdb.icaoDesignator, 'C172');
+  });
+
+  group('photo sources switched off', () {
+    const everything = {
+      'www.jetapi.dev': _jetApi,
+      'api.adsbdb.com': _adsbdb,
+      'hexdb.io': _hexdb,
+      'api.planespotters.net': _planespotters,
+    };
+
+    test('the settings list the four of them', () {
+      final sources = AircraftLookupService.allSources(
+        appVersion: '1.2.3',
+        planespottersContact: _contact,
+      );
+      expect(sources.map((s) => s.id), [
+        'jetphotos',
+        'hexdb',
+        'adsbdb',
+        'planespotters',
+      ]);
+      expect(sources.map((s) => s.label), [
+        'JetPhotos',
+        'hexdb.io',
+        'adsbdb',
+        'Planespotters.net',
+      ]);
+    });
+
+    test('a source that only has photos is not asked at all', () async {
+      final requests = <http.Request>[];
+      final result = (await _service(
+        everything,
+        requests: requests,
+        photosOff: {'jetphotos', 'planespotters'},
+      ).lookup('D-EABC'))!;
+
+      expect(
+        requests.map((r) => r.url.host),
+        unorderedEquals(['hexdb.io', 'api.adsbdb.com']),
+      );
+      expect(result.photos.map((p) => p.source), [
+        'hexdb.io',
+        'Airport-Data.com',
+      ]);
+    });
+
+    test('a source that knows the type is still asked for it', () async {
+      final requests = <http.Request>[];
+      final result = (await _service(
+        everything,
+        requests: requests,
+        photosOff: {'adsbdb', 'hexdb'},
+      ).lookup('D-EABC'))!;
+
+      // Asked, for what the aircraft is...
+      expect(requests.map((r) => r.url.host), contains('api.adsbdb.com'));
+      expect(result.icaoDesignator, 'B738');
+      expect(result.modelNames, contains('Mooney M.20F Executive 21'));
+      // ...but none of their photos are offered.
+      expect(result.photos.map((p) => p.source).toSet(), {
+        'JetPhotos',
+        'Planespotters.net',
+      });
+    });
+
+    test('with every source off there are no photos, only the type', () async {
+      final result = (await _service(
+        everything,
+        photosOff: {'jetphotos', 'hexdb', 'adsbdb', 'planespotters'},
+      ).lookup('D-EABC'))!;
+
+      expect(result.photos, isEmpty);
+      expect(result.icaoDesignator, isNotNull);
+    });
   });
 
   test('answers of an unexpected shape give nothing', () {

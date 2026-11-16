@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../services/airport_service.dart';
+import '../models/sync_progress.dart';
 
-/// Progress bar + percentage + status line for the OurAirports sync.
-class AirportSyncProgressIndicator extends StatelessWidget {
-  const AirportSyncProgressIndicator({
+/// Progress bar + percentage + status line for a reference data download.
+class SyncProgressIndicator extends StatelessWidget {
+  const SyncProgressIndicator({
     super.key,
     required this.progress,
     this.compact = false,
   });
 
-  final AirportSyncProgress progress;
+  final SyncProgress progress;
 
   /// Smaller bar and text, for banners.
   final bool compact;
@@ -20,7 +20,7 @@ class AirportSyncProgressIndicator extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final percent = progress.percent;
-    final isError = progress.phase == AirportSyncPhase.error;
+    final isError = progress.phase == SyncPhase.error;
     final textStyle =
         (compact ? theme.textTheme.bodySmall : theme.textTheme.bodyMedium)
             ?.copyWith(color: isError ? cs.error : cs.onSurfaceVariant);

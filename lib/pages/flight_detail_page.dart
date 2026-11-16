@@ -7,9 +7,13 @@ import 'package:latlong2/latlong.dart';
 import '../core/fab_hero_tags.dart';
 
 import '../core/theme.dart';
+import '../models/flight_track.dart';
+import '../providers/adsb_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/person_providers.dart';
 import '../providers/unit_provider.dart';
+import '../repositories/flight_repository.dart';
+import '../services/adsb_track_source.dart';
 import '../services/database.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/base_map_layer.dart';
@@ -21,6 +25,7 @@ import '../widgets/landings_card.dart';
 import '../widgets/map_attribution.dart';
 import '../widgets/remarks_card.dart';
 import '../widgets/section_header.dart';
+import 'adsb_track_page.dart';
 import 'flight_form_page.dart';
 import 'person_detail_page.dart';
 import 'replay_page.dart';
@@ -42,18 +47,36 @@ class FlightDetailPage extends ConsumerWidget {
         if (flight == null) {
           return const Scaffold(body: Center(child: Text('Flight not found')));
         }
-        return _FlightDetailView(flight: flight);
+        return _FlightDetailView(listed: flight);
       },
     );
   }
 }
 
-class _FlightDetailView extends StatelessWidget {
-  const _FlightDetailView({required this.flight});
-  final FlightWithStats flight;
+/// Height of the map at the top of the page, and where the cards start:
+/// over its lower part.
+const double _mapHeight = 350;
+const double _cardsTop = 270;
+
+class _FlightDetailView extends ConsumerWidget {
+  const _FlightDetailView({required this.listed});
+
+  /// The flight as the lists have it: without its track.
+  final FlightWithStats listed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The track is only loaded here, where it is drawn. The same list comes
+    // back until the track changes, which the map and the chart rely on to
+    // not start over at every rebuild.
+    final track = ref.watch(flightTrackProvider(listed.flight.id));
+    final points = track.value ?? const <FlightDataPoint>[];
+    final flight = points.isEmpty
+        ? listed
+        : listed.copyWith(dataPoints: points);
+    final approachType = flight.flight.approachType;
+    final flightRules = flight.flight.flightRules;
+
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
@@ -86,21 +109,27 @@ class _FlightDetailView extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     children: [
-                      const SizedBox(height: 270),
+                      const SizedBox(height: _cardsTop),
                       FlightCard(flight: flight, useOuterPadding: false),
                       const SizedBox(height: 12),
                       AircraftCard(
                         aircraft: flight.aircraftWithStats,
                         useOuterPadding: false,
                       ),
-                      const SizedBox(height: 12),
-                      LandingsCard(
-                        approachType: flight.flight.approachType!,
-                        nightLandings: flight.flight.nightLandings!,
-                        dayLandings: flight.flight.dayLandings!,
-                      ),
-                      const SizedBox(height: 12),
-                      FlightRulesCard(flightRules: flight.flight.flightRules!),
+                      // A flight the app recorded has none of these until
+                      // it is edited.
+                      if (approachType != null) ...[
+                        const SizedBox(height: 12),
+                        LandingsCard(
+                          approachType: approachType,
+                          nightLandings: flight.flight.nightLandings ?? 0,
+                          dayLandings: flight.flight.dayLandings ?? 0,
+                        ),
+                      ],
+                      if (flightRules != null) ...[
+                        const SizedBox(height: 12),
+                        FlightRulesCard(flightRules: flightRules),
+                      ],
                       const SizedBox(height: 12),
                       _FlightCrewCard(flight: flight.flight),
                       if (flight.flight.remarks != null)
@@ -112,13 +141,18 @@ class _FlightDetailView extends StatelessWidget {
                         _FlightDetailsCard(flight: flight),
                         const SizedBox(height: 12),
                         _ReplayButtonCard(flight: flight),
+                      ] else if (track.hasValue &&
+                          !flight.flight.isRecording) ...[
+                        const SizedBox(height: 12),
+                        _NoTrackCard(flight: flight),
                       ],
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            // Room for the last card to scroll clear of the Edit button.
+            const SizedBox(height: 96),
           ],
         ),
       ),
@@ -174,49 +208,72 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
   final MapController _mapController = MapController();
   bool _mapReady = false;
 
+  /// How far the cards below come up over the map.
+  static const _cardOverlap = _mapHeight - _cardsTop;
+
+  /// The track as the map wants it. Worked out once per track, not at every
+  /// rebuild: a track has thousands of points.
+  late List<LatLng> _path = _pathOf(widget.flight);
+
+  static List<LatLng> _pathOf(FlightWithStats flight) => [
+    for (final p in flight.dataPoints) LatLng(p.latitude, p.longitude),
+  ];
+
+  static LatLng? _position(Airport? airport) {
+    final lat = airport?.latitudeDeg;
+    final lon = airport?.longitudeDeg;
+    return lat == null || lon == null ? null : LatLng(lat, lon);
+  }
+
+  @override
+  void didUpdateWidget(_FlightMapCard old) {
+    super.didUpdateWidget(old);
+    // The track arrives after the page opens, and changes when one is
+    // fetched or removed.
+    if (!identical(old.flight.dataPoints, widget.flight.dataPoints)) {
+      _path = _pathOf(widget.flight);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitMapBounds());
+    }
+  }
+
   @override
   void dispose() {
     _mapController.dispose();
     super.dispose();
   }
 
-  void _fitMapBounds(FlightWithStats flight, bool hasData) {
-    if (!_mapReady) return;
+  /// Everything the map should show: the track when there is one, the
+  /// airports otherwise.
+  List<LatLng> get _extent => _path.length >= 2
+      ? _path
+      : [
+          ?_position(widget.flight.departure),
+          ?_position(widget.flight.arrival),
+        ];
 
-    LatLngBounds bounds;
-
-    if (hasData && flight.dataPoints.length >= 2) {
-      final points = flight.dataPoints
-          .map((p) => LatLng(p.latitude, p.longitude))
-          .toList();
-      bounds = LatLngBounds.fromPoints(points);
-    } else {
-      final depLat = flight.departure?.latitudeDeg;
-      final depLon = flight.departure?.longitudeDeg;
-      final arrLat = flight.arrival?.latitudeDeg;
-      final arrLon = flight.arrival?.longitudeDeg;
-
-      if (depLat != null &&
-          depLon != null &&
-          arrLat != null &&
-          arrLon != null) {
-        bounds = LatLngBounds(LatLng(depLat, depLon), LatLng(arrLat, arrLon));
-      } else {
-        bounds = LatLngBounds(
-          LatLng(
-            flight.departure!.latitudeDeg!,
-            flight.departure!.longitudeDeg!,
-          ),
-          LatLng(
-            flight.departure!.latitudeDeg!,
-            flight.departure!.longitudeDeg!,
-          ),
-        );
-      }
+  void _fitMapBounds() {
+    if (!_mapReady || !mounted) return;
+    final extent = _extent;
+    if (extent.isEmpty) return;
+    final bounds = LatLngBounds.fromPoints(extent);
+    if (bounds.southWest == bounds.northEast) {
+      // One spot (a flight back to where it left from, without a track):
+      // there is nothing to fit.
+      _mapController.move(bounds.southWest, 10);
+      return;
     }
-
     _mapController.fitCamera(
-      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)),
+      CameraFit.bounds(
+        bounds: bounds,
+        // Clear of the status bar and close button at the top, and of the
+        // flight card, which is drawn over the bottom of the map.
+        padding: EdgeInsets.fromLTRB(
+          40,
+          MediaQuery.paddingOf(context).top + 24,
+          40,
+          _cardOverlap + 24,
+        ),
+      ),
     );
   }
 
@@ -225,13 +282,14 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     final flight = widget.flight;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final depLat = flight.departure?.latitudeDeg;
-    final depLon = flight.departure?.longitudeDeg;
-    final arrLat = flight.arrival?.latitudeDeg;
-    final arrLon = flight.arrival?.longitudeDeg;
+    final hasTrack = _path.length >= 2;
+    // A recorded flight may have no airports: its track still has two ends.
+    final start =
+        _position(flight.departure) ?? (hasTrack ? _path.first : null);
+    final end = _position(flight.arrival) ?? (hasTrack ? _path.last : null);
 
     final Widget content;
-    if (depLat == null || depLon == null) {
+    if (start == null) {
       content = Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -252,42 +310,34 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
         ),
       );
     } else {
-      final points = flight.dataPoints;
-      final hasData = points.isNotEmpty;
       content = FlutterMap(
         mapController: _mapController,
         options: MapOptions(
-          initialCenter: LatLng(depLat, depLon),
+          initialCenter: start,
           initialZoom: 10.0,
           interactionOptions: const InteractionOptions(
             flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
           ),
           onMapReady: () {
             _mapReady = true;
-            _fitMapBounds(flight, hasData);
+            _fitMapBounds();
           },
         ),
         children: [
           const BaseMapLayer(),
           const MapAttribution(),
-          // Route polyline
-          if (hasData && points.length >= 2)
+          // The track flown, or a straight line between the airports.
+          if (hasTrack)
             PolylineLayer(
               polylines: [
-                Polyline(
-                  points: points
-                      .map((p) => LatLng(p.latitude, p.longitude))
-                      .toList(),
-                  strokeWidth: 3,
-                  color: cs.primary,
-                ),
+                Polyline(points: _path, strokeWidth: 3, color: cs.primary),
               ],
             )
-          else if (!hasData && arrLat != null && arrLon != null)
+          else if (end != null)
             PolylineLayer(
               polylines: [
                 Polyline(
-                  points: [LatLng(depLat, depLon), LatLng(arrLat, arrLon)],
+                  points: [start, end],
                   strokeWidth: 3,
                   color: cs.primary,
                 ),
@@ -297,7 +347,7 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
           MarkerLayer(
             markers: [
               Marker(
-                point: LatLng(depLat, depLon),
+                point: start,
                 width: 24,
                 height: 24,
                 alignment: Alignment.center,
@@ -307,9 +357,9 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
                   foreground: cs.onPrimary,
                 ),
               ),
-              if (arrLat != null && arrLon != null)
+              if (end != null)
                 Marker(
-                  point: LatLng(arrLat, arrLon),
+                  point: end,
                   width: 24,
                   height: 24,
                   alignment: Alignment.center,
@@ -329,7 +379,7 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SizedBox(height: 350, child: content),
+      child: SizedBox(height: _mapHeight, child: content),
     );
   }
 }
@@ -410,6 +460,8 @@ class _AltitudeChartCard extends ConsumerWidget {
   const _AltitudeChartCard({required this.points});
   final List<FlightDataPoint> points;
 
+  static const _maxSpots = 300;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
@@ -426,7 +478,13 @@ class _AltitudeChartCard extends ConsumerWidget {
           .inMilliseconds
           .toDouble();
 
-      for (final point in points) {
+      // A track has thousands of points, the chart a few hundred pixels:
+      // drawing them all is slow and looks no different.
+      for (final point in TrackTools.thin(
+        points,
+        _maxSpots,
+        (p) => p.altitude,
+      )) {
         final elapsed = point.timestamp
             .difference(firstTime)
             .inMilliseconds
@@ -469,10 +527,18 @@ class _AltitudeChartCard extends ConsumerWidget {
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 42,
-                              getTitlesWidget: (value, meta) => Text(
-                                '${value.toInt()}',
-                                style: theme.textTheme.labelSmall,
-                              ),
+                              getTitlesWidget: (value, meta) {
+                                // The lowest and highest values get a label
+                                // of their own, which lands on top of the
+                                // nearest round one.
+                                if (value == meta.min || value == meta.max) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Text(
+                                  '${value.toInt()}',
+                                  style: theme.textTheme.labelSmall,
+                                );
+                              },
                             ),
                           ),
                           bottomTitles: AxisTitles(
@@ -497,6 +563,7 @@ class _AltitudeChartCard extends ConsumerWidget {
                           LineChartBarData(
                             spots: spots,
                             isCurved: true,
+                            preventCurveOverShooting: true,
                             color: cs.primary,
                             barWidth: 3,
                             dotData: const FlDotData(show: false),
@@ -524,14 +591,56 @@ class _AltitudeChartCard extends ConsumerWidget {
   }
 }
 
-class _FlightDetailsCard extends StatelessWidget {
+class _FlightDetailsCard extends ConsumerWidget {
   const _FlightDetailsCard({required this.flight});
   final FlightWithStats flight;
 
-  static final _dateFormat = DateFormat('MMM d, y \u2013 HH:mm');
+  static final _dateFormat = DateFormat('MMM d, y – HH:mm');
+  static final _number = NumberFormat.decimalPattern();
+
+  Future<void> _removeTrack(BuildContext context, WidgetRef ref) async {
+    final recorded = flight.flight.trackSource == null;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Track'),
+        content: Text(
+          recorded
+              ? 'The track the app recorded for this flight is deleted for '
+                    "good: it can't be recorded again. The flight itself "
+                    'stays in the logbook.'
+              : 'The track is deleted. The flight itself stays in the '
+                    'logbook, and the track can be fetched again while the '
+                    'provider still has it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(flightRepositoryProvider).deleteTrack(flight.flight.id);
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
+    final provider = AdsbProvider.byId(flight.flight.trackSource);
+    final distance = flight.totalDistance;
+    final maxAltitude = flight.maxAltitude;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -551,9 +660,131 @@ class _FlightDetailsCard extends StatelessWidget {
               ),
             InfoRow(
               label: 'Status',
-              value: flight.flight.isRecording ? 'In Progress' : 'Recorded',
+              value: flight.flight.isRecording
+                  ? 'In Progress'
+                  : provider == null
+                  ? 'Recorded'
+                  : 'ADS-B track',
             ),
-            InfoRow(label: 'Data Points', value: '${flight.dataPoints.length}'),
+            InfoRow(
+              label: 'Track',
+              value: provider?.label ?? 'Recorded by this device',
+            ),
+            if (distance != null)
+              InfoRow(
+                label: 'Distance',
+                value: isMetric
+                    ? '${_number.format(distance.round())} km'
+                    : '${_number.format((distance / 1.852).round())} NM',
+              ),
+            if (maxAltitude != null)
+              InfoRow(
+                label: 'Max Altitude',
+                value: isMetric
+                    ? '${_number.format(maxAltitude)} m'
+                    : '${_number.format((maxAltitude * 3.28084).round())} ft',
+              ),
+            InfoRow(
+              label: 'Data Points',
+              value: _number.format(flight.dataPoints.length),
+            ),
+            if (provider != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  provider.attribution,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            if (!flight.flight.isRecording) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => _findAdsbTrack(context, flight),
+                    icon: const Icon(Icons.radar, size: 18),
+                    label: Text(
+                      provider == null
+                          ? 'Use ADS-B track'
+                          : 'Fetch ADS-B track again',
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _removeTrack(context, ref),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Remove track'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the search for the flight's track on the ADS-B providers, and says
+/// so when one was saved.
+Future<void> _findAdsbTrack(
+  BuildContext context,
+  FlightWithStats flight,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final saved = await Navigator.of(
+    context,
+  ).push<int>(MaterialPageRoute(builder: (_) => AdsbTrackPage(flight: flight)));
+  if (saved == null) return;
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(
+        'Track saved · ${NumberFormat.decimalPattern().format(saved)} '
+        'positions',
+      ),
+    ),
+  );
+}
+
+/// Shown instead of the track cards for a flight that has no track: the way
+/// to fetch one.
+class _NoTrackCard extends StatelessWidget {
+  const _NoTrackCard({required this.flight});
+  final FlightWithStats flight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _CardTitle(icon: Icons.route, title: 'TRACK'),
+            const SizedBox(height: 12),
+            Text(
+              'This flight has no track. If its aircraft was seen by ADS-B '
+              'receivers, the track it flew can be fetched: the route on '
+              'the map, the altitude profile and the replay.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () => _findAdsbTrack(context, flight),
+                icon: const Icon(Icons.radar),
+                label: const Text('Find ADS-B Track'),
+              ),
+            ),
           ],
         ),
       ),

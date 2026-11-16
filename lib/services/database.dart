@@ -185,6 +185,11 @@ class Flights extends Table {
   TextColumn get remarks => text().nullable()();
   TextColumn get pilotRole => text().nullable()();
 
+  /// Where the track in [FlightDataPoints] comes from: the id of the ADS-B
+  /// provider it was fetched from (`AdsbTrackSource.id`). Null for a track
+  /// the app recorded itself, and for flights without a track.
+  TextColumn get trackSource => text().nullable()();
+
   List<TableIndex> get indexes => [
     TableIndex(name: 'flights_departure_time_idx', columns: {departureTime}),
     TableIndex(name: 'flights_aircraft_id_idx', columns: {aircraftId}),
@@ -220,24 +225,31 @@ class FlightCrew extends Table {
   ];
 }
 
+/// The track of a flight, one row per position: recorded by the app's GPS,
+/// or fetched from an ADS-B provider (see [Flights.trackSource]).
+///
+/// A track is always read whole and in order, so the one index is on
+/// (flight, timestamp): it finds a flight's rows without scanning the
+/// table, already sorted.
+@TableIndex(
+  name: 'flight_data_points_flight_timestamp_idx',
+  columns: {#flight, #timestamp},
+)
 class FlightDataPoints extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get flight => integer().references(Flights, #id)();
   RealColumn get longitude => real()();
   RealColumn get latitude => real()();
+
+  /// Metres.
   IntColumn get altitude => integer()();
   DateTimeColumn get timestamp => dateTime()();
-  RealColumn get speed => real().nullable()();
-  RealColumn get heading => real().nullable()();
 
-  List<TableIndex> get indexes => [
-    TableIndex(
-      name: 'flight_data_points_flight_timestamp_idx',
-      columns: {flight, timestamp},
-    ),
-    TableIndex(name: 'flight_data_points_flight_idx', columns: {flight}),
-    TableIndex(name: 'flight_data_points_timestamp_idx', columns: {timestamp}),
-  ];
+  /// Ground speed, km/h.
+  RealColumn get speed => real().nullable()();
+
+  /// Degrees.
+  RealColumn get heading => real().nullable()();
 }
 
 class IcaoAircrafts extends Table {
@@ -544,7 +556,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -597,6 +609,22 @@ class LogbookDatabase extends _$LogbookDatabase {
         // The aircraft views list the new columns.
         await m.recreateAllViews();
         await assignDeducedAircraftClasses();
+      }
+      if (from < 6) {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(flights)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(flights.trackSource.name)) {
+          await m.addColumn(flights, flights.trackSource);
+        }
+        // Until now tracks had no index at all.
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS flight_data_points_flight_timestamp_idx '
+          'ON flight_data_points (flight, timestamp)',
+        );
       }
     },
   );
@@ -745,6 +773,37 @@ class LogbookDatabase extends _$LogbookDatabase {
     }
 
     return statement.get();
+  }
+
+  /// The airport known by the ICAO-style [code] ("LIMC"): its ident first,
+  /// then its ICAO or GPS code. Null when none is.
+  Future<Airport?> findAirportByCode(String code) async {
+    final wanted = code.trim().toUpperCase();
+    if (wanted.isEmpty) return null;
+    final matches =
+        await (select(airports)
+              ..where(
+                (a) =>
+                    a.ident.upper().equals(wanted) |
+                    a.icaoCode.upper().equals(wanted) |
+                    a.gpsCode.upper().equals(wanted),
+              )
+              ..limit(10))
+            .get();
+    int rank(Airport a) {
+      if (a.ident?.toUpperCase() == wanted) return 0;
+      if (a.icaoCode?.toUpperCase() == wanted) return 1;
+      return 2;
+    }
+
+    // A closed airport only when nothing open has the code.
+    matches.sort((a, b) {
+      final closed = (a.type == AirportType.closed ? 1 : 0).compareTo(
+        b.type == AirportType.closed ? 1 : 0,
+      );
+      return closed != 0 ? closed : rank(a).compareTo(rank(b));
+    });
+    return matches.firstOrNull;
   }
 
   Future<List<Airport>> getAllAirportsAlphabetical({int limit = 100}) async {

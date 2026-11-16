@@ -5,15 +5,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/map_provider.dart';
+import '../providers/provider_toggles.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/adsb_track_source.dart';
 import '../services/aircraft_image_cache.dart';
+import '../services/aircraft_lookup_service.dart';
 import '../widgets/section_header.dart';
+import 'adsb_settings_page.dart';
 import 'backup_settings_page.dart';
 import 'export_page.dart';
 import 'map_settings_page.dart';
 import 'people_page.dart';
+import 'photo_settings_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -23,108 +28,30 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  Future<void> _deleteSavedAircraftPhotos() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Saved Photos'),
-        content: const Text(
-          'Aircraft photos found online are kept on this device after you '
-          'see them, so they also show when you are offline. Deleting them '
-          'frees the space; they are downloaded again the next time you see '
-          'them online. Photos you picked yourself are not affected.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await ref.read(aircraftImageCacheProvider).clear();
-    ref.invalidate(aircraftImageCacheSizeProvider);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved aircraft photos deleted')),
-      );
-    }
+  /// Which track providers are switched on.
+  static String _adsbSummary(WidgetRef ref) {
+    final off = ref.watch(disabledTrackProvidersProvider);
+    final on = [
+      for (final provider in AdsbProvider.values)
+        if (!off.contains(provider.id)) provider.label,
+    ];
+    return on.isEmpty ? 'No track provider' : 'Tracks from ${on.join(', ')}';
   }
 
-  static String _megabytes(int bytes) {
-    if (bytes == 0) return 'Nothing saved';
-    final mb = bytes / (1024 * 1024);
-    return mb < 0.1
-        ? 'Less than 0.1 MB saved'
-        : '${mb.toStringAsFixed(1)} MB saved';
-  }
-
-  static String _limitLabel(int bytes) {
-    if (bytes == 0) return 'Off';
-    final mb = bytes ~/ (1024 * 1024);
-    return mb >= 1024 && mb % 1024 == 0 ? '${mb ~/ 1024} GB' : '$mb MB';
-  }
-
-  Future<void> _chooseAircraftPhotoLimit(int current) async {
-    final chosen = await showDialog<int>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Offline Aircraft Photos'),
-        contentPadding: const EdgeInsets.only(top: 12, bottom: 8),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  'Photos found online are kept on this device once seen, '
-                  'so they show offline too. When the space is full, the '
-                  'photos seen longest ago make room.',
-                ),
-              ),
-              const SizedBox(height: 8),
-              RadioGroup<int>(
-                groupValue: current,
-                onChanged: (value) => Navigator.pop(ctx, value),
-                child: Column(
-                  children: [
-                    for (final choice in AircraftImageCache.maxBytesChoices)
-                      RadioListTile<int>(
-                        value: choice,
-                        title: Text(
-                          choice == 0
-                              ? "Don't keep photos"
-                              : _limitLabel(choice),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-    if (chosen == null || chosen == current) return;
-    await ref
-        .read(aircraftImageCacheLimitProvider.notifier)
-        .setMaxBytes(chosen);
-    // Lowering the limit deletes what no longer fits.
-    await ref.read(aircraftImageCacheProvider).trim();
-    ref.invalidate(aircraftImageCacheSizeProvider);
+  /// How many photo providers are switched on, and how much is kept.
+  static String _photoSummary(WidgetRef ref) {
+    final sources = ref.watch(photoSourcesProvider);
+    final off = ref.watch(disabledPhotoSourcesProvider);
+    final limit = ref.watch(aircraftImageCacheLimitProvider);
+    final on = sources.where((source) => !off.contains(source.id)).length;
+    final providers = on == sources.length
+        ? 'All providers'
+        : on == 0
+        ? 'No provider'
+        : '$on of ${sources.length} providers';
+    return limit == 0
+        ? '$providers · none kept offline'
+        : '$providers · keep up to ${PhotoSettingsPage.limitLabel(limit)}';
   }
 
   void _clearAllFlights() {
@@ -412,40 +339,38 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _reloadAircraftTypes,
                 ),
-                const Divider(height: 1, indent: 72),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final limit = ref.watch(aircraftImageCacheLimitProvider);
-                    return ListTile(
-                      leading: const Icon(Icons.photo_library_outlined),
-                      title: const Text('Offline Aircraft Photos'),
-                      subtitle: Text(
-                        limit == 0
-                            ? 'Off · photos need a connection'
-                            : 'Keep up to ${_limitLabel(limit)}',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _chooseAircraftPhotoLimit(limit),
-                    );
-                  },
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const SectionHeader(title: 'Online Data', uppercase: true),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.radar),
+                  title: const Text('ADS-B Providers'),
+                  subtitle: Text(_adsbSummary(ref)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AdsbSettingsPage(),
+                    ),
+                  ),
                 ),
                 const Divider(height: 1, indent: 72),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final bytes = ref
-                        .watch(aircraftImageCacheSizeProvider)
-                        .value;
-                    return ListTile(
-                      leading: const Icon(Icons.delete_sweep_outlined),
-                      title: const Text('Delete Saved Photos'),
-                      subtitle: Text(
-                        bytes == null ? 'Calculating…' : _megabytes(bytes),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      enabled: bytes != null && bytes > 0,
-                      onTap: _deleteSavedAircraftPhotos,
-                    );
-                  },
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Aircraft Photos'),
+                  subtitle: Text(_photoSummary(ref)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PhotoSettingsPage(),
+                    ),
+                  ),
                 ),
               ],
             ),

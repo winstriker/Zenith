@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/aircraft_photo.dart';
+import '../providers/provider_toggles.dart';
 
 /// What one source knows about a registration. Every part is optional: some
 /// sources only have photos, others only say what the aircraft is.
 class AircraftSourceResult {
   const AircraftSourceResult({
     this.registration,
+    this.icaoHex,
     this.icaoDesignator,
     this.modelName,
     this.photos = const [],
@@ -19,6 +21,10 @@ class AircraftSourceResult {
 
   /// The registration as the source spells it (e.g. "D-EABC").
   final String? registration;
+
+  /// 24-bit ICAO address of the airframe (e.g. "3D04C4"), the "hex code"
+  /// ADS-B data is filed under.
+  final String? icaoHex;
 
   /// ICAO type designator (Doc 8643), e.g. "C172".
   final String? icaoDesignator;
@@ -72,6 +78,16 @@ class AircraftLookupException implements Exception {
 abstract class AircraftLookupSource {
   const AircraftLookupSource();
 
+  /// Names the source in the settings. Never change it.
+  String get id;
+
+  /// What the user knows the source as.
+  String get label;
+
+  /// Whether the source also says what the aircraft is (its ICAO type
+  /// designator), and so is worth asking even when its photos aren't wanted.
+  bool get knowsType => false;
+
   /// Returns null when the source doesn't know the registration, and throws
   /// when it could not be asked or answered something unreadable.
   Future<AircraftSourceResult?> lookup(http.Client client, String registration);
@@ -114,6 +130,14 @@ abstract class AircraftLookupSource {
 /// photos with their photographer, and a model name. No designator.
 class JetPhotosSource extends AircraftLookupSource {
   const JetPhotosSource();
+
+  static const sourceId = 'jetphotos';
+
+  @override
+  String get id => sourceId;
+
+  @override
+  String get label => 'JetPhotos';
 
   /// How many photos to ask for, so there is something to choose from.
   static const photoCount = 8;
@@ -169,6 +193,17 @@ class JetPhotosSource extends AircraftLookupSource {
 class AdsbdbSource extends AircraftLookupSource {
   const AdsbdbSource();
 
+  static const sourceId = 'adsbdb';
+
+  @override
+  String get id => sourceId;
+
+  @override
+  String get label => 'adsbdb';
+
+  @override
+  bool get knowsType => true;
+
   @override
   Future<AircraftSourceResult?> lookup(http.Client client, String reg) async {
     final response = await client.get(
@@ -189,6 +224,7 @@ class AdsbdbSource extends AircraftLookupSource {
     );
     return AircraftSourceResult(
       registration: AircraftLookupSource.text(aircraft, 'registration'),
+      icaoHex: AircraftLookupSource.text(aircraft, 'mode_s'),
       icaoDesignator: AircraftLookupSource.text(aircraft, 'icao_type'),
       modelName: AircraftLookupSource.joinName(
         AircraftLookupSource.text(aircraft, 'manufacturer'),
@@ -212,6 +248,17 @@ class AdsbdbSource extends AircraftLookupSource {
 class HexdbSource extends AircraftLookupSource {
   const HexdbSource();
 
+  static const sourceId = 'hexdb';
+
+  @override
+  String get id => sourceId;
+
+  @override
+  String get label => 'hexdb.io';
+
+  @override
+  bool get knowsType => true;
+
   @override
   Future<AircraftSourceResult?> lookup(http.Client client, String reg) async {
     final response = await client.get(
@@ -233,6 +280,7 @@ class HexdbSource extends AircraftLookupSource {
     );
     return AircraftSourceResult(
       registration: AircraftLookupSource.text(aircraft, 'registration'),
+      icaoHex: AircraftLookupSource.text(aircraft, 'hex'),
       icaoDesignator: AircraftLookupSource.text(aircraft, 'icao_type_code'),
       modelName: AircraftLookupSource.joinName(
         AircraftLookupSource.text(aircraft, 'manufacturer'),
@@ -260,6 +308,14 @@ class HexdbSource extends AircraftLookupSource {
 class PlanespottersSource extends AircraftLookupSource {
   const PlanespottersSource({required this.userAgent});
   final String userAgent;
+
+  static const sourceId = 'planespotters';
+
+  @override
+  String get id => sourceId;
+
+  @override
+  String get label => 'Planespotters.net';
 
   @override
   Future<AircraftSourceResult?> lookup(http.Client client, String reg) async {
@@ -301,6 +357,34 @@ class PlanespottersSource extends AircraftLookupSource {
   }
 }
 
+/// [source], asked only what the aircraft is: its photos are left out. For
+/// sources whose photos the user switched off.
+class WithoutPhotos extends AircraftLookupSource {
+  const WithoutPhotos(this.source);
+  final AircraftLookupSource source;
+
+  @override
+  String get id => source.id;
+
+  @override
+  String get label => source.label;
+
+  @override
+  bool get knowsType => source.knowsType;
+
+  @override
+  Future<AircraftSourceResult?> lookup(http.Client client, String reg) async {
+    final result = await source.lookup(client, reg);
+    if (result == null) return null;
+    return AircraftSourceResult(
+      registration: result.registration,
+      icaoHex: result.icaoHex,
+      icaoDesignator: result.icaoDesignator,
+      modelName: result.modelName,
+    );
+  }
+}
+
 /// Looks an aircraft registration up on several public services at once and
 /// puts together what they know. A service that is down or doesn't know the
 /// aircraft simply contributes nothing.
@@ -314,10 +398,10 @@ class AircraftLookupService {
   /// A slow source is given up on, so it doesn't hold back the others.
   static const _timeout = Duration(seconds: 12);
 
-  /// The sources the app uses. [planespottersContact] is the contact URL or
-  /// e-mail address Planespotters asks for; without it, Planespotters is
-  /// left out.
-  static List<AircraftLookupSource> defaultSources({
+  /// Every source the app can use, in order of preference.
+  /// [planespottersContact] is the contact URL or e-mail address
+  /// Planespotters asks for; without it, Planespotters is left out.
+  static List<AircraftLookupSource> allSources({
     required String? appVersion,
     required String planespottersContact,
   }) {
@@ -330,6 +414,26 @@ class AircraftLookupService {
         PlanespottersSource(
           userAgent: 'Zenith/${appVersion ?? 'dev'} (+$contact)',
         ),
+    ];
+  }
+
+  /// The sources to ask, given the ids of those whose photos the user
+  /// doesn't want ([photosOff]). Such a source is not asked at all, unless
+  /// it also knows the aircraft's type: then it is still asked for that.
+  static List<AircraftLookupSource> defaultSources({
+    required String? appVersion,
+    required String planespottersContact,
+    Set<String> photosOff = const {},
+  }) {
+    return [
+      for (final source in allSources(
+        appVersion: appVersion,
+        planespottersContact: planespottersContact,
+      ))
+        if (!photosOff.contains(source.id))
+          source
+        else if (source.knowsType)
+          WithoutPhotos(source),
     ];
   }
 
@@ -395,16 +499,29 @@ class AircraftLookupService {
 /// Who Planespotters can reach about this app's requests. Public, and the
 /// same for every build unless `--dart-define PLANESPOTTERS_CONTACT=...`
 /// says otherwise (an empty value switches Planespotters off).
-const _planespottersContact = String.fromEnvironment(
+const planespottersContact = String.fromEnvironment(
   'PLANESPOTTERS_CONTACT',
   defaultValue: 'https://github.com/winstriker/Zenith',
 );
+
+/// How the app names itself to the services that want to know who is
+/// asking.
+const appUserAgent = 'Zenith/${appBuildName ?? 'dev'} (+$planespottersContact)';
+
+/// The photo sources the settings list.
+final photoSourcesProvider = Provider<List<AircraftLookupSource>>((ref) {
+  return AircraftLookupService.allSources(
+    appVersion: appBuildName,
+    planespottersContact: planespottersContact,
+  );
+});
 
 final aircraftLookupServiceProvider = Provider<AircraftLookupService>((ref) {
   return AircraftLookupService(
     AircraftLookupService.defaultSources(
       appVersion: appBuildName,
-      planespottersContact: _planespottersContact,
+      planespottersContact: planespottersContact,
+      photosOff: ref.watch(disabledPhotoSourcesProvider),
     ),
   );
 });

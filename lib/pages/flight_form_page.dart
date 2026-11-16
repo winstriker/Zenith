@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '../core/fab_hero_tags.dart';
 
 import '../providers/database_provider.dart';
 import '../providers/flight_form_provider.dart';
 import '../providers/flight_providers.dart';
+import '../repositories/aircraft_repository.dart';
+import '../repositories/flight_repository.dart';
+import '../services/adsb_flight_importer.dart';
 import '../services/database.dart';
 import '../utils/tz_datetime.dart';
 import '../widgets/aircraft_card.dart';
@@ -15,11 +19,17 @@ import '../widgets/flight_rules_card.dart';
 import '../widgets/landings_card.dart';
 import '../widgets/remarks_card.dart';
 import '../widgets/timezone_picker.dart';
+import 'aircraft_form_page.dart';
 import 'aircraft_select_page.dart';
 
 class FlightFormPage extends ConsumerStatefulWidget {
-  const FlightFormPage({super.key, this.flightToEdit});
+  const FlightFormPage({super.key, this.flightToEdit, this.adsbImport})
+    : assert(flightToEdit == null || adsbImport == null);
   final FlightWithStats? flightToEdit;
+
+  /// A flight found on ADS-B to log: fills the form in, and its track is
+  /// saved with the new flight.
+  final AdsbImportDraft? adsbImport;
 
   bool get isEditing => flightToEdit != null;
 
@@ -30,6 +40,7 @@ class FlightFormPage extends ConsumerStatefulWidget {
 class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final FlightFormNotifier _formNotifier;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -38,6 +49,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     if (widget.isEditing) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _populateFromFlight(widget.flightToEdit!);
+      });
+    } else if (widget.adsbImport != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _populateFromImport(widget.adsbImport!);
       });
     }
   }
@@ -107,10 +122,92 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     }
   }
 
+  /// Fills the form in with what ADS-B saw of the flight. The times are in
+  /// the airports' time zones, or UTC where there is no airport.
+  void _populateFromImport(AdsbImportDraft draft) {
+    final notifier = _formNotifier;
+    notifier.reset();
+
+    void side({
+      required ImportedAirport? airport,
+      required DateTime? time,
+      required DateTime day,
+      required void Function(Airport) select,
+      required void Function(String?) setIana,
+      required String? Function() iana,
+      required void Function(DateTime) setDate,
+      required void Function(String) setTime,
+    }) {
+      if (airport != null) {
+        select(airport.airport);
+      } else {
+        // Without an airport there is no local time to speak of.
+        setIana('UTC');
+      }
+      final location = switch (iana()) {
+        final name? => tz.getLocation(name),
+        null => tz.local,
+      };
+      final local = tz.TZDateTime.from(time ?? day, location);
+      setDate(DateTime(local.year, local.month, local.day));
+      if (time != null) {
+        setTime(TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(local)));
+      }
+    }
+
+    side(
+      airport: draft.departure,
+      time: draft.departureTime,
+      day: draft.departureTime,
+      select: notifier.setSelectedDeparture,
+      setIana: notifier.setDepIanaLocation,
+      iana: () => ref.read(flightFormProvider).depIanaLocation,
+      setDate: notifier.setDepartureDate,
+      setTime: notifier.setDepTime,
+    );
+    side(
+      airport: draft.arrival,
+      time: draft.arrivalTime,
+      // Without a landing time, the day it was last heard: a fair guess at
+      // the day it landed, so a typed time is all it takes.
+      day: draft.flight.end,
+      select: notifier.setSelectedArrival,
+      setIana: notifier.setArrIanaLocation,
+      iana: () => ref.read(flightFormProvider).arrIanaLocation,
+      setDate: notifier.setArrivalDate,
+      setTime: notifier.setArrTime,
+    );
+    if (draft.aircraft != null) notifier.setSelectedAircraft(draft.aircraft);
+  }
+
+  /// Adds the aircraft of the imported flight, which the user doesn't have
+  /// yet, and selects it.
+  Future<void> _addImportedAircraft(String registration) async {
+    final id = await Navigator.push<Object?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AircraftFormPage(initialTailNumber: registration),
+      ),
+    );
+    if (id is! int || !mounted) return;
+    final aircraft = await ref
+        .read(aircraftRepositoryProvider)
+        .watchAircraftWithStats(id)
+        .first;
+    if (aircraft != null && mounted) {
+      _formNotifier.setSelectedAircraft(aircraft);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final form = ref.watch(flightFormProvider);
     final notifier = _formNotifier;
+    final draft = widget.adsbImport;
+    final missingRegistration =
+        draft?.registration != null && form.selectedAircraft == null
+        ? draft!.registration
+        : null;
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -123,7 +220,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       body: Scaffold(
         floatingActionButton: FloatingActionButton.extended(
           heroTag: primaryFabHeroTag,
-          onPressed: form.isValid ? () => _save(notifier) : null,
+          onPressed: form.isValid && !_saving ? () => _save(notifier) : null,
           icon: const Icon(Icons.save),
           label: const Text('Save'),
         ),
@@ -147,6 +244,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   ),
                 ),
               ),
+              if (draft != null) ...[
+                _ImportSummary(draft: draft),
+                const SizedBox(height: 16),
+              ],
               FlightFormCard(
                 departureDate: form.departureDate,
                 arrivalDate: form.arrivalDate,
@@ -182,6 +283,13 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 onTap: () => _pickAircraft(notifier),
                 useOuterPadding: false,
               ),
+              if (missingRegistration != null) ...[
+                const SizedBox(height: 8),
+                _NewAircraftBanner(
+                  registration: missingRegistration,
+                  onAdd: () => _addImportedAircraft(missingRegistration),
+                ),
+              ],
               const SizedBox(height: 16),
               LandingsCard(
                 approachType: form.approachType,
@@ -313,55 +421,196 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       return;
     }
     final flightService = ref.read(flightServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      final depCode =
+          form.selectedDeparture?.ident ?? form.departureCode.trim();
+      final arrCode = form.selectedArrival?.ident ?? form.arrivalCode.trim();
 
-    final depCode = form.selectedDeparture?.ident ?? form.departureCode.trim();
-    final arrCode = form.selectedArrival?.ident ?? form.arrivalCode.trim();
+      // Use the TZDateTime directly - it stores the correct instant in UTC
+      final depDateTime = form.depTZDateTime;
+      final arrDateTime = form.arrTZDateTime;
 
-    // Use the TZDateTime directly - it stores the correct instant in UTC
-    final depDateTime = form.depTZDateTime;
-    final arrDateTime = form.arrTZDateTime;
+      if (widget.isEditing) {
+        await flightService.updateFlight(
+          flightId: widget.flightToEdit!.flight.id,
+          departureId: form.selectedDeparture?.id,
+          arrivalId: form.selectedArrival?.id,
+          title: '$depCode → $arrCode',
+          departureTime: depDateTime,
+          arrivalTime: arrDateTime,
+          aircraftId: form.selectedAircraft?.id,
+          approachType: form.approachType,
+          nightLandings: form.nightLandings,
+          dayLandings: form.dayLandings,
+          flightRules: form.flightRules,
+          remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
+          departureIanaLocation: form.depIanaLocation,
+          arrivalIanaLocation: form.arrIanaLocation,
+          pilotRole: form.pilotRole.name,
+          crew: form.crewMembers,
+        );
+      } else {
+        final flightId = await flightService.addFlight(
+          departureId: form.selectedDeparture?.id,
+          arrivalId: form.selectedArrival?.id,
+          title: '$depCode → $arrCode',
+          departureTime: depDateTime,
+          arrivalTime: arrDateTime,
+          aircraftId: form.selectedAircraft?.id,
+          approachType: form.approachType,
+          nightLandings: form.nightLandings,
+          dayLandings: form.dayLandings,
+          flightRules: form.flightRules,
+          remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
+          departureIanaLocation: form.depIanaLocation,
+          arrivalIanaLocation: form.arrIanaLocation,
+          pilotRole: form.pilotRole.name,
+          crew: form.crewMembers,
+        );
+        final draft = widget.adsbImport;
+        if (draft != null) {
+          try {
+            await ref
+                .read(flightRepositoryProvider)
+                .replaceTrack(
+                  flightId,
+                  draft.points,
+                  source: draft.flight.provider.id,
+                );
+          } catch (e) {
+            // The flight is saved: the track can be fetched again from its
+            // page.
+            messenger.showSnackBar(
+              SnackBar(
+                content: Text('The flight was saved without its track ($e).'),
+              ),
+            );
+          }
+        }
+      }
 
-    if (widget.isEditing) {
-      await flightService.updateFlight(
-        flightId: widget.flightToEdit!.flight.id,
-        departureId: form.selectedDeparture?.id,
-        arrivalId: form.selectedArrival?.id,
-        title: '$depCode → $arrCode',
-        departureTime: depDateTime,
-        arrivalTime: arrDateTime,
-        aircraftId: form.selectedAircraft?.id,
-        approachType: form.approachType,
-        nightLandings: form.nightLandings,
-        dayLandings: form.dayLandings,
-        flightRules: form.flightRules,
-        remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
-        departureIanaLocation: form.depIanaLocation,
-        arrivalIanaLocation: form.arrIanaLocation,
-        pilotRole: form.pilotRole.name,
-        crew: form.crewMembers,
-      );
-    } else {
-      await flightService.addFlight(
-        departureId: form.selectedDeparture?.id,
-        arrivalId: form.selectedArrival?.id,
-        title: '$depCode → $arrCode',
-        departureTime: depDateTime,
-        arrivalTime: arrDateTime,
-        aircraftId: form.selectedAircraft?.id,
-        approachType: form.approachType,
-        nightLandings: form.nightLandings,
-        dayLandings: form.dayLandings,
-        flightRules: form.flightRules,
-        remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
-        departureIanaLocation: form.depIanaLocation,
-        arrivalIanaLocation: form.arrIanaLocation,
-        pilotRole: form.pilotRole.name,
-        crew: form.crewMembers,
-      );
+      notifier.reset();
+
+      if (mounted) Navigator.pop(context, true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
+  }
+}
 
-    notifier.reset();
+/// What was imported from ADS-B and how much of it is a guess.
+class _ImportSummary extends StatelessWidget {
+  const _ImportSummary({required this.draft});
+  final AdsbImportDraft draft;
 
-    if (mounted) Navigator.pop(context, true);
+  static String _airport(String side, ImportedAirport? airport) {
+    if (airport == null) return '$side: not known, pick it below';
+    final code = airport.airport.ident ?? airport.airport.name ?? '?';
+    return switch (airport.origin) {
+      ImportedAirportOrigin.route => '$side: $code, from the route',
+      ImportedAirportOrigin.usualRoute =>
+        '$side: $code, where the callsign usually goes. The landing '
+            "wasn't seen: enter the arrival time.",
+      ImportedAirportOrigin.nearest =>
+        '$side: $code, nearest to where the track '
+            '${side == 'Departure' ? 'starts' : 'ends'}'
+            '${airport.distanceKm == null ? '' : ' (${airport.distanceKm!.toStringAsFixed(1)} km)'}',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final flight = draft.flight;
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: cs.onSecondaryContainer,
+    );
+    return Card(
+      margin: EdgeInsets.zero,
+      color: cs.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.settings_input_antenna, color: cs.onSecondaryContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    [
+                      'Imported from ${flight.provider.label}',
+                      ?flight.callsign,
+                    ].join(' · '),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: cs.onSecondaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Times are when the aircraft was first and last seen, '
+                    'not block times. Check them before saving.',
+                    style: style,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(_airport('Departure', draft.departure), style: style),
+                  Text(_airport('Arrival', draft.arrival), style: style),
+                  const SizedBox(height: 4),
+                  Text(
+                    flight.provider.attribution,
+                    style: style?.copyWith(fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Offers to add the aircraft of an imported flight, which the user doesn't
+/// have yet.
+class _NewAircraftBanner extends StatelessWidget {
+  const _NewAircraftBanner({required this.registration, required this.onAdd});
+  final String registration;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      color: cs.tertiaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: cs.onTertiaryContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '$registration is not among your aircraft.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onTertiaryContainer,
+                ),
+              ),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add),
+              label: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
