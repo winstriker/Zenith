@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../models/flight_track.dart';
 import '../models/sync_progress.dart';
@@ -78,6 +80,47 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
   /// callsigns aren't their flight numbers.
   Airport? _from;
   Airport? _to;
+
+  /// When importing: about when the flight searched by flight number left,
+  /// in the local time of [_from]. It narrows down the flights whose
+  /// landing nobody saw to the few worth checking.
+  TimeOfDay? _around;
+
+  /// [_around] on the day searched, UTC.
+  DateTime? get _departureAround {
+    final around = _around;
+    if (around == null) return null;
+    var location = tz.UTC;
+    final from = _from;
+    if (from?.latitudeDeg != null && from?.longitudeDeg != null) {
+      try {
+        location = tz.getLocation(
+          latLngToTimezoneString(from!.latitudeDeg!, from.longitudeDeg!),
+        );
+      } catch (_) {}
+    }
+    return tz.TZDateTime(
+      location,
+      _day.year,
+      _day.month,
+      _day.day,
+      around.hour,
+      around.minute,
+    ).toUtc();
+  }
+
+  Future<void> _pickAround() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _around ?? const TimeOfDay(hour: 12, minute: 0),
+      helpText: 'Departs around',
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked != null && mounted) setState(() => _around = picked);
+  }
 
   static final _time = DateFormat('HH:mm');
   static final _shortDate = DateFormat('d MMM');
@@ -186,6 +229,9 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
           window,
           departureIcao: _icao(widget.flight?.departure ?? _from),
           arrivalIcao: _icao(widget.flight?.arrival ?? _to),
+          departureAround: widget.isImport
+              ? _departureAround
+              : _flight?.departureTime,
         ),
       };
     } on AdsbException catch (e) {
@@ -405,12 +451,20 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    _AroundPicker(
+                      time: _around,
+                      airport: _from,
+                      onTap: _pickAround,
+                      onClear: () => setState(() => _around = null),
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
                       child: Text(
                         'Optional. Low-cost airlines mostly fly callsigns '
-                        "that aren't the flight number: with the airports, "
-                        'their flight is found by route.',
+                        "that aren't the flight number: with the airports "
+                        'and about when it left, their flight is found by '
+                        'route.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -476,7 +530,38 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
                   onSettings: problem.needsSetup ? _openSettings : null,
                 ),
               ),
-            if (result.flights.isEmpty)
+            if (result.unseenLeftOut > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  color: theme.colorScheme.secondaryContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.schedule,
+                          color: theme.colorScheme.onSecondaryContainer,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${result.unseenLeftOut} more flights left '
+                            '${_from?.iataCode ?? _from?.ident ?? 'the airport'} '
+                            "whose landing wasn't seen. Give about when "
+                            'yours left to look among them.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSecondaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            if (result.flights.isEmpty && result.unseenLeftOut == 0)
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -512,7 +597,7 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
                   ],
                 ),
               )
-            else ...[
+            else if (result.flights.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 child: Text(
@@ -768,6 +853,53 @@ class _AirportPicker extends StatelessWidget {
                 ),
         ),
         child: Text(code ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+}
+
+/// About when the flight searched by flight number left.
+class _AroundPicker extends StatelessWidget {
+  const _AroundPicker({
+    required this.time,
+    required this.airport,
+    required this.onTap,
+    required this.onClear,
+  });
+  final TimeOfDay? time;
+  final Airport? airport;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = this.time;
+    final airport = this.airport;
+    final where = airport == null
+        ? 'UTC'
+        : 'local time at ${airport.iataCode ?? airport.ident ?? 'From'}';
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: InputDecorator(
+        isEmpty: time == null,
+        decoration: InputDecoration(
+          labelText: 'Departs around ($where)',
+          prefixIcon: const Icon(Icons.schedule),
+          suffixIcon: time == null
+              ? null
+              : IconButton(
+                  tooltip: 'Clear',
+                  icon: const Icon(Icons.close),
+                  onPressed: onClear,
+                ),
+        ),
+        child: Text(
+          time == null
+              ? ''
+              : '${time.hour.toString().padLeft(2, '0')}:'
+                    '${time.minute.toString().padLeft(2, '0')}',
+        ),
       ),
     );
   }

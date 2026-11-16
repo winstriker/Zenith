@@ -13,6 +13,7 @@ class AdsbSearchResult {
     required this.flights,
     this.hexes = const [],
     this.problems = const {},
+    this.unseenLeftOut = 0,
   });
 
   /// The flights the providers saw, oldest first.
@@ -24,6 +25,11 @@ class AdsbSearchResult {
 
   /// The providers that could not be asked, and why.
   final Map<AdsbProvider, AdsbException> problems;
+
+  /// Flights found by route whose landing nobody saw, left out because no
+  /// departure time was given to look among them (see
+  /// [AdsbTrackService.searchCallsign]).
+  final int unseenLeftOut;
 }
 
 /// Finds the track of a flight on the ADS-B providers the user enabled:
@@ -45,10 +51,13 @@ class AdsbTrackService {
   /// route went when no receiver saw them land. Null when switched off.
   final CallsignRouteLookup? routeOf;
 
-  /// The most callsigns [routeOf] is asked about in one search: what
-  /// leaves a busy airport in a day, out of the receivers' reach, is
-  /// around a hundred.
-  static const maxRouteLookups = 150;
+  /// The most callsigns [routeOf] is asked about in one search, the
+  /// nearest to the departure time first.
+  static const maxRouteLookups = 10;
+
+  /// How far from the given departure time a flight whose landing nobody
+  /// saw may have left.
+  static const departureSlack = Duration(minutes: 75);
 
   /// What [routeOf] said of each callsign (normalized), null included:
   /// a callsign flies the same route day after day, and a second search
@@ -135,14 +144,18 @@ class AdsbTrackService {
   ///
   /// A provider that finds nothing under [callsign] may answer with the
   /// flights between the airports instead, those whose arrival it didn't
-  /// see included. Those are checked against where their callsign usually
-  /// flies: the ones known to go elsewhere are left out. When some flights
-  /// are sure to have gone to [arrivalIcao], only those are kept.
+  /// see included. A busy airport has dozens of those a day, so they are
+  /// only looked at when [departureAround] says when the flight left: the
+  /// few that left about then are checked against where their callsign
+  /// usually flies, and the ones known to go elsewhere are left out. When
+  /// some flights are sure to have gone to [arrivalIcao], only those are
+  /// kept.
   Future<AdsbSearchResult> searchCallsign(
     String callsign,
     AdsbWindow window, {
     String? departureIcao,
     String? arrivalIcao,
+    DateTime? departureAround,
   }) {
     _requireSources();
     return _withClient((client) async {
@@ -156,58 +169,85 @@ class AdsbTrackService {
         ),
       );
       if (arrivalIcao == null) return result;
+      final (flights, leftOut) = await _confirmRoutes(
+        client,
+        result.flights,
+        arrivalIcao,
+        departureAround?.toUtc(),
+      );
       return AdsbSearchResult(
-        flights: await _confirmRoutes(client, result.flights, arrivalIcao),
+        flights: flights,
         problems: result.problems,
+        unseenLeftOut: leftOut,
       );
     });
   }
 
-  /// See [searchCallsign].
-  Future<List<AdsbFlight>> _confirmRoutes(
+  /// See [searchCallsign]. Returns the flights to offer and how many
+  /// whose landing nobody saw were left out for want of a departure time.
+  Future<(List<AdsbFlight>, int)> _confirmRoutes(
     http.Client client,
     List<AdsbFlight> flights,
     String arrivalIcao,
+    DateTime? around,
   ) async {
     final arrival = arrivalIcao.toUpperCase();
     bool unseen(AdsbFlight f) => f.byRoute && f.arrival == null;
 
+    final sure = [
+      for (final f in flights)
+        if (!unseen(f)) f,
+    ];
+    final unseenFlights = [
+      for (final f in flights)
+        if (unseen(f)) f,
+    ];
+    if (around == null) {
+      // Each provider may have seen the same flight: count it once.
+      final distinct = {
+        for (final f in unseenFlights)
+          (
+            f.callsign == null
+                ? f.icao24
+                : AdsbTrackSource.normalizeCallsign(f.callsign!),
+            f.start.millisecondsSinceEpoch ~/ 1800000,
+          ),
+      };
+      return (sure, distinct.length);
+    }
+
+    Duration off(AdsbFlight f) => f.start.difference(around).abs();
+    final nearby = [
+      for (final f in unseenFlights)
+        if (off(f) <= departureSlack) f,
+    ]..sort((a, b) => off(a).compareTo(off(b)));
+
     final callsigns = <String>{
-      for (final flight in flights)
-        if (unseen(flight) && flight.callsign != null)
+      for (final flight in nearby)
+        if (flight.callsign != null)
           AdsbTrackSource.normalizeCallsign(flight.callsign!),
     }.where((c) => !_routes.containsKey(c)).take(maxRouteLookups).toList();
-    final routes = _routes;
     final lookup = routeOf;
     if (lookup != null && callsigns.isNotEmpty) {
-      // A few at a time: it's a free service.
-      for (var i = 0; i < callsigns.length; i += 10) {
-        final batch = callsigns.skip(i).take(10).toList();
-        final answers = await Future.wait([
-          for (final callsign in batch)
-            lookup(client, callsign).then<(CallsignRoute?,)?>(
-              (route) => (route,),
-              // Couldn't be asked: not cached, to ask again next time.
-              onError: (_) => null,
-            ),
-        ]);
-        for (final (j, answer) in answers.indexed) {
-          if (answer != null) routes[batch[j]] = answer.$1;
-        }
+      final answers = await Future.wait([
+        for (final callsign in callsigns)
+          lookup(client, callsign).then<(CallsignRoute?,)?>(
+            (route) => (route,),
+            // Couldn't be asked: not cached, to ask again next time.
+            onError: (_) => null,
+          ),
+      ]);
+      for (final (i, answer) in answers.indexed) {
+        if (answer != null) _routes[callsigns[i]] = answer.$1;
       }
     }
 
-    final sure = <AdsbFlight>[];
     final possible = <AdsbFlight>[];
-    for (final flight in flights) {
-      if (!unseen(flight)) {
-        sure.add(flight);
-        continue;
-      }
+    for (final flight in nearby) {
       final callsign = flight.callsign;
       final destination = callsign == null
           ? null
-          : routes[AdsbTrackSource.normalizeCallsign(callsign)]?.destination
+          : _routes[AdsbTrackSource.normalizeCallsign(callsign)]?.destination
                 ?.toUpperCase();
       if (destination == null) {
         possible.add(flight);
@@ -216,7 +256,8 @@ class AdsbTrackService {
       }
       // Else it went elsewhere.
     }
-    return sure.isNotEmpty ? sure : possible;
+    final offered = sure.isNotEmpty ? sure : possible;
+    return (offered..sort((a, b) => a.start.compareTo(b.start)), 0);
   }
 
   /// Asks every provider at once. One that fails doesn't spoil what the

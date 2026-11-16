@@ -132,34 +132,53 @@ void main() {
         return routes[callsign];
       },
     );
+    Future<AdsbSearchResult> search(
+      AdsbTrackService service, {
+      int? aroundHour,
+    }) => service.searchCallsign(
+      'U23895',
+      _window,
+      departureIcao: 'LIMC',
+      arrivalIcao: 'hema',
+      departureAround: aroundHour == null
+          ? null
+          : _day.add(Duration(hours: aroundHour)),
+    );
+
+    const routes = {
+      'EJU54JF': CallsignRoute(origin: 'LIMC', destination: 'HEMA'),
+      'EJU87DN': CallsignRoute(origin: 'LIMC', destination: 'GCTS'),
+    };
 
     setUp(asked.clear);
 
-    test('keep only those sure to have gone to the arrival', () async {
-      final result =
-          await service(
-            [
-              _byRoute('NOS7082', 5, arrival: 'HEMA'),
-              _byRoute('EJU54JF', 15),
-              _byRoute('EJU87DN', 7),
-              _byRoute('XYZ1', 9),
-            ],
-            {
-              'EJU54JF': const CallsignRoute(
-                origin: 'LIMC',
-                destination: 'HEMA',
-              ),
-              'EJU87DN': const CallsignRoute(
-                origin: 'LIMC',
-                destination: 'GCTS',
-              ),
-            },
-          ).searchCallsign(
-            'U23895',
-            _window,
-            departureIcao: 'LIMC',
-            arrivalIcao: 'hema',
-          );
+    test('without a departure time, those whose landing nobody saw are '
+        'left out and nothing is looked up', () async {
+      final result = await search(
+        service([
+          _byRoute('NOS7082', 5, arrival: 'HEMA'),
+          _byRoute('EJU54JF', 15),
+          _byRoute('EJU87DN', 15),
+        ], routes),
+      );
+      expect([for (final f in result.flights) f.callsign], ['NOS7082']);
+      expect(result.unseenLeftOut, 2);
+      expect(asked, isEmpty);
+    });
+
+    test('with one, the few that left about then are checked, and only '
+        'those sure to have gone to the arrival kept', () async {
+      final result = await search(
+        service([
+          _byRoute('NOS7082', 5, arrival: 'HEMA'),
+          _byRoute('EJU54JF', 15),
+          _byRoute('EJU87DN', 16),
+          _byRoute('XYZ1', 14),
+          // Hours away from the time given: not even looked up.
+          _byRoute('FAR1', 8),
+        ], routes),
+        aroundHour: 15,
+      );
 
       expect(
         [for (final f in result.flights) f.callsign],
@@ -169,44 +188,52 @@ void main() {
       expect(confirmed.arrival, 'HEMA');
       expect(confirmed.arrivalUnseen, isTrue);
       expect(result.flights.first.arrivalUnseen, isFalse);
-      // Only the landings nobody saw are looked up.
+      expect(result.unseenLeftOut, 0);
       expect(asked, unorderedEquals(['EJU54JF', 'EJU87DN', 'XYZ1']));
     });
 
     test('offer the unknown ones when none is sure', () async {
-      final result =
-          await service(
-            [_byRoute('EJU54JF', 15), _byRoute('EJU87DN', 7)],
-            {
-              'EJU87DN': const CallsignRoute(
-                origin: 'LIMC',
-                destination: 'GCTS',
-              ),
-            },
-          ).searchCallsign(
-            'U23895',
-            _window,
-            departureIcao: 'LIMC',
-            arrivalIcao: 'HEMA',
-          );
+      final result = await search(
+        service(
+          [_byRoute('EJU54JF', 15), _byRoute('EJU87DN', 15)],
+          {'EJU87DN': routes['EJU87DN']},
+        ),
+        aroundHour: 15,
+      );
       expect([for (final f in result.flights) f.callsign], ['EJU54JF']);
       expect(result.flights.single.arrival, isNull);
     });
 
+    test('ask about ${AdsbTrackService.maxRouteLookups} at most, the '
+        'nearest in time first', () async {
+      await search(
+        service([
+          for (var i = 0; i < 20; i++)
+            AdsbFlight(
+              provider: AdsbProvider.flyItalyAdsb,
+              icao24: '4ca242',
+              start: _day.add(Duration(hours: 15, minutes: i * 3)),
+              end: _day.add(Duration(hours: 18, minutes: i * 3)),
+              callsign: 'ABC$i',
+              departure: 'LIMC',
+              byRoute: true,
+            ),
+        ], const {}),
+        aroundHour: 15,
+      );
+      expect(asked, hasLength(AdsbTrackService.maxRouteLookups));
+      expect(asked, containsAll(['ABC0', 'ABC9']));
+      expect(asked, isNot(contains('ABC10')));
+    });
+
     test('remember routes, but not failed lookups', () async {
-      final search = service(
-        [_byRoute('EJU54JF', 15), _byRoute('EJU87DN', 7)],
-        {'EJU87DN': const CallsignRoute(origin: 'LIMC', destination: 'GCTS')},
+      final once = service(
+        [_byRoute('EJU54JF', 15), _byRoute('EJU87DN', 15)],
+        {'EJU87DN': routes['EJU87DN']},
         failing: {'EJU54JF'},
       );
-      Future<void> once() => search.searchCallsign(
-        'U23895',
-        _window,
-        departureIcao: 'LIMC',
-        arrivalIcao: 'HEMA',
-      );
-      await once();
-      await once();
+      await search(once, aroundHour: 15);
+      await search(once, aroundHour: 15);
       expect(asked.where((c) => c == 'EJU87DN'), hasLength(1));
       expect(asked.where((c) => c == 'EJU54JF'), hasLength(2));
     });
