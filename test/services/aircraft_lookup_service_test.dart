@@ -345,13 +345,13 @@ void main() {
         planespottersContact: _contact,
       );
       expect(sources.map((s) => s.id), [
-        'jetphotos',
+        'jetapi',
         'hexdb',
         'adsbdb',
         'planespotters',
       ]);
       expect(sources.map((s) => s.label), [
-        'JetPhotos',
+        'jetapi.dev',
         'hexdb.io',
         'adsbdb',
         'Planespotters.net',
@@ -363,7 +363,7 @@ void main() {
       final result = (await _service(
         everything,
         requests: requests,
-        photosOff: {'jetphotos', 'planespotters'},
+        photosOff: {'jetapi', 'planespotters'},
       ).lookup('D-EABC'))!;
 
       expect(
@@ -398,7 +398,7 @@ void main() {
     test('with every source off there are no photos, only the type', () async {
       final result = (await _service(
         everything,
-        photosOff: {'jetphotos', 'hexdb', 'adsbdb', 'planespotters'},
+        photosOff: {'jetapi', 'hexdb', 'adsbdb', 'planespotters'},
       ).lookup('D-EABC'))!;
 
       expect(result.photos, isEmpty);

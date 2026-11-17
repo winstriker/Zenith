@@ -132,6 +132,14 @@ void main() {
   }
 
   Future<void> openForm(WidgetTester tester, {AircraftWithStats? edit}) async {
+    // The 3:2 photo header follows the width: on the default 800x600 test
+    // surface it is 533 high, and with the photo strip it pushes the form
+    // below the fold, where finders don't look. A taller surface keeps the
+    // form on screen.
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
