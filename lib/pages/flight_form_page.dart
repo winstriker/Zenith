@@ -25,18 +25,29 @@ import '../widgets/flight_rules_card.dart';
 import '../widgets/landings_card.dart';
 import '../widgets/page_title.dart';
 import '../widgets/remarks_card.dart';
+import '../widgets/session_times_card.dart';
+import '../widgets/simulator_card.dart';
 import '../widgets/timezone_picker.dart';
 import 'aircraft_form_page.dart';
 import 'aircraft_select_page.dart';
 import 'image_crop_page.dart';
 import 'signature_pad_page.dart';
+import 'simulator_select_page.dart';
 
 enum _SignatureAction { draw, upload, photo, remove }
 
 class FlightFormPage extends ConsumerStatefulWidget {
-  const FlightFormPage({super.key, this.flightToEdit, this.adsbImport})
-    : assert(flightToEdit == null || adsbImport == null);
+  const FlightFormPage({
+    super.key,
+    this.flightToEdit,
+    this.adsbImport,
+    this.simulator = false,
+  }) : assert(flightToEdit == null || adsbImport == null),
+       assert(!simulator || adsbImport == null);
   final FlightWithStats? flightToEdit;
+
+  /// For a new entry: start with a simulator session rather than a flight.
+  final bool simulator;
 
   /// A flight found on ADS-B to log: fills the form in, and its track is
   /// saved with the new flight.
@@ -57,6 +68,15 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   File? _pickedSignature;
   bool _signatureRemoved = false;
 
+  /// Whether a simulator session is being logged. Set before the shared
+  /// form state follows, so the first frame already has the right layout.
+  late bool _simulator =
+      widget.simulator || (widget.flightToEdit?.isSimulatorSession ?? false);
+
+  /// Bumped once an edited entry is loaded: rebuilds the time fields, which
+  /// only read their value when created.
+  int _loaded = 0;
+
   /// The signature the flight was saved with, unless removed here.
   String? get _storedSignature =>
       _signatureRemoved ? null : widget.flightToEdit?.flight.signatureFile;
@@ -76,7 +96,16 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _populateFromImport(widget.adsbImport!);
       });
+    } else if (_simulator) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _formNotifier.setSimulator(true);
+      });
     }
+  }
+
+  void _setSimulator(bool simulator) {
+    setState(() => _simulator = simulator);
+    _formNotifier.setSimulator(simulator);
   }
 
   @override
@@ -93,6 +122,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
 
     // Start from a clean state so nothing from a previous form survives.
     notifier.reset();
+    if (flight.isSimulatorSession) {
+      notifier.setSimulator(true);
+      notifier.setSelectedSimulator(flight.simulator);
+    }
 
     // Fetch airports from the database
     final depAirport = flight.departure;
@@ -148,6 +181,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     if (flight.aircraftWithStats != null) {
       notifier.setSelectedAircraft(flight.aircraftWithStats);
     }
+    setState(() => _loaded++);
   }
 
   /// Fills the form in with what ADS-B saw of the flight. The times are in
@@ -262,79 +296,144 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
               PageTitle(
-                widget.isEditing ? 'Edit Flight' : 'Log Flight',
+                switch ((widget.isEditing, _simulator)) {
+                  (true, true) => 'Edit Session',
+                  (true, false) => 'Edit Flight',
+                  (false, true) => 'Log Session',
+                  (false, false) => 'Log Flight',
+                },
                 belowCloseButton: true,
                 horizontalPadding: 0,
                 bottomPadding: 16,
               ),
+              if (!widget.isEditing && draft == null) ...[
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Aircraft'),
+                      icon: Icon(Icons.airplanemode_active),
+                    ),
+                    ButtonSegment(
+                      value: true,
+                      label: Text('Simulator'),
+                      icon: Icon(simulatorIcon),
+                    ),
+                  ],
+                  selected: {_simulator},
+                  onSelectionChanged: (s) => _setSimulator(s.single),
+                ),
+                const SizedBox(height: 16),
+              ],
               if (draft != null) ...[
                 _ImportSummary(draft: draft),
                 const SizedBox(height: 16),
               ],
-              FlightFormCard(
-                departureDate: form.departureDate,
-                arrivalDate: form.arrivalDate,
-                departureCode: form.departureCode,
-                arrivalCode: form.arrivalCode,
-                depTime: form.depTime,
-                arrTime: form.arrTime,
-                selectedDeparture: form.selectedDeparture,
-                selectedArrival: form.selectedArrival,
-                depTzLabel: form.depTzLabel,
-                arrTzLabel: form.arrTzLabel,
-                blockTime: form.blockTimeFormatted,
-                onDepartureDateTap: () =>
-                    _pickDate(notifier, isDeparture: true),
-                onArrivalDateTap: () => _pickDate(notifier, isDeparture: false),
-                onDepartureTzTap: () =>
-                    _showTzPicker(notifier, isDeparture: true),
-                onArrivalTzTap: () =>
-                    _showTzPicker(notifier, isDeparture: false),
-                onDepartureAirportTap: () =>
-                    _pickAirport(notifier, isDeparture: true),
-                onArrivalAirportTap: () =>
-                    _pickAirport(notifier, isDeparture: false),
-                onDepTimeChanged: notifier.setDepTime,
-                onArrTimeChanged: notifier.setArrTime,
-                parseDateTime: TZDateTimeParser.parseDateTimeFromText,
-                depIanaLocation: form.depIanaLocation,
-                arrIanaLocation: form.arrIanaLocation,
-              ),
-              const SizedBox(height: 16),
-              AircraftCard(
-                aircraft: form.selectedAircraft,
-                onTap: () => _pickAircraft(notifier),
-                useOuterPadding: false,
-              ),
-              if (missingRegistration != null) ...[
-                const SizedBox(height: 8),
-                _NewAircraftBanner(
-                  registration: missingRegistration,
-                  onAdd: () => _addImportedAircraft(missingRegistration),
+              if (_simulator) ...[
+                SessionTimesCard(
+                  key: ValueKey(_loaded),
+                  date: form.departureDate,
+                  startTime: form.depTime,
+                  endTime: form.arrTime,
+                  start: form.depTZDateTime,
+                  end: form.arrTZDateTime,
+                  onDateTap: () => _pickDate(notifier, isDeparture: true),
+                  onStartChanged: notifier.setDepTime,
+                  onEndChanged: notifier.setArrTime,
+                ),
+                const SizedBox(height: 16),
+                SimulatorCard(
+                  simulator: form.selectedSimulator,
+                  onTap: () => _pickSimulator(notifier),
+                  useOuterPadding: false,
+                ),
+                const SizedBox(height: 16),
+                LandingsCard(
+                  approachType: form.approachType,
+                  onApproachTypeChanged: notifier.setApproachType,
+                  nightLandings: form.nightLandings,
+                  onNightLandingsChanged: notifier.setNightLandings,
+                  dayLandings: form.dayLandings,
+                  onDayLandingsChanged: notifier.setDayLandings,
+                ),
+                if (form.selectedSimulator?.kind.countsForRecency == false)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                    child: Text(
+                      'Only landings in a full flight simulator count for '
+                      'recent experience (FCL.060).',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+              ] else ...[
+                FlightFormCard(
+                  departureDate: form.departureDate,
+                  arrivalDate: form.arrivalDate,
+                  departureCode: form.departureCode,
+                  arrivalCode: form.arrivalCode,
+                  depTime: form.depTime,
+                  arrTime: form.arrTime,
+                  selectedDeparture: form.selectedDeparture,
+                  selectedArrival: form.selectedArrival,
+                  depTzLabel: form.depTzLabel,
+                  arrTzLabel: form.arrTzLabel,
+                  blockTime: form.blockTimeFormatted,
+                  onDepartureDateTap: () =>
+                      _pickDate(notifier, isDeparture: true),
+                  onArrivalDateTap: () =>
+                      _pickDate(notifier, isDeparture: false),
+                  onDepartureTzTap: () =>
+                      _showTzPicker(notifier, isDeparture: true),
+                  onArrivalTzTap: () =>
+                      _showTzPicker(notifier, isDeparture: false),
+                  onDepartureAirportTap: () =>
+                      _pickAirport(notifier, isDeparture: true),
+                  onArrivalAirportTap: () =>
+                      _pickAirport(notifier, isDeparture: false),
+                  onDepTimeChanged: notifier.setDepTime,
+                  onArrTimeChanged: notifier.setArrTime,
+                  parseDateTime: TZDateTimeParser.parseDateTimeFromText,
+                  depIanaLocation: form.depIanaLocation,
+                  arrIanaLocation: form.arrIanaLocation,
+                ),
+                const SizedBox(height: 16),
+                AircraftCard(
+                  aircraft: form.selectedAircraft,
+                  onTap: () => _pickAircraft(notifier),
+                  useOuterPadding: false,
+                ),
+                if (missingRegistration != null) ...[
+                  const SizedBox(height: 8),
+                  _NewAircraftBanner(
+                    registration: missingRegistration,
+                    onAdd: () => _addImportedAircraft(missingRegistration),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                LandingsCard(
+                  approachType: form.approachType,
+                  onApproachTypeChanged: notifier.setApproachType,
+                  nightLandings: form.nightLandings,
+                  onNightLandingsChanged: notifier.setNightLandings,
+                  dayLandings: form.dayLandings,
+                  onDayLandingsChanged: notifier.setDayLandings,
+                ),
+                const SizedBox(height: 16),
+                FlightRulesCard(
+                  flightRules: form.flightRules,
+                  onFlightRulesChanged: notifier.setFlightRules,
+                  instrumentTime: form.instrumentTime,
+                  visualTime: form.visualTime,
+                  nightTime: form.nightTime,
+                  onInstrumentTimeChanged: notifier.setInstrumentTime,
+                  onVisualTimeChanged: notifier.setVisualTime,
+                  blockTimeKnown:
+                      form.blockTime != null && !form.blockTime!.isNegative,
+                  timeError: form.instrumentError,
                 ),
               ],
-              const SizedBox(height: 16),
-              LandingsCard(
-                approachType: form.approachType,
-                onApproachTypeChanged: notifier.setApproachType,
-                nightLandings: form.nightLandings,
-                onNightLandingsChanged: notifier.setNightLandings,
-                dayLandings: form.dayLandings,
-                onDayLandingsChanged: notifier.setDayLandings,
-              ),
-              const SizedBox(height: 16),
-              FlightRulesCard(
-                flightRules: form.flightRules,
-                onFlightRulesChanged: notifier.setFlightRules,
-                instrumentTime: form.instrumentTime,
-                visualTime: form.visualTime,
-                nightTime: form.nightTime,
-                onInstrumentTimeChanged: notifier.setInstrumentTime,
-                onVisualTimeChanged: notifier.setVisualTime,
-                blockTimeKnown:
-                    form.blockTime != null && !form.blockTime!.isNegative,
-                timeError: form.instrumentError,
-              ),
               const SizedBox(height: 16),
               CrewCard(
                 pilotRole: form.pilotRole,
@@ -530,6 +629,14 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     );
   }
 
+  Future<void> _pickSimulator(FlightFormNotifier notifier) async {
+    final sim = await Navigator.push<SimulatorWithStats>(
+      context,
+      MaterialPageRoute(builder: (_) => const SimulatorSelectPage()),
+    );
+    if (sim != null) notifier.setSelectedSimulator(sim);
+  }
+
   Future<void> _pickAircraft(FlightFormNotifier notifier) async {
     final aws = await Navigator.push<AircraftWithStats>(
       context,
@@ -572,8 +679,49 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       // Use the TZDateTime directly - it stores the correct instant in UTC
       final depDateTime = form.depTZDateTime;
       final arrDateTime = form.arrTZDateTime;
+      final remarks = form.remarks.trim().isEmpty ? null : form.remarks.trim();
 
-      if (widget.isEditing) {
+      if (form.isSimulator) {
+        // A session keeps none of a flight's route, aircraft or rules.
+        final sim = form.selectedSimulator!;
+        final flightId = widget.flightToEdit?.flight.id;
+        if (flightId != null) {
+          await flightService.updateFlight(
+            flightId: flightId,
+            departureId: null,
+            arrivalId: null,
+            title: sim.title,
+            departureTime: depDateTime,
+            arrivalTime: arrDateTime,
+            simulatorId: sim.id,
+            approachType: form.approachType,
+            nightLandings: form.nightLandings,
+            dayLandings: form.dayLandings,
+            remarks: remarks,
+            pilotRole: form.pilotRole.name,
+            proficiencyCheck: form.isProficiencyCheck,
+            crew: form.crewMembers,
+            signatureFile: signature,
+          );
+        } else {
+          await flightService.addFlight(
+            departureId: null,
+            arrivalId: null,
+            title: sim.title,
+            departureTime: depDateTime,
+            arrivalTime: arrDateTime,
+            simulatorId: sim.id,
+            approachType: form.approachType,
+            nightLandings: form.nightLandings,
+            dayLandings: form.dayLandings,
+            remarks: remarks,
+            pilotRole: form.pilotRole.name,
+            proficiencyCheck: form.isProficiencyCheck,
+            crew: form.crewMembers,
+            signatureFile: storedSignature,
+          );
+        }
+      } else if (widget.isEditing) {
         await flightService.updateFlight(
           flightId: widget.flightToEdit!.flight.id,
           departureId: form.selectedDeparture?.id,

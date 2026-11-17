@@ -4921,6 +4921,620 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   }
 }
 
+class $SimulatorsTable extends Simulators
+    with TableInfo<$SimulatorsTable, Simulator> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SimulatorsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<SimulatorKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<SimulatorKind>($SimulatorsTable.$converterkind);
+  static const VerificationMeta _levelMeta = const VerificationMeta('level');
+  @override
+  late final GeneratedColumn<String> level = GeneratedColumn<String>(
+    'level',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _icaoAircraftMeta = const VerificationMeta(
+    'icaoAircraft',
+  );
+  @override
+  late final GeneratedColumn<int> icaoAircraft = GeneratedColumn<int>(
+    'icao_aircraft',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES icao_aircrafts (id)',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<AircraftClass?, String>
+  aircraftClass = GeneratedColumn<String>(
+    'aircraft_class',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<AircraftClass?>($SimulatorsTable.$converteraircraftClassn);
+  static const VerificationMeta _typeRatingMeta = const VerificationMeta(
+    'typeRating',
+  );
+  @override
+  late final GeneratedColumn<String> typeRating = GeneratedColumn<String>(
+    'type_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _qualificationNumberMeta =
+      const VerificationMeta('qualificationNumber');
+  @override
+  late final GeneratedColumn<String> qualificationNumber =
+      GeneratedColumn<String>(
+        'qualification_number',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _organisationMeta = const VerificationMeta(
+    'organisation',
+  );
+  @override
+  late final GeneratedColumn<String> organisation = GeneratedColumn<String>(
+    'organisation',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kind,
+    level,
+    icaoAircraft,
+    aircraftClass,
+    typeRating,
+    qualificationNumber,
+    organisation,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'simulators';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Simulator> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('level')) {
+      context.handle(
+        _levelMeta,
+        level.isAcceptableOrUnknown(data['level']!, _levelMeta),
+      );
+    }
+    if (data.containsKey('icao_aircraft')) {
+      context.handle(
+        _icaoAircraftMeta,
+        icaoAircraft.isAcceptableOrUnknown(
+          data['icao_aircraft']!,
+          _icaoAircraftMeta,
+        ),
+      );
+    }
+    if (data.containsKey('type_rating')) {
+      context.handle(
+        _typeRatingMeta,
+        typeRating.isAcceptableOrUnknown(data['type_rating']!, _typeRatingMeta),
+      );
+    }
+    if (data.containsKey('qualification_number')) {
+      context.handle(
+        _qualificationNumberMeta,
+        qualificationNumber.isAcceptableOrUnknown(
+          data['qualification_number']!,
+          _qualificationNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('organisation')) {
+      context.handle(
+        _organisationMeta,
+        organisation.isAcceptableOrUnknown(
+          data['organisation']!,
+          _organisationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Simulator map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Simulator(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      kind: $SimulatorsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      level: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}level'],
+      ),
+      icaoAircraft: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}icao_aircraft'],
+      ),
+      aircraftClass: $SimulatorsTable.$converteraircraftClassn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}aircraft_class'],
+        ),
+      ),
+      typeRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type_rating'],
+      ),
+      qualificationNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}qualification_number'],
+      ),
+      organisation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}organisation'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $SimulatorsTable createAlias(String alias) {
+    return $SimulatorsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<SimulatorKind, String, String> $converterkind =
+      const EnumNameConverter<SimulatorKind>(SimulatorKind.values);
+  static JsonTypeConverter2<AircraftClass, String, String>
+  $converteraircraftClass = const EnumNameConverter<AircraftClass>(
+    AircraftClass.values,
+  );
+  static JsonTypeConverter2<AircraftClass?, String?, String?>
+  $converteraircraftClassn = JsonTypeConverter2.asNullable(
+    $converteraircraftClass,
+  );
+}
+
+class Simulator extends DataClass implements Insertable<Simulator> {
+  final int id;
+  final SimulatorKind kind;
+
+  /// Qualification level ("D" for an FFS, "II MCC" for an FNPT). Null when
+  /// not known or the kind has none.
+  final String? level;
+
+  /// The aircraft type the device represents. Null for a generic device
+  /// (an FNPT representing a class, a BITD).
+  final int? icaoAircraft;
+
+  /// Class or type rating sessions in the device count towards (FFS
+  /// landings, proficiency checks).
+  final AircraftClass? aircraftClass;
+
+  /// Licence endorsement of the type rating (e.g. "A320"), when
+  /// [aircraftClass] is [AircraftClass.type].
+  final String? typeRating;
+
+  /// The device's qualification number ("Q1234"), written next to its type
+  /// in the logbook.
+  final String? qualificationNumber;
+
+  /// Training organisation or operator running it, and where.
+  final String? organisation;
+  final String? notes;
+  const Simulator({
+    required this.id,
+    required this.kind,
+    this.level,
+    this.icaoAircraft,
+    this.aircraftClass,
+    this.typeRating,
+    this.qualificationNumber,
+    this.organisation,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    {
+      map['kind'] = Variable<String>(
+        $SimulatorsTable.$converterkind.toSql(kind),
+      );
+    }
+    if (!nullToAbsent || level != null) {
+      map['level'] = Variable<String>(level);
+    }
+    if (!nullToAbsent || icaoAircraft != null) {
+      map['icao_aircraft'] = Variable<int>(icaoAircraft);
+    }
+    if (!nullToAbsent || aircraftClass != null) {
+      map['aircraft_class'] = Variable<String>(
+        $SimulatorsTable.$converteraircraftClassn.toSql(aircraftClass),
+      );
+    }
+    if (!nullToAbsent || typeRating != null) {
+      map['type_rating'] = Variable<String>(typeRating);
+    }
+    if (!nullToAbsent || qualificationNumber != null) {
+      map['qualification_number'] = Variable<String>(qualificationNumber);
+    }
+    if (!nullToAbsent || organisation != null) {
+      map['organisation'] = Variable<String>(organisation);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  SimulatorsCompanion toCompanion(bool nullToAbsent) {
+    return SimulatorsCompanion(
+      id: Value(id),
+      kind: Value(kind),
+      level: level == null && nullToAbsent
+          ? const Value.absent()
+          : Value(level),
+      icaoAircraft: icaoAircraft == null && nullToAbsent
+          ? const Value.absent()
+          : Value(icaoAircraft),
+      aircraftClass: aircraftClass == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aircraftClass),
+      typeRating: typeRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(typeRating),
+      qualificationNumber: qualificationNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(qualificationNumber),
+      organisation: organisation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(organisation),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory Simulator.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Simulator(
+      id: serializer.fromJson<int>(json['id']),
+      kind: $SimulatorsTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      level: serializer.fromJson<String?>(json['level']),
+      icaoAircraft: serializer.fromJson<int?>(json['icaoAircraft']),
+      aircraftClass: $SimulatorsTable.$converteraircraftClassn.fromJson(
+        serializer.fromJson<String?>(json['aircraftClass']),
+      ),
+      typeRating: serializer.fromJson<String?>(json['typeRating']),
+      qualificationNumber: serializer.fromJson<String?>(
+        json['qualificationNumber'],
+      ),
+      organisation: serializer.fromJson<String?>(json['organisation']),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'kind': serializer.toJson<String>(
+        $SimulatorsTable.$converterkind.toJson(kind),
+      ),
+      'level': serializer.toJson<String?>(level),
+      'icaoAircraft': serializer.toJson<int?>(icaoAircraft),
+      'aircraftClass': serializer.toJson<String?>(
+        $SimulatorsTable.$converteraircraftClassn.toJson(aircraftClass),
+      ),
+      'typeRating': serializer.toJson<String?>(typeRating),
+      'qualificationNumber': serializer.toJson<String?>(qualificationNumber),
+      'organisation': serializer.toJson<String?>(organisation),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  Simulator copyWith({
+    int? id,
+    SimulatorKind? kind,
+    Value<String?> level = const Value.absent(),
+    Value<int?> icaoAircraft = const Value.absent(),
+    Value<AircraftClass?> aircraftClass = const Value.absent(),
+    Value<String?> typeRating = const Value.absent(),
+    Value<String?> qualificationNumber = const Value.absent(),
+    Value<String?> organisation = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => Simulator(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    level: level.present ? level.value : this.level,
+    icaoAircraft: icaoAircraft.present ? icaoAircraft.value : this.icaoAircraft,
+    aircraftClass: aircraftClass.present
+        ? aircraftClass.value
+        : this.aircraftClass,
+    typeRating: typeRating.present ? typeRating.value : this.typeRating,
+    qualificationNumber: qualificationNumber.present
+        ? qualificationNumber.value
+        : this.qualificationNumber,
+    organisation: organisation.present ? organisation.value : this.organisation,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  Simulator copyWithCompanion(SimulatorsCompanion data) {
+    return Simulator(
+      id: data.id.present ? data.id.value : this.id,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      level: data.level.present ? data.level.value : this.level,
+      icaoAircraft: data.icaoAircraft.present
+          ? data.icaoAircraft.value
+          : this.icaoAircraft,
+      aircraftClass: data.aircraftClass.present
+          ? data.aircraftClass.value
+          : this.aircraftClass,
+      typeRating: data.typeRating.present
+          ? data.typeRating.value
+          : this.typeRating,
+      qualificationNumber: data.qualificationNumber.present
+          ? data.qualificationNumber.value
+          : this.qualificationNumber,
+      organisation: data.organisation.present
+          ? data.organisation.value
+          : this.organisation,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Simulator(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('level: $level, ')
+          ..write('icaoAircraft: $icaoAircraft, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('typeRating: $typeRating, ')
+          ..write('qualificationNumber: $qualificationNumber, ')
+          ..write('organisation: $organisation, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    kind,
+    level,
+    icaoAircraft,
+    aircraftClass,
+    typeRating,
+    qualificationNumber,
+    organisation,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Simulator &&
+          other.id == this.id &&
+          other.kind == this.kind &&
+          other.level == this.level &&
+          other.icaoAircraft == this.icaoAircraft &&
+          other.aircraftClass == this.aircraftClass &&
+          other.typeRating == this.typeRating &&
+          other.qualificationNumber == this.qualificationNumber &&
+          other.organisation == this.organisation &&
+          other.notes == this.notes);
+}
+
+class SimulatorsCompanion extends UpdateCompanion<Simulator> {
+  final Value<int> id;
+  final Value<SimulatorKind> kind;
+  final Value<String?> level;
+  final Value<int?> icaoAircraft;
+  final Value<AircraftClass?> aircraftClass;
+  final Value<String?> typeRating;
+  final Value<String?> qualificationNumber;
+  final Value<String?> organisation;
+  final Value<String?> notes;
+  const SimulatorsCompanion({
+    this.id = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.level = const Value.absent(),
+    this.icaoAircraft = const Value.absent(),
+    this.aircraftClass = const Value.absent(),
+    this.typeRating = const Value.absent(),
+    this.qualificationNumber = const Value.absent(),
+    this.organisation = const Value.absent(),
+    this.notes = const Value.absent(),
+  });
+  SimulatorsCompanion.insert({
+    this.id = const Value.absent(),
+    required SimulatorKind kind,
+    this.level = const Value.absent(),
+    this.icaoAircraft = const Value.absent(),
+    this.aircraftClass = const Value.absent(),
+    this.typeRating = const Value.absent(),
+    this.qualificationNumber = const Value.absent(),
+    this.organisation = const Value.absent(),
+    this.notes = const Value.absent(),
+  }) : kind = Value(kind);
+  static Insertable<Simulator> custom({
+    Expression<int>? id,
+    Expression<String>? kind,
+    Expression<String>? level,
+    Expression<int>? icaoAircraft,
+    Expression<String>? aircraftClass,
+    Expression<String>? typeRating,
+    Expression<String>? qualificationNumber,
+    Expression<String>? organisation,
+    Expression<String>? notes,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kind != null) 'kind': kind,
+      if (level != null) 'level': level,
+      if (icaoAircraft != null) 'icao_aircraft': icaoAircraft,
+      if (aircraftClass != null) 'aircraft_class': aircraftClass,
+      if (typeRating != null) 'type_rating': typeRating,
+      if (qualificationNumber != null)
+        'qualification_number': qualificationNumber,
+      if (organisation != null) 'organisation': organisation,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  SimulatorsCompanion copyWith({
+    Value<int>? id,
+    Value<SimulatorKind>? kind,
+    Value<String?>? level,
+    Value<int?>? icaoAircraft,
+    Value<AircraftClass?>? aircraftClass,
+    Value<String?>? typeRating,
+    Value<String?>? qualificationNumber,
+    Value<String?>? organisation,
+    Value<String?>? notes,
+  }) {
+    return SimulatorsCompanion(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      level: level ?? this.level,
+      icaoAircraft: icaoAircraft ?? this.icaoAircraft,
+      aircraftClass: aircraftClass ?? this.aircraftClass,
+      typeRating: typeRating ?? this.typeRating,
+      qualificationNumber: qualificationNumber ?? this.qualificationNumber,
+      organisation: organisation ?? this.organisation,
+      notes: notes ?? this.notes,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $SimulatorsTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (level.present) {
+      map['level'] = Variable<String>(level.value);
+    }
+    if (icaoAircraft.present) {
+      map['icao_aircraft'] = Variable<int>(icaoAircraft.value);
+    }
+    if (aircraftClass.present) {
+      map['aircraft_class'] = Variable<String>(
+        $SimulatorsTable.$converteraircraftClassn.toSql(aircraftClass.value),
+      );
+    }
+    if (typeRating.present) {
+      map['type_rating'] = Variable<String>(typeRating.value);
+    }
+    if (qualificationNumber.present) {
+      map['qualification_number'] = Variable<String>(qualificationNumber.value);
+    }
+    if (organisation.present) {
+      map['organisation'] = Variable<String>(organisation.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SimulatorsCompanion(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('level: $level, ')
+          ..write('icaoAircraft: $icaoAircraft, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('typeRating: $typeRating, ')
+          ..write('qualificationNumber: $qualificationNumber, ')
+          ..write('organisation: $organisation, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -5047,6 +5661,20 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES aircrafts (id)',
+    ),
+  );
+  static const VerificationMeta _simulatorIdMeta = const VerificationMeta(
+    'simulatorId',
+  );
+  @override
+  late final GeneratedColumn<int> simulatorId = GeneratedColumn<int>(
+    'simulator_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES simulators (id)',
     ),
   );
   static const VerificationMeta _approachTypeMeta = const VerificationMeta(
@@ -5195,6 +5823,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     arrivalIanaLocation,
     isRecording,
     aircraftId,
+    simulatorId,
     approachType,
     nightLandings,
     dayLandings,
@@ -5296,6 +5925,15 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
       context.handle(
         _aircraftIdMeta,
         aircraftId.isAcceptableOrUnknown(data['aircraft_id']!, _aircraftIdMeta),
+      );
+    }
+    if (data.containsKey('simulator_id')) {
+      context.handle(
+        _simulatorIdMeta,
+        simulatorId.isAcceptableOrUnknown(
+          data['simulator_id']!,
+          _simulatorIdMeta,
+        ),
       );
     }
     if (data.containsKey('approach_type')) {
@@ -5440,6 +6078,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.int,
         data['${effectivePrefix}aircraft_id'],
       ),
+      simulatorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}simulator_id'],
+      ),
       approachType: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}approach_type'],
@@ -5515,6 +6157,11 @@ class Flight extends DataClass implements Insertable<Flight> {
   final String? arrivalIanaLocation;
   final bool isRecording;
   final int? aircraftId;
+
+  /// Set for a session in a flight simulation training device instead of a
+  /// flight: it then has no aircraft, airports, flight rules or track, and
+  /// fills in the FSTD column of the logbook only.
+  final int? simulatorId;
   final String? approachType;
   final int? nightLandings;
   final int? dayLandings;
@@ -5561,6 +6208,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.arrivalIanaLocation,
     required this.isRecording,
     this.aircraftId,
+    this.simulatorId,
     this.approachType,
     this.nightLandings,
     this.dayLandings,
@@ -5598,6 +6246,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     map['is_recording'] = Variable<bool>(isRecording);
     if (!nullToAbsent || aircraftId != null) {
       map['aircraft_id'] = Variable<int>(aircraftId);
+    }
+    if (!nullToAbsent || simulatorId != null) {
+      map['simulator_id'] = Variable<int>(simulatorId);
     }
     if (!nullToAbsent || approachType != null) {
       map['approach_type'] = Variable<String>(approachType);
@@ -5662,6 +6313,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       aircraftId: aircraftId == null && nullToAbsent
           ? const Value.absent()
           : Value(aircraftId),
+      simulatorId: simulatorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(simulatorId),
       approachType: approachType == null && nullToAbsent
           ? const Value.absent()
           : Value(approachType),
@@ -5719,6 +6373,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       ),
       isRecording: serializer.fromJson<bool>(json['isRecording']),
       aircraftId: serializer.fromJson<int?>(json['aircraftId']),
+      simulatorId: serializer.fromJson<int?>(json['simulatorId']),
       approachType: serializer.fromJson<String?>(json['approachType']),
       nightLandings: serializer.fromJson<int?>(json['nightLandings']),
       dayLandings: serializer.fromJson<int?>(json['dayLandings']),
@@ -5751,6 +6406,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       'arrivalIanaLocation': serializer.toJson<String?>(arrivalIanaLocation),
       'isRecording': serializer.toJson<bool>(isRecording),
       'aircraftId': serializer.toJson<int?>(aircraftId),
+      'simulatorId': serializer.toJson<int?>(simulatorId),
       'approachType': serializer.toJson<String?>(approachType),
       'nightLandings': serializer.toJson<int?>(nightLandings),
       'dayLandings': serializer.toJson<int?>(dayLandings),
@@ -5779,6 +6435,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<String?> arrivalIanaLocation = const Value.absent(),
     bool? isRecording,
     Value<int?> aircraftId = const Value.absent(),
+    Value<int?> simulatorId = const Value.absent(),
     Value<String?> approachType = const Value.absent(),
     Value<int?> nightLandings = const Value.absent(),
     Value<int?> dayLandings = const Value.absent(),
@@ -5806,6 +6463,7 @@ class Flight extends DataClass implements Insertable<Flight> {
         : this.arrivalIanaLocation,
     isRecording: isRecording ?? this.isRecording,
     aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
+    simulatorId: simulatorId.present ? simulatorId.value : this.simulatorId,
     approachType: approachType.present ? approachType.value : this.approachType,
     nightLandings: nightLandings.present
         ? nightLandings.value
@@ -5851,6 +6509,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       aircraftId: data.aircraftId.present
           ? data.aircraftId.value
           : this.aircraftId,
+      simulatorId: data.simulatorId.present
+          ? data.simulatorId.value
+          : this.simulatorId,
       approachType: data.approachType.present
           ? data.approachType.value
           : this.approachType,
@@ -5899,6 +6560,7 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('arrivalIanaLocation: $arrivalIanaLocation, ')
           ..write('isRecording: $isRecording, ')
           ..write('aircraftId: $aircraftId, ')
+          ..write('simulatorId: $simulatorId, ')
           ..write('approachType: $approachType, ')
           ..write('nightLandings: $nightLandings, ')
           ..write('dayLandings: $dayLandings, ')
@@ -5927,6 +6589,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     arrivalIanaLocation,
     isRecording,
     aircraftId,
+    simulatorId,
     approachType,
     nightLandings,
     dayLandings,
@@ -5954,6 +6617,7 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.arrivalIanaLocation == this.arrivalIanaLocation &&
           other.isRecording == this.isRecording &&
           other.aircraftId == this.aircraftId &&
+          other.simulatorId == this.simulatorId &&
           other.approachType == this.approachType &&
           other.nightLandings == this.nightLandings &&
           other.dayLandings == this.dayLandings &&
@@ -5979,6 +6643,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<String?> arrivalIanaLocation;
   final Value<bool> isRecording;
   final Value<int?> aircraftId;
+  final Value<int?> simulatorId;
   final Value<String?> approachType;
   final Value<int?> nightLandings;
   final Value<int?> dayLandings;
@@ -6002,6 +6667,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrivalIanaLocation = const Value.absent(),
     this.isRecording = const Value.absent(),
     this.aircraftId = const Value.absent(),
+    this.simulatorId = const Value.absent(),
     this.approachType = const Value.absent(),
     this.nightLandings = const Value.absent(),
     this.dayLandings = const Value.absent(),
@@ -6026,6 +6692,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.arrivalIanaLocation = const Value.absent(),
     required bool isRecording,
     this.aircraftId = const Value.absent(),
+    this.simulatorId = const Value.absent(),
     this.approachType = const Value.absent(),
     this.nightLandings = const Value.absent(),
     this.dayLandings = const Value.absent(),
@@ -6052,6 +6719,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<String>? arrivalIanaLocation,
     Expression<bool>? isRecording,
     Expression<int>? aircraftId,
+    Expression<int>? simulatorId,
     Expression<String>? approachType,
     Expression<int>? nightLandings,
     Expression<int>? dayLandings,
@@ -6078,6 +6746,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
         'arrival_iana_location': arrivalIanaLocation,
       if (isRecording != null) 'is_recording': isRecording,
       if (aircraftId != null) 'aircraft_id': aircraftId,
+      if (simulatorId != null) 'simulator_id': simulatorId,
       if (approachType != null) 'approach_type': approachType,
       if (nightLandings != null) 'night_landings': nightLandings,
       if (dayLandings != null) 'day_landings': dayLandings,
@@ -6104,6 +6773,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<String?>? arrivalIanaLocation,
     Value<bool>? isRecording,
     Value<int?>? aircraftId,
+    Value<int?>? simulatorId,
     Value<String?>? approachType,
     Value<int?>? nightLandings,
     Value<int?>? dayLandings,
@@ -6129,6 +6799,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       arrivalIanaLocation: arrivalIanaLocation ?? this.arrivalIanaLocation,
       isRecording: isRecording ?? this.isRecording,
       aircraftId: aircraftId ?? this.aircraftId,
+      simulatorId: simulatorId ?? this.simulatorId,
       approachType: approachType ?? this.approachType,
       nightLandings: nightLandings ?? this.nightLandings,
       dayLandings: dayLandings ?? this.dayLandings,
@@ -6180,6 +6851,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     }
     if (aircraftId.present) {
       map['aircraft_id'] = Variable<int>(aircraftId.value);
+    }
+    if (simulatorId.present) {
+      map['simulator_id'] = Variable<int>(simulatorId.value);
     }
     if (approachType.present) {
       map['approach_type'] = Variable<String>(approachType.value);
@@ -6235,6 +6909,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('arrivalIanaLocation: $arrivalIanaLocation, ')
           ..write('isRecording: $isRecording, ')
           ..write('aircraftId: $aircraftId, ')
+          ..write('simulatorId: $simulatorId, ')
           ..write('approachType: $approachType, ')
           ..write('nightLandings: $nightLandings, ')
           ..write('dayLandings: $dayLandings, ')
@@ -9627,6 +10302,7 @@ class $AircraftWithStatssView
     'flights',
     'icao_aircrafts',
     'airports',
+    'simulators',
     'countries',
     'regions',
   };
@@ -9820,6 +10496,7 @@ class $FlightStatsView extends ViewInfo<$FlightStatsView, FlightStat>
     'flights',
     'airports',
     'aircrafts',
+    'simulators',
     'icao_aircrafts',
     'countries',
     'regions',
@@ -10401,6 +11078,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $RunwaysTable runways = $RunwaysTable(this);
   late final $IcaoAircraftsTable icaoAircrafts = $IcaoAircraftsTable(this);
   late final $AircraftsTable aircrafts = $AircraftsTable(this);
+  late final $SimulatorsTable simulators = $SimulatorsTable(this);
   late final $FlightsTable flights = $FlightsTable(this);
   late final $FlightDataPointsTable flightDataPoints = $FlightDataPointsTable(
     this,
@@ -10416,6 +11094,10 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $FlightStatsView flightStats = $FlightStatsView(this);
   late final $AircraftWithIcaosView aircraftWithIcaos = $AircraftWithIcaosView(
     this,
+  );
+  late final Index flightsSimulatorIdIdx = Index(
+    'flights_simulator_id_idx',
+    'CREATE INDEX flights_simulator_id_idx ON flights (simulator_id)',
   );
   late final Index flightDataPointsFlightTimestampIdx = Index(
     'flight_data_points_flight_timestamp_idx',
@@ -10433,6 +11115,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     runways,
     icaoAircrafts,
     aircrafts,
+    simulators,
     flights,
     flightDataPoints,
     people,
@@ -10443,6 +11126,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     aircraftWithStatss,
     flightStats,
     aircraftWithIcaos,
+    flightsSimulatorIdIdx,
     flightDataPointsFlightTimestampIdx,
   ];
 }
@@ -13336,6 +14020,24 @@ final class $$IcaoAircraftsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$SimulatorsTable, List<Simulator>>
+  _simulatorsRefsTable(_$LogbookDatabase db) => MultiTypedResultKey.fromTable(
+    db.simulators,
+    aliasName: 'icao_aircrafts__id__simulators__icao_aircraft',
+  );
+
+  $$SimulatorsTableProcessedTableManager get simulatorsRefs {
+    final manager = $$SimulatorsTableTableManager(
+      $_db,
+      $_db.simulators,
+    ).filter((f) => f.icaoAircraft.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_simulatorsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$IcaoAircraftsTableFilterComposer
@@ -13429,6 +14131,31 @@ class $$IcaoAircraftsTableFilterComposer
           }) => $$AircraftsTableFilterComposer(
             $db: $db,
             $table: $db.aircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> simulatorsRefs(
+    Expression<bool> Function($$SimulatorsTableFilterComposer f) f,
+  ) {
+    final $$SimulatorsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.simulators,
+      getReferencedColumn: (t) => t.icaoAircraft,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SimulatorsTableFilterComposer(
+            $db: $db,
+            $table: $db.simulators,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -13584,6 +14311,31 @@ class $$IcaoAircraftsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> simulatorsRefs<T extends Object>(
+    Expression<T> Function($$SimulatorsTableAnnotationComposer a) f,
+  ) {
+    final $$SimulatorsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.simulators,
+      getReferencedColumn: (t) => t.icaoAircraft,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SimulatorsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.simulators,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$IcaoAircraftsTableTableManager
@@ -13599,7 +14351,7 @@ class $$IcaoAircraftsTableTableManager
           $$IcaoAircraftsTableUpdateCompanionBuilder,
           (IcaoAircraft, $$IcaoAircraftsTableReferences),
           IcaoAircraft,
-          PrefetchHooks Function({bool aircraftsRefs})
+          PrefetchHooks Function({bool aircraftsRefs, bool simulatorsRefs})
         > {
   $$IcaoAircraftsTableTableManager(
     _$LogbookDatabase db,
@@ -13672,38 +14424,63 @@ class $$IcaoAircraftsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({aircraftsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (aircraftsRefs) db.aircrafts],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (aircraftsRefs)
-                    await $_getPrefetchedData<
-                      IcaoAircraft,
-                      $IcaoAircraftsTable,
-                      Aircraft
-                    >(
-                      currentTable: table,
-                      referencedTable: $$IcaoAircraftsTableReferences
-                          ._aircraftsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$IcaoAircraftsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).aircraftsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.icaoAircraft == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({aircraftsRefs = false, simulatorsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (aircraftsRefs) db.aircrafts,
+                    if (simulatorsRefs) db.simulators,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (aircraftsRefs)
+                        await $_getPrefetchedData<
+                          IcaoAircraft,
+                          $IcaoAircraftsTable,
+                          Aircraft
+                        >(
+                          currentTable: table,
+                          referencedTable: $$IcaoAircraftsTableReferences
+                              ._aircraftsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$IcaoAircraftsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).aircraftsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.icaoAircraft == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (simulatorsRefs)
+                        await $_getPrefetchedData<
+                          IcaoAircraft,
+                          $IcaoAircraftsTable,
+                          Simulator
+                        >(
+                          currentTable: table,
+                          referencedTable: $$IcaoAircraftsTableReferences
+                              ._simulatorsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$IcaoAircraftsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).simulatorsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.icaoAircraft == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -13720,7 +14497,7 @@ typedef $$IcaoAircraftsTableProcessedTableManager =
       $$IcaoAircraftsTableUpdateCompanionBuilder,
       (IcaoAircraft, $$IcaoAircraftsTableReferences),
       IcaoAircraft,
-      PrefetchHooks Function({bool aircraftsRefs})
+      PrefetchHooks Function({bool aircraftsRefs, bool simulatorsRefs})
     >;
 typedef $$AircraftsTableCreateCompanionBuilder =
     AircraftsCompanion Function({
@@ -14245,6 +15022,496 @@ typedef $$AircraftsTableProcessedTableManager =
       Aircraft,
       PrefetchHooks Function({bool icaoAircraft, bool flightsRefs})
     >;
+typedef $$SimulatorsTableCreateCompanionBuilder =
+    SimulatorsCompanion Function({
+      Value<int> id,
+      required SimulatorKind kind,
+      Value<String?> level,
+      Value<int?> icaoAircraft,
+      Value<AircraftClass?> aircraftClass,
+      Value<String?> typeRating,
+      Value<String?> qualificationNumber,
+      Value<String?> organisation,
+      Value<String?> notes,
+    });
+typedef $$SimulatorsTableUpdateCompanionBuilder =
+    SimulatorsCompanion Function({
+      Value<int> id,
+      Value<SimulatorKind> kind,
+      Value<String?> level,
+      Value<int?> icaoAircraft,
+      Value<AircraftClass?> aircraftClass,
+      Value<String?> typeRating,
+      Value<String?> qualificationNumber,
+      Value<String?> organisation,
+      Value<String?> notes,
+    });
+
+final class $$SimulatorsTableReferences
+    extends BaseReferences<_$LogbookDatabase, $SimulatorsTable, Simulator> {
+  $$SimulatorsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $IcaoAircraftsTable _icaoAircraftTable(_$LogbookDatabase db) => db
+      .icaoAircrafts
+      .createAlias('simulators__icao_aircraft__icao_aircrafts__id');
+
+  $$IcaoAircraftsTableProcessedTableManager? get icaoAircraft {
+    final $_column = $_itemColumn<int>('icao_aircraft');
+    if ($_column == null) return null;
+    final manager = $$IcaoAircraftsTableTableManager(
+      $_db,
+      $_db.icaoAircrafts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_icaoAircraftTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$FlightsTable, List<Flight>> _flightsRefsTable(
+    _$LogbookDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.flights,
+    aliasName: 'simulators__id__flights__simulator_id',
+  );
+
+  $$FlightsTableProcessedTableManager get flightsRefs {
+    final manager = $$FlightsTableTableManager(
+      $_db,
+      $_db.flights,
+    ).filter((f) => f.simulatorId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_flightsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$SimulatorsTableFilterComposer
+    extends Composer<_$LogbookDatabase, $SimulatorsTable> {
+  $$SimulatorsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<SimulatorKind, SimulatorKind, String>
+  get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<AircraftClass?, AircraftClass, String>
+  get aircraftClass => $composableBuilder(
+    column: $table.aircraftClass,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get typeRating => $composableBuilder(
+    column: $table.typeRating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get qualificationNumber => $composableBuilder(
+    column: $table.qualificationNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get organisation => $composableBuilder(
+    column: $table.organisation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$IcaoAircraftsTableFilterComposer get icaoAircraft {
+    final $$IcaoAircraftsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.icaoAircraft,
+      referencedTable: $db.icaoAircrafts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IcaoAircraftsTableFilterComposer(
+            $db: $db,
+            $table: $db.icaoAircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> flightsRefs(
+    Expression<bool> Function($$FlightsTableFilterComposer f) f,
+  ) {
+    final $$FlightsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.simulatorId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableFilterComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$SimulatorsTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $SimulatorsTable> {
+  $$SimulatorsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aircraftClass => $composableBuilder(
+    column: $table.aircraftClass,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get typeRating => $composableBuilder(
+    column: $table.typeRating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get qualificationNumber => $composableBuilder(
+    column: $table.qualificationNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get organisation => $composableBuilder(
+    column: $table.organisation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$IcaoAircraftsTableOrderingComposer get icaoAircraft {
+    final $$IcaoAircraftsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.icaoAircraft,
+      referencedTable: $db.icaoAircrafts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IcaoAircraftsTableOrderingComposer(
+            $db: $db,
+            $table: $db.icaoAircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$SimulatorsTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $SimulatorsTable> {
+  $$SimulatorsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<SimulatorKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get level =>
+      $composableBuilder(column: $table.level, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<AircraftClass?, String> get aircraftClass =>
+      $composableBuilder(
+        column: $table.aircraftClass,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get typeRating => $composableBuilder(
+    column: $table.typeRating,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get qualificationNumber => $composableBuilder(
+    column: $table.qualificationNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get organisation => $composableBuilder(
+    column: $table.organisation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  $$IcaoAircraftsTableAnnotationComposer get icaoAircraft {
+    final $$IcaoAircraftsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.icaoAircraft,
+      referencedTable: $db.icaoAircrafts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IcaoAircraftsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.icaoAircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> flightsRefs<T extends Object>(
+    Expression<T> Function($$FlightsTableAnnotationComposer a) f,
+  ) {
+    final $$FlightsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.flights,
+      getReferencedColumn: (t) => t.simulatorId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FlightsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.flights,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$SimulatorsTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $SimulatorsTable,
+          Simulator,
+          $$SimulatorsTableFilterComposer,
+          $$SimulatorsTableOrderingComposer,
+          $$SimulatorsTableAnnotationComposer,
+          $$SimulatorsTableCreateCompanionBuilder,
+          $$SimulatorsTableUpdateCompanionBuilder,
+          (Simulator, $$SimulatorsTableReferences),
+          Simulator,
+          PrefetchHooks Function({bool icaoAircraft, bool flightsRefs})
+        > {
+  $$SimulatorsTableTableManager(_$LogbookDatabase db, $SimulatorsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SimulatorsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SimulatorsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SimulatorsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<SimulatorKind> kind = const Value.absent(),
+                Value<String?> level = const Value.absent(),
+                Value<int?> icaoAircraft = const Value.absent(),
+                Value<AircraftClass?> aircraftClass = const Value.absent(),
+                Value<String?> typeRating = const Value.absent(),
+                Value<String?> qualificationNumber = const Value.absent(),
+                Value<String?> organisation = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => SimulatorsCompanion(
+                id: id,
+                kind: kind,
+                level: level,
+                icaoAircraft: icaoAircraft,
+                aircraftClass: aircraftClass,
+                typeRating: typeRating,
+                qualificationNumber: qualificationNumber,
+                organisation: organisation,
+                notes: notes,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required SimulatorKind kind,
+                Value<String?> level = const Value.absent(),
+                Value<int?> icaoAircraft = const Value.absent(),
+                Value<AircraftClass?> aircraftClass = const Value.absent(),
+                Value<String?> typeRating = const Value.absent(),
+                Value<String?> qualificationNumber = const Value.absent(),
+                Value<String?> organisation = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => SimulatorsCompanion.insert(
+                id: id,
+                kind: kind,
+                level: level,
+                icaoAircraft: icaoAircraft,
+                aircraftClass: aircraftClass,
+                typeRating: typeRating,
+                qualificationNumber: qualificationNumber,
+                organisation: organisation,
+                notes: notes,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SimulatorsTable, Simulator>(table),
+                  $$SimulatorsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({icaoAircraft = false, flightsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (flightsRefs) db.flights],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (icaoAircraft) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.icaoAircraft,
+                                referencedTable: $$SimulatorsTableReferences
+                                    ._icaoAircraftTable(db),
+                                referencedColumn: $$SimulatorsTableReferences
+                                    ._icaoAircraftTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (flightsRefs)
+                    await $_getPrefetchedData<
+                      Simulator,
+                      $SimulatorsTable,
+                      Flight
+                    >(
+                      currentTable: table,
+                      referencedTable: $$SimulatorsTableReferences
+                          ._flightsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$SimulatorsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).flightsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.simulatorId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$SimulatorsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $SimulatorsTable,
+      Simulator,
+      $$SimulatorsTableFilterComposer,
+      $$SimulatorsTableOrderingComposer,
+      $$SimulatorsTableAnnotationComposer,
+      $$SimulatorsTableCreateCompanionBuilder,
+      $$SimulatorsTableUpdateCompanionBuilder,
+      (Simulator, $$SimulatorsTableReferences),
+      Simulator,
+      PrefetchHooks Function({bool icaoAircraft, bool flightsRefs})
+    >;
 typedef $$FlightsTableCreateCompanionBuilder =
     FlightsCompanion Function({
       Value<int> id,
@@ -14257,6 +15524,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<String?> arrivalIanaLocation,
       required bool isRecording,
       Value<int?> aircraftId,
+      Value<int?> simulatorId,
       Value<String?> approachType,
       Value<int?> nightLandings,
       Value<int?> dayLandings,
@@ -14282,6 +15550,7 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<String?> arrivalIanaLocation,
       Value<bool> isRecording,
       Value<int?> aircraftId,
+      Value<int?> simulatorId,
       Value<String?> approachType,
       Value<int?> nightLandings,
       Value<int?> dayLandings,
@@ -14345,6 +15614,23 @@ final class $$FlightsTableReferences
       $_db.aircrafts,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_aircraftIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $SimulatorsTable _simulatorIdTable(_$LogbookDatabase db) =>
+      db.simulators.createAlias('flights__simulator_id__simulators__id');
+
+  $$SimulatorsTableProcessedTableManager? get simulatorId {
+    final $_column = $_itemColumn<int>('simulator_id');
+    if ($_column == null) return null;
+    final manager = $$SimulatorsTableTableManager(
+      $_db,
+      $_db.simulators,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_simulatorIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -14556,6 +15842,29 @@ class $$FlightsTableFilterComposer
           }) => $$AircraftsTableFilterComposer(
             $db: $db,
             $table: $db.aircrafts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$SimulatorsTableFilterComposer get simulatorId {
+    final $$SimulatorsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.simulatorId,
+      referencedTable: $db.simulators,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SimulatorsTableFilterComposer(
+            $db: $db,
+            $table: $db.simulators,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -14788,6 +16097,29 @@ class $$FlightsTableOrderingComposer
     );
     return composer;
   }
+
+  $$SimulatorsTableOrderingComposer get simulatorId {
+    final $$SimulatorsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.simulatorId,
+      referencedTable: $db.simulators,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SimulatorsTableOrderingComposer(
+            $db: $db,
+            $table: $db.simulators,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FlightsTableAnnotationComposer
@@ -14956,6 +16288,29 @@ class $$FlightsTableAnnotationComposer
     return composer;
   }
 
+  $$SimulatorsTableAnnotationComposer get simulatorId {
+    final $$SimulatorsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.simulatorId,
+      referencedTable: $db.simulators,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SimulatorsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.simulators,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
   Expression<T> flightDataPointsRefs<T extends Object>(
     Expression<T> Function($$FlightDataPointsTableAnnotationComposer a) f,
   ) {
@@ -15024,6 +16379,7 @@ class $$FlightsTableTableManager
             bool departure,
             bool arrival,
             bool aircraftId,
+            bool simulatorId,
             bool flightDataPointsRefs,
             bool flightCrewRefs,
           })
@@ -15051,6 +16407,7 @@ class $$FlightsTableTableManager
                 Value<String?> arrivalIanaLocation = const Value.absent(),
                 Value<bool> isRecording = const Value.absent(),
                 Value<int?> aircraftId = const Value.absent(),
+                Value<int?> simulatorId = const Value.absent(),
                 Value<String?> approachType = const Value.absent(),
                 Value<int?> nightLandings = const Value.absent(),
                 Value<int?> dayLandings = const Value.absent(),
@@ -15075,6 +16432,7 @@ class $$FlightsTableTableManager
                 arrivalIanaLocation: arrivalIanaLocation,
                 isRecording: isRecording,
                 aircraftId: aircraftId,
+                simulatorId: simulatorId,
                 approachType: approachType,
                 nightLandings: nightLandings,
                 dayLandings: dayLandings,
@@ -15100,6 +16458,7 @@ class $$FlightsTableTableManager
                 Value<String?> arrivalIanaLocation = const Value.absent(),
                 required bool isRecording,
                 Value<int?> aircraftId = const Value.absent(),
+                Value<int?> simulatorId = const Value.absent(),
                 Value<String?> approachType = const Value.absent(),
                 Value<int?> nightLandings = const Value.absent(),
                 Value<int?> dayLandings = const Value.absent(),
@@ -15124,6 +16483,7 @@ class $$FlightsTableTableManager
                 arrivalIanaLocation: arrivalIanaLocation,
                 isRecording: isRecording,
                 aircraftId: aircraftId,
+                simulatorId: simulatorId,
                 approachType: approachType,
                 nightLandings: nightLandings,
                 dayLandings: dayLandings,
@@ -15150,6 +16510,7 @@ class $$FlightsTableTableManager
                 departure = false,
                 arrival = false,
                 aircraftId = false,
+                simulatorId = false,
                 flightDataPointsRefs = false,
                 flightCrewRefs = false,
               }) {
@@ -15210,6 +16571,19 @@ class $$FlightsTableTableManager
                                         ._aircraftIdTable(db),
                                     referencedColumn: $$FlightsTableReferences
                                         ._aircraftIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (simulatorId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.simulatorId,
+                                    referencedTable: $$FlightsTableReferences
+                                        ._simulatorIdTable(db),
+                                    referencedColumn: $$FlightsTableReferences
+                                        ._simulatorIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -15285,6 +16659,7 @@ typedef $$FlightsTableProcessedTableManager =
         bool departure,
         bool arrival,
         bool aircraftId,
+        bool simulatorId,
         bool flightDataPointsRefs,
         bool flightCrewRefs,
       })
@@ -17358,6 +18733,8 @@ class $LogbookDatabaseManager {
       $$IcaoAircraftsTableTableManager(_db, _db.icaoAircrafts);
   $$AircraftsTableTableManager get aircrafts =>
       $$AircraftsTableTableManager(_db, _db.aircrafts);
+  $$SimulatorsTableTableManager get simulators =>
+      $$SimulatorsTableTableManager(_db, _db.simulators);
   $$FlightsTableTableManager get flights =>
       $$FlightsTableTableManager(_db, _db.flights);
   $$FlightDataPointsTableTableManager get flightDataPoints =>

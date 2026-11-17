@@ -53,6 +53,13 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
     ),
   ];
 
+  /// A simulator session only fills in column 11.
+  static const _sessionSections = [
+    ('FSTD SESSION', [LogbookTimeField.fstd]),
+  ];
+
+  bool get _isSession => widget.flight.isSimulatorSession;
+
   @override
   void dispose() {
     _picName.dispose();
@@ -132,7 +139,8 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              for (final (title, fields) in _sections) ...[
+              for (final (title, fields)
+                  in _isSession ? _sessionSections : _sections) ...[
                 _Section(
                   title: title,
                   children: [
@@ -148,18 +156,19 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
                 ),
                 const SizedBox(height: 16),
               ],
-              _Section(
-                title: 'PIC NAME',
-                children: [
-                  _TextRow(
-                    controller: _picName,
-                    hint: entry.computedPicName,
-                    onChanged: (text) => setState(
-                      () => _draft = _draft.withPicName(_orNull(text)),
+              if (!_isSession)
+                _Section(
+                  title: 'PIC NAME',
+                  children: [
+                    _TextRow(
+                      controller: _picName,
+                      hint: entry.computedPicName,
+                      onChanged: (text) => setState(
+                        () => _draft = _draft.withPicName(_orNull(text)),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               if (_draft.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Align(

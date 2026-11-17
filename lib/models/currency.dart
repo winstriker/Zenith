@@ -14,6 +14,10 @@
 //
 // The logbook only records landings, so every landing is taken to come with
 // its take-off.
+//
+// Simulator sessions count where Part-FCL lets an FSTD stand in for the
+// aircraft: their landings for FCL.060(b) when flown in an FFS, and a
+// proficiency check passed in one. Everything else asks for flight time.
 
 import '../services/database.dart';
 
@@ -32,6 +36,7 @@ class CurrencyFlight {
     this.aircraftClass,
     this.typeRating,
     this.proficiencyCheck = false,
+    this.simulator,
   });
 
   /// Departure time.
@@ -58,6 +63,11 @@ class CurrencyFlight {
   /// A proficiency check with an examiner, in the class or type of the
   /// aircraft.
   final bool proficiencyCheck;
+
+  /// The kind of device of a simulator session; null for a flight. A
+  /// session has the class or type the device represents, and no time
+  /// (it isn't flight time).
+  final SimulatorKind? simulator;
 
   int get landings => dayLandings + nightLandings;
 }
@@ -275,11 +285,25 @@ class CurrencyCalculator {
   final List<CurrencyFlight> flights;
   final DateTime today;
 
-  /// The flights that happened by the end of [today].
-  late final List<CurrencyFlight> _flown = [
+  /// The flights and simulator sessions that happened by the end of
+  /// [today], most recent first.
+  late final List<CurrencyFlight> _logged = [
     for (final f in flights)
       if (!dateOnly(f.date).isAfter(today)) f,
   ]..sort((a, b) => b.date.compareTo(a.date));
+
+  /// The flights of [_logged]: what every rule but the few that accept an
+  /// FSTD looks at.
+  late final List<CurrencyFlight> _flown = [
+    for (final f in _logged)
+      if (f.simulator == null) f,
+  ];
+
+  /// FCL.060(b): flights, and sessions in an FFS.
+  late final List<CurrencyFlight> _recencyFlown = [
+    for (final f in _logged)
+      if (f.simulator == null || f.simulator!.countsForRecency) f,
+  ];
 
   late final Set<AircraftClass> _classesHeld = {
     for (final l in licences)
@@ -641,15 +665,21 @@ class CurrencyCalculator {
   /// Whether [f], logged as a proficiency check, is one for [r]: in its
   /// class or type, or under IFR for an IR (FCL.625.A(a)(2): the IR check
   /// may be combined with the class or type one).
-  static bool _checksFor(LicenceRating r, CurrencyFlight f) => switch (r.kind) {
-    RatingKind.instrument => f.ifr > Duration.zero,
-    _ => r.covers(f),
-  };
+  /// A check in an FSTD counts too: proficiency checks are often flown in
+  /// one, and an FSTD session is flown on instruments.
+  static bool _checksFor(LicenceRating r, CurrencyFlight f) {
+    final device = f.simulator;
+    if (device != null && !device.allowsProficiencyCheck) return false;
+    return switch (r.kind) {
+      RatingKind.instrument => f.ifr > Duration.zero || device != null,
+      _ => r.covers(f),
+    };
+  }
 
   /// The day of the last flight logged as a proficiency check that [test]
   /// accepts.
   DateTime? _lastCheckFlight(bool Function(CurrencyFlight) test) {
-    for (final f in _flown) {
+    for (final f in _logged) {
       if (f.proficiencyCheck && test(f)) return dateOnly(f.date);
     }
     return null;
@@ -712,7 +742,7 @@ class CurrencyCalculator {
     final items = <CurrencyItem>[];
     for (final MapEntry(key: key, value: (licence, rating))
         in ratings.entries) {
-      final covered = _flown.where(rating.covers).toList();
+      final covered = _recencyFlown.where(rating.covers).toList();
       final day = _rolling(
         covered,
         amount: (f) => f.landings,
@@ -799,7 +829,9 @@ class CurrencyCalculator {
               licence.proficiencyCheckDate == null
                   ? null
                   : dateOnly(licence.proficiencyCheckDate!),
-              _lastCheckFlight((f) => classes.contains(f.aircraftClass)),
+              _lastCheckFlight(
+                (f) => f.simulator == null && classes.contains(f.aircraftClass),
+              ),
             ),
             licence: licence,
           ),

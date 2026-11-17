@@ -129,13 +129,14 @@ class LicenceRepository {
   // Logbook ------------------------------------------------------------------
 
   /// The flights since [since] as the currency rules see them, again
-  /// whenever a flight, its crew or an aircraft changes.
+  /// whenever a flight, its crew, an aircraft or a simulator changes.
   Stream<List<CurrencyFlight>> watchCurrencyFlights({required DateTime since}) {
     final updates = _db.tableUpdates(
       TableUpdateQuery.onAllTables([
         _db.flights,
         _db.flightCrew,
         _db.aircrafts,
+        _db.simulators,
       ]),
     );
     // Not an async* generator: cancelling one that waits in an `await for`
@@ -162,6 +163,10 @@ class LicenceRepository {
                 _db.aircrafts,
                 _db.aircrafts.id.equalsExp(_db.flights.aircraftId),
               ),
+              leftOuterJoin(
+                _db.simulators,
+                _db.simulators.id.equalsExp(_db.flights.simulatorId),
+              ),
             ])..where(
               _db.flights.isRecording.equals(false) &
                   _db.flights.departureTime.isBiggerOrEqualValue(since),
@@ -179,6 +184,7 @@ class LicenceRepository {
   ) {
     final flight = row.readTable(_db.flights);
     final aircraft = row.readTableOrNull(_db.aircrafts);
+    final simulator = row.readTableOrNull(_db.simulators);
     final members = crew[flight.id] ?? const <CrewMember>[];
     final entry = LogbookEntry.of(
       FlightWithStats(flight: flight, dataPoints: const []),
@@ -194,10 +200,17 @@ class LicenceRepository {
       instructor: entry.time(LogbookTimeField.instructor),
       ifr: ifr,
       picIfr: ifr < pic ? ifr : pic,
-      dayLandings: entry.dayLandings,
-      nightLandings: entry.nightLandings,
-      aircraftClass: aircraft?.aircraftClass,
-      typeRating: aircraft?.typeRating,
+      // A session's landings aren't logbook landings, but count for recency
+      // in an FFS.
+      dayLandings: simulator == null
+          ? entry.dayLandings
+          : flight.dayLandings ?? 0,
+      nightLandings: simulator == null
+          ? entry.nightLandings
+          : flight.nightLandings ?? 0,
+      aircraftClass: simulator?.aircraftClass ?? aircraft?.aircraftClass,
+      typeRating: simulator?.typeRating ?? aircraft?.typeRating,
+      simulator: simulator?.kind,
       // Not without the examiner, should they have been removed since.
       proficiencyCheck:
           flight.proficiencyCheck && members.any((m) => m.role == CrewRole.exm),

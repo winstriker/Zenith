@@ -13,6 +13,7 @@ import '../models/airport_type.dart';
 import '../models/crew.dart';
 import '../models/licence.dart';
 import '../models/logbook_overrides.dart';
+import '../models/simulator_kind.dart';
 import '../utils/night_time.dart';
 
 export '../models/aircraft_class.dart';
@@ -22,6 +23,7 @@ export '../models/airport_type.dart';
 export '../models/crew.dart';
 export '../models/licence.dart';
 export '../models/logbook_overrides.dart';
+export '../models/simulator_kind.dart';
 
 part 'database.g.dart';
 
@@ -170,6 +172,41 @@ class Aircrafts extends Table {
   TextColumn get photoCredit => text().nullable()();
 }
 
+/// A flight simulation training device the user flies sessions in. A
+/// session is a [Flights] row pointing at it through [Flights.simulatorId].
+class Simulators extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get kind => textEnum<SimulatorKind>()();
+
+  /// Qualification level ("D" for an FFS, "II MCC" for an FNPT). Null when
+  /// not known or the kind has none.
+  TextColumn get level => text().nullable()();
+
+  /// The aircraft type the device represents. Null for a generic device
+  /// (an FNPT representing a class, a BITD).
+  IntColumn get icaoAircraft =>
+      integer().nullable().references(IcaoAircrafts, #id)();
+
+  /// Class or type rating sessions in the device count towards (FFS
+  /// landings, proficiency checks).
+  TextColumn get aircraftClass => textEnum<AircraftClass>().nullable()();
+
+  /// Licence endorsement of the type rating (e.g. "A320"), when
+  /// [aircraftClass] is [AircraftClass.type].
+  TextColumn get typeRating => text().nullable()();
+
+  /// The device's qualification number ("Q1234"), written next to its type
+  /// in the logbook.
+  TextColumn get qualificationNumber => text().nullable()();
+
+  /// Training organisation or operator running it, and where.
+  TextColumn get organisation => text().nullable()();
+  TextColumn get notes => text().nullable()();
+}
+
+/// Sessions are looked up by simulator. (The `indexes` getter below isn't
+/// read by drift: only annotations create indexes.)
+@TableIndex(name: 'flights_simulator_id_idx', columns: {#simulatorId})
 class Flights extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
@@ -183,6 +220,12 @@ class Flights extends Table {
   TextColumn get arrivalIanaLocation => text().nullable()();
   BoolColumn get isRecording => boolean()();
   IntColumn get aircraftId => integer().nullable().references(Aircrafts, #id)();
+
+  /// Set for a session in a flight simulation training device instead of a
+  /// flight: it then has no aircraft, airports, flight rules or track, and
+  /// fills in the FSTD column of the logbook only.
+  IntColumn get simulatorId =>
+      integer().nullable().references(Simulators, #id)();
   TextColumn get approachType => text().nullable()();
   IntColumn get nightLandings => integer().nullable()();
   IntColumn get dayLandings => integer().nullable()();
@@ -430,6 +473,7 @@ class FlightWithStats {
     required this.flight,
     required this.dataPoints,
     this.aircraftWithStats,
+    this.simulator,
     this.departure,
     this.arrival,
   }) {
@@ -441,10 +485,17 @@ class FlightWithStats {
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
   final AircraftWithStats? aircraftWithStats;
+
+  /// The device of a simulator session (see [isSimulatorSession]).
+  final SimulatorWithStats? simulator;
   final Airport? departure;
   final Airport? arrival;
   Duration? duration;
   int? maxAltitude;
+
+  /// Whether this is a session in a flight simulation training device
+  /// rather than a flight.
+  bool get isSimulatorSession => flight.simulatorId != null;
 
   double? get totalDistance {
     if (dataPoints.length < 2) return null;
@@ -475,6 +526,7 @@ class FlightWithStats {
     aircraftWithStats: removeAircraft
         ? null
         : (aircraftWithStats ?? this.aircraftWithStats),
+    simulator: simulator,
     departure: departure ?? this.departure,
     arrival: arrival ?? this.arrival,
   );
@@ -494,6 +546,60 @@ class FlightWithStats {
   }
 
   static double _toRadians(double deg) => deg * 3.141592653589793 / 180;
+}
+
+/// A simulator with the aircraft type it represents and how much it was
+/// used.
+class SimulatorWithStats {
+  const SimulatorWithStats({
+    required this.simulator,
+    this.type,
+    this.sessionCount = 0,
+    this.totalMinutes = 0,
+  });
+
+  final Simulator simulator;
+
+  /// The aircraft type it represents, when it represents one.
+  final IcaoAircraft? type;
+  final int sessionCount;
+
+  /// Total time of its sessions.
+  final int totalMinutes;
+
+  int get id => simulator.id;
+  SimulatorKind get kind => simulator.kind;
+  AircraftClass? get aircraftClass => simulator.aircraftClass;
+  String? get typeRating => simulator.typeRating;
+
+  /// Kind and level: "FFS D", "FNPT II".
+  String get deviceLabel => simulator.kind.withLevel(simulator.level);
+
+  /// What the device represents: its type rating, aircraft type or class.
+  /// Null for a generic device.
+  String? get represents {
+    final rating = simulator.typeRating?.trim();
+    if (rating != null && rating.isNotEmpty) return rating;
+    if (type != null) return type!.designator;
+    final c = simulator.aircraftClass;
+    return c == null || c == AircraftClass.type ? null : c.label;
+  }
+
+  /// One line naming the device: "A320 FFS D", or "FNPT II" for a generic
+  /// one.
+  String get title => [?represents, deviceLabel].join(' ');
+
+  /// The FSTD "type" column of the EASA logbook (AMC1 FCL.050(i)(9)(i)):
+  /// the aircraft type and qualification number of an FFS or FTD
+  /// ("B747-400 (Q1234)"), the kind and level of other devices ("FNPT II").
+  String get logbookType {
+    final number = simulator.qualificationNumber?.trim() ?? '';
+    final type = represents;
+    if (!simulator.kind.loggedByType || type == null) {
+      return number.isEmpty ? deviceLabel : '$deviceLabel ($number)';
+    }
+    return number.isEmpty ? type : '$type ($number)';
+  }
 }
 
 /// A person on a flight together with their role.
@@ -680,6 +786,7 @@ extension ToIcaoAircraft on AircraftWithStats {
     Flights,
     FlightDataPoints,
     Aircrafts,
+    Simulators,
     IcaoAircrafts,
     People,
     FlightCrew,
@@ -702,7 +809,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -827,6 +934,22 @@ class LogbookDatabase extends _$LogbookDatabase {
         if (!existing.contains(flights.signatureFile.name)) {
           await m.addColumn(flights, flights.signatureFile);
         }
+      }
+      if (from < 11) {
+        await m.createTable(simulators);
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(flights)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(flights.simulatorId.name)) {
+          await m.addColumn(flights, flights.simulatorId);
+        }
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS flights_simulator_id_idx '
+          'ON flights (simulator_id)',
+        );
       }
     },
   );

@@ -22,6 +22,7 @@ class AircraftListScaffold extends ConsumerStatefulWidget {
     required this.title,
     required this.onTap,
     this.onLongPress,
+    this.header,
     this.autofocusSearch = false,
     this.showStats = false,
   });
@@ -29,6 +30,9 @@ class AircraftListScaffold extends ConsumerStatefulWidget {
   final String title;
   final void Function(AircraftWithStats aircraft) onTap;
   final void Function(AircraftWithStats aircraft)? onLongPress;
+
+  /// Shown between the title and the search field.
+  final Widget? header;
   final bool autofocusSearch;
   final bool showStats;
 
@@ -98,6 +102,8 @@ class _AircraftListScaffoldState extends ConsumerState<AircraftListScaffold> {
               SliverToBoxAdapter(
                 child: PageTitle(widget.title, belowCloseButton: true),
               ),
+              if (widget.header != null)
+                SliverToBoxAdapter(child: widget.header),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),

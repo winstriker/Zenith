@@ -49,6 +49,7 @@ void main() {
     Duration dual = Duration.zero,
     Duration instructor = Duration.zero,
     bool check = false,
+    SimulatorKind? simulator,
   }) => CurrencyFlight(
     date: date,
     total: total,
@@ -60,6 +61,7 @@ void main() {
     aircraftClass: cls,
     typeRating: type,
     proficiencyCheck: check,
+    simulator: simulator,
   );
 
   List<CurrencyItem> compute(
@@ -471,6 +473,115 @@ void main() {
         ),
       ], const []);
       expect(item(items, 'lapl:1').validUntil, DateTime(2028, 6, 15));
+    });
+  });
+
+  group('simulator sessions', () {
+    final a320 = rating(RatingKind.typeRating, name: 'A320');
+
+    CurrencyFlight session(
+      DateTime date,
+      SimulatorKind kind, {
+      int landings = 0,
+      bool check = false,
+      AircraftClass cls = AircraftClass.type,
+      String? type = 'A320',
+    }) => flight(
+      date,
+      cls: cls,
+      type: type,
+      landings: landings,
+      total: Duration.zero,
+      check: check,
+      simulator: kind,
+    );
+
+    test('FFS landings count for passengers (FCL.060(b)(1))', () {
+      final items = compute(
+        [
+          LicenceWithRatings(licence(kind: LicenceKind.atpl), [a320]),
+        ],
+        [
+          session(DateTime(2026, 11, 2), SimulatorKind.ffs, landings: 3),
+          // Not an FFS: doesn't count.
+          session(DateTime(2026, 11, 3), SimulatorKind.ftd, landings: 5),
+        ],
+      );
+      final pax = item(items, 'passengers:type:A320');
+      expect(pax.requirements.single.done, 3);
+      expect(pax.validUntil, DateTime(2027, 1, 31));
+    });
+
+    test("don't count as flight experience", () {
+      final sep = rating(
+        RatingKind.classRating,
+        cls: AircraftClass.sepLand,
+        expiry: DateTime(2027, 3, 31),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(), [sep]),
+        ],
+        [
+          flight(DateTime(2026, 6), landings: 2),
+          session(
+            DateTime(2026, 6, 2),
+            SimulatorKind.ffs,
+            cls: AircraftClass.sepLand,
+            type: null,
+            landings: 20,
+          ),
+        ],
+      );
+      final byLabel = {
+        for (final r in item(items, 'rating:${sep.id}').requirements)
+          r.label: r,
+      };
+      expect(byLabel['Take-offs and landings']!.done, 2);
+    });
+
+    test('a check in an FSTD is the last check of its type', () {
+      final typeRating = rating(
+        RatingKind.typeRating,
+        name: 'A320',
+        expiry: DateTime(2027, 5, 31),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(kind: LicenceKind.atpl), [typeRating]),
+        ],
+        [session(DateTime(2026, 5, 20), SimulatorKind.ffs, check: true)],
+      );
+      expect(
+        item(items, 'rating:${typeRating.id}').lastCheck,
+        DateTime(2026, 5, 20),
+      );
+    });
+
+    test('a BITD is no place for a check, nor a LAPL check', () {
+      final typeRating = rating(
+        RatingKind.typeRating,
+        name: 'A320',
+        expiry: DateTime(2027, 5, 31),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(kind: LicenceKind.atpl), [typeRating]),
+          LicenceWithRatings(licence(id: 2, kind: LicenceKind.lapl), const []),
+        ],
+        [
+          session(DateTime(2026, 5, 20), SimulatorKind.bitd, check: true),
+          session(
+            DateTime(2026, 6, 15),
+            SimulatorKind.ffs,
+            cls: AircraftClass.sepLand,
+            type: null,
+            check: true,
+          ),
+        ],
+      );
+      expect(item(items, 'rating:${typeRating.id}').lastCheck, isNull);
+      expect(item(items, 'lapl:2').validUntil, isNull);
     });
   });
 

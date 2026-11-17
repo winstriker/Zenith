@@ -27,14 +27,17 @@ import '../widgets/flight_rules_card.dart';
 import '../widgets/info_row.dart';
 import '../widgets/landings_card.dart';
 import '../widgets/map_attribution.dart';
+import '../widgets/page_title.dart';
 import '../widgets/remarks_card.dart';
 import '../widgets/section_header.dart';
+import '../widgets/simulator_card.dart';
 import '../widgets/speed_dial_fab.dart';
 import 'adsb_track_page.dart';
 import 'flight_form_page.dart';
 import 'logbook_overrides_page.dart';
 import 'person_detail_page.dart';
 import 'replay_page.dart';
+import 'simulator_detail_page.dart';
 
 class FlightDetailPage extends ConsumerWidget {
   const FlightDetailPage({super.key, required this.flightId});
@@ -88,6 +91,73 @@ class _FlightDetailView extends ConsumerWidget {
         ? null
         : File('${signatureDir.path}/$signatureName');
 
+    final isSession = flight.isSimulatorSession;
+    final simulator = flight.simulator;
+    final details = <Widget>[
+      FlightCard(
+        flight: flight,
+        useOuterPadding: false,
+        totalTimeOverride: flight
+            .flight
+            .logbookOverrides
+            ?.times[isSession ? LogbookTimeField.fstd : LogbookTimeField.total],
+      ),
+      const SizedBox(height: 12),
+      if (isSession)
+        SimulatorCard(
+          simulator: simulator,
+          useOuterPadding: false,
+          onTap: simulator == null
+              ? null
+              : () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        SimulatorDetailPage(simulatorId: simulator.id),
+                  ),
+                ),
+        )
+      else
+        AircraftCard(
+          aircraft: flight.aircraftWithStats,
+          useOuterPadding: false,
+        ),
+      // A flight the app recorded has none of these until it is edited.
+      if (approachType != null) ...[
+        const SizedBox(height: 12),
+        LandingsCard(
+          approachType: approachType,
+          nightLandings: flight.flight.nightLandings ?? 0,
+          dayLandings: flight.flight.dayLandings ?? 0,
+        ),
+      ],
+      if (flightRules != null && !isSession) ...[
+        const SizedBox(height: 12),
+        _FlightRulesTimesCard(flight: flight),
+      ],
+      const SizedBox(height: 12),
+      _FlightCrewCard(flight: flight.flight),
+      if (flight.flight.remarks != null || signature != null) ...[
+        const SizedBox(height: 12),
+        RemarksCard(
+          initialValue: flight.flight.remarks ?? '',
+          signature: signature,
+        ),
+      ],
+      if (flight.dataPoints.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _AltitudeChartCard(points: flight.dataPoints),
+        const SizedBox(height: 12),
+        _FlightDetailsCard(flight: flight),
+        const SizedBox(height: 12),
+        _ReplayButtonCard(flight: flight),
+      ] else if (track.hasValue &&
+          !flight.flight.isRecording &&
+          !isSession) ...[
+        const SizedBox(height: 12),
+        _NoTrackCard(flight: flight),
+      ],
+    ];
+
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
@@ -117,69 +187,28 @@ class _FlightDetailView extends ConsumerWidget {
         body: ListView(
           padding: EdgeInsets.zero,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _FlightMapCard(flight: flight),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: _cardsTop),
-                      FlightCard(
-                        flight: flight,
-                        useOuterPadding: false,
-                        totalTimeOverride: flight
-                            .flight
-                            .logbookOverrides
-                            ?.times[LogbookTimeField.total],
-                      ),
-                      const SizedBox(height: 12),
-                      AircraftCard(
-                        aircraft: flight.aircraftWithStats,
-                        useOuterPadding: false,
-                      ),
-                      // A flight the app recorded has none of these until
-                      // it is edited.
-                      if (approachType != null) ...[
-                        const SizedBox(height: 12),
-                        LandingsCard(
-                          approachType: approachType,
-                          nightLandings: flight.flight.nightLandings ?? 0,
-                          dayLandings: flight.flight.dayLandings ?? 0,
-                        ),
+            if (isSession) ...[
+              const PageTitle('Simulator Session', belowCloseButton: true),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(children: details),
+              ),
+            ] else
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  _FlightMapCard(flight: flight),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: _cardsTop),
+                        ...details,
                       ],
-                      if (flightRules != null) ...[
-                        const SizedBox(height: 12),
-                        _FlightRulesTimesCard(flight: flight),
-                      ],
-                      const SizedBox(height: 12),
-                      _FlightCrewCard(flight: flight.flight),
-                      if (flight.flight.remarks != null ||
-                          signature != null) ...[
-                        const SizedBox(height: 12),
-                        RemarksCard(
-                          initialValue: flight.flight.remarks ?? '',
-                          signature: signature,
-                        ),
-                      ],
-                      if (flight.dataPoints.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        _AltitudeChartCard(points: flight.dataPoints),
-                        const SizedBox(height: 12),
-                        _FlightDetailsCard(flight: flight),
-                        const SizedBox(height: 12),
-                        _ReplayButtonCard(flight: flight),
-                      ] else if (track.hasValue &&
-                          !flight.flight.isRecording) ...[
-                        const SizedBox(height: 12),
-                        _NoTrackCard(flight: flight),
-                      ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             // Room for the last card to scroll clear of the Edit button.
             const SizedBox(height: 96),
           ],

@@ -8,6 +8,7 @@ import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import 'base_card.dart';
 import 'overridden_icon.dart';
+import 'simulator_card.dart';
 
 class FlightCard extends StatelessWidget {
   const FlightCard({
@@ -21,7 +22,8 @@ class FlightCard extends StatelessWidget {
   final FlightWithStats flight;
 
   /// Shown instead of the block time, marked as overridden, when the pilot
-  /// overrode the total time for the logbook.
+  /// overrode the total time for the logbook (the FSTD time of a simulator
+  /// session).
   final Duration? totalTimeOverride;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -49,36 +51,48 @@ class FlightCard extends StatelessWidget {
         ? _toLocalTZDateTime(f.arrivalTime!, f.arrivalIanaLocation)
         : null;
 
-    final card = BaseCard(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _FlightEndpoint(
-              airport: flight.departure,
-              localTime: depLocal,
-              alignEnd: false,
+    final card = flight.isSimulatorSession
+        ? BaseCard(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: _SessionRow(
+              flight: flight,
+              start: depLocal,
+              end: arrLocal,
+              duration: totalTimeOverride ?? flight.duration,
+              overridden: totalTimeOverride != null,
             ),
-          ),
-          const SizedBox(width: 12),
-          _FlightCenter(
-            duration: totalTimeOverride ?? flight.duration,
-            overridden: totalTimeOverride != null,
-            tailNumber: flight.aircraftWithStats?.tailNumber,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _FlightEndpoint(
-              airport: flight.arrival,
-              localTime: arrLocal ?? depLocal,
-              alignEnd: true,
+          )
+        : BaseCard(
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _FlightEndpoint(
+                    airport: flight.departure,
+                    localTime: depLocal,
+                    alignEnd: false,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _FlightCenter(
+                  duration: totalTimeOverride ?? flight.duration,
+                  overridden: totalTimeOverride != null,
+                  tailNumber: flight.aircraftWithStats?.tailNumber,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _FlightEndpoint(
+                    airport: flight.arrival,
+                    localTime: arrLocal ?? depLocal,
+                    alignEnd: true,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
+          );
 
     if (!useOuterPadding) return card;
     return Padding(padding: AppSpacing.cardPadding, child: card);
@@ -193,16 +207,110 @@ class _FlightEndpoint extends StatelessWidget {
   }
 }
 
+/// A simulator session: the device on the left, its times on the right.
+class _SessionRow extends StatelessWidget {
+  const _SessionRow({
+    required this.flight,
+    required this.start,
+    required this.end,
+    required this.duration,
+    required this.overridden,
+  });
+
+  final FlightWithStats flight;
+  final tz.TZDateTime start;
+  final tz.TZDateTime? end;
+  final Duration? duration;
+  final bool overridden;
+
+  static final _dateFormat = DateFormat('dd MMM yyyy');
+  static final _timeFormat = DateFormat('HH:mm');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final sim = flight.simulator;
+    final muted = theme.textTheme.labelSmall?.copyWith(
+      color: cs.onSurfaceVariant,
+    );
+    final organisation = sim?.simulator.organisation?.trim() ?? '';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${_dateFormat.format(start)} · Simulator', style: muted),
+              const SizedBox(height: 6),
+              Text(
+                sim?.represents ?? sim?.kind.label ?? 'Simulator',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                organisation.isNotEmpty
+                    ? organisation
+                    : sim?.kind.description ?? '',
+                style: muted,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        _FlightCenter(
+          duration: duration,
+          overridden: overridden,
+          tailNumber: sim?.deviceLabel,
+          icon: simulatorIcon,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(start.timeZone.abbreviation, style: muted),
+              const SizedBox(height: 6),
+              Text(
+                [
+                  _timeFormat.format(start),
+                  if (end != null) _timeFormat.format(end!),
+                ].join(' – '),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _FlightCenter extends StatelessWidget {
   const _FlightCenter({
     required this.duration,
     required this.tailNumber,
     this.overridden = false,
+    this.icon = Icons.flight,
   });
 
   final Duration? duration;
   final bool overridden;
+
+  /// Registration, or the kind of device of a simulator session.
   final String? tailNumber;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +320,7 @@ class _FlightCenter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
         children: [
-          Icon(Icons.flight, size: 20, color: cs.primary),
+          Icon(icon, size: 20, color: cs.primary),
           const SizedBox(height: 4),
           Row(
             mainAxisSize: MainAxisSize.min,

@@ -15,7 +15,11 @@ enum LogbookTimeField {
   pic('PIC'),
   coPilot('Co-pilot'),
   dual('Dual'),
-  instructor('Instructor');
+  instructor('Instructor'),
+
+  /// Total time of a session in a flight simulation training device
+  /// (column 11). Simulator sessions fill in this one only.
+  fstd('FSTD session');
 
   const LogbookTimeField(this.label);
   final String label;

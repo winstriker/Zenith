@@ -93,4 +93,29 @@ void main() {
     );
     expect(state().isProficiencyCheck, isFalse);
   });
+
+  group('simulator sessions', () {
+    const sim = SimulatorWithStats(
+      simulator: Simulator(id: 1, kind: SimulatorKind.ffs),
+    );
+
+    test('need a simulator, start without landings', () {
+      notifier().setSimulator(true);
+      expect(state().dayLandings, 0);
+      expect(state().isValid, isFalse);
+      notifier().setSelectedSimulator(sim);
+      expect(state().isValid, isTrue);
+      expect(state().blockTime, const Duration(minutes: 90));
+    });
+
+    test('end on the next day when the end reads before the start', () {
+      notifier()
+        ..setSimulator(true)
+        ..setSelectedSimulator(sim)
+        ..setDepTime('22:00')
+        ..setArrTime('02:00');
+      expect(state().blockTime, const Duration(hours: 4));
+      expect(state().arrTZDateTime!.day, 14);
+    });
+  });
 }

@@ -32,40 +32,49 @@ class FlightRepository {
     final tokens = searchTokens(query);
     return _watchFlights(
       where: flights.isRecording.equals(false),
-      matching: (dep, arr, aircraft) => Expression.and([
-        if (day != null) ...[
-          flights.departureTime.isBiggerOrEqualValue(
-            DateTime(day.year, day.month, day.day),
-          ),
-          flights.departureTime.isSmallerThanValue(
-            DateTime(day.year, day.month, day.day + 1),
-          ),
-        ],
-        sqlMatchesAllTokens(tokens, [
-          flights.title,
-          flights.remarks,
-          for (final airport in [dep, arr]) ...[
-            airport.ident,
-            airport.icaoCode,
-            airport.iataCode,
-            airport.name,
-            airport.municipality,
-          ],
-          aircraft.tailNumber,
-          aircraft.modelFullName,
-          aircraft.designator,
-        ]),
-      ]),
+      matching: (dep, arr, aircraft, simulator, simulatorType) =>
+          Expression.and([
+            if (day != null) ...[
+              flights.departureTime.isBiggerOrEqualValue(
+                DateTime(day.year, day.month, day.day),
+              ),
+              flights.departureTime.isSmallerThanValue(
+                DateTime(day.year, day.month, day.day + 1),
+              ),
+            ],
+            sqlMatchesAllTokens(tokens, [
+              flights.title,
+              flights.remarks,
+              for (final airport in [dep, arr]) ...[
+                airport.ident,
+                airport.icaoCode,
+                airport.iataCode,
+                airport.name,
+                airport.municipality,
+              ],
+              aircraft.tailNumber,
+              aircraft.modelFullName,
+              aircraft.designator,
+              simulator.typeRating,
+              simulator.qualificationNumber,
+              simulator.organisation,
+              simulatorType.designator,
+              simulatorType.modelFullName,
+            ]),
+          ]),
       limit: limit,
     );
   }
 
-  /// How many recorded flights there are.
+  /// How many recorded flights there are, simulator sessions aside.
   Stream<int> watchRecordedFlightCount() {
     final count = _database.flights.id.count();
     final query = _database.selectOnly(_database.flights)
       ..addColumns([count])
-      ..where(_database.flights.isRecording.equals(false));
+      ..where(
+        _database.flights.isRecording.equals(false) &
+            _database.flights.simulatorId.isNull(),
+      );
     return query.map((row) => row.read(count) ?? 0).watchSingle();
   }
 
@@ -98,6 +107,17 @@ class FlightRepository {
     );
   }
 
+  /// Stream of the sessions flown in a simulator, newest first.
+  Stream<List<FlightWithStats>> watchSessionsForSimulator(
+    int simulatorId, {
+    int limit = 500,
+  }) {
+    return _watchFlights(
+      where: _database.flights.simulatorId.equals(simulatorId),
+      limit: limit,
+    );
+  }
+
   /// Stream of flights a person was on as crew
   Stream<List<FlightWithStats>> watchFlightsForPerson(
     int personId, {
@@ -112,11 +132,14 @@ class FlightRepository {
     );
   }
 
-  /// Returns the total minutes flown as an [int]
+  /// Returns the total minutes flown as an [int]. Time in simulators isn't
+  /// flight time.
   Stream<int> watchTotalFlightTime() {
     return _database
         .customSelect(
-          "SELECT COALESCE(SUM(${_database.flightStats.flightTime.escapedNameFor(SqlDialect.sqlite)}), 0) AS total_flight_time FROM ${_database.flightStats.entityName}",
+          'SELECT COALESCE(SUM(CAST((arrival_time - departure_time) / 60 '
+          'AS INTEGER)), 0) AS total_flight_time FROM flights '
+          'WHERE simulator_id IS NULL',
           readsFrom: {_database.flights},
         )
         .watch()
@@ -212,6 +235,8 @@ class FlightRepository {
       $AirportsTable departure,
       $AirportsTable arrival,
       $AircraftWithStatssView aircraft,
+      $SimulatorsTable simulator,
+      $IcaoAircraftsTable simulatorType,
     )?
     matching,
     int limit = 10,
@@ -219,6 +244,8 @@ class FlightRepository {
   }) {
     final departure = _database.alias(_database.airports, "dep");
     final arrival = _database.alias(_database.airports, "arr");
+    final simulator = _database.simulators;
+    final simulatorType = _database.alias(_database.icaoAircrafts, 'sim_type');
     final stat =
         _database.select(_database.flights).join([
             leftOuterJoin(
@@ -235,6 +262,14 @@ class FlightRepository {
               arrival,
               _database.flights.arrival.equalsExp(arrival.id),
             ),
+            leftOuterJoin(
+              simulator,
+              _database.flights.simulatorId.equalsExp(simulator.id),
+            ),
+            leftOuterJoin(
+              simulatorType,
+              simulator.icaoAircraft.equalsExp(simulatorType.id),
+            ),
           ])
           ..where(
             matching == null
@@ -244,6 +279,8 @@ class FlightRepository {
                         departure,
                         arrival,
                         _database.aircraftWithStatss,
+                        simulator,
+                        simulatorType,
                       ),
           )
           ..orderBy([
@@ -260,12 +297,19 @@ class FlightRepository {
       if (rows.isEmpty) return <FlightWithStats>[];
 
       return rows.map((flight) {
+        final device = flight.readTableOrNull(simulator);
         return FlightWithStats(
           flight: flight.readTable(_database.flights),
           dataPoints: [],
           aircraftWithStats: flight.readTableOrNull(
             _database.aircraftWithStatss,
           ),
+          simulator: device == null
+              ? null
+              : SimulatorWithStats(
+                  simulator: device,
+                  type: flight.readTableOrNull(simulatorType),
+                ),
           departure: flight.readTableOrNull(departure),
           arrival: flight.readTableOrNull(arrival),
         );

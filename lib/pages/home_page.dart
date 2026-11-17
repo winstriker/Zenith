@@ -17,6 +17,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/load_more.dart';
 import '../widgets/pulsing_dot.dart';
+import '../widgets/simulator_card.dart';
 import '../widgets/speed_dial_fab.dart';
 import 'adsb_track_page.dart';
 import 'aircrafts_page.dart';
@@ -304,7 +305,8 @@ void _openRecording(BuildContext context) {
 }
 
 /// "Add Flight" FAB with a small "more" FAB above it that pops up the less
-/// common ways to log a flight (recording, ADS-B import).
+/// common ways to log a flight (simulator session, recording, ADS-B
+/// import).
 /// Slides the FABs down and fades them out while
 /// [bottomChromeVisibleProvider] hides the navigation bar.
 class _HidingFabs extends ConsumerWidget {
@@ -355,6 +357,17 @@ class _HomeFabs extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return SpeedDialFab(
       actions: [
+        SpeedDialAction(
+          heroTag: 'simulatorFab',
+          icon: simulatorIcon,
+          label: 'Log simulator session',
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => const FlightFormPage(simulator: true),
+            ),
+          ),
+        ),
         SpeedDialAction(
           heroTag: 'adsbFab',
           icon: Icons.settings_input_antenna,

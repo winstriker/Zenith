@@ -11,6 +11,7 @@ FlightWithStats _flight({
   String? pilotRole = 'pic',
   LogbookOverrides? overrides,
   Duration block = const Duration(minutes: 90),
+  int? simulatorId,
 }) => FlightWithStats(
   flight: Flight(
     id: 1,
@@ -26,6 +27,7 @@ FlightWithStats _flight({
     remarks: 'Nice',
     dayLandings: 1,
     logbookOverrides: overrides,
+    simulatorId: simulatorId,
   ),
   dataPoints: const [],
 );
@@ -193,5 +195,39 @@ void main() {
     expect(entry.time(LogbookTimeField.instructor), _m(90));
     expect(entry.time(LogbookTimeField.pic), _m(90));
     expect(entry.time(LogbookTimeField.dual), Duration.zero);
+  });
+
+  group('simulator sessions (AMC1 FCL.050(i)(9))', () {
+    test('fill in the FSTD column only', () {
+      final entry = LogbookEntry.of(
+        _flight(simulatorId: 7, rules: 'IFR', nightMinutes: 30),
+      );
+      expect(entry.time(LogbookTimeField.fstd), _m(90));
+      for (final field in LogbookTimeField.values) {
+        if (field == LogbookTimeField.fstd) continue;
+        expect(entry.time(field), Duration.zero, reason: field.name);
+      }
+      expect(entry.dayLandings, 0);
+      expect(entry.picName, '');
+      expect(entry.remarks, 'Nice');
+    });
+
+    test('the session time can be overridden', () {
+      final entry = LogbookEntry.of(
+        _flight(
+          simulatorId: 7,
+          overrides: LogbookOverrides(times: {LogbookTimeField.fstd: _m(240)}),
+        ),
+      );
+      expect(entry.time(LogbookTimeField.fstd), _m(240));
+      expect(entry.isOverridden(LogbookTimeField.fstd), isTrue);
+    });
+
+    test('flights leave the FSTD column empty', () {
+      expect(
+        LogbookEntry.of(_flight()).time(LogbookTimeField.fstd),
+        Duration.zero,
+      );
+    });
   });
 }

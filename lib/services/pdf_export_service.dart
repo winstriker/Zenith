@@ -28,6 +28,7 @@ class _Totals {
   Duration coPilot = Duration.zero;
   Duration dual = Duration.zero;
   Duration instructor = Duration.zero;
+  Duration fstd = Duration.zero;
 
   _Totals operator +(_Totals other) {
     return _Totals()
@@ -42,7 +43,8 @@ class _Totals {
       ..pic = pic + other.pic
       ..coPilot = coPilot + other.coPilot
       ..dual = dual + other.dual
-      ..instructor = instructor + other.instructor;
+      ..instructor = instructor + other.instructor
+      ..fstd = fstd + other.fstd;
   }
 }
 
@@ -145,6 +147,7 @@ class PdfExportService {
       t.coPilot += e.time(LogbookTimeField.coPilot);
       t.dual += e.time(LogbookTimeField.dual);
       t.instructor += e.time(LogbookTimeField.instructor);
+      t.fstd += e.time(LogbookTimeField.fstd);
     }
     return t;
   }
@@ -167,7 +170,7 @@ class PdfExportService {
     buf.write('<td>${_fmtDur(t.dual)}</td>');
     buf.write('<td>${_fmtDur(t.instructor)}</td>');
     buf.write('<td></td>'); // FSTD type
-    buf.write('<td></td>'); // FSTD time
+    buf.write('<td>${_fmtDur(t.fstd)}</td>');
     switch (remarks) {
       case _RemarksCell.certification:
         buf.write(
@@ -399,14 +402,20 @@ class PdfExportService {
 
           final dayLandings = _fmtInt(entry.dayLandings);
           final nightLandings = _fmtInt(entry.nightLandings);
+          // A simulator session only has its date, column 11 and remarks
+          // (AMC1 FCL.050(i)(9)).
+          final session = f.isSimulatorSession;
+          String flown(String Function() value) => session ? '' : value();
 
           buf
             ..write('<td>${dateFmt.format(f.flight.departureTime)}</td>')
             ..write('<td>${f.departure?.ident ?? ''}</td>')
-            ..write('<td>${timeFmt.format(f.flight.departureTime)}</td>')
+            ..write(
+              '<td>${flown(() => timeFmt.format(f.flight.departureTime))}</td>',
+            )
             ..write('<td>${f.arrival?.ident ?? ''}</td>')
             ..write(
-              '<td>${f.flight.arrivalTime != null ? timeFmt.format(f.flight.arrivalTime!) : ''}</td>',
+              '<td>${flown(() => f.flight.arrivalTime != null ? timeFmt.format(f.flight.arrivalTime!) : '')}</td>',
             )
             ..write('<td>${f.aircraftWithStats?.designator ?? ''}</td>')
             ..write('<td>${f.aircraftWithStats?.tailNumber ?? ''}</td>')
@@ -423,8 +432,8 @@ class PdfExportService {
             ..write('<td>${time(LogbookTimeField.coPilot)}</td>')
             ..write('<td>${time(LogbookTimeField.dual)}</td>')
             ..write('<td>${time(LogbookTimeField.instructor)}</td>')
-            ..write('<td></td>') // FSTD type
-            ..write('<td></td>') // FSTD time
+            ..write('<td>${_escape(f.simulator?.logbookType ?? '')}</td>')
+            ..write('<td>${time(LogbookTimeField.fstd)}</td>')
             ..write(
               _remarksCell(_escape(entry.remarks), signatures[f.flight.id]),
             );

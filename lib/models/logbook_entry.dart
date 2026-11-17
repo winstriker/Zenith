@@ -40,6 +40,23 @@ class LogbookEntry {
     final block = flight.duration;
     final blockTime = block == null || block.isNegative ? Duration.zero : block;
 
+    // AMC1 FCL.050(i)(9): a session in an FSTD only fills in column 11, the
+    // total time of the session. It isn't flight time: no aircraft, landings
+    // or pilot function columns.
+    if (flight.isSimulatorSession) {
+      return LogbookEntry._(
+        computed: {
+          for (final field in LogbookTimeField.values) field: Duration.zero,
+          LogbookTimeField.fstd: blockTime,
+        },
+        overrides: applied,
+        computedPicName: '',
+        remarks: f.remarks ?? '',
+        dayLandings: 0,
+        nightLandings: 0,
+      );
+    }
+
     // Everything below is a share of the flight's total time: an overridden
     // total moves them along, unless they're overridden as well.
     final total = applied.times[LogbookTimeField.total] ?? blockTime;
@@ -84,6 +101,7 @@ class LogbookEntry {
         LogbookTimeField.coPilot: function(PilotFunction.coPilot),
         LogbookTimeField.dual: function(PilotFunction.dual),
         LogbookTimeField.instructor: function(PilotFunction.instructor),
+        LogbookTimeField.fstd: Duration.zero,
       },
       overrides: applied,
       computedPicName: logbook.picPerson?.surname ?? selfPicName,
@@ -106,7 +124,8 @@ class LogbookEntry {
   /// Remarks are logged as they are: they can't be overridden.
   final String remarks;
 
-  /// Landings are logged as they are: they can't be overridden.
+  /// Landings are logged as they are: they can't be overridden. None for a
+  /// simulator session, whose landings only count for recent experience.
   final int dayLandings;
   final int nightLandings;
 

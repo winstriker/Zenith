@@ -27,6 +27,8 @@ class FlightFormState {
     this.depIanaLocation,
     this.arrIanaLocation,
     this.selectedAircraft,
+    this.isSimulator = false,
+    this.selectedSimulator,
     this.approachType = 'VISUAL',
     this.nightLandings = 0,
     this.dayLandings = 1,
@@ -53,6 +55,12 @@ class FlightFormState {
   final String? depIanaLocation;
   final String? arrIanaLocation;
   final AircraftWithStats? selectedAircraft;
+
+  /// Whether this is a session in a simulator rather than a flight: no
+  /// airports, aircraft or flight rules, and times in the device's (the
+  /// phone's) time zone.
+  final bool isSimulator;
+  final SimulatorWithStats? selectedSimulator;
   final String approachType;
   final int nightLandings;
   final int dayLandings;
@@ -88,6 +96,8 @@ class FlightFormState {
     String? depIanaLocation,
     String? arrIanaLocation,
     AircraftWithStats? selectedAircraft,
+    bool? isSimulator,
+    SimulatorWithStats? selectedSimulator,
     String? approachType,
     int? nightLandings,
     int? dayLandings,
@@ -121,6 +131,8 @@ class FlightFormState {
           ? null
           : (arrIanaLocation ?? this.arrIanaLocation),
       selectedAircraft: selectedAircraft ?? this.selectedAircraft,
+      isSimulator: isSimulator ?? this.isSimulator,
+      selectedSimulator: selectedSimulator ?? this.selectedSimulator,
       approachType: approachType ?? this.approachType,
       nightLandings: nightLandings ?? this.nightLandings,
       dayLandings: dayLandings ?? this.dayLandings,
@@ -189,10 +201,27 @@ class FlightFormState {
   tz.TZDateTime get depTZDateTime => TZDateTimeParser.parseDateTimeFromText(
     depTime,
     departureDate,
-    depIanaLocation,
+    isSimulator ? null : depIanaLocation,
   );
 
   tz.TZDateTime? get arrTZDateTime {
+    if (isSimulator) {
+      // A session ends the day it starts, or the next one when its end
+      // reads earlier than its start.
+      if (arrTime.isEmpty) return null;
+      final end = TZDateTimeParser.parseDateTimeFromText(
+        arrTime,
+        departureDate,
+        null,
+      );
+      return end.isBefore(depTZDateTime)
+          ? TZDateTimeParser.parseDateTimeFromText(
+              arrTime,
+              departureDate.add(const Duration(days: 1)),
+              null,
+            )
+          : end;
+    }
     if (arrTime.isEmpty || arrivalDate == null) return null;
     return TZDateTimeParser.parseDateTimeFromText(
       arrTime,
@@ -271,6 +300,14 @@ class FlightFormState {
   String? get crewError => crewValidationError(pilotRole, crewMembers);
 
   bool get isValid {
+    if (isSimulator) {
+      final session = blockTime;
+      return selectedSimulator != null &&
+          depTime.isNotEmpty &&
+          session != null &&
+          session > Duration.zero &&
+          crewError == null;
+    }
     return departureCode.isNotEmpty &&
         arrivalCode.isNotEmpty &&
         depTime.isNotEmpty &&
@@ -397,6 +434,19 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
 
   void setSelectedAircraft(AircraftWithStats? aircraft) =>
       state = state.copyWith(selectedAircraft: aircraft);
+
+  /// Switches between logging a flight and a simulator session. A session
+  /// starts without landings: they would count for recency (FCL.060).
+  void setSimulator(bool isSimulator) {
+    if (isSimulator == state.isSimulator) return;
+    state = state.copyWith(
+      isSimulator: isSimulator,
+      dayLandings: isSimulator ? 0 : 1,
+      nightLandings: 0,
+    );
+  }
+  void setSelectedSimulator(SimulatorWithStats? simulator) =>
+      state = state.copyWith(selectedSimulator: simulator);
   void setApproachType(String type) =>
       state = state.copyWith(approachType: type);
   void setNightLandings(int count) =>
