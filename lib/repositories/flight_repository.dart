@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/search.dart';
 import '../models/flight_track.dart';
 import '../providers/database_provider.dart';
 import '../services/database.dart';
@@ -16,6 +17,56 @@ class FlightRepository {
       where: _database.flights.isRecording.equals(false),
       limit: limit,
     );
+  }
+
+  /// The newest [limit] recorded flights that match [query] (see
+  /// `sqlMatchesAllTokens`) and, when given, departed on the local [day].
+  /// Newest first; a list grows into older flights by asking a bigger
+  /// [limit].
+  Stream<List<FlightWithStats>> watchRecordedFlightsPage({
+    required int limit,
+    String query = '',
+    DateTime? day,
+  }) {
+    final flights = _database.flights;
+    final tokens = searchTokens(query);
+    return _watchFlights(
+      where: flights.isRecording.equals(false),
+      matching: (dep, arr, aircraft) => Expression.and([
+        if (day != null) ...[
+          flights.departureTime.isBiggerOrEqualValue(
+            DateTime(day.year, day.month, day.day),
+          ),
+          flights.departureTime.isSmallerThanValue(
+            DateTime(day.year, day.month, day.day + 1),
+          ),
+        ],
+        sqlMatchesAllTokens(tokens, [
+          flights.title,
+          flights.remarks,
+          for (final airport in [dep, arr]) ...[
+            airport.ident,
+            airport.icaoCode,
+            airport.iataCode,
+            airport.name,
+            airport.municipality,
+          ],
+          aircraft.tailNumber,
+          aircraft.modelFullName,
+          aircraft.designator,
+        ]),
+      ]),
+      limit: limit,
+    );
+  }
+
+  /// How many recorded flights there are.
+  Stream<int> watchRecordedFlightCount() {
+    final count = _database.flights.id.count();
+    final query = _database.selectOnly(_database.flights)
+      ..addColumns([count])
+      ..where(_database.flights.isRecording.equals(false));
+    return query.map((row) => row.read(count) ?? 0).watchSingle();
   }
 
   /// Stream of active recording session
@@ -152,8 +203,17 @@ class FlightRepository {
   }
 
   /// Internal method to watch flights with joins for related data
+  ///
+  /// [matching] narrows [where] with conditions on the joined departure,
+  /// arrival and aircraft.
   Stream<List<FlightWithStats>> _watchFlights({
     required Expression<bool> where,
+    Expression<bool> Function(
+      $AirportsTable departure,
+      $AirportsTable arrival,
+      $AircraftWithStatssView aircraft,
+    )?
+    matching,
     int limit = 10,
     int? offset,
   }) {
@@ -176,8 +236,21 @@ class FlightRepository {
               _database.flights.arrival.equalsExp(arrival.id),
             ),
           ])
-          ..where(where)
-          ..orderBy([OrderingTerm.desc(_database.flights.departureTime)])
+          ..where(
+            matching == null
+                ? where
+                : where &
+                      matching(
+                        departure,
+                        arrival,
+                        _database.aircraftWithStatss,
+                      ),
+          )
+          ..orderBy([
+            OrderingTerm.desc(_database.flights.departureTime),
+            // Ties keep their place from one page to the next.
+            OrderingTerm.desc(_database.flights.id),
+          ])
           ..limit(limit, offset: offset);
 
     final flightStream = stat.watch();

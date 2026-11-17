@@ -11,6 +11,7 @@ import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sync_progress.dart';
+import '../repositories/airport_repository.dart';
 import '../utils/csv_parser.dart';
 import 'database.dart';
 
@@ -585,54 +586,52 @@ class AirportsService {
     return database.getCompleteAirportData(id);
   }
 
-  Future<List<AirportWithDistance>> getNearAirports({
-    int limit = 20,
-    bool relocate = false,
-  }) async {
-    if (relocate || position == null) {
-      isLocating = true;
-      try {
-        position = await _locate();
-      } catch (e) {
-        isLocating = false;
-        _syncLogger.log(
-          Level.WARNING,
-          "Failed to get location, falling back to alphabetical: $e",
-        );
-        return getAirportsAlphabetical(limit: limit);
-      }
-      isLocating = false;
-    }
-    return getAirportsNearCoordinates(
-      position!.latitude,
-      position!.longitude,
-      limit: limit,
-    );
-  }
+  /// Forgets the user's position, so the next nearest-airports list looks
+  /// it up again.
+  void forgetPosition() => position = null;
 
-  Future<List<AirportWithDistance>> getNearAirportsWithFallback({
+  /// The [limit] airports nearest to the user, nearest first, as the data
+  /// changes. Alphabetical when their position can't be found.
+  Stream<List<AirportWithDistance>> watchNearAirportsWithFallback({
     int limit = 20,
-    bool relocate = false,
-  }) async {
-    if (relocate || position == null) {
+  }) async* {
+    if (position == null) {
       isLocating = true;
       try {
         position = await _locate();
       } catch (e) {
-        isLocating = false;
         _syncLogger.log(
           Level.WARNING,
           "Failed to get location, falling back to alphabetical: $e",
         );
-        return getAirportsAlphabetical(limit: limit);
+      } finally {
+        isLocating = false;
       }
-      isLocating = false;
     }
-    return getAirportsNearCoordinates(
-      position!.latitude,
-      position!.longitude,
-      limit: limit,
-    );
+    final repository = AirportRepository(database);
+    final here = position;
+    if (here == null) {
+      yield* repository
+          .watchAllAirportsAlphabetical(limit: limit)
+          .map((list) => [for (final a in list) AirportWithDistance(a, -1)]);
+      return;
+    }
+    yield* repository
+        .watchAirportsNear(here.latitude, here.longitude, limit: limit)
+        .map(
+          (list) => [
+            for (final a in list)
+              AirportWithDistance(
+                a,
+                _distance(
+                  here.latitude,
+                  here.longitude,
+                  a.latitudeDeg!,
+                  a.longitudeDeg!,
+                ),
+              ),
+          ],
+        );
   }
 
   Future<List<AirportWithDistance>> getAirportsNearCoordinates(
@@ -660,36 +659,6 @@ class AirportsService {
     sorted.sort((a, b) => a.distance.compareTo(b.distance));
 
     return sorted.take(limit).toList();
-  }
-
-  Future<List<Airport>> searchAirports({
-    String query = '',
-    String? countryCode,
-    AirportType? type,
-    int limit = 100,
-  }) {
-    return database.searchAirports(
-      query: query,
-      countryCode: countryCode,
-      type: type,
-      limit: limit,
-    );
-  }
-
-  Future<List<AirportWithDistance>> getAirportsAlphabetical({
-    int limit = 100,
-  }) async {
-    final airports = await database.getAllAirportsAlphabetical(limit: limit);
-    return airports.map((a) => AirportWithDistance(a, -1)).toList();
-  }
-
-  Future<List<Country>> getCountriesList() {
-    return database.countries
-        .select(distinct: true)
-        .get()
-        .then(
-          (countries) => countries..sort((a, b) => a.name.compareTo(b.name)),
-        );
   }
 }
 

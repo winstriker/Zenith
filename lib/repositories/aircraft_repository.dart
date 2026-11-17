@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/search.dart';
 import '../providers/database_provider.dart';
 import '../services/database.dart';
 import '../services/person_photo_store.dart';
@@ -22,9 +23,28 @@ class AircraftRepository {
     return stmt.watchSingle();
   }
 
-  /// Stream of all aircraft with stats
-  Stream<List<AircraftWithStats>> watchAircraftsWithStats() {
-    return _database.select(_database.aircraftWithStatss).watch();
+  /// Stream of the aircraft with stats, in the order they were added.
+  ///
+  /// Only those matching [query] (see `sqlMatchesAllTokens`), and only the
+  /// first [limit] of them when given: a list grows by asking a bigger one.
+  Stream<List<AircraftWithStats>> watchAircraftsWithStats({
+    int? limit,
+    String query = '',
+  }) {
+    final view = _database.aircraftWithStatss;
+    final stmt = _database.select(view)
+      ..where(
+        (a) => sqlMatchesAllTokens(searchTokens(query), [
+          a.tailNumber,
+          a.modelFullName,
+          a.manufacturer,
+          a.designator,
+          a.notes,
+        ]),
+      )
+      ..orderBy([(a) => OrderingTerm.asc(a.id)]);
+    if (limit != null) stmt.limit(limit);
+    return stmt.watch();
   }
 
   /// Stream of a single aircraft with ICAO data

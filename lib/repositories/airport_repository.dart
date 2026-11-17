@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -62,13 +64,22 @@ class AirportRepository {
     });
   }
 
-  /// Stream of airports near coordinates
+  /// Stream of the [limit] airports nearest to the coordinates, nearest
+  /// first, among those within [delta] degrees of them.
   Stream<List<Airport>> watchAirportsNear(
     double latitude,
     double longitude, {
     double delta = 2.0,
     int limit = 20,
   }) {
+    // Flat-earth distance: plenty to rank airports a couple of degrees away.
+    final lonScale = cos(latitude * pi / 180);
+    Expression<double> squaredDistance($AirportsTable a) {
+      final dLat = a.latitudeDeg - Variable(latitude);
+      final dLon = (a.longitudeDeg - Variable(longitude)) * Variable(lonScale);
+      return dLat * dLat + dLon * dLon;
+    }
+
     return (_database.select(_database.airports)
           ..where(
             (a) => a.latitudeDeg.isBetweenValues(
@@ -82,6 +93,7 @@ class AirportRepository {
               longitude + delta,
             ),
           )
+          ..orderBy([(a) => OrderingTerm.asc(squaredDistance(a))])
           ..limit(limit))
         .watch();
   }
@@ -94,9 +106,11 @@ class AirportRepository {
         .watch();
   }
 
-  /// Stream of countries
+  /// Stream of countries, by name
   Stream<List<Country>> watchCountries() {
-    return _database.select(_database.countries).watch();
+    return (_database.select(
+      _database.countries,
+    )..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
   }
 
   /// Stream of complete airport data with runways and frequencies

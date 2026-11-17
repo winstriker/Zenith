@@ -1057,13 +1057,6 @@ class LogbookDatabase extends _$LogbookDatabase {
     return matches.firstOrNull;
   }
 
-  Future<List<Airport>> getAllAirportsAlphabetical({int limit = 100}) async {
-    return (select(airports)
-          ..orderBy([(a) => OrderingTerm.asc(a.name)])
-          ..limit(limit))
-        .get();
-  }
-
   Future<List<Airport>?> getAirportsWithinSquare(
     double latitude,
     double longitude, {

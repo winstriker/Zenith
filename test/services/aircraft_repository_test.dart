@@ -266,4 +266,33 @@ void main() {
     final aircraft = (await repo.watchAircraftWithStats(id).first)!;
     expect(aircraft.aircraftClass, AircraftClass.sepSea);
   });
+
+  test(
+    'the list pages and searches in the order aircraft were added',
+    () async {
+      final c172 = await addType(_type('C172'));
+      final pa28 = await addType(_type('PA28'));
+      for (final (type, tail) in [
+        (c172, 'I-AAAA'),
+        (pa28, 'I-BBBB'),
+        (c172, 'I-CCCC'),
+      ]) {
+        await repo.addAircraft(icaoAircraftId: type, tailNumber: tail);
+      }
+
+      Future<List<String>> tails({int? limit, String query = ''}) async => [
+        for (final a
+            in await repo
+                .watchAircraftsWithStats(limit: limit, query: query)
+                .first)
+          a.tailNumber,
+      ];
+
+      expect(await tails(), ['I-AAAA', 'I-BBBB', 'I-CCCC']);
+      expect(await tails(limit: 2), ['I-AAAA', 'I-BBBB']);
+      expect(await tails(query: 'c172'), ['I-AAAA', 'I-CCCC']);
+      expect(await tails(query: 'c172', limit: 1), ['I-AAAA']);
+      expect(await tails(query: 'model pa28 i-b'), ['I-BBBB']);
+    },
+  );
 }

@@ -17,6 +17,18 @@ final aircraftListStreamProvider = StreamProvider<List<AircraftWithStats>>((
   return repository.watchAircraftsWithStats();
 });
 
+/// Which part of the aircraft list a paged list shows.
+typedef AircraftPageKey = ({int limit, String query});
+
+/// The first `limit` aircraft matching `query`, in the order they were
+/// added. Lists load more by asking a bigger `limit`.
+final aircraftPageProvider = StreamProvider.autoDispose
+    .family<List<AircraftWithStats>, AircraftPageKey>((ref, key) {
+      return ref
+          .watch(aircraftRepositoryProvider)
+          .watchAircraftsWithStats(limit: key.limit, query: key.query);
+    });
+
 /// Stream of a specific aircraft
 final aircraftByIdStreamProvider = StreamProvider.family<Aircraft?, int>((
   ref,

@@ -8,6 +8,7 @@ import '../services/airport_service.dart';
 import '../services/database.dart';
 import '../widgets/airport_card.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/load_more.dart';
 import '../widgets/sync_progress_indicator.dart';
 import 'airport_detail_page.dart';
 
@@ -24,16 +25,15 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   AirportType? _selectedType;
   final _searchController = TextEditingController();
   bool _showFilters = false;
-  bool _shouldRelocate = false;
 
-  String _lastQuery = '';
-  String? _lastCountry;
-  AirportType? _lastType;
-  List<Airport> _cachedResults = [];
+  /// How many airports the list asks for; grows as it is scrolled.
+  int _limit = loadMorePageSize;
+
+  /// The last airports loaded, shown while a bigger page or another search
+  /// loads.
+  List<AirportWithDistance>? _airports;
 
   late Future<bool> _permissionFuture;
-  late Future<List<AirportWithDistance>> _airportsFuture;
-  late Future<List<Country>> _countriesFuture;
 
   bool get _isFiltering =>
       _searchQuery.isNotEmpty ||
@@ -43,26 +43,18 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
   @override
   void initState() {
     super.initState();
-    final service = ref.read(airportServiceProvider);
     _permissionFuture = _checkLocationPermission();
-    _countriesFuture = service.getCountriesList();
-    _airportsFuture = _loadAirports(service);
   }
 
-  /// Rebuilds the airports future. Call (inside setState) whenever the
-  /// search, filters, permission or relocate flag change.
-  void _reloadAirports() {
-    _airportsFuture = _loadAirports(ref.read(airportServiceProvider));
-  }
+  /// Starts the list over from its first page. Call (inside setState)
+  /// whenever the search or filters change.
+  void _reloadAirports() => _limit = loadMorePageSize;
 
-  Future<List<AirportWithDistance>> _loadAirports(AirportsService service) {
-    final future = _isFiltering
-        ? _searchAirportsCached(
-            service,
-          ).then((list) => list.map((a) => AirportWithDistance(a, -1)).toList())
-        : _loadAirportsWithFallback(service);
-    _shouldRelocate = false;
-    return future;
+  /// Looks the user's position up again and lists the airports near it.
+  void _relocate() {
+    ref.read(airportServiceProvider).forgetPosition();
+    ref.invalidate(airportsPageProvider);
+    setState(_reloadAirports);
   }
 
   Future<bool> _checkLocationPermission() async {
@@ -77,52 +69,30 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
     super.dispose();
   }
 
-  Future<List<Airport>> _searchAirportsCached(AirportsService service) async {
-    if (_searchQuery == _lastQuery &&
-        _selectedCountry == _lastCountry &&
-        _selectedType == _lastType &&
-        _cachedResults.isNotEmpty) {
-      return _cachedResults;
-    }
-    _lastQuery = _searchQuery;
-    _lastCountry = _selectedCountry;
-    _lastType = _selectedType;
-    _cachedResults = await service.searchAirports(
-      query: _searchQuery,
-      countryCode: _selectedCountry,
-      type: _selectedType,
-    );
-    return _cachedResults;
-  }
-
-  Future<List<AirportWithDistance>> _loadAirportsWithFallback(
-    AirportsService service,
-  ) async {
-    final hasPermission = await _checkLocationPermission();
-    if (hasPermission) {
-      return service.getNearAirportsWithFallback(relocate: _shouldRelocate);
-    } else {
-      return service.getAirportsAlphabetical(limit: 20);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final sync = ref.watch(airportLoadProvider);
-    // Reload the list once a sync has written new data.
+    // Drift tells streams about writes from the sync isolate too; this
+    // makes sure the list shows the new data even if it didn't.
     ref.listen(airportLoadProvider, (prev, next) {
       if (next.phase == SyncPhase.done && prev?.phase != SyncPhase.done) {
-        setState(() {
-          _countriesFuture = ref
-              .read(airportServiceProvider)
-              .getCountriesList();
-          _cachedResults = [];
-          _reloadAirports();
-        });
+        ref.invalidate(airportsPageProvider);
+        ref.invalidate(countriesStreamProvider);
       }
     });
     final service = ref.watch(airportServiceProvider);
     final isFiltering = _isFiltering;
+    final page = ref.watch(
+      airportsPageProvider((
+        limit: _limit,
+        query: _searchQuery,
+        country: _selectedCountry,
+        type: _selectedType,
+      )),
+    );
+    if (page.hasValue) _airports = page.value;
+    final airports = _airports;
+    final countries = ref.watch(countriesStreamProvider).value ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -169,11 +139,8 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                     if (!mounted) return;
                     if (status == LocationPermission.always ||
                         status == LocationPermission.whileInUse) {
-                      setState(() {
-                        _permissionFuture = Future.value(true);
-                        _shouldRelocate = true;
-                        _reloadAirports();
-                      });
+                      _permissionFuture = Future.value(true);
+                      _relocate();
                     }
                   },
                 );
@@ -181,12 +148,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               return IconButton(
                 icon: const Icon(Icons.my_location),
                 tooltip: 'Recenter location',
-                onPressed: () {
-                  setState(() {
-                    _shouldRelocate = true;
-                    _reloadAirports();
-                  });
-                },
+                onPressed: _relocate,
               );
             },
           ),
@@ -215,20 +177,19 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               )
             : null,
       ),
-      body: FutureBuilder(
-        future: _airportsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
+      body: Builder(
+        builder: (context) {
+          if (airports == null && page.hasError) {
             return EmptyState(
               icon: Icons.error_outline,
               title: 'Error while loading airports',
               action: FilledButton.tonal(
-                onPressed: () => setState(_reloadAirports),
+                onPressed: () => ref.invalidate(airportsPageProvider),
                 child: const Text('Retry'),
               ),
             );
           }
-          if (!snapshot.hasData) {
+          if (airports == null) {
             return const SizedBox(
               height: 80,
               child: Center(child: CircularProgressIndicator()),
@@ -245,7 +206,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               ),
               if (_showFilters)
                 _AirportFilters(
-                  countries: _countriesFuture,
+                  countries: countries,
                   selectedCountry: _selectedCountry,
                   selectedType: _selectedType,
                   onCountryChanged: (value) => setState(() {
@@ -263,7 +224,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                   }),
                 ),
               Expanded(
-                child: snapshot.data == null || snapshot.data!.isEmpty
+                child: airports.isEmpty
                     ? EmptyState(
                         icon: isFiltering ? Icons.search_off : Icons.flight,
                         title: isFiltering
@@ -273,32 +234,61 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                             ? 'Try adjusting your search or filters'
                             : 'Data may still be loading',
                       )
-                    : ListView.builder(
-                        padding: EdgeInsets.only(
-                          top: 8,
-                          bottom: 80 + MediaQuery.paddingOf(context).bottom,
-                        ),
-                        itemCount: snapshot.data!.length,
-                        itemBuilder: (context, index) {
-                          final item = snapshot.data![index];
-                          return AirportCard(
-                            airport: item.airport,
-                            distanceKm: item.distance >= 0
-                                ? item.distance
-                                : null,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute<void>(
-                                builder: (_) => AirportDetailPage(
-                                  airportId: item.airport.id,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                    : _AirportList(
+                        airports: airports,
+                        hasMore: airports.length >= _limit,
+                        loading: !page.hasValue,
+                        onLoadMore: () =>
+                            setState(() => _limit += loadMorePageSize),
                       ),
               ),
             ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The airports found, loading the next page as the list nears its end.
+class _AirportList extends StatelessWidget {
+  const _AirportList({
+    required this.airports,
+    required this.hasMore,
+    required this.loading,
+    required this.onLoadMore,
+  });
+
+  final List<AirportWithDistance> airports;
+  final bool hasMore;
+  final bool loading;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    return LoadMoreScrollView(
+      hasMore: hasMore,
+      loading: loading,
+      onLoadMore: onLoadMore,
+      builder: (context, controller) => ListView.builder(
+        controller: controller,
+        padding: EdgeInsets.only(
+          top: 8,
+          bottom: 80 + MediaQuery.paddingOf(context).bottom,
+        ),
+        itemCount: airports.length + (hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == airports.length) return const LoadMoreIndicator();
+          final item = airports[index];
+          return AirportCard(
+            airport: item.airport,
+            distanceKm: item.distance >= 0 ? item.distance : null,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => AirportDetailPage(airportId: item.airport.id),
+              ),
+            ),
           );
         },
       ),
@@ -378,7 +368,7 @@ class _AirportFilters extends StatelessWidget {
     required this.onClear,
   });
 
-  final Future<List<Country>> countries;
+  final List<Country> countries;
   final String? selectedCountry;
   final AirportType? selectedType;
   final ValueChanged<String?> onCountryChanged;
@@ -417,31 +407,22 @@ class _AirportFilters extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: FutureBuilder<List<Country>>(
-                  future: countries,
-                  builder: (context, snapshot) {
-                    final countryList = snapshot.data ?? [];
-                    return DropdownButtonFormField<String>(
-                      initialValue: selectedCountry,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Country',
-                        contentPadding: _fieldPadding,
+                child: DropdownButtonFormField<String>(
+                  initialValue: selectedCountry,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Country',
+                    contentPadding: _fieldPadding,
+                  ),
+                  items: [
+                    const DropdownMenuItem(child: Text('All Countries')),
+                    for (final c in countries)
+                      DropdownMenuItem(
+                        value: c.code,
+                        child: Text(c.name, overflow: TextOverflow.ellipsis),
                       ),
-                      items: [
-                        const DropdownMenuItem(child: Text('All Countries')),
-                        for (final c in countryList)
-                          DropdownMenuItem(
-                            value: c.code,
-                            child: Text(
-                              c.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: onCountryChanged,
-                    );
-                  },
+                  ],
+                  onChanged: onCountryChanged,
                 ),
               ),
               const SizedBox(width: 12),

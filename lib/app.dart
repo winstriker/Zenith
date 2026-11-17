@@ -153,32 +153,63 @@ class _MainShell extends ConsumerWidget {
           );
         },
       ),
-      bottomNavigationBar: FloatingNavBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: (i) =>
-            ref.read(mainTabProvider.notifier).select(MainTab.values[i]),
-        destinations: const [
-          FloatingNavDestination(
-            icon: Icons.home_outlined,
-            selectedIcon: Icons.home,
-            label: 'Home',
-          ),
-          FloatingNavDestination(
-            icon: Icons.badge_outlined,
-            selectedIcon: Icons.badge,
-            label: 'Licences',
-          ),
-          FloatingNavDestination(
-            icon: Icons.local_airport_outlined,
-            selectedIcon: Icons.local_airport,
-            label: 'Airports',
-          ),
-          FloatingNavDestination(
-            icon: Icons.settings_outlined,
-            selectedIcon: Icons.settings,
-            label: 'Settings',
-          ),
-        ],
+      bottomNavigationBar: _HidingNavBar(
+        child: FloatingNavBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: (i) {
+            final tab = MainTab.values[i];
+            if (i == currentIndex) {
+              ref.read(tabReselectProvider.notifier).reselect(tab);
+            } else {
+              ref.read(mainTabProvider.notifier).select(tab);
+            }
+          },
+          destinations: const [
+            FloatingNavDestination(
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home,
+              label: 'Home',
+            ),
+            FloatingNavDestination(
+              icon: Icons.badge_outlined,
+              selectedIcon: Icons.badge,
+              label: 'Licences',
+            ),
+            FloatingNavDestination(
+              icon: Icons.local_airport_outlined,
+              selectedIcon: Icons.local_airport,
+              label: 'Airports',
+            ),
+            FloatingNavDestination(
+              icon: Icons.settings_outlined,
+              selectedIcon: Icons.settings,
+              label: 'Settings',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Slides the navigation bar off the bottom of the screen while
+/// [bottomChromeVisibleProvider] says so. Only paints elsewhere: the bar
+/// keeps its size, so the pages' bottom padding doesn't jump.
+class _HidingNavBar extends ConsumerWidget {
+  const _HidingNavBar({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = ref.watch(bottomChromeVisibleProvider);
+    return IgnorePointer(
+      ignoring: !visible,
+      child: AnimatedSlide(
+        // A bit past its height, so its shadow goes too.
+        offset: visible ? Offset.zero : const Offset(0, 1.2),
+        duration: const Duration(milliseconds: 260),
+        curve: visible ? Curves.easeOutCubic : Curves.easeInCubic,
+        child: child,
       ),
     );
   }

@@ -46,6 +46,37 @@ final airportsNearStreamProvider =
       );
     });
 
+/// Which part of the airport list a paged list shows.
+typedef AirportsPageKey = ({
+  int limit,
+  String query,
+  String? country,
+  AirportType? type,
+});
+
+/// The airports list: with no search or filter, the `limit` airports
+/// nearest to the user (alphabetical without their position); otherwise the
+/// first `limit` matching ones. Lists load more by asking a bigger `limit`.
+final airportsPageProvider = StreamProvider.autoDispose
+    .family<List<AirportWithDistance>, AirportsPageKey>((ref, key) {
+      final filtering =
+          key.query.isNotEmpty || key.country != null || key.type != null;
+      if (!filtering) {
+        return ref
+            .watch(airportServiceProvider)
+            .watchNearAirportsWithFallback(limit: key.limit);
+      }
+      return ref
+          .watch(airportRepositoryProvider)
+          .searchAirports(
+            query: key.query,
+            countryCode: key.country,
+            type: key.type,
+            limit: key.limit,
+          )
+          .map((list) => [for (final a in list) AirportWithDistance(a, -1)]);
+    });
+
 /// Full details (airport, country, region, runways, frequencies) for one
 /// airport. Resolves to null if the airport doesn't exist.
 final airportDetailsProvider = FutureProvider.autoDispose

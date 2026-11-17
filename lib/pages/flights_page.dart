@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../core/fab_hero_tags.dart';
-import '../core/search.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/load_more.dart';
 import '../widgets/page_title.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
@@ -14,6 +14,7 @@ import 'flight_form_page.dart';
 /// Searchable logbook, framed like the aircraft and people lists: a close FAB
 /// at the top-left and an "Add" FAB at the bottom-right. Flights can be
 /// filtered by text and, through the calendar button, by departure date.
+/// Older flights load as the list is scrolled to its end.
 class FlightsPage extends ConsumerStatefulWidget {
   const FlightsPage({super.key});
 
@@ -25,6 +26,13 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
   final _searchController = TextEditingController();
   String _query = '';
   DateTime? _selectedDate;
+
+  /// How many flights the list asks for; grows as it is scrolled.
+  int _limit = loadMorePageSize;
+
+  /// The last flights loaded, shown while a bigger page or another search
+  /// loads.
+  List<FlightWithStats>? _flights;
 
   @override
   void dispose() {
@@ -41,12 +49,18 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
       lastDate: now.add(const Duration(days: 1)),
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _limit = loadMorePageSize;
+      });
     }
   }
 
   void _clearDate() {
-    setState(() => _selectedDate = null);
+    setState(() {
+      _selectedDate = null;
+      _limit = loadMorePageSize;
+    });
   }
 
   Future<void> _addFlight() async {
@@ -86,40 +100,30 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
     }
   }
 
-  bool _onSelectedDate(FlightWithStats f) {
-    final d = _selectedDate!;
-    final t = f.flight.departureTime;
-    return t.year == d.year && t.month == d.month && t.day == d.day;
-  }
-
-  /// Every word must hit some field, so "LIMC D-KBFF" matches a flight out
-  /// of LIMC flown with D-KBFF.
-  bool _matchesQuery(FlightWithStats f, List<String> tokens) {
-    Iterable<String?> airport(Airport? a) => [
-      a?.ident,
-      a?.icaoCode,
-      a?.iataCode,
-      a?.name,
-      a?.municipality,
-    ];
-    final aircraft = f.aircraftWithStats;
-    return matchesAllTokens(tokens, [
-      f.flight.title,
-      f.flight.remarks,
-      ...airport(f.departure),
-      ...airport(f.arrival),
-      aircraft?.tailNumber,
-      aircraft?.modelFullName,
-      aircraft?.designator,
-    ]);
+  void _search(String query) {
+    if (query == _query) return;
+    setState(() {
+      _query = query;
+      _limit = loadMorePageSize;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final flightsAsync = ref.watch(flightListStreamProvider);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final selectedDate = _selectedDate;
+    final page = ref.watch(
+      recordedFlightsPageProvider((
+        limit: _limit,
+        query: _query,
+        day: selectedDate,
+      )),
+    );
+    if (page.hasValue) _flights = page.value;
+    final flights = _flights;
+    final loading = !page.hasValue;
+    final hasMore = flights != null && flights.length >= _limit;
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -136,153 +140,145 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
           label: const Text('Add'),
           onPressed: _addFlight,
         ),
-        body: CustomScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            const SliverToBoxAdapter(
-              child: PageTitle('Flights', belowCloseButton: true),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: 'Search flights...',
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_query.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear, size: 20),
-                            tooltip: 'Clear',
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _query = '');
-                            },
-                          ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.calendar_month,
-                            size: 20,
-                            color: selectedDate != null ? cs.primary : null,
-                          ),
-                          tooltip: 'Search by date',
-                          onPressed: _pickDate,
-                        ),
-                      ],
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 12,
-                      horizontal: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onChanged: (v) => setState(() => _query = v.trim()),
-                ),
+        body: LoadMoreScrollView(
+          hasMore: hasMore,
+          loading: loading,
+          onLoadMore: () => setState(() => _limit += loadMorePageSize),
+          builder: (context, controller) => CustomScrollView(
+            controller: controller,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              const SliverToBoxAdapter(
+                child: PageTitle('Flights', belowCloseButton: true),
               ),
-            ),
-            if (selectedDate != null)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: InputChip(
-                      avatar: const Icon(Icons.calendar_month, size: 18),
-                      label: Text(
-                        DateFormat('MMM dd, yyyy').format(selectedDate),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Search flights...',
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_query.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              tooltip: 'Clear',
+                              onPressed: () {
+                                _searchController.clear();
+                                _search('');
+                              },
+                            ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.calendar_month,
+                              size: 20,
+                              color: selectedDate != null ? cs.primary : null,
+                            ),
+                            tooltip: 'Search by date',
+                            onPressed: _pickDate,
+                          ),
+                        ],
                       ),
-                      tooltip: 'Change date',
-                      onPressed: _pickDate,
-                      onDeleted: _clearDate,
-                      deleteButtonTooltipMessage: 'Clear date',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
+                    onChanged: (v) => _search(v.trim()),
                   ),
                 ),
               ),
-            ...flightsAsync.when(
-              data: (allFlights) {
-                if (allFlights.isEmpty) {
-                  return const [
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: EmptyState(
-                        icon: Icons.flight,
-                        title: 'No flights yet',
-                        subtitle: 'Start recording your first flight!',
+              if (selectedDate != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: InputChip(
+                        avatar: const Icon(Icons.calendar_month, size: 18),
+                        label: Text(
+                          DateFormat('MMM dd, yyyy').format(selectedDate),
+                        ),
+                        tooltip: 'Change date',
+                        onPressed: _pickDate,
+                        onDeleted: _clearDate,
+                        deleteButtonTooltipMessage: 'Clear date',
                       ),
-                    ),
-                  ];
-                }
-                final tokens = searchTokens(_query);
-                final flights = allFlights
-                    .where(
-                      (f) =>
-                          (selectedDate == null || _onSelectedDate(f)) &&
-                          (tokens.isEmpty || _matchesQuery(f, tokens)),
-                    )
-                    .toList();
-                if (flights.isEmpty) {
-                  return [
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: EmptyState(
-                        icon: Icons.search_off,
-                        iconSize: 48,
-                        iconOpacity: 0.4,
-                        title: _query.isEmpty
-                            ? 'No flights on this date'
-                            : 'No flights match "$_query"',
-                        subtitle: selectedDate != null
-                            ? 'Try selecting a different date'
-                            : null,
-                      ),
-                    ),
-                  ];
-                }
-                return [
-                  SliverPadding(
-                    padding: const EdgeInsets.only(bottom: 88),
-                    sliver: SliverList.builder(
-                      itemCount: flights.length,
-                      itemBuilder: (context, index) {
-                        final flight = flights[index];
-                        return FlightCard(
-                          flight: flight,
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  FlightDetailPage(flightId: flight.flight.id),
-                            ),
-                          ),
-                          onLongPress: () => _confirmDelete(flight),
-                        );
-                      },
                     ),
                   ),
-                ];
+                ),
+              ...switch (flights) {
+                null when page.hasError => [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: Text('Error: ${page.error}')),
+                  ),
+                ],
+                null => const [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+                [] when _query.isEmpty && selectedDate == null => const [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      icon: Icons.flight,
+                      title: 'No flights yet',
+                      subtitle: 'Start recording your first flight!',
+                    ),
+                  ),
+                ],
+                [] => [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      icon: Icons.search_off,
+                      iconSize: 48,
+                      iconOpacity: 0.4,
+                      title: _query.isEmpty
+                          ? 'No flights on this date'
+                          : 'No flights match "$_query"',
+                      subtitle: selectedDate != null
+                          ? 'Try selecting a different date'
+                          : null,
+                    ),
+                  ),
+                ],
+                _ => [
+                  SliverList.builder(
+                    itemCount: flights.length,
+                    itemBuilder: (context, index) {
+                      final flight = flights[index];
+                      return FlightCard(
+                        flight: flight,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                FlightDetailPage(flightId: flight.flight.id),
+                          ),
+                        ),
+                        onLongPress: () => _confirmDelete(flight),
+                      );
+                    },
+                  ),
+                  if (hasMore)
+                    const SliverToBoxAdapter(child: LoadMoreIndicator()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 88)),
+                ],
               },
-              loading: () => const [
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ],
-              error: (e, _) => [
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: Text('Error: $e')),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

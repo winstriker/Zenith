@@ -16,6 +16,27 @@ final flightListStreamProvider = StreamProvider<List<FlightWithStats>>((ref) {
   return repository.watchRecordedFlights();
 });
 
+/// Which part of the logbook a paged flight list shows.
+typedef FlightsPageKey = ({int limit, String query, DateTime? day});
+
+/// The newest `limit` recorded flights matching `query` and, when given,
+/// departed on `day`. Lists load older flights by asking a bigger `limit`.
+final recordedFlightsPageProvider = StreamProvider.autoDispose
+    .family<List<FlightWithStats>, FlightsPageKey>((ref, key) {
+      return ref
+          .watch(flightRepositoryProvider)
+          .watchRecordedFlightsPage(
+            limit: key.limit,
+            query: key.query,
+            day: key.day,
+          );
+    });
+
+/// How many recorded flights there are.
+final recordedFlightCountProvider = StreamProvider<int>((ref) {
+  return ref.watch(flightRepositoryProvider).watchRecordedFlightCount();
+});
+
 /// Stream of active recording session
 final activeFlightStreamProvider = StreamProvider<FlightWithStats?>((ref) {
   final repository = ref.watch(flightRepositoryProvider);
