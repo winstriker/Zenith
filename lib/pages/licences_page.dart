@@ -164,6 +164,12 @@ class _LicencesList extends ConsumerWidget {
       for (final item in items)
         if (item.kind == CurrencyKind.recency) item,
     ];
+    // Expiring recency is already in the summary, so the Currency section
+    // only earns its place once something has actually lapsed.
+    final anyRecencyExpired = recency.any(
+      (item) =>
+          item.statusOn(today, warnDays: warnDays) == CurrencyStatus.expired,
+    );
     final byMedical = {
       for (final item in items)
         if (item.medicalId != null) item.medicalId!: item,
@@ -183,7 +189,7 @@ class _LicencesList extends ConsumerWidget {
             attention: attention,
             onOpen: (item) => _open(context, item),
           ),
-          if (recency.isNotEmpty) ...[
+          if (anyRecencyExpired) ...[
             const SectionHeader(title: 'Currency', uppercase: true),
             Card(
               child: Column(
