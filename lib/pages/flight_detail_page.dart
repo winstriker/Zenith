@@ -6,8 +6,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import '../core/fab_hero_tags.dart';
 
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../core/theme.dart';
 import '../models/flight_track.dart';
 import '../models/logbook_entry.dart';
@@ -110,7 +111,7 @@ class _FlightDetailView extends ConsumerWidget {
           onTap: simulator == null
               ? null
               : () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
+                  AppPageRoute<void>(
                     builder: (_) =>
                         SimulatorDetailPage(simulatorId: simulator.id),
                   ),
@@ -179,7 +180,7 @@ class _FlightDetailView extends ConsumerWidget {
           primaryIcon: Icons.edit,
           primaryLabel: 'Edit',
           onPrimaryPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
+            AppPageRoute<void>(
               builder: (_) => FlightFormPage(flightToEdit: flight),
             ),
           ),
@@ -220,9 +221,7 @@ class _FlightDetailView extends ConsumerWidget {
 
 void _openOverrides(BuildContext context, FlightWithStats flight) {
   Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => LogbookOverridesPage(flight: flight),
-    ),
+    AppPageRoute<void>(builder: (_) => LogbookOverridesPage(flight: flight)),
   );
 }
 
@@ -306,7 +305,7 @@ class _FlightCrewCard extends ConsumerWidget {
         crewMembers: crew,
         onCrewMemberTap: (member) => Navigator.push(
           context,
-          MaterialPageRoute<void>(
+          AppPageRoute<void>(
             builder: (_) => PersonDetailPage(personId: member.person.id),
           ),
         ),
@@ -862,7 +861,7 @@ Future<void> _findAdsbTrack(
   final messenger = ScaffoldMessenger.of(context);
   final saved = await Navigator.of(
     context,
-  ).push<int>(MaterialPageRoute(builder: (_) => AdsbTrackPage(flight: flight)));
+  ).push<int>(AppPageRoute(builder: (_) => AdsbTrackPage(flight: flight)));
   if (saved == null) return;
   messenger.showSnackBar(
     SnackBar(
@@ -930,9 +929,7 @@ class _ReplayButtonCard extends StatelessWidget {
           child: FilledButton.icon(
             onPressed: () {
               Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ReplayPage(flight: flight),
-                ),
+                AppPageRoute<void>(builder: (_) => ReplayPage(flight: flight)),
               );
             },
             icon: const Icon(Icons.play_circle_filled),

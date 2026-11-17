@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../repositories/flight_repository.dart';
 import '../repositories/simulator_repository.dart';
@@ -50,7 +51,7 @@ class SimulatorDetailPage extends ConsumerWidget {
                 onPressed: () async {
                   final deleted = await Navigator.push<Object?>(
                     context,
-                    MaterialPageRoute(
+                    AppPageRoute(
                       builder: (_) => SimulatorFormPage(simulator: sim),
                     ),
                   );
@@ -120,7 +121,7 @@ class SimulatorDetailPage extends ConsumerWidget {
                       flight: list[index],
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute<void>(
+                        AppPageRoute<void>(
                           builder: (_) =>
                               FlightDetailPage(flightId: list[index].flight.id),
                         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
@@ -216,9 +217,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const MapSettingsPage(),
-                    ),
+                    AppPageRoute<void>(builder: (_) => const MapSettingsPage()),
                   ),
                 ),
                 const Divider(height: 1, indent: 16),
@@ -294,7 +293,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute<void>(
+                AppPageRoute<void>(
                   builder: (_) => const CurrencySettingsPage(),
                 ),
               ),
@@ -312,7 +311,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(builder: (_) => const PeoplePage()),
+                    AppPageRoute<void>(builder: (_) => const PeoplePage()),
                   ),
                 ),
                 const Divider(height: 1, indent: 72),
@@ -331,7 +330,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(builder: (_) => const ExportPage()),
+                    AppPageRoute<void>(builder: (_) => const ExportPage()),
                   ),
                 ),
                 const Divider(height: 1, indent: 72),
@@ -356,7 +355,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(
+                    AppPageRoute<void>(
                       builder: (_) => const AdsbSettingsPage(),
                     ),
                   ),
@@ -368,7 +367,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute<void>(
+                    AppPageRoute<void>(
                       builder: (_) => const PhotoSettingsPage(),
                     ),
                   ),
@@ -386,9 +385,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const BackupSettingsPage(),
-                ),
+                AppPageRoute<void>(builder: (_) => const BackupSettingsPage()),
               ),
             ),
           ),

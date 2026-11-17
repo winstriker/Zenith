@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../models/currency.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/licence_providers.dart';
@@ -40,7 +41,7 @@ class LicencesPage extends ConsumerWidget {
                 icon: const Icon(Icons.notifications_outlined),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute<void>(
+                  AppPageRoute<void>(
                     builder: (_) => const CurrencySettingsPage(),
                   ),
                 ),
@@ -96,7 +97,7 @@ class _LicencesFabs extends StatelessWidget {
           label: 'Add medical',
           onPressed: () => Navigator.push(
             context,
-            MaterialPageRoute<void>(builder: (_) => const MedicalFormPage()),
+            AppPageRoute<void>(builder: (_) => const MedicalFormPage()),
           ),
         ),
       ],
@@ -104,7 +105,7 @@ class _LicencesFabs extends StatelessWidget {
       primaryLabel: 'Add licence',
       onPrimaryPressed: () => Navigator.push(
         context,
-        MaterialPageRoute<void>(builder: (_) => const LicenceFormPage()),
+        AppPageRoute<void>(builder: (_) => const LicenceFormPage()),
       ),
     );
   }
@@ -140,7 +141,7 @@ class _LicencesList extends ConsumerWidget {
       showCurrencyItemSheet(context, item);
       return;
     }
-    Navigator.push(context, MaterialPageRoute<void>(builder: (_) => page));
+    Navigator.push(context, AppPageRoute<void>(builder: (_) => page));
   }
 
   @override
@@ -220,7 +221,7 @@ class _LicencesList extends ConsumerWidget {
                       icon: Icons.medical_services_outlined,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute<void>(
+                        AppPageRoute<void>(
                           builder: (_) => MedicalDetailPage(medicalId: m.id),
                         ),
                       ),
@@ -353,7 +354,7 @@ class _LicenceCard extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute<void>(
+          AppPageRoute<void>(
             builder: (_) => LicenceDetailPage(licenceId: l.id),
           ),
         ),

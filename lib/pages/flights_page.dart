@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../providers/flight_providers.dart';
 import '../services/database.dart';
@@ -66,7 +68,7 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
   Future<void> _addFlight() async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const FlightFormPage()),
+      AppPageRoute<void>(builder: (_) => const FlightFormPage()),
     );
     // Stream provider picks up the new flight automatically.
   }
@@ -263,7 +265,7 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
                         flight: flight,
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute<void>(
+                          AppPageRoute<void>(
                             builder: (_) =>
                                 FlightDetailPage(flightId: flight.flight.id),
                           ),

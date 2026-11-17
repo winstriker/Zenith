@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../core/app_page_route.dart';
 import '../repositories/airport_repository.dart';
 import '../services/database.dart';
 import '../widgets/base_map_layer.dart';
@@ -161,7 +162,7 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute<void>(
+                      AppPageRoute<void>(
                         builder: (_) =>
                             AirportDetailPage(airportId: airport.id),
                       ),

@@ -4,8 +4,9 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import '../core/fab_hero_tags.dart';
 
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../repositories/aircraft_repository.dart';
 import '../services/aircraft_lookup_service.dart';
 import '../services/database.dart';
@@ -205,7 +206,7 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
   Future<void> _openTypeSelector() async {
     final selected = await Navigator.push<IcaoAircraft>(
       context,
-      MaterialPageRoute(
+      AppPageRoute(
         builder: (_) => IcaoAircraftSelectPage(
           suggestFor: _lookup?.model,
           suggestDesignator: _lookup?.icaoDesignator,

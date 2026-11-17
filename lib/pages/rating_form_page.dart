@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../models/currency.dart';
 import '../repositories/licence_repository.dart';
 import '../services/database.dart';
@@ -164,7 +165,7 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
     // A new rating opens on its page, as a new licence does.
     await Navigator.pushReplacement(
       context,
-      MaterialPageRoute<void>(
+      AppPageRoute<void>(
         builder: (_) =>
             RatingDetailPage(licenceId: widget.licence.id, ratingId: id),
       ),

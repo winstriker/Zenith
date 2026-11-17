@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import '../core/app_page_route.dart';
 
 /// What a crop produces, and how the user may frame it.
 class CropSpec {
@@ -66,7 +67,7 @@ Future<File?> pickAndCropImage(
   if (!context.mounted) return null;
   return Navigator.push<File>(
     context,
-    MaterialPageRoute(
+    AppPageRoute(
       builder: (_) => ImageCropPage(bytes: bytes, spec: spec),
     ),
   );

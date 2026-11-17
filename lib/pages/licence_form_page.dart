@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../repositories/licence_repository.dart';
 import '../services/database.dart';
 import '../widgets/licence_form_widgets.dart';
@@ -77,7 +78,7 @@ class _LicenceFormPageState extends ConsumerState<LicenceFormPage> {
     if (!mounted) return;
     await Navigator.pushReplacement(
       context,
-      MaterialPageRoute<void>(builder: (_) => LicenceDetailPage(licenceId: id)),
+      AppPageRoute<void>(builder: (_) => LicenceDetailPage(licenceId: id)),
     );
   }
 

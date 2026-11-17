@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../pages/person_select_page.dart';
 import '../services/database.dart';
@@ -196,7 +197,7 @@ class CrewCard extends StatelessWidget {
     if (role == null || !context.mounted) return;
     final person = await Navigator.push<Person>(
       context,
-      MaterialPageRoute(
+      AppPageRoute(
         builder: (_) => PersonSelectPage(
           title: 'Select ${role.displayName}',
           excludeIds: {for (final m in crewMembers) m.person.id},

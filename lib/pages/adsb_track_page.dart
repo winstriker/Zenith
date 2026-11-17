@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import '../core/app_page_route.dart';
 import '../models/flight_track.dart';
 import '../models/sync_progress.dart';
 import '../providers/adsb_providers.dart';
@@ -312,7 +313,7 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
 
     // On top of the results, so that going back offers them again.
     final saved = await navigator.push<bool>(
-      MaterialPageRoute(builder: (_) => FlightFormPage(adsbImport: draft)),
+      AppPageRoute(builder: (_) => FlightFormPage(adsbImport: draft)),
     );
     if (saved == true && mounted) navigator.pop(true);
   }
@@ -380,7 +381,7 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
   void _openSettings() {
     Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const AdsbSettingsPage()),
+      AppPageRoute<void>(builder: (_) => const AdsbSettingsPage()),
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../repositories/aircraft_repository.dart';
 import '../repositories/simulator_repository.dart';
@@ -103,7 +104,7 @@ class _SimulatorFormPageState extends ConsumerState<SimulatorFormPage> {
   Future<void> _pickType() async {
     final picked = await Navigator.push<IcaoAircraft>(
       context,
-      MaterialPageRoute(builder: (_) => const IcaoAircraftSelectPage()),
+      AppPageRoute(builder: (_) => const IcaoAircraftSelectPage()),
     );
     if (picked == null || !mounted) return;
     setState(() {

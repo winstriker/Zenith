@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../pages/simulator_form_page.dart';
 import '../repositories/simulator_repository.dart';
@@ -200,7 +201,7 @@ class _SimulatorListScaffoldState extends ConsumerState<SimulatorListScaffold> {
   Future<void> _addSimulator() async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const SimulatorFormPage()),
+      AppPageRoute<void>(builder: (_) => const SimulatorFormPage()),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../providers/aircraft_providers.dart';
 import '../services/database.dart';
@@ -41,7 +43,7 @@ class AircraftDetailPage extends ConsumerWidget {
               onPressed: () async {
                 final deleted = await Navigator.push<bool>(
                   context,
-                  MaterialPageRoute(
+                  AppPageRoute(
                     builder: (_) => AircraftFormPage(aircraft: aircraft),
                   ),
                 );
@@ -147,7 +149,7 @@ class AircraftDetailPage extends ConsumerWidget {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute<void>(
+                                AppPageRoute<void>(
                                   builder: (_) => FlightDetailPage(
                                     flightId: flights[index].flight.id,
                                   ),

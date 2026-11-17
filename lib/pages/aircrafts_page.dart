@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../repositories/aircraft_repository.dart';
 import '../repositories/simulator_repository.dart';
 import '../services/database.dart';
@@ -71,7 +72,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   Future<void> _showAircraft(AircraftWithStats aws) async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(
+      AppPageRoute<void>(
         builder: (_) => AircraftDetailPage(aircraftId: aws.id),
       ),
     );
@@ -80,7 +81,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
   Future<void> _showSimulator(SimulatorWithStats sim) async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(
+      AppPageRoute<void>(
         builder: (_) => SimulatorDetailPage(simulatorId: sim.id),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
@@ -170,7 +171,7 @@ class _RecordingPageState extends ConsumerState<RecordingPage> {
   Future<void> _addNewAircraft() async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
+      AppPageRoute<void>(builder: (_) => const AircraftFormPage()),
     );
     // Stream provider automatically updates, no manual refresh needed
   }

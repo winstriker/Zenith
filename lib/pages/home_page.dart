@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
@@ -179,7 +180,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                         flight: flights[index],
                         onTap: () => Navigator.push(
                           context,
-                          MaterialPageRoute<void>(
+                          AppPageRoute<void>(
                             builder: (_) => FlightDetailPage(
                               flightId: flights[index].flight.id,
                             ),
@@ -286,21 +287,21 @@ class _StatusBarScrim extends StatelessWidget {
 void _openFlights(BuildContext context) {
   Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => const FlightsPage()),
+    AppPageRoute<void>(builder: (_) => const FlightsPage()),
   );
 }
 
 void _openAircrafts(BuildContext context) {
   Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => const AircraftsPage()),
+    AppPageRoute<void>(builder: (_) => const AircraftsPage()),
   );
 }
 
 void _openRecording(BuildContext context) {
   Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => const RecordingPage()),
+    AppPageRoute<void>(builder: (_) => const RecordingPage()),
   );
 }
 
@@ -343,7 +344,7 @@ class _HomeFabs extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final imported = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const AdsbTrackPage.import()),
+      AppPageRoute(builder: (_) => const AdsbTrackPage.import()),
     );
     if (imported == true) {
       messenger
@@ -363,7 +364,7 @@ class _HomeFabs extends StatelessWidget {
           label: 'Log simulator session',
           onPressed: () => Navigator.push(
             context,
-            MaterialPageRoute<void>(
+            AppPageRoute<void>(
               builder: (_) => const FlightFormPage(simulator: true),
             ),
           ),
@@ -387,7 +388,7 @@ class _HomeFabs extends StatelessWidget {
       primaryLabel: 'Add Flight',
       onPrimaryPressed: () => Navigator.push(
         context,
-        MaterialPageRoute<void>(builder: (_) => const FlightFormPage()),
+        AppPageRoute<void>(builder: (_) => const FlightFormPage()),
       ),
     );
   }

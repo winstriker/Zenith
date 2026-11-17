@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../core/fab_hero_tags.dart';
 
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../providers/person_providers.dart';
 import '../repositories/person_repository.dart';
 import '../services/database.dart';
@@ -92,7 +93,7 @@ class _PersonDetailView extends ConsumerWidget {
               label: const Text('Edit'),
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute<Person>(
+                AppPageRoute<Person>(
                   builder: (_) => PersonFormPage(person: person),
                 ),
               ),
@@ -171,7 +172,7 @@ class _PersonDetailView extends ConsumerWidget {
                           flight: flight,
                           onTap: () => Navigator.push(
                             context,
-                            MaterialPageRoute<void>(
+                            AppPageRoute<void>(
                               builder: (_) =>
                                   FlightDetailPage(flightId: flight.flight.id),
                             ),
@@ -193,7 +194,7 @@ class _PersonDetailView extends ConsumerWidget {
   Future<void> _merge(BuildContext context, WidgetRef ref) async {
     final target = await Navigator.push<Person>(
       context,
-      MaterialPageRoute(
+      AppPageRoute(
         builder: (_) => PersonSelectPage(
           title: 'Merge ${person.fullName} into…',
           excludeIds: {person.id},
@@ -218,9 +219,7 @@ class _PersonDetailView extends ConsumerWidget {
     if (!context.mounted) return;
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => PersonDetailPage(personId: target.id),
-      ),
+      AppPageRoute<void>(builder: (_) => PersonDetailPage(personId: target.id)),
     );
   }
 

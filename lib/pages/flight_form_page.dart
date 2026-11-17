@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:timezone/timezone.dart' as tz;
-import '../core/fab_hero_tags.dart';
 
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../providers/database_provider.dart';
 import '../providers/flight_form_provider.dart';
 import '../providers/flight_providers.dart';
@@ -251,7 +252,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   Future<void> _addImportedAircraft(String registration) async {
     final id = await Navigator.push<Object?>(
       context,
-      MaterialPageRoute(
+      AppPageRoute(
         builder: (_) => AircraftFormPage(initialTailNumber: registration),
       ),
     );
@@ -522,7 +523,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       case _SignatureAction.draw:
         picked = await Navigator.push<File>(
           context,
-          MaterialPageRoute(builder: (_) => const SignaturePadPage()),
+          AppPageRoute(builder: (_) => const SignaturePadPage()),
         );
       case _SignatureAction.upload:
         picked = await _pickAndCrop(ImageSource.gallery);
@@ -632,7 +633,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   Future<void> _pickSimulator(FlightFormNotifier notifier) async {
     final sim = await Navigator.push<SimulatorWithStats>(
       context,
-      MaterialPageRoute(builder: (_) => const SimulatorSelectPage()),
+      AppPageRoute(builder: (_) => const SimulatorSelectPage()),
     );
     if (sim != null) notifier.setSelectedSimulator(sim);
   }
@@ -640,7 +641,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   Future<void> _pickAircraft(FlightFormNotifier notifier) async {
     final aws = await Navigator.push<AircraftWithStats>(
       context,
-      MaterialPageRoute(builder: (_) => const AircraftSelectPage()),
+      AppPageRoute(builder: (_) => const AircraftSelectPage()),
     );
     if (aws != null) {
       notifier.setSelectedAircraft(aws);

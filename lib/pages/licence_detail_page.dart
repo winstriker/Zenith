@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../models/currency.dart';
 import '../providers/licence_providers.dart';
@@ -55,7 +56,7 @@ class _LicenceDetailView extends ConsumerWidget {
 
   void _addRating(BuildContext context) => Navigator.push(
     context,
-    MaterialPageRoute<void>(builder: (_) => RatingFormPage(licence: l)),
+    AppPageRoute<void>(builder: (_) => RatingFormPage(licence: l)),
   );
 
   @override
@@ -102,9 +103,7 @@ class _LicenceDetailView extends ConsumerWidget {
               tooltip: 'Edit licence',
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute<void>(
-                  builder: (_) => LicenceFormPage(licence: l),
-                ),
+                AppPageRoute<void>(builder: (_) => LicenceFormPage(licence: l)),
               ),
               child: const Icon(Icons.edit),
             ),
@@ -261,7 +260,7 @@ class _RatingCard extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute<void>(
+          AppPageRoute<void>(
             builder: (_) =>
                 RatingDetailPage(licenceId: licence.id, ratingId: rating.id),
           ),

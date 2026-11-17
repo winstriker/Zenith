@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_page_route.dart';
 import '../widgets/people_list_scaffold.dart';
 import 'person_detail_page.dart';
 
@@ -13,7 +14,7 @@ class PeoplePage extends StatelessWidget {
       title: 'People',
       onTap: (entry) => Navigator.push(
         context,
-        MaterialPageRoute<void>(
+        AppPageRoute<void>(
           builder: (_) =>
               PersonDetailPage(personId: entry.person.id, initial: entry),
         ),

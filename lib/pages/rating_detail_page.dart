@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../models/currency.dart';
 import '../providers/licence_providers.dart';
@@ -106,7 +107,7 @@ class _RatingDetailView extends ConsumerWidget {
               label: const Text('Edit'),
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute<void>(
+                AppPageRoute<void>(
                   builder: (_) =>
                       RatingFormPage(licence: licence, rating: rating),
                 ),

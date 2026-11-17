@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/fab_hero_tags.dart';
 
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../pages/aircraft_form_page.dart';
 import '../providers/aircraft_providers.dart';
 import '../services/database.dart';
@@ -203,7 +204,7 @@ class _AircraftListScaffoldState extends ConsumerState<AircraftListScaffold> {
   Future<void> _addAircraft() async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const AircraftFormPage()),
+      AppPageRoute<void>(builder: (_) => const AircraftFormPage()),
     );
     // Stream provider picks up the new aircraft automatically.
   }

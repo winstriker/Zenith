@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../providers/airport_providers.dart';
 import '../services/airport_service.dart';
@@ -285,7 +286,7 @@ class _AirportList extends StatelessWidget {
             distanceKm: item.distance >= 0 ? item.distance : null,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute<void>(
+              AppPageRoute<void>(
                 builder: (_) => AirportDetailPage(airportId: item.airport.id),
               ),
             ),

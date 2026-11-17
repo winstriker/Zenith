@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/fab_hero_tags.dart';
 
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../pages/person_form_page.dart';
 import '../providers/person_providers.dart';
 import '../services/database.dart';
@@ -180,7 +181,7 @@ class _PeopleListScaffoldState extends ConsumerState<PeopleListScaffold> {
     final words = _query.split(RegExp(r'\s+'));
     final person = await Navigator.push(
       context,
-      MaterialPageRoute<Person>(
+      AppPageRoute<Person>(
         builder: (_) => PersonFormPage(
           initialName: words.isNotEmpty ? words.first : '',
           initialSurname: words.length > 1 ? words.skip(1).join(' ') : '',
