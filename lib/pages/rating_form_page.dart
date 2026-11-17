@@ -187,13 +187,7 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final months = _validityMonths;
     final suggested = _suggestedExpiry;
-    final validityText = months == null
-        ? null
-        : 'Valid ${months % 12 == 0 ? '${months ~/ 12} year${months == 12 ? '' : 's'}' : '$months months'}'
-              '${_kind.reference == null ? '' : ' (${_kind.reference})'}';
-
     return LicenceFormScaffold(
       title: _title,
       subtitle: widget.licence.title,
