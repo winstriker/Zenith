@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeNotifier extends Notifier<ThemeMode> {
-  static const _key = 'theme_mode';
+  static const prefsKey = 'theme_mode';
 
   @override
   ThemeMode build() {
@@ -13,7 +13,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final themeIndex = prefs.getInt(_key);
+    final themeIndex = prefs.getInt(prefsKey);
     if (themeIndex != null &&
         themeIndex >= 0 &&
         themeIndex < ThemeMode.values.length) {
@@ -24,7 +24,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
   Future<void> setThemeMode(ThemeMode mode) async {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_key, mode.index);
+    await prefs.setInt(prefsKey, mode.index);
   }
 }
 

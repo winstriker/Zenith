@@ -12,6 +12,7 @@ import '../providers/gps_tracking_provider.dart';
 import '../providers/home_header_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/user_provider.dart';
+import '../repositories/pilot_profile_repository.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/empty_state.dart';
@@ -98,6 +99,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     final aircraftList = ref.watch(aircraftListStreamProvider);
     final nickname = ref.watch(userNicknameProvider);
     final totalFlightTime = ref.watch(totalFlightTimeProvider);
+    // Flight time logged before the app counts too.
+    final previousMinutes = ref
+        .watch(previousTotalsProvider)
+        .time(LogbookTimeField.total)
+        .inMinutes;
     final isRecording = gpsController.isTracking();
 
     return Scaffold(
@@ -127,7 +133,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                       loading: () => 0,
                     ),
                     totalMinutes: totalFlightTime.when(
-                      data: (val) => val,
+                      data: (val) => val + previousMinutes,
                       error: (_, _) => -1,
                       loading: () => 0,
                     ),

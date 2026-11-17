@@ -38,21 +38,26 @@ class DisabledIdsNotifier extends Notifier<Set<String>> {
   }
 }
 
+/// Preference keys of the toggles below.
+const disabledTrackProvidersKey = 'adsb_disabled_track_providers';
+const disabledHexSourcesKey = 'adsb_disabled_hex_sources';
+const disabledPhotoSourcesKey = 'photo_disabled_sources';
+
 /// ADS-B track providers (`AdsbProvider.id`) not to fetch tracks from.
 final disabledTrackProvidersProvider =
     NotifierProvider<DisabledIdsNotifier, Set<String>>(
-      () => DisabledIdsNotifier('adsb_disabled_track_providers'),
+      () => DisabledIdsNotifier(disabledTrackProvidersKey),
     );
 
 /// Sources (`HexSource.id`) not to ask which ICAO address a registration
 /// has.
 final disabledHexSourcesProvider =
     NotifierProvider<DisabledIdsNotifier, Set<String>>(
-      () => DisabledIdsNotifier('adsb_disabled_hex_sources'),
+      () => DisabledIdsNotifier(disabledHexSourcesKey),
     );
 
 /// Sources (`AircraftLookupSource.id`) not to take aircraft photos from.
 final disabledPhotoSourcesProvider =
     NotifierProvider<DisabledIdsNotifier, Set<String>>(
-      () => DisabledIdsNotifier('photo_disabled_sources'),
+      () => DisabledIdsNotifier(disabledPhotoSourcesKey),
     );

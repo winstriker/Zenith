@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
@@ -30,6 +31,22 @@ class _Totals {
   Duration instructor = Duration.zero;
   Duration fstd = Duration.zero;
 
+  /// What was logged before the app, carried forward into the first page.
+  static _Totals previous(PreviousTotals p) => _Totals()
+    ..se = p.time(LogbookTimeField.singlePilotSe)
+    ..me = p.time(LogbookTimeField.singlePilotMe)
+    ..multiPilot = p.time(LogbookTimeField.multiPilot)
+    ..total = p.time(LogbookTimeField.total)
+    ..dayLandings = p.dayLandings
+    ..nightLandings = p.nightLandings
+    ..night = p.time(LogbookTimeField.night)
+    ..ifr = p.time(LogbookTimeField.ifr)
+    ..pic = p.time(LogbookTimeField.pic)
+    ..coPilot = p.time(LogbookTimeField.coPilot)
+    ..dual = p.time(LogbookTimeField.dual)
+    ..instructor = p.time(LogbookTimeField.instructor)
+    ..fstd = p.time(LogbookTimeField.fstd);
+
   _Totals operator +(_Totals other) {
     return _Totals()
       ..se = se + other.se
@@ -56,19 +73,28 @@ class PdfExportService {
   /// it, and a photo of the paper logbook's remarks is cropped to it.
   static const remarksCellRatio = (x: 20, y: 3);
 
+  /// Width to height of the space left for the pilot's signature in the
+  /// "pilot's signature" box at the bottom of each page, under its label.
+  static const pilotSignatureRatio = (x: 5, y: 1);
+
   /// [signatures] are the images (PNG or JPEG) laid over the remarks, by
-  /// flight id.
+  /// flight id. [pilotSignature] signs every page. [previousTotals] are
+  /// carried forward into the first page.
   static Future<File> generateLogbook(
     List<FlightWithStats> flights, {
     Map<int, List<CrewMember>> crewByFlight = const {},
     Map<int, Uint8List> signatures = const {},
+    Uint8List? pilotSignature,
+    PreviousTotals previousTotals = PreviousTotals.empty,
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
   }) async {
-    final html = _buildLogbookHtml(
+    final html = buildLogbookHtml(
       flights,
       crewByFlight: crewByFlight,
       signatures: signatures,
+      pilotSignature: pilotSignature,
+      previousTotals: previousTotals,
       pilotName: pilotName,
       picNameMode: picNameMode,
     );
@@ -117,19 +143,22 @@ class PdfExportService {
 
   static String _fmtInt(int n) => n > 0 ? '$n' : '';
 
+  /// [image] (PNG or JPEG) as a data URI.
+  static String _dataUri(Uint8List image) {
+    final isPng =
+        image.length > 4 &&
+        image[0] == 0x89 &&
+        image[1] == 0x50 &&
+        image[2] == 0x4E &&
+        image[3] == 0x47;
+    return 'data:image/${isPng ? 'png' : 'jpeg'};base64,${base64Encode(image)}';
+  }
+
   /// The remarks cell, with [signature] laid over the text when there is one.
   static String _remarksCell(String remarks, Uint8List? signature) {
     if (signature == null) return '<td class="text-left">$remarks</td>';
-    final isPng =
-        signature.length > 4 &&
-        signature[0] == 0x89 &&
-        signature[1] == 0x50 &&
-        signature[2] == 0x4E &&
-        signature[3] == 0x47;
-    final src =
-        'data:image/${isPng ? 'png' : 'jpeg'};base64,${base64Encode(signature)}';
     return '<td class="text-left signed">$remarks'
-        '<img class="signature" src="$src"></td>';
+        '<img class="signature" src="${_dataUri(signature)}"></td>';
   }
 
   static _Totals _calcPageTotals(List<LogbookEntry> page) {
@@ -152,7 +181,13 @@ class PdfExportService {
     return t;
   }
 
-  static String _totalsRow(String label, _Totals t, _RemarksCell remarks) {
+  /// [pilotSignature] is a data URI, put in the signature box.
+  static String _totalsRow(
+    String label,
+    _Totals t,
+    _RemarksCell remarks, {
+    String? pilotSignature,
+  }) {
     final buf = StringBuffer();
     buf.write('<tr class="row-data">');
     buf.write('<td colspan="7" class="text-right">$label</td>');
@@ -178,8 +213,12 @@ class PdfExportService {
         );
       case _RemarksCell.signature:
         buf.write(
-          '<td rowspan="2" class="text-top text-left bold" style="font-size: 6.5pt;">PILOT\'S SIGNATURE</td>',
+          '<td rowspan="2" class="text-top text-left bold signed" style="font-size: 6.5pt;">PILOT\'S SIGNATURE',
         );
+        if (pilotSignature != null) {
+          buf.write('<img class="pilot-signature" src="$pilotSignature">');
+        }
+        buf.write('</td>');
       case _RemarksCell.coveredBySignature:
         // Column 12 is occupied by the signature cell's rowspan above.
         break;
@@ -233,13 +272,21 @@ class PdfExportService {
 </thead>''';
   }
 
-  static String _buildLogbookHtml(
+  /// The logbook as HTML, for [generateLogbook] to print.
+  @visibleForTesting
+  static String buildLogbookHtml(
     List<FlightWithStats> flights, {
     Map<int, List<CrewMember>> crewByFlight = const {},
     Map<int, Uint8List> signatures = const {},
+    Uint8List? pilotSignature,
+    PreviousTotals previousTotals = PreviousTotals.empty,
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
   }) {
+    // Encoded once: the same picture signs every page.
+    final pilotSignatureUri = pilotSignature == null
+        ? null
+        : _dataUri(pilotSignature);
     final dateFmt = DateFormat('dd/MM/yy');
     final timeFmt = DateFormat('HH:mm');
     final selfPicName = picNameMode == PicNameMode.self
@@ -345,13 +392,22 @@ class PdfExportService {
     object-fit: contain;
     object-position: center;
   }
+  .pilot-signature {
+    position: absolute;
+    top: 3.2mm;
+    left: 0;
+    width: 100%;
+    height: calc(100% - 3.4mm);
+    object-fit: contain;
+    object-position: center;
+  }
   .bg-grey { background-color: #f2f2f2; }
 </style>
 </head>
 <body>
 ''');
 
-    var prevTotals = _Totals();
+    var prevTotals = _Totals.previous(previousTotals);
 
     for (int pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       final pageFlights = pages[pageIdx];
@@ -455,6 +511,7 @@ class PdfExportService {
           'TOTAL FROM PREVIOUS PAGES',
           prevTotals,
           _RemarksCell.signature,
+          pilotSignature: pilotSignatureUri,
         ),
       );
       buf.write(

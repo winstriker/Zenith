@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../core/app_page_route.dart';
 import '../providers/airport_providers.dart';
 import '../providers/carto_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/airport_service.dart';
 import '../widgets/sync_progress_indicator.dart';
+import 'previous_totals_page.dart';
 
 class IntroPage extends ConsumerStatefulWidget {
   const IntroPage({super.key, required this.onPermissionGranted});
@@ -115,8 +117,21 @@ class _IntroPageState extends ConsumerState<IntroPage>
         .read(userSignatureNameProvider.notifier)
         .setSignatureName(signatureName);
 
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _step = 2);
+  }
 
+  Future<void> _enterPreviousTotals() async {
+    final saved = await Navigator.push<bool>(
+      context,
+      AppPageRoute(builder: (_) => const PreviousTotalsPage()),
+    );
+    // Closed without saving: the choice is still open.
+    if (saved == true && mounted) _goToApiKeyStep();
+  }
+
+  void _goToApiKeyStep() {
+    setState(() => _step = 3);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _apiKeyFocus.requestFocus();
     });
@@ -140,7 +155,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
     if (!mounted) return;
     setState(() => _savingKey = false);
 
-    setState(() => _step = 3);
+    setState(() => _step = 4);
   }
 
   Future<void> _onLocationContinue() => _requestPermission();
@@ -160,8 +175,8 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
   /// Goes to the last step: the airport download progress, which becomes
   /// an "all set" confirmation once the data is in, so the user always sees
-  /// 5/5 and enters the app with a tap.
-  void _goToAirportDataStep() => setState(() => _step = 4);
+  /// the last step and enters the app with a tap.
+  void _goToAirportDataStep() => setState(() => _step = _stepCount - 1);
 
   /// Marks onboarding as complete and enters the app. Any running airport
   /// download keeps going in the background.
@@ -172,7 +187,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
     widget.onPermissionGranted();
   }
 
-  static const _stepCount = 5;
+  static const _stepCount = 6;
 
   Widget _currentStep() {
     switch (_step) {
@@ -206,6 +221,12 @@ class _IntroPageState extends ConsumerState<IntroPage>
           onContinue: _onSignatureContinue,
         );
       case 2:
+        return _PreviousTotalsStep(
+          key: const ValueKey('previousTotals'),
+          onEnter: _enterPreviousTotals,
+          onSkip: _goToApiKeyStep,
+        );
+      case 3:
         return _TextInputStep(
           key: const ValueKey('apiKey'),
           title: 'Map API Key (Optional)',
@@ -225,7 +246,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
             _onApiKeyContinue(skip: true);
           },
         );
-      case 3:
+      case 4:
         return _LocationStep(
           key: const ValueKey('location'),
           requesting: _requesting,
@@ -634,6 +655,41 @@ class _TextInputStep extends StatelessWidget {
           const SizedBox(height: 12),
           _StepSkipButton(label: 'Skip', onPressed: busy ? null : onSkip),
         ],
+      ],
+    );
+  }
+}
+
+/// Offers to carry forward the totals of the logbook kept before the app.
+class _PreviousTotalsStep extends StatelessWidget {
+  const _PreviousTotalsStep({
+    super.key,
+    required this.onEnter,
+    required this.onSkip,
+  });
+
+  final VoidCallback onEnter;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _StepHeader(
+          title: 'Do you have a previous logbook?',
+          subtitle:
+              'Enter its totals to carry them forward into your Zenith '
+              'logbook. You can also do it later from Settings.',
+        ),
+        const SizedBox(height: 24),
+        _StepPrimaryButton(
+          label: 'Enter Previous Totals',
+          icon: const Icon(Icons.history_edu_outlined, size: 24),
+          onPressed: onEnter,
+        ),
+        const SizedBox(height: 12),
+        _StepSkipButton(label: "No, I'm Starting Fresh", onPressed: onSkip),
       ],
     );
   }

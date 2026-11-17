@@ -18,9 +18,12 @@ class DurationFormatter {
   }
 
   /// Reads a duration typed as HH:MM (what [hm] writes and `TimeInputFormatter`
-  /// produces). Null when incomplete or invalid ('1:3', '01:75').
-  static Duration? parseHm(String text) {
-    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(text.trim());
+  /// produces), with up to [maxHourDigits] digits of hours. Null when
+  /// incomplete or invalid ('1:3', '01:75').
+  static Duration? parseHm(String text, {int maxHourDigits = 2}) {
+    final match = RegExp(
+      '^(\\d{1,$maxHourDigits}):(\\d{2})\$',
+    ).firstMatch(text.trim());
     if (match == null) return null;
     final minutes = int.parse(match.group(2)!);
     if (minutes >= 60) return null;

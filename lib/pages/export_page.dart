@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../providers/database_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/user_provider.dart';
+import '../repositories/pilot_profile_repository.dart';
 import '../services/database.dart';
 import '../services/file_opener.dart';
 import '../services/pdf_export_service.dart';
@@ -99,10 +100,16 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       final bytes = name == null ? null : await store.read(name);
       if (bytes != null) signatures[f.flight.id] = bytes;
     }
+    final profile = await ref.read(pilotProfileRepositoryProvider).get();
+    final pilotSignatureFile = profile?.signatureFile;
     final file = await PdfExportService.generateLogbook(
       flights,
       crewByFlight: crew,
       signatures: signatures,
+      pilotSignature: pilotSignatureFile == null
+          ? null
+          : await store.read(pilotSignatureFile),
+      previousTotals: profile?.previousTotals ?? PreviousTotals.empty,
       pilotName: ref.read(userSignatureNameProvider),
       picNameMode: ref.read(picNameModeProvider),
     );

@@ -51,11 +51,16 @@ class RestoreSummary {
     required this.aircraft,
     required this.people,
     required this.photos,
+    this.settings,
   });
   final int flights;
   final int aircraft;
   final int people;
   final int photos;
+
+  /// The app settings in the backup, for the caller to apply; null for a
+  /// backup made before settings were included.
+  final Map<String, Object?>? settings;
 }
 
 /// Turns the whole app database into a portable file and back.
@@ -68,8 +73,10 @@ class RestoreSummary {
 /// - `aircraft_photos/<name>`: aircraft photos picked by the user, when
 ///   photos are included. Aircraft photos found online are only links, and
 ///   travel inside the database.
-/// - `signatures/<name>`: flight signatures, always: they are part of the
-///   logbook.
+/// - `signatures/<name>`: flight signatures and the pilot's own, always:
+///   they are part of the logbook.
+/// - `settings.json`: the app settings the caller passed in, when it did.
+///   This service doesn't know what is in it: see `AppSettingsBackup`.
 ///
 /// Restoring copies every table of the snapshot over the live database
 /// inside one transaction, so the app keeps its open connection and a failed
@@ -104,6 +111,7 @@ class BackupService {
   static const _photosPrefix = 'photos/';
   static const _aircraftPhotosPrefix = 'aircraft_photos/';
   static const _signaturesPrefix = 'signatures/';
+  static const _settingsEntry = 'settings.json';
 
   static String fileNameFor(DateTime time, {String suffix = ''}) {
     String two(int n) => n.toString().padLeft(2, '0');
@@ -129,7 +137,12 @@ class BackupService {
   // Create
   // ---------------------------------------------------------------------------
 
-  Future<BackupSnapshot> create({required bool includePhotos}) async {
+  /// [settings] (JSON-encodable) are stored alongside the data, and come
+  /// back in [RestoreSummary.settings].
+  Future<BackupSnapshot> create({
+    required bool includePhotos,
+    Map<String, Object>? settings,
+  }) async {
     final createdAt = DateTime.now();
     final counts = await _counts();
 
@@ -166,6 +179,8 @@ class BackupService {
       _signatures,
       _signaturesPrefix,
       'SELECT signature_file AS name FROM flights '
+      'WHERE signature_file IS NOT NULL '
+      'UNION SELECT signature_file AS name FROM pilot_profile '
       'WHERE signature_file IS NOT NULL',
     );
 
@@ -176,8 +191,16 @@ class BackupService {
       'createdAt': createdAt.toUtc().toIso8601String(),
       'appVersion': appBuildName,
       'includesPhotos': includePhotos,
+      'includesSettings': settings != null,
       'counts': counts,
     });
+    // Sorted, so the same settings always hash the same.
+    final settingsJson = settings == null
+        ? null
+        : jsonEncode({
+            for (final key in settings.keys.toList()..sort())
+              key: settings[key],
+          });
 
     // Hashing and compressing ~20 MB is noticeable; keep it off the UI.
     final (bytes, hash) = await Isolate.run(() {
@@ -185,6 +208,10 @@ class BackupService {
       final archive = Archive()
         ..add(ArchiveFile.string(_manifestEntry, manifest))
         ..add(ArchiveFile.bytes(_databaseEntry, database));
+      if (settingsJson != null) {
+        parts.add('settings:${sha256.convert(utf8.encode(settingsJson))}');
+        archive.add(ArchiveFile.string(_settingsEntry, settingsJson));
+      }
       for (final MapEntry(:key, :value) in photos.entries) {
         parts.add('$key:${sha256.convert(value)}');
         archive.add(ArchiveFile.bytes(key, value));
@@ -285,7 +312,7 @@ class BackupService {
       );
     }
 
-    final (database, photos, aircraftPhotos, signatures) = content!;
+    final (database, photos, aircraftPhotos, signatures, settings) = content!;
     final file = await _tempFile('restore');
     await file.writeAsBytes(database, flush: true);
     try {
@@ -295,24 +322,14 @@ class BackupService {
     }
 
     final restoredPhotos =
-        await _restorePhotos(
-          _photos,
-          photos,
-          table: 'people',
-          column: 'photo',
-        ) +
-        await _restorePhotos(
-          _aircraftPhotos,
-          aircraftPhotos,
-          table: 'aircrafts',
-          column: 'photo_file',
-        );
-    await _restorePhotos(
-      _signatures,
-      signatures,
-      table: 'flights',
-      column: 'signature_file',
-    );
+        await _restorePhotos(_photos, photos, [('people', 'photo')]) +
+        await _restorePhotos(_aircraftPhotos, aircraftPhotos, [
+          ('aircrafts', 'photo_file'),
+        ]);
+    await _restorePhotos(_signatures, signatures, [
+      ('flights', 'signature_file'),
+      ('pilot_profile', 'signature_file'),
+    ]);
     // Backups older than aircraft classes come back without any.
     if (schema is int && schema < 5) await _db.assignDeducedAircraftClasses();
     _db.markTablesUpdated(_db.allTables);
@@ -323,11 +340,13 @@ class BackupService {
       aircraft: counts['aircraft']!,
       people: counts['people']!,
       photos: restoredPhotos,
+      settings: settings,
     );
   }
 
   /// Unzips and validates a backup. With [withContent], also returns the
-  /// database snapshot, people's photos, aircraft photos and signatures.
+  /// database snapshot, people's photos, aircraft photos, signatures and
+  /// settings.
   static Future<
     (
       Map<String, Object?>,
@@ -336,6 +355,7 @@ class BackupService {
         Map<String, Uint8List>,
         Map<String, Uint8List>,
         Map<String, Uint8List>,
+        Map<String, Object?>?,
       )?,
     )
   >
@@ -375,6 +395,16 @@ class BackupService {
             if (f.isFile && f.name.startsWith(prefix))
               f.name.substring(prefix.length): f.content,
         };
+        final settingsFile = archive.findFile(_settingsEntry);
+        Map<String, Object?>? settings;
+        if (settingsFile != null) {
+          try {
+            final decoded = jsonDecode(utf8.decode(settingsFile.content));
+            if (decoded is Map<String, dynamic>) settings = decoded;
+          } catch (_) {
+            // Damaged settings don't stop the logbook from being restored.
+          }
+        }
         return (
           manifest,
           (
@@ -382,6 +412,7 @@ class BackupService {
             under(_photosPrefix),
             under(_aircraftPhotosPrefix),
             under(_signaturesPrefix),
+            settings,
           ),
         );
       });
@@ -447,14 +478,13 @@ class BackupService {
   }
 
   /// Writes the backup's photos into [store], then makes that folder match
-  /// the restored rows of [table], whose [column] holds the file name:
-  /// missing pictures are cleared, unused files deleted.
+  /// the restored rows of each table of [references], whose column holds
+  /// the file name: missing pictures are cleared, unused files deleted.
   Future<int> _restorePhotos(
     PhotoStore store,
-    Map<String, Uint8List> photos, {
-    required String table,
-    required String column,
-  }) async {
+    Map<String, Uint8List> photos,
+    List<(String table, String column)> references,
+  ) async {
     final dir = await store.directory;
     var written = 0;
     for (final MapEntry(:key, :value) in photos.entries) {
@@ -464,21 +494,23 @@ class BackupService {
       written++;
     }
 
-    final rows = await _db
-        .customSelect(
-          'SELECT id, $column AS name FROM $table WHERE $column IS NOT NULL',
-        )
-        .get();
     final referenced = <String>{};
-    for (final row in rows) {
-      final name = row.read<String>('name');
-      if (File('${dir.path}/$name').existsSync()) {
-        referenced.add(name);
-      } else {
-        await _db.customStatement(
-          'UPDATE $table SET $column = NULL WHERE id = ?',
-          [row.read<int>('id')],
-        );
+    for (final (table, column) in references) {
+      final rows = await _db
+          .customSelect(
+            'SELECT id, $column AS name FROM $table WHERE $column IS NOT NULL',
+          )
+          .get();
+      for (final row in rows) {
+        final name = row.read<String>('name');
+        if (File('${dir.path}/$name').existsSync()) {
+          referenced.add(name);
+        } else {
+          await _db.customStatement(
+            'UPDATE $table SET $column = NULL WHERE id = ?',
+            [row.read<int>('id')],
+          );
+        }
       }
     }
     for (final file in dir.listSync().whereType<File>()) {

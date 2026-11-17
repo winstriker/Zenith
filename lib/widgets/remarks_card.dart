@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/pdf_export_service.dart';
 import '../widgets/section_header.dart';
+import 'signature_preview.dart';
 
 class RemarksCard extends StatelessWidget {
   const RemarksCard({
@@ -27,6 +28,8 @@ class RemarksCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final editable = onChanged != null;
+    final (:x, :y) = PdfExportService.remarksCellRatio;
+    final remarksRatio = x / y;
 
     return Card(
       margin: const EdgeInsets.all(0),
@@ -63,7 +66,11 @@ class RemarksCard extends StatelessWidget {
             ],
             if (signature != null) ...[
               const SizedBox(height: 12),
-              _SignaturePreview(file: signature!, onTap: onSignatureTap),
+              SignaturePreview(
+                file: signature!,
+                aspectRatio: remarksRatio,
+                onTap: onSignatureTap,
+              ),
             ] else if (onSignatureTap != null) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
@@ -74,57 +81,6 @@ class RemarksCard extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// The signature as it fits the remarks cell of the exported logbook.
-class _SignaturePreview extends StatelessWidget {
-  const _SignaturePreview({required this.file, this.onTap});
-  final File file;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(8);
-    final (:x, :y) = PdfExportService.remarksCellRatio;
-    final preview = AspectRatio(
-      aspectRatio: x / y,
-      child: DecoratedBox(
-        // On paper, whatever the theme.
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: radius,
-          border: Border.all(color: cs.outlineVariant),
-        ),
-        child: ClipRRect(
-          borderRadius: radius,
-          child: Image.file(
-            file,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Center(
-              child: Icon(Icons.broken_image_outlined, color: Colors.black38),
-            ),
-          ),
-        ),
-      ),
-    );
-    if (onTap == null) return preview;
-    return Tooltip(
-      message: 'Change signature',
-      child: Stack(
-        children: [
-          preview,
-          // Above the white paper, or the ripple wouldn't show.
-          Positioned.fill(
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(onTap: onTap, borderRadius: radius),
-            ),
-          ),
-        ],
       ),
     );
   }

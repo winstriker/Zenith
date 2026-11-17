@@ -18,6 +18,7 @@ import 'currency_settings_page.dart';
 import 'export_page.dart';
 import 'map_settings_page.dart';
 import 'people_page.dart';
+import 'personal_data_page.dart';
 import 'photo_settings_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -99,6 +100,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
         children: [
           const PageTitle('Settings', horizontalPadding: 0),
+          const SectionHeader(title: 'Pilot', uppercase: true),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.account_circle_outlined),
+              title: const Text('Personal Data'),
+              subtitle: const Text('Name, previous logbook, signature'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                AppPageRoute<void>(builder: (_) => const PersonalDataPage()),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           const SectionHeader(title: 'Preferences', uppercase: true),
           Card(
             child: Column(

@@ -302,6 +302,63 @@ void main() {
     expect(File('${targetSignatures.path}/stale.png').existsSync(), isFalse);
   });
 
+  test('the pilot profile and signature travel with the backup', () async {
+    await seed();
+    final signatures = Directory('${sourceRoot.path}/signatures')
+      ..createSync(recursive: true);
+    File('${signatures.path}/pilot.png').writeAsBytesSync([9, 9]);
+    final totals = const PreviousTotals().withTime(
+      LogbookTimeField.total,
+      const Duration(hours: 1500),
+    );
+    await source
+        .into(source.pilotProfile)
+        .insert(
+          PilotProfileCompanion.insert(
+            id: const Value(PilotProfile.rowId),
+            previousTotals: Value(totals),
+            signatureFile: const Value('pilot.png'),
+          ),
+        );
+
+    final snapshot = await sourceBackup.create(includePhotos: false);
+    await targetBackup.restore(snapshot.bytes);
+
+    final profile = await target.select(target.pilotProfile).getSingle();
+    expect(profile.previousTotals, totals);
+    expect(profile.signatureFile, 'pilot.png');
+    // Not taken for a leftover: no flight uses it.
+    expect(File('${targetRoot.path}/signatures/pilot.png').readAsBytesSync(), [
+      9,
+      9,
+    ]);
+  });
+
+  test('settings travel with the backup and change its hash', () async {
+    await seed();
+    final without = await sourceBackup.create(includePhotos: false);
+    final first = await sourceBackup.create(
+      includePhotos: false,
+      settings: {'theme_mode': 2, 'user_nickname': 'Ace'},
+    );
+    final same = await sourceBackup.create(
+      includePhotos: false,
+      settings: {'user_nickname': 'Ace', 'theme_mode': 2},
+    );
+    final other = await sourceBackup.create(
+      includePhotos: false,
+      settings: {'theme_mode': 1, 'user_nickname': 'Ace'},
+    );
+    expect(same.contentHash, first.contentHash);
+    expect(other.contentHash, isNot(first.contentHash));
+    expect(without.contentHash, isNot(first.contentHash));
+
+    final summary = await targetBackup.restore(first.bytes);
+    expect(summary.settings, {'theme_mode': 2, 'user_nickname': 'Ace'});
+    // Older backups have none: settings are left as they are.
+    expect((await targetBackup.restore(without.bytes)).settings, isNull);
+  });
+
   test('without photos, missing pictures are cleared on restore', () async {
     await seed();
     final snapshot = await sourceBackup.create(includePhotos: false);

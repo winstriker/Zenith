@@ -20,7 +20,7 @@ enum MapSource {
 // Chosen source persistence
 // ---------------------------------------------------------------------------
 class MapSourceNotifier extends Notifier<MapSource> {
-  static const _key = 'map_source';
+  static const prefsKey = 'map_source';
 
   /// Completes once the saved choice has been read.
   late Future<void> loaded;
@@ -33,7 +33,7 @@ class MapSourceNotifier extends Notifier<MapSource> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString(_key);
+    final name = prefs.getString(prefsKey);
     state = MapSource.values.firstWhere(
       (s) => s.name == name,
       orElse: () => MapSource.carto,
@@ -43,7 +43,7 @@ class MapSourceNotifier extends Notifier<MapSource> {
   Future<void> setSource(MapSource source) async {
     state = source;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, source.name);
+    await prefs.setString(prefsKey, source.name);
   }
 }
 

@@ -13,6 +13,7 @@ import '../models/airport_type.dart';
 import '../models/crew.dart';
 import '../models/licence.dart';
 import '../models/logbook_overrides.dart';
+import '../models/previous_totals.dart';
 import '../models/simulator_kind.dart';
 import '../utils/night_time.dart';
 
@@ -23,6 +24,7 @@ export '../models/airport_type.dart';
 export '../models/crew.dart';
 export '../models/licence.dart';
 export '../models/logbook_overrides.dart';
+export '../models/previous_totals.dart';
 export '../models/simulator_kind.dart';
 
 part 'database.g.dart';
@@ -404,6 +406,27 @@ class MedicalCertificates extends Table {
   /// Limitations on the certificate (VML, SSL...).
   TextColumn get limitations => text().nullable()();
   TextColumn get notes => text().nullable()();
+}
+
+/// The pilot's own data that belongs with the logbook, and so travels in
+/// backups. A single row, with id [PilotProfile.rowId].
+@DataClassName('PilotProfileRow')
+class PilotProfile extends Table {
+  static const rowId = 1;
+
+  IntColumn get id => integer()();
+
+  /// Totals logged before the app, carried forward into the logbook.
+  TextColumn get previousTotals =>
+      text().map(PreviousTotals.converter).nullable()();
+
+  /// File name of the pilot's signature inside the app's signature folder,
+  /// put in the "pilot's signature" box of each page of the exported
+  /// logbook.
+  TextColumn get signatureFile => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 /// The night time of a flight from [departure] to [arrival] (see
@@ -793,6 +816,7 @@ extension ToIcaoAircraft on AircraftWithStats {
     Licences,
     LicenceRatings,
     MedicalCertificates,
+    PilotProfile,
   ],
   views: [AircraftWithStatss, FlightStats, AircraftWithIcaos],
 )
@@ -809,7 +833,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -950,6 +974,9 @@ class LogbookDatabase extends _$LogbookDatabase {
           'CREATE INDEX IF NOT EXISTS flights_simulator_id_idx '
           'ON flights (simulator_id)',
         );
+      }
+      if (from < 12) {
+        await m.createTable(pilotProfile);
       }
     },
   );

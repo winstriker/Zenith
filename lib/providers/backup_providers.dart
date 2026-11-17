@@ -15,6 +15,7 @@ import '../services/local_backup_store.dart';
 import '../services/oauth_callback_service.dart';
 import '../services/oauth_service.dart';
 import '../services/person_photo_store.dart';
+import 'app_settings_backup.dart';
 import 'database_provider.dart';
 
 final _log = Logger('Backup');
@@ -67,17 +68,17 @@ class BackupSettings {
 }
 
 class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
-  static const _photosKey = 'backup_include_photos';
-  static const _frequencyKey = 'backup_frequency';
+  static const photosKey = 'backup_include_photos';
+  static const frequencyKey = 'backup_frequency';
 
   @override
   Future<BackupSettings> build() async {
     final prefs = await SharedPreferences.getInstance();
     const defaults = BackupSettings();
     return BackupSettings(
-      includePhotos: prefs.getBool(_photosKey) ?? defaults.includePhotos,
+      includePhotos: prefs.getBool(photosKey) ?? defaults.includePhotos,
       frequency: BackupFrequency.values.firstWhere(
-        (f) => f.name == prefs.getString(_frequencyKey),
+        (f) => f.name == prefs.getString(frequencyKey),
         orElse: () => defaults.frequency,
       ),
     );
@@ -85,13 +86,13 @@ class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
 
   Future<void> setIncludePhotos(bool value) async {
     state = AsyncData((await future).copyWith(includePhotos: value));
-    await (await SharedPreferences.getInstance()).setBool(_photosKey, value);
+    await (await SharedPreferences.getInstance()).setBool(photosKey, value);
   }
 
   Future<void> setFrequency(BackupFrequency value) async {
     state = AsyncData((await future).copyWith(frequency: value));
     await (await SharedPreferences.getInstance()).setString(
-      _frequencyKey,
+      frequencyKey,
       value.name,
     );
     unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
@@ -446,7 +447,12 @@ class BackupController extends AsyncNotifier<BackupState> {
       try {
         snapshot = await ref
             .read(backupServiceProvider)
-            .create(includePhotos: settings.includePhotos);
+            .create(
+              includePhotos: settings.includePhotos,
+              settings: AppSettingsBackup.read(
+                await SharedPreferences.getInstance(),
+              ),
+            );
       } catch (e) {
         for (final d in todo) {
           await _record(d, error: _message(e));
@@ -525,12 +531,19 @@ class BackupController extends AsyncNotifier<BackupState> {
       await BackupService.readHeader(bytes);
       final service = ref.read(backupServiceProvider);
       final store = ref.read(localBackupStoreProvider);
-      final safety = await service.create(includePhotos: true);
+      final prefs = await SharedPreferences.getInstance();
+      final safety = await service.create(
+        includePhotos: true,
+        settings: AppSettingsBackup.read(prefs),
+      );
       if (!safety.isEmpty) {
         await store.save(safety, preRestore: true);
         await store.prune(keep: keepLocal);
       }
       final summary = await service.restore(bytes);
+      if (summary.settings case final settings?) {
+        await AppSettingsBackup.restore(ref, settings);
+      }
       ref.invalidate(localBackupsProvider);
       // The data changed, so the next automatic backup must upload.
       for (final d in BackupDestination.values) {

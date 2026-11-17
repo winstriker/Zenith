@@ -262,7 +262,7 @@ final aircraftImageCacheProvider = Provider<AircraftImageCache>((ref) {
 
 /// Most space the saved aircraft photos may take, as chosen in the settings.
 class AircraftImageCacheLimit extends Notifier<int> {
-  static const _key = 'aircraft_image_cache_max_bytes';
+  static const prefsKey = 'aircraft_image_cache_max_bytes';
 
   @override
   int build() {
@@ -272,7 +272,7 @@ class AircraftImageCacheLimit extends Notifier<int> {
 
   Future<void> _load() async {
     try {
-      final saved = (await SharedPreferences.getInstance()).getInt(_key);
+      final saved = (await SharedPreferences.getInstance()).getInt(prefsKey);
       if (saved != null && saved >= 0) state = saved;
     } catch (_) {
       // No preferences (tests, for instance): keep the default.
@@ -281,7 +281,7 @@ class AircraftImageCacheLimit extends Notifier<int> {
 
   Future<void> setMaxBytes(int maxBytes) async {
     state = maxBytes;
-    await (await SharedPreferences.getInstance()).setInt(_key, maxBytes);
+    await (await SharedPreferences.getInstance()).setInt(prefsKey, maxBytes);
   }
 }
 

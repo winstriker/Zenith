@@ -9626,6 +9626,286 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   }
 }
 
+class $PilotProfileTable extends PilotProfile
+    with TableInfo<$PilotProfileTable, PilotProfileRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PilotProfileTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PreviousTotals?, String>
+  previousTotals =
+      GeneratedColumn<String>(
+        'previous_totals',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<PreviousTotals?>(
+        $PilotProfileTable.$converterpreviousTotalsn,
+      );
+  static const VerificationMeta _signatureFileMeta = const VerificationMeta(
+    'signatureFile',
+  );
+  @override
+  late final GeneratedColumn<String> signatureFile = GeneratedColumn<String>(
+    'signature_file',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, previousTotals, signatureFile];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pilot_profile';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PilotProfileRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('signature_file')) {
+      context.handle(
+        _signatureFileMeta,
+        signatureFile.isAcceptableOrUnknown(
+          data['signature_file']!,
+          _signatureFileMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PilotProfileRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PilotProfileRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      previousTotals: $PilotProfileTable.$converterpreviousTotalsn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}previous_totals'],
+        ),
+      ),
+      signatureFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signature_file'],
+      ),
+    );
+  }
+
+  @override
+  $PilotProfileTable createAlias(String alias) {
+    return $PilotProfileTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<PreviousTotals, String> $converterpreviousTotals =
+      PreviousTotals.converter;
+  static TypeConverter<PreviousTotals?, String?> $converterpreviousTotalsn =
+      NullAwareTypeConverter.wrap($converterpreviousTotals);
+}
+
+class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
+  final int id;
+
+  /// Totals logged before the app, carried forward into the logbook.
+  final PreviousTotals? previousTotals;
+
+  /// File name of the pilot's signature inside the app's signature folder,
+  /// put in the "pilot's signature" box of each page of the exported
+  /// logbook.
+  final String? signatureFile;
+  const PilotProfileRow({
+    required this.id,
+    this.previousTotals,
+    this.signatureFile,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || previousTotals != null) {
+      map['previous_totals'] = Variable<String>(
+        $PilotProfileTable.$converterpreviousTotalsn.toSql(previousTotals),
+      );
+    }
+    if (!nullToAbsent || signatureFile != null) {
+      map['signature_file'] = Variable<String>(signatureFile);
+    }
+    return map;
+  }
+
+  PilotProfileCompanion toCompanion(bool nullToAbsent) {
+    return PilotProfileCompanion(
+      id: Value(id),
+      previousTotals: previousTotals == null && nullToAbsent
+          ? const Value.absent()
+          : Value(previousTotals),
+      signatureFile: signatureFile == null && nullToAbsent
+          ? const Value.absent()
+          : Value(signatureFile),
+    );
+  }
+
+  factory PilotProfileRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PilotProfileRow(
+      id: serializer.fromJson<int>(json['id']),
+      previousTotals: serializer.fromJson<PreviousTotals?>(
+        json['previousTotals'],
+      ),
+      signatureFile: serializer.fromJson<String?>(json['signatureFile']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'previousTotals': serializer.toJson<PreviousTotals?>(previousTotals),
+      'signatureFile': serializer.toJson<String?>(signatureFile),
+    };
+  }
+
+  PilotProfileRow copyWith({
+    int? id,
+    Value<PreviousTotals?> previousTotals = const Value.absent(),
+    Value<String?> signatureFile = const Value.absent(),
+  }) => PilotProfileRow(
+    id: id ?? this.id,
+    previousTotals: previousTotals.present
+        ? previousTotals.value
+        : this.previousTotals,
+    signatureFile: signatureFile.present
+        ? signatureFile.value
+        : this.signatureFile,
+  );
+  PilotProfileRow copyWithCompanion(PilotProfileCompanion data) {
+    return PilotProfileRow(
+      id: data.id.present ? data.id.value : this.id,
+      previousTotals: data.previousTotals.present
+          ? data.previousTotals.value
+          : this.previousTotals,
+      signatureFile: data.signatureFile.present
+          ? data.signatureFile.value
+          : this.signatureFile,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PilotProfileRow(')
+          ..write('id: $id, ')
+          ..write('previousTotals: $previousTotals, ')
+          ..write('signatureFile: $signatureFile')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, previousTotals, signatureFile);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PilotProfileRow &&
+          other.id == this.id &&
+          other.previousTotals == this.previousTotals &&
+          other.signatureFile == this.signatureFile);
+}
+
+class PilotProfileCompanion extends UpdateCompanion<PilotProfileRow> {
+  final Value<int> id;
+  final Value<PreviousTotals?> previousTotals;
+  final Value<String?> signatureFile;
+  const PilotProfileCompanion({
+    this.id = const Value.absent(),
+    this.previousTotals = const Value.absent(),
+    this.signatureFile = const Value.absent(),
+  });
+  PilotProfileCompanion.insert({
+    this.id = const Value.absent(),
+    this.previousTotals = const Value.absent(),
+    this.signatureFile = const Value.absent(),
+  });
+  static Insertable<PilotProfileRow> custom({
+    Expression<int>? id,
+    Expression<String>? previousTotals,
+    Expression<String>? signatureFile,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (previousTotals != null) 'previous_totals': previousTotals,
+      if (signatureFile != null) 'signature_file': signatureFile,
+    });
+  }
+
+  PilotProfileCompanion copyWith({
+    Value<int>? id,
+    Value<PreviousTotals?>? previousTotals,
+    Value<String?>? signatureFile,
+  }) {
+    return PilotProfileCompanion(
+      id: id ?? this.id,
+      previousTotals: previousTotals ?? this.previousTotals,
+      signatureFile: signatureFile ?? this.signatureFile,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (previousTotals.present) {
+      map['previous_totals'] = Variable<String>(
+        $PilotProfileTable.$converterpreviousTotalsn.toSql(
+          previousTotals.value,
+        ),
+      );
+    }
+    if (signatureFile.present) {
+      map['signature_file'] = Variable<String>(signatureFile.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PilotProfileCompanion(')
+          ..write('id: $id, ')
+          ..write('previousTotals: $previousTotals, ')
+          ..write('signatureFile: $signatureFile')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class AircraftWithStats extends DataClass {
   final int id;
   final String tailNumber;
@@ -11089,6 +11369,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $LicenceRatingsTable licenceRatings = $LicenceRatingsTable(this);
   late final $MedicalCertificatesTable medicalCertificates =
       $MedicalCertificatesTable(this);
+  late final $PilotProfileTable pilotProfile = $PilotProfileTable(this);
   late final $AircraftWithStatssView aircraftWithStatss =
       $AircraftWithStatssView(this);
   late final $FlightStatsView flightStats = $FlightStatsView(this);
@@ -11123,6 +11404,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     licences,
     licenceRatings,
     medicalCertificates,
+    pilotProfile,
     aircraftWithStatss,
     flightStats,
     aircraftWithIcaos,
@@ -18715,6 +18997,183 @@ typedef $$MedicalCertificatesTableProcessedTableManager =
       MedicalCertificate,
       PrefetchHooks Function()
     >;
+typedef $$PilotProfileTableCreateCompanionBuilder =
+    PilotProfileCompanion Function({
+      Value<int> id,
+      Value<PreviousTotals?> previousTotals,
+      Value<String?> signatureFile,
+    });
+typedef $$PilotProfileTableUpdateCompanionBuilder =
+    PilotProfileCompanion Function({
+      Value<int> id,
+      Value<PreviousTotals?> previousTotals,
+      Value<String?> signatureFile,
+    });
+
+class $$PilotProfileTableFilterComposer
+    extends Composer<_$LogbookDatabase, $PilotProfileTable> {
+  $$PilotProfileTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PreviousTotals?, PreviousTotals, String>
+  get previousTotals => $composableBuilder(
+    column: $table.previousTotals,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get signatureFile => $composableBuilder(
+    column: $table.signatureFile,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PilotProfileTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $PilotProfileTable> {
+  $$PilotProfileTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previousTotals => $composableBuilder(
+    column: $table.previousTotals,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get signatureFile => $composableBuilder(
+    column: $table.signatureFile,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PilotProfileTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $PilotProfileTable> {
+  $$PilotProfileTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PreviousTotals?, String>
+  get previousTotals => $composableBuilder(
+    column: $table.previousTotals,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get signatureFile => $composableBuilder(
+    column: $table.signatureFile,
+    builder: (column) => column,
+  );
+}
+
+class $$PilotProfileTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $PilotProfileTable,
+          PilotProfileRow,
+          $$PilotProfileTableFilterComposer,
+          $$PilotProfileTableOrderingComposer,
+          $$PilotProfileTableAnnotationComposer,
+          $$PilotProfileTableCreateCompanionBuilder,
+          $$PilotProfileTableUpdateCompanionBuilder,
+          (
+            PilotProfileRow,
+            BaseReferences<
+              _$LogbookDatabase,
+              $PilotProfileTable,
+              PilotProfileRow
+            >,
+          ),
+          PilotProfileRow,
+          PrefetchHooks Function()
+        > {
+  $$PilotProfileTableTableManager(
+    _$LogbookDatabase db,
+    $PilotProfileTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PilotProfileTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PilotProfileTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PilotProfileTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<PreviousTotals?> previousTotals = const Value.absent(),
+                Value<String?> signatureFile = const Value.absent(),
+              }) => PilotProfileCompanion(
+                id: id,
+                previousTotals: previousTotals,
+                signatureFile: signatureFile,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<PreviousTotals?> previousTotals = const Value.absent(),
+                Value<String?> signatureFile = const Value.absent(),
+              }) => PilotProfileCompanion.insert(
+                id: id,
+                previousTotals: previousTotals,
+                signatureFile: signatureFile,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$PilotProfileTable, PilotProfileRow>(table),
+                  BaseReferences<
+                    _$LogbookDatabase,
+                    $PilotProfileTable,
+                    PilotProfileRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PilotProfileTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $PilotProfileTable,
+      PilotProfileRow,
+      $$PilotProfileTableFilterComposer,
+      $$PilotProfileTableOrderingComposer,
+      $$PilotProfileTableAnnotationComposer,
+      $$PilotProfileTableCreateCompanionBuilder,
+      $$PilotProfileTableUpdateCompanionBuilder,
+      (
+        PilotProfileRow,
+        BaseReferences<_$LogbookDatabase, $PilotProfileTable, PilotProfileRow>,
+      ),
+      PilotProfileRow,
+      PrefetchHooks Function()
+    >;
 
 class $LogbookDatabaseManager {
   final _$LogbookDatabase _db;
@@ -18749,4 +19208,6 @@ class $LogbookDatabaseManager {
       $$LicenceRatingsTableTableManager(_db, _db.licenceRatings);
   $$MedicalCertificatesTableTableManager get medicalCertificates =>
       $$MedicalCertificatesTableTableManager(_db, _db.medicalCertificates);
+  $$PilotProfileTableTableManager get pilotProfile =>
+      $$PilotProfileTableTableManager(_db, _db.pilotProfile);
 }

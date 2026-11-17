@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../utils/duration_formatter.dart';
 import '../utils/time_input_formatter.dart';
 
-/// A duration typed as HH:MM.
+/// A duration typed as HH:MM. With [maxHourDigits] above 2, a long one
+/// (a logbook total) typed from the right (see [TotalTimeInputFormatter]).
 ///
 /// [onChanged] gets the duration once it is complete, or null when the field
 /// is emptied; half-typed values are left to the validator. When [value]
@@ -19,6 +20,7 @@ class DurationField extends StatefulWidget {
     this.decoration = const InputDecoration(),
     this.style,
     this.textAlign = TextAlign.start,
+    this.maxHourDigits = 2,
   });
 
   final Duration? value;
@@ -28,6 +30,7 @@ class DurationField extends StatefulWidget {
   final InputDecoration decoration;
   final TextStyle? style;
   final TextAlign textAlign;
+  final int maxHourDigits;
 
   @override
   State<DurationField> createState() => _DurationFieldState();
@@ -37,8 +40,19 @@ class _DurationFieldState extends State<DurationField> {
   late final _controller = TextEditingController(text: _format(widget.value));
   final _focus = FocusNode();
 
-  static String _format(Duration? d) =>
-      d == null ? '' : DurationFormatter.hm(d);
+  String _format(Duration? d) {
+    if (d == null) return '';
+    if (widget.maxHourDigits <= 2) return DurationFormatter.hm(d);
+    // As the formatter would have typed it.
+    return d == Duration.zero
+        ? ''
+        : TotalTimeInputFormatter.format(
+            '${d.inHours}${(d.inMinutes % 60).toString().padLeft(2, '0')}',
+          );
+  }
+
+  Duration? _parse(String text) =>
+      DurationFormatter.parseHm(text, maxHourDigits: widget.maxHourDigits);
 
   @override
   void didUpdateWidget(DurationField old) {
@@ -54,8 +68,7 @@ class _DurationFieldState extends State<DurationField> {
   /// Whether the text shows something else than [DurationField.value], and
   /// isn't being typed in.
   bool get _isStale =>
-      !_focus.hasFocus &&
-      DurationFormatter.parseHm(_controller.text) != widget.value;
+      !_focus.hasFocus && _parse(_controller.text) != widget.value;
 
   @override
   void dispose() {
@@ -71,20 +84,23 @@ class _DurationFieldState extends State<DurationField> {
       focusNode: _focus,
       enabled: widget.enabled,
       keyboardType: TextInputType.number,
-      inputFormatters: [TimeInputFormatter()],
+      inputFormatters: [
+        if (widget.maxHourDigits <= 2)
+          TimeInputFormatter()
+        else
+          TotalTimeInputFormatter(maxHourDigits: widget.maxHourDigits),
+      ],
       textAlign: widget.textAlign,
       style: widget.style,
       decoration: widget.decoration.copyWith(hintText: widget.hintText),
       validator: (text) =>
-          text != null &&
-              text.isNotEmpty &&
-              DurationFormatter.parseHm(text) == null
+          text != null && text.isNotEmpty && _parse(text) == null
           ? 'HH:MM'
           : null,
       onChanged: (text) {
         if (text.isEmpty) {
           widget.onChanged(null);
-        } else if (DurationFormatter.parseHm(text) case final d?) {
+        } else if (_parse(text) case final d?) {
           widget.onChanged(d);
         }
       },

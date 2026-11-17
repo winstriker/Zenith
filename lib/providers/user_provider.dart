@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserNicknameNotifier extends Notifier<String?> {
-  static const _key = 'user_nickname';
+  static const prefsKey = 'user_nickname';
 
   @override
   String? build() {
@@ -12,7 +12,7 @@ class UserNicknameNotifier extends Notifier<String?> {
 
   Future<void> _loadNickname() async {
     final prefs = await SharedPreferences.getInstance();
-    final nickname = prefs.getString(_key);
+    final nickname = prefs.getString(prefsKey);
     if (nickname != null && nickname.isNotEmpty) {
       state = nickname;
     }
@@ -21,7 +21,7 @@ class UserNicknameNotifier extends Notifier<String?> {
   Future<void> setNickname(String nickname) async {
     state = nickname;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, nickname);
+    await prefs.setString(prefsKey, nickname);
   }
 }
 
@@ -30,7 +30,7 @@ final userNicknameProvider = NotifierProvider<UserNicknameNotifier, String?>(
 );
 
 class UserSignatureNameNotifier extends Notifier<String?> {
-  static const _key = 'user_signature_name';
+  static const prefsKey = 'user_signature_name';
 
   @override
   String? build() {
@@ -40,7 +40,7 @@ class UserSignatureNameNotifier extends Notifier<String?> {
 
   Future<void> _loadSignatureName() async {
     final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString(_key);
+    final name = prefs.getString(prefsKey);
     if (name != null && name.isNotEmpty) {
       state = name;
     }
@@ -49,7 +49,7 @@ class UserSignatureNameNotifier extends Notifier<String?> {
   Future<void> setSignatureName(String name) async {
     state = name;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, name);
+    await prefs.setString(prefsKey, name);
   }
 }
 
@@ -87,7 +87,7 @@ final onboardingCompleteProvider =
 enum PicNameMode { self, name }
 
 class PicNameModeNotifier extends Notifier<PicNameMode> {
-  static const _key = 'pic_name_mode';
+  static const prefsKey = 'pic_name_mode';
 
   @override
   PicNameMode build() {
@@ -97,7 +97,7 @@ class PicNameModeNotifier extends Notifier<PicNameMode> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = prefs.getString(prefsKey);
     if (raw == PicNameMode.name.name) {
       state = PicNameMode.name;
     }
@@ -106,7 +106,7 @@ class PicNameModeNotifier extends Notifier<PicNameMode> {
   Future<void> setMode(PicNameMode mode) async {
     state = mode;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, mode.name);
+    await prefs.setString(prefsKey, mode.name);
   }
 }
 
