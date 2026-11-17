@@ -5,39 +5,14 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
 import 'backup_service.dart';
+import 'cloud_backup_client.dart';
 import 'oauth_service.dart';
-
-/// A backup file stored in Dropbox.
-class RemoteBackup {
-  const RemoteBackup({
-    required this.name,
-    required this.path,
-    required this.size,
-    required this.createdAt,
-  });
-  final String name;
-  final String path;
-  final int size;
-  final DateTime createdAt;
-}
-
-class DropboxAccount {
-  const DropboxAccount({required this.name, required this.email});
-  final String name;
-  final String email;
-}
-
-/// The Dropbox session is no longer usable (revoked, expired or missing
-/// permissions); the user has to connect again.
-class DropboxReauthRequired extends BackupException {
-  const DropboxReauthRequired(super.message);
-}
 
 /// Minimal Dropbox API v2 client for backup files.
 ///
 /// Every file lives in [folder]. With an "App folder" Dropbox app that is
 /// `Apps/<app name>/Backups`; with full access it is `/Zenith Backups`.
-class DropboxClient {
+class DropboxClient implements CloudBackupClient {
   DropboxClient(this._auth, {this.chunkSize = 4 * 1024 * 1024});
 
   final OAuthService _auth;
@@ -47,11 +22,12 @@ class DropboxClient {
   static const _api = 'https://api.dropboxapi.com/2';
   static const _content = 'https://content.dropboxapi.com/2';
 
-  Future<DropboxAccount> currentAccount() async {
+  @override
+  Future<CloudAccount> currentAccount() async {
     final res = await _rpc('users/get_current_account', null);
     final json = jsonDecode(res.body) as Map<String, dynamic>;
     final name = json['name'] as Map<String, dynamic>?;
-    return DropboxAccount(
+    return CloudAccount(
       name: name?['display_name'] as String? ?? '',
       email: json['email'] as String? ?? '',
     );
@@ -68,6 +44,7 @@ class DropboxClient {
   /// trigger a token refresh). The session is opened with an empty request,
   /// so any rejection comes back readable, and the data then goes up in
   /// chunks of [chunkSize], which also lifts the 150 MB single-request limit.
+  @override
   Future<void> upload(String name, Uint8List bytes) async {
     final start = await _contentCall('files/upload_session/start', {
       'close': false,
@@ -97,6 +74,7 @@ class DropboxClient {
   }
 
   /// Backups in [folder], newest first.
+  @override
   Future<List<RemoteBackup>> list() async {
     final entries = <Map<String, dynamic>>[];
     http.Response res;
@@ -123,7 +101,7 @@ class DropboxClient {
             BackupService.isBackupFileName(e['name'] as String))
           RemoteBackup(
             name: e['name'] as String,
-            path: e['path_lower'] as String,
+            id: e['path_lower'] as String,
             size: (e['size'] as num?)?.toInt() ?? 0,
             createdAt:
                 BackupService.timeFromFileName(e['name'] as String) ??
@@ -133,6 +111,7 @@ class DropboxClient {
     return backups;
   }
 
+  @override
   Future<Uint8List> download(String path) async {
     final res = await _call(
       Uri.parse('$_content/files/download'),
@@ -143,19 +122,20 @@ class DropboxClient {
     return res.bodyBytes;
   }
 
+  @override
   Future<void> delete(String path) async {
     await _rpc('files/delete_v2', {'path': path});
   }
 
-  /// Keeps the newest [keep] backups and deletes the rest.
+  @override
   Future<void> prune({required int keep}) async {
     final backups = await list();
     for (final old in backups.skip(keep)) {
-      await delete(old.path);
+      await delete(old.id);
     }
   }
 
-  /// Invalidates the tokens on Dropbox's side. Best effort.
+  @override
   Future<void> revoke() async {
     try {
       await _auth.post(Uri.parse('$_api/auth/token/revoke'));
@@ -197,7 +177,7 @@ class DropboxClient {
       res = await _auth.post(url, headers: headers, body: body);
     } on OAuthException {
       // The refresh token was rejected; OAuthService already logged out.
-      throw const DropboxReauthRequired(
+      throw const CloudReauthRequired(
         'Your Dropbox session expired. Connect Dropbox again.',
       );
     }
@@ -228,12 +208,12 @@ class DropboxClient {
     }
     if (res.statusCode == 401) {
       if (summary.startsWith('missing_scope')) {
-        throw const DropboxReauthRequired(
+        throw const CloudReauthRequired(
           'Zenith needs new Dropbox permissions to store backups. '
           'Connect Dropbox again.',
         );
       }
-      throw const DropboxReauthRequired(
+      throw const CloudReauthRequired(
         'Dropbox access was revoked. Connect Dropbox again.',
       );
     }

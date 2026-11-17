@@ -44,6 +44,16 @@
                     android:scheme="zenithlogbook"
                     android:host="dropbox" />
             </intent-filter>
+            <!-- Google Drive OAuth redirect (it.winstriker.zenith:/oauth2redirect). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="it.winstriker.zenith"
+                    android:path="/oauth2redirect" />
+            </intent-filter>
         </activity>
         <!-- Scheduled licence & currency reminders (flutter_local_notifications). -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />

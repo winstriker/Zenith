@@ -9,7 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/theme.dart';
 import '../providers/backup_providers.dart';
 import '../services/backup_service.dart';
-import '../services/dropbox_client.dart';
+import '../services/cloud_backup_client.dart';
 import '../services/local_backup_store.dart';
 import '../widgets/section_header.dart';
 
@@ -77,22 +77,22 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     }
   }
 
-  Future<void> _connectDropbox() async {
+  Future<void> _connect(BackupDestination d) async {
     try {
-      await ref.read(dropboxAuthProvider.notifier).login();
+      await ref.read(cloudAuthProvider(d).notifier).login();
     } catch (e) {
       _snack(_errorText(e));
     }
   }
 
-  Future<void> _disconnectDropbox() async {
+  Future<void> _disconnect(BackupDestination d) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Disconnect Dropbox?'),
-        content: const Text(
-          'Automatic backups to Dropbox will stop. Backups already in your '
-          'Dropbox are kept.',
+        title: Text('Disconnect ${d.label}?'),
+        content: Text(
+          'Automatic backups to ${d.label} will stop. Backups already in '
+          'your ${d.label} are kept.',
         ),
         actions: [
           TextButton(
@@ -107,7 +107,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       ),
     );
     if (confirmed != true) return;
-    await ref.read(dropboxAuthProvider.notifier).logout();
+    await ref.read(cloudAuthProvider(d).notifier).logout();
   }
 
   /// Confirms, then restores the backup that [load] returns, with a blocking
@@ -212,20 +212,59 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     await _restore(createdAt: createdAt, load: () async => bytes);
   }
 
-  Future<void> _showDropboxBackups() async {
+  Future<void> _showCloudBackups(BackupDestination d) async {
     final picked = await showModalBottomSheet<RemoteBackup>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => const _DropboxBackupsSheet(),
+      builder: (_) => _CloudBackupsSheet(d),
     );
     if (picked == null) return;
     await _restore(
       createdAt: picked.createdAt,
       load: () => ref
           .read(backupControllerProvider.notifier)
-          .downloadFromDropbox(picked),
+          .downloadFromCloud(d, picked),
     );
+  }
+
+  List<Widget> _cloudSection(BackupDestination d, BackupState backupState) {
+    final auth = ref.watch(cloudAuthProvider(d));
+    final connected = auth.value ?? false;
+    return [
+      SectionHeader(title: d.label, uppercase: true),
+      Card(
+        child: Column(
+          children: [
+            _CloudAccountTile(
+              destination: d,
+              auth: auth,
+              onConnect: () => _connect(d),
+              onDisconnect: () => _disconnect(d),
+            ),
+            if (connected) ...[
+              const Divider(height: 1, indent: 72),
+              _BackupNowTile(
+                status: backupState.statusOf(d),
+                running: backupState.running.contains(d),
+                enabled: !backupState.restoring,
+                onTap: () => _backUp(d),
+              ),
+              const Divider(height: 1, indent: 72),
+              ListTile(
+                leading: const Icon(Icons.cloud_download_outlined),
+                title: Text('Restore from ${d.label}'),
+                subtitle: Text('Choose one of your ${d.label} backups'),
+                trailing: const Icon(Icons.chevron_right),
+                enabled: !backupState.busy,
+                onTap: () => _showCloudBackups(d),
+              ),
+            ],
+          ],
+        ),
+      ),
+      const SizedBox(height: 8),
+    ];
   }
 
   Future<void> _showLocalBackups() async {
@@ -278,8 +317,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     final settings = ref.watch(backupSettingsProvider).value;
     final backupState =
         ref.watch(backupControllerProvider).value ?? const BackupState();
-    final dropboxAuth = ref.watch(dropboxAuthProvider);
-    final dropboxConnected = dropboxAuth.value ?? false;
     final localCount = ref.watch(localBackupsProvider).value?.length;
 
     if (settings == null) {
@@ -353,55 +390,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
           const SizedBox(height: 8),
 
           // ---------------------------------------------------------------
-          const SectionHeader(title: 'Dropbox', uppercase: true),
-          Card(
-            child: Column(
-              children: [
-                _DropboxAccountTile(
-                  auth: dropboxAuth,
-                  onConnect: _connectDropbox,
-                  onDisconnect: _disconnectDropbox,
-                ),
-                if (dropboxConnected) ...[
-                  const Divider(height: 1, indent: 72),
-                  _BackupNowTile(
-                    status: backupState.statusOf(BackupDestination.dropbox),
-                    running: backupState.running.contains(
-                      BackupDestination.dropbox,
-                    ),
-                    enabled: !backupState.restoring,
-                    onTap: () => _backUp(BackupDestination.dropbox),
-                  ),
-                  const Divider(height: 1, indent: 72),
-                  ListTile(
-                    leading: const Icon(Icons.cloud_download_outlined),
-                    title: const Text('Restore from DropBox'),
-                    subtitle: const Text('Choose one of your DropBox backups'),
-                    trailing: const Icon(Icons.chevron_right),
-                    enabled: !backupState.busy,
-                    onTap: _showDropboxBackups,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // ---------------------------------------------------------------
-          const SectionHeader(title: 'Google Drive', uppercase: true),
-          Card(
-            child: ListTile(
-              enabled: false,
-              leading: const Icon(Icons.add_to_drive),
-              title: const Text('Google Drive'),
-              trailing: Chip(
-                label: const Text('Coming soon'),
-                visualDensity: VisualDensity.compact,
-                labelStyle: theme.textTheme.labelSmall,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
+          for (final d in BackupDestination.cloud)
+            ..._cloudSection(d, backupState),
 
           // ---------------------------------------------------------------
           SectionHeader(
@@ -457,13 +447,15 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
   }
 }
 
-class _DropboxAccountTile extends ConsumerWidget {
-  const _DropboxAccountTile({
+class _CloudAccountTile extends ConsumerWidget {
+  const _CloudAccountTile({
+    required this.destination,
     required this.auth,
     required this.onConnect,
     required this.onDisconnect,
   });
 
+  final BackupDestination destination;
   final AsyncValue<bool> auth;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
@@ -472,14 +464,16 @@ class _DropboxAccountTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final connected = auth.value ?? false;
-    final account = connected ? ref.watch(dropboxAccountProvider).value : null;
+    final account = connected
+        ? ref.watch(cloudAccountProvider(destination)).value
+        : null;
 
     return ListTile(
       leading: Icon(
         connected ? Icons.cloud_done_outlined : Icons.cloud_outlined,
         color: connected ? context.appColors.success : null,
       ),
-      title: const Text('DropBox'),
+      title: Text(destination.label),
       // One line: a long email shrinks to fit instead of wrapping.
       subtitle: FittedBox(
         fit: BoxFit.scaleDown,
@@ -570,17 +564,18 @@ class _BackupNowTile extends StatelessWidget {
   }
 }
 
-class _DropboxBackupsSheet extends ConsumerWidget {
-  const _DropboxBackupsSheet();
+class _CloudBackupsSheet extends ConsumerWidget {
+  const _CloudBackupsSheet(this.destination);
+  final BackupDestination destination;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final backups = ref.watch(dropboxBackupsProvider);
+    final backups = ref.watch(cloudBackupsProvider(destination));
     return _BackupsSheet(
-      title: 'Dropbox backups',
-      emptyText: 'No backups in your Dropbox yet.',
+      title: '${destination.label} backups',
+      emptyText: 'No backups in your ${destination.label} yet.',
       items: backups,
-      onRetry: () => ref.invalidate(dropboxBackupsProvider),
+      onRetry: () => ref.invalidate(cloudBackupsProvider(destination)),
       itemBuilder: (b) => ListTile(
         leading: const Icon(Icons.cloud_outlined),
         title: Text(_dateFormat.format(b.createdAt)),

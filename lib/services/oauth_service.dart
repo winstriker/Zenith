@@ -21,6 +21,7 @@ class OAuthService {
     this.clientId,
     this.redirectUri,
     this.scope, {
+    this.authorizationParams = const {},
     FlutterSecureStorage? storage,
     http.Client? httpClient,
   }) : _storage = storage ?? const FlutterSecureStorage(),
@@ -33,6 +34,10 @@ class OAuthService {
   final String clientId;
   final String redirectUri;
   final String scope;
+
+  /// Provider-specific parameters added to the authorization URL, e.g. what
+  /// it takes to get a refresh token. Providers can reject unknown ones.
+  final Map<String, String> authorizationParams;
 
   late Logger logger = Logger("$provider OAuth Service");
 
@@ -64,12 +69,21 @@ class OAuthService {
         'scope': scope,
         'state': state,
         'code_challenge': challenge,
-        'token_access_type': 'offline',
         'code_challenge_method': 'S256',
+        ...authorizationParams,
       },
     );
 
     return uri;
+  }
+
+  /// Whether [uri] is a redirect back to this service's [redirectUri].
+  bool matchesCallback(Uri uri) {
+    if (redirectUri.isEmpty) return false;
+    final expected = Uri.parse(redirectUri);
+    return uri.scheme.toLowerCase() == expected.scheme.toLowerCase() &&
+        uri.host.toLowerCase() == expected.host.toLowerCase() &&
+        uri.path == expected.path;
   }
 
   Future<void> handleCallback(Uri callbackUri) async {
@@ -303,18 +317,51 @@ class OAuthService {
     Uri url, {
     Map<String, String>? headers,
     Object? body,
-  }) async {
-    Future<http.Response> send(String token) => _http.post(
-      url,
-      headers: {'Authorization': 'Bearer $token', ...?headers},
-      body: body,
-    );
+  }) => send('POST', url, headers: headers, body: body);
 
-    final response = await send(await getAccessToken());
+  /// Authenticated request with any [method] (GET, POST, PUT, PATCH,
+  /// DELETE). Retries once with a fresh token on 401.
+  Future<http.Response> send(
+    String method,
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    Future<http.Response> attempt(String token) {
+      final h = {'Authorization': 'Bearer $token', ...?headers};
+      return switch (method) {
+        'GET' => _http.get(url, headers: h),
+        'POST' => _http.post(url, headers: h, body: body),
+        'PUT' => _http.put(url, headers: h, body: body),
+        'PATCH' => _http.patch(url, headers: h, body: body),
+        'DELETE' => _http.delete(url, headers: h, body: body),
+        _ => throw ArgumentError.value(method, 'method'),
+      };
+    }
+
+    final response = await attempt(await getAccessToken());
     if (response.statusCode == 401) {
-      return send(await refreshAccessToken());
+      return attempt(await refreshAccessToken());
     }
     return response;
+  }
+
+  /// Revokes the grant at an RFC 7009 [endpoint] by posting the refresh
+  /// token (or, lacking one, the access token). Best effort: never throws.
+  Future<void> revokeToken(String endpoint) async {
+    try {
+      final token =
+          await _storage.read(key: refreshTokenKey) ??
+          await _storage.read(key: accessTokenKey);
+      if (token == null || token.isEmpty) return;
+      await _http.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {'token': token},
+      );
+    } catch (e) {
+      logger.warning('Token revocation failed: $e');
+    }
   }
 
   Future<bool> isLoggedIn() async {

@@ -58,9 +58,7 @@ class OAuthCallbackHandler {
     }
     _processing = true;
 
-    final service = oauthServices.firstWhere(
-      (element) => element.provider == uri.host,
-    );
+    final service = oauthServices.firstWhere((s) => s.matchesCallback(uri));
     try {
       await service.handleCallback(uri);
 
@@ -76,8 +74,7 @@ class OAuthCallbackHandler {
   }
 
   bool _isOAuthCallback(Uri uri) {
-    return uri.scheme == 'zenithlogbook' &&
-        oauthServices.any((element) => element.provider == uri.host);
+    return oauthServices.any((s) => s.matchesCallback(uri));
   }
 
   Future<void> dispose() async {

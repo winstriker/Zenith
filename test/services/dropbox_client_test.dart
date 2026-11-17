@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:zenith/services/backup_service.dart';
+import 'package:zenith/services/cloud_backup_client.dart';
 import 'package:zenith/services/dropbox_client.dart';
 import 'package:zenith/services/oauth_service.dart';
 
@@ -181,6 +182,7 @@ void main() {
       'key',
       'zenithlogbook://dropbox',
       'files.content.write',
+      authorizationParams: const {'token_access_type': 'offline'},
       httpClient: dropbox.client,
     );
     client = DropboxClient(auth);
@@ -200,7 +202,7 @@ void main() {
     expect(backups.first.createdAt, DateTime(2026, 11, 4, 10));
     expect(backups.first.size, 40);
 
-    final downloaded = await client.download(backups.first.path);
+    final downloaded = await client.download(backups.first.id);
     expect(downloaded, bytes(40));
 
     await client.prune(keep: 2);
@@ -239,7 +241,7 @@ void main() {
     dropbox.missingScope = true;
     await expectLater(
       client.upload('x.json.gz', bytes(1)),
-      throwsA(isA<DropboxReauthRequired>()),
+      throwsA(isA<CloudReauthRequired>()),
     );
   });
 
@@ -249,7 +251,7 @@ void main() {
       client.upload('zenith_backup_20261114_100000.zip', bytes(1)),
       throwsA(
         isA<BackupException>()
-            .having((e) => e, 'type', isNot(isA<DropboxReauthRequired>()))
+            .having((e) => e, 'type', isNot(isA<CloudReauthRequired>()))
             .having(
               (e) => e.message,
               'message',

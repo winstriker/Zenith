@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/backup_service.dart';
+import '../services/cloud_backup_client.dart';
 import '../services/dropbox_client.dart';
+import '../services/google_drive_client.dart';
 import '../services/local_backup_store.dart';
 import '../services/oauth_callback_service.dart';
 import '../services/oauth_service.dart';
@@ -35,7 +37,18 @@ enum BackupFrequency {
   final Duration? dueAfter;
 }
 
-enum BackupDestination { dropbox, local }
+enum BackupDestination {
+  dropbox('Dropbox'),
+  googleDrive('Google Drive'),
+  local('This device');
+
+  const BackupDestination(this.label);
+  final String label;
+
+  bool get isCloud => this != local;
+
+  static const cloud = [dropbox, googleDrive];
+}
 
 class BackupSettings {
   const BackupSettings({
@@ -108,25 +121,72 @@ final localBackupStoreProvider = Provider<LocalBackupStore>((ref) {
   return LocalBackupStore(getApplicationSupportDirectory);
 });
 
-final dropboxOAuthProvider = Provider(
-  (ref) => OAuthService(
-    "dropbox",
-    "https://www.dropbox.com/oauth2/authorize",
-    "https://api.dropboxapi.com/oauth2/token",
-    const String.fromEnvironment("DROPBOX_APP_KEY"),
-    "zenithlogbook://dropbox",
-    // Must match the scopes enabled in the Dropbox App Console.
-    "account_info.read files.metadata.read files.content.write "
-        "files.content.read",
-  ),
-);
+/// Google allows Android OAuth clients a custom-scheme redirect on the
+/// package name (with "Custom URI scheme" enabled in the client's advanced
+/// settings). Registered in AndroidManifest.xml.
+const googleRedirectUri = 'it.winstriker.zenith:/oauth2redirect';
 
-final dropboxClientProvider = Provider<DropboxClient>((ref) {
-  return DropboxClient(ref.watch(dropboxOAuthProvider));
+/// The dart-define holding each cloud provider's OAuth client ID.
+const _clientIdDefine = {
+  BackupDestination.dropbox: 'DROPBOX_APP_KEY',
+  BackupDestination.googleDrive: 'GOOGLE_CLIENT_ID',
+};
+
+final cloudOAuthProvider = Provider.family<OAuthService, BackupDestination>((
+  ref,
+  destination,
+) {
+  switch (destination) {
+    case BackupDestination.dropbox:
+      return OAuthService(
+        "dropbox",
+        "https://www.dropbox.com/oauth2/authorize",
+        "https://api.dropboxapi.com/oauth2/token",
+        const String.fromEnvironment("DROPBOX_APP_KEY"),
+        "zenithlogbook://dropbox",
+        // Must match the scopes enabled in the Dropbox App Console.
+        "account_info.read files.metadata.read files.content.write "
+            "files.content.read",
+        authorizationParams: const {'token_access_type': 'offline'},
+      );
+    case BackupDestination.googleDrive:
+      const clientId = String.fromEnvironment("GOOGLE_CLIENT_ID");
+      return OAuthService(
+        "google_drive",
+        "https://accounts.google.com/o/oauth2/v2/auth",
+        "https://oauth2.googleapis.com/token",
+        clientId,
+        googleRedirectUri,
+        // Only the files Zenith creates: no app verification needed.
+        "https://www.googleapis.com/auth/drive.file",
+        // A refresh token is only issued for offline access, and only on
+        // the consent screen.
+        authorizationParams: const {
+          'access_type': 'offline',
+          'prompt': 'consent',
+        },
+      );
+    case BackupDestination.local:
+      throw ArgumentError.value(destination, 'destination', 'not a cloud');
+  }
 });
 
+final cloudClientProvider =
+    Provider.family<CloudBackupClient, BackupDestination>((ref, destination) {
+      final auth = ref.watch(cloudOAuthProvider(destination));
+      return switch (destination) {
+        BackupDestination.dropbox => DropboxClient(auth),
+        BackupDestination.googleDrive => GoogleDriveClient(auth),
+        BackupDestination.local => throw ArgumentError.value(
+          destination,
+          'destination',
+          'not a cloud',
+        ),
+      };
+    });
+
 // -----------------------------------------------------------------------------
-// Dropbox session
+// Cloud sessions
 // -----------------------------------------------------------------------------
 
 /// One-off messages for the user (login failures, expired sessions).
@@ -142,20 +202,26 @@ final backupNoticeProvider = NotifierProvider<BackupNoticeNotifier, String?>(
   BackupNoticeNotifier.new,
 );
 
-final dropboxAuthProvider = AsyncNotifierProvider<DropboxAuthNotifier, bool>(
-  DropboxAuthNotifier.new,
-);
+/// Whether each cloud destination is connected.
+final cloudAuthProvider =
+    AsyncNotifierProvider.family<CloudAuthNotifier, bool, BackupDestination>(
+      CloudAuthNotifier.new,
+    );
 
-class DropboxAuthNotifier extends AsyncNotifier<bool> {
-  OAuthService get _service => ref.read(dropboxOAuthProvider);
+class CloudAuthNotifier extends AsyncNotifier<bool> {
+  CloudAuthNotifier(this.destination);
+  final BackupDestination destination;
+
+  OAuthService get _service => ref.read(cloudOAuthProvider(destination));
 
   @override
   Future<bool> build() => _service.isLoggedIn();
 
   Future<void> login() async {
     if (_service.clientId.isEmpty) {
-      throw const BackupException(
-        'Dropbox is not configured in this build (missing DROPBOX_APP_KEY).',
+      throw BackupException(
+        '${destination.label} is not configured in this build '
+        '(missing ${_clientIdDefine[destination]}).',
       );
     }
     final url = await _service.startLogin();
@@ -166,11 +232,11 @@ class DropboxAuthNotifier extends AsyncNotifier<bool> {
   }
 
   Future<void> logout() async {
-    await ref.read(dropboxClientProvider).revoke();
+    await ref.read(cloudClientProvider(destination)).revoke();
     await _signedOut();
   }
 
-  /// Called when Dropbox rejects our tokens.
+  /// Called when the provider rejects our tokens.
   Future<void> sessionExpired(String message) async {
     await _signedOut();
     ref.read(backupNoticeProvider.notifier).show(message);
@@ -180,35 +246,41 @@ class DropboxAuthNotifier extends AsyncNotifier<bool> {
     await _service.logout();
     state = const AsyncData(false);
     // A different account may be connected next: forget what was uploaded.
-    await ref
-        .read(backupControllerProvider.notifier)
-        .resetStatus(BackupDestination.dropbox);
+    await ref.read(backupControllerProvider.notifier).resetStatus(destination);
   }
 }
 
-final dropboxAccountProvider = FutureProvider.autoDispose<DropboxAccount?>((
-  ref,
-) async {
-  if (!await ref.watch(dropboxAuthProvider.future)) return null;
-  try {
-    return await ref.read(dropboxClientProvider).currentAccount();
-  } on DropboxReauthRequired catch (e) {
-    unawaited(ref.read(dropboxAuthProvider.notifier).sessionExpired(e.message));
-    return null;
-  }
-});
+final cloudAccountProvider = FutureProvider.autoDispose
+    .family<CloudAccount?, BackupDestination>((ref, destination) async {
+      if (!await ref.watch(cloudAuthProvider(destination).future)) return null;
+      try {
+        return await ref
+            .read(cloudClientProvider(destination))
+            .currentAccount();
+      } on CloudReauthRequired catch (e) {
+        unawaited(
+          ref
+              .read(cloudAuthProvider(destination).notifier)
+              .sessionExpired(e.message),
+        );
+        return null;
+      }
+    });
 
-final dropboxBackupsProvider = FutureProvider.autoDispose<List<RemoteBackup>>((
-  ref,
-) async {
-  if (!await ref.watch(dropboxAuthProvider.future)) return [];
-  try {
-    return await ref.read(dropboxClientProvider).list();
-  } on DropboxReauthRequired catch (e) {
-    unawaited(ref.read(dropboxAuthProvider.notifier).sessionExpired(e.message));
-    return [];
-  }
-});
+final cloudBackupsProvider = FutureProvider.autoDispose
+    .family<List<RemoteBackup>, BackupDestination>((ref, destination) async {
+      if (!await ref.watch(cloudAuthProvider(destination).future)) return [];
+      try {
+        return await ref.read(cloudClientProvider(destination)).list();
+      } on CloudReauthRequired catch (e) {
+        unawaited(
+          ref
+              .read(cloudAuthProvider(destination).notifier)
+              .sessionExpired(e.message),
+        );
+        return [];
+      }
+    });
 
 final localBackupsProvider = FutureProvider.autoDispose<List<LocalBackup>>((
   ref,
@@ -217,19 +289,29 @@ final localBackupsProvider = FutureProvider.autoDispose<List<LocalBackup>>((
 });
 
 final callbackServiceProvider = Provider((ref) {
+  final services = {
+    for (final d in BackupDestination.cloud)
+      d: ref.watch(cloudOAuthProvider(d)),
+  };
+  BackupDestination destinationOf(OAuthService service) =>
+      services.entries.firstWhere((e) => e.value == service).key;
+
   final handler = OAuthCallbackHandler(
-    oauthServices: [ref.watch(dropboxOAuthProvider)],
-    onLoginSuccess: (_) {
-      ref.invalidate(dropboxAuthProvider);
-      ref.read(backupNoticeProvider.notifier).show('Dropbox connected');
+    oauthServices: services.values.toList(),
+    onLoginSuccess: (service) {
+      final destination = destinationOf(service);
+      ref.invalidate(cloudAuthProvider(destination));
+      ref
+          .read(backupNoticeProvider.notifier)
+          .show('${destination.label} connected');
       // First backup right away, if automatic backups are on.
       unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
     },
-    onLoginError: (_, error) {
+    onLoginError: (service, error) {
       ref
           .read(backupNoticeProvider.notifier)
           .show(
-            'Dropbox login failed: '
+            '${destinationOf(service).label} login failed: '
             '${error is OAuthException ? error.message : error}',
           );
     },
@@ -283,7 +365,7 @@ final backupControllerProvider =
 
 class BackupController extends AsyncNotifier<BackupState> {
   /// Backups kept per destination; older ones are deleted.
-  static const keepDropbox = 10;
+  static const keepCloud = 10;
   static const keepLocal = 5;
 
   bool _autoRunning = false;
@@ -329,8 +411,7 @@ class BackupController extends AsyncNotifier<BackupState> {
 
       final due = <BackupDestination>[];
       for (final d in BackupDestination.values) {
-        if (d == BackupDestination.dropbox &&
-            !await ref.read(dropboxAuthProvider.future)) {
+        if (d.isCloud && !await ref.read(cloudAuthProvider(d).future)) {
           continue;
         }
         final last = current.statusOf(d).lastBackupAt;
@@ -393,9 +474,9 @@ class BackupController extends AsyncNotifier<BackupState> {
         } catch (e) {
           _log.warning('${d.name} backup failed: $e');
           await _record(d, error: _message(e));
-          if (e is DropboxReauthRequired) {
+          if (e is CloudReauthRequired) {
             await ref
-                .read(dropboxAuthProvider.notifier)
+                .read(cloudAuthProvider(d).notifier)
                 .sessionExpired(e.message);
           }
           firstError ??= e;
@@ -413,16 +494,16 @@ class BackupController extends AsyncNotifier<BackupState> {
 
   Future<void> _upload(BackupDestination d, BackupSnapshot snapshot) async {
     switch (d) {
-      case BackupDestination.dropbox:
-        final client = ref.read(dropboxClientProvider);
+      case BackupDestination.dropbox || BackupDestination.googleDrive:
+        final client = ref.read(cloudClientProvider(d));
         _log.info(
           'Uploading ${snapshot.fileName} '
           '(${(snapshot.bytes.length / 1048576).toStringAsFixed(1)} MB) '
-          'to Dropbox.',
+          'to ${d.label}.',
         );
         await client.upload(snapshot.fileName, snapshot.bytes);
-        await client.prune(keep: keepDropbox);
-        ref.invalidate(dropboxBackupsProvider);
+        await client.prune(keep: keepCloud);
+        ref.invalidate(cloudBackupsProvider(d));
       case BackupDestination.local:
         final store = ref.read(localBackupStoreProvider);
         await store.save(snapshot);
@@ -466,11 +547,14 @@ class BackupController extends AsyncNotifier<BackupState> {
     }
   }
 
-  Future<Uint8List> downloadFromDropbox(RemoteBackup backup) async {
+  Future<Uint8List> downloadFromCloud(
+    BackupDestination d,
+    RemoteBackup backup,
+  ) async {
     try {
-      return await ref.read(dropboxClientProvider).download(backup.path);
-    } on DropboxReauthRequired catch (e) {
-      await ref.read(dropboxAuthProvider.notifier).sessionExpired(e.message);
+      return await ref.read(cloudClientProvider(d)).download(backup.id);
+    } on CloudReauthRequired catch (e) {
+      await ref.read(cloudAuthProvider(d).notifier).sessionExpired(e.message);
       rethrow;
     }
   }
