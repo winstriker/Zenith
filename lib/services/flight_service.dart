@@ -2,10 +2,15 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:drift/drift.dart';
 import 'database.dart';
+import 'person_photo_store.dart';
 
 class FlightService {
-  FlightService(this.database);
+  FlightService(this.database, [this._signatures]);
   final LogbookDatabase database;
+
+  /// Where flight signatures live. A signature's file is deleted along with
+  /// its flight or when it is replaced.
+  final SignatureStore? _signatures;
   final List<FlightWithStats> _sessions = [];
   int? _activeSessionId;
   final List<Function> callbacks = [];
@@ -85,6 +90,7 @@ class FlightService {
 
   Future<void> deleteSession(int sessionId) async {
     _sessions.removeWhere((s) => s.flight.id == sessionId);
+    final signature = await _signatureOf(sessionId);
 
     await (database.delete(
       database.flightDataPoints,
@@ -95,7 +101,16 @@ class FlightService {
     await (database.delete(
       database.flights,
     )..where((f) => f.id.equals(sessionId))).go();
+    await _signatures?.delete(signature);
     _notify();
+  }
+
+  Future<String?> _signatureOf(int flightId) async {
+    final query = database.selectOnly(database.flights)
+      ..addColumns([database.flights.signatureFile])
+      ..where(database.flights.id.equals(flightId));
+    final row = await query.getSingleOrNull();
+    return row?.read(database.flights.signatureFile);
   }
 
   List<FlightWithStats> searchByDate(DateTime date) {
@@ -148,6 +163,7 @@ class FlightService {
     int? instrumentMinutes,
     int? nightMinutes,
     bool proficiencyCheck = false,
+    String? signatureFile,
     List<CrewMember> crew = const [],
   }) async {
     final flightId = await database
@@ -172,6 +188,7 @@ class FlightService {
             instrumentMinutes: Value(instrumentMinutes),
             nightMinutes: Value(nightMinutes),
             proficiencyCheck: Value(proficiencyCheck),
+            signatureFile: Value(signatureFile),
           ),
         );
 
@@ -199,6 +216,7 @@ class FlightService {
           instrumentMinutes: instrumentMinutes,
           nightMinutes: nightMinutes,
           proficiencyCheck: proficiencyCheck,
+          signatureFile: signatureFile,
         ),
         dataPoints: [],
         departure: await resolveAirport(departureId),
@@ -230,7 +248,14 @@ class FlightService {
     bool proficiencyCheck = false,
     List<CrewMember> crew = const [],
     bool isRecording = false,
+
+    /// The stored signature file, or null to remove it. Absent leaves the
+    /// signature as it is.
+    Value<String?> signatureFile = const Value.absent(),
   }) async {
+    final oldSignature = signatureFile.present
+        ? await _signatureOf(flightId)
+        : null;
     // write(), not replace(): editing a flight must not wipe the columns the
     // form knows nothing of (where its track comes from, logbook overrides).
     await (database.update(
@@ -255,8 +280,12 @@ class FlightService {
         nightMinutes: Value(nightMinutes),
         proficiencyCheck: Value(proficiencyCheck),
         isRecording: Value(isRecording),
+        signatureFile: signatureFile,
       ),
     );
+    if (signatureFile.present && oldSignature != signatureFile.value) {
+      await _signatures?.delete(oldSignature);
+    }
 
     await database.setFlightCrew(flightId, crew);
 
@@ -286,6 +315,9 @@ class FlightService {
           proficiencyCheck: proficiencyCheck,
           trackSource: _sessions[index].flight.trackSource,
           logbookOverrides: _sessions[index].flight.logbookOverrides,
+          signatureFile: signatureFile.present
+              ? signatureFile.value
+              : _sessions[index].flight.signatureFile,
         ),
         dataPoints: _sessions[index].dataPoints,
         departure: await resolveAirport(departureId),

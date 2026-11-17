@@ -216,6 +216,11 @@ class Flights extends Table {
   BoolColumn get proficiencyCheck =>
       boolean().withDefault(const Constant(false))();
 
+  /// File name of the signature (or photo of the paper logbook's remarks)
+  /// inside the app's signature folder, laid over the remarks in the
+  /// exported logbook.
+  TextColumn get signatureFile => text().nullable()();
+
   List<TableIndex> get indexes => [
     TableIndex(name: 'flights_departure_time_idx', columns: {departureTime}),
     TableIndex(name: 'flights_aircraft_id_idx', columns: {aircraftId}),
@@ -697,7 +702,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -810,6 +815,17 @@ class LogbookDatabase extends _$LogbookDatabase {
             'UPDATE flights SET proficiency_check = 1 WHERE id IN '
             "(SELECT flight FROM flight_crew WHERE role = 'exm')",
           );
+        }
+      }
+      if (from < 10) {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(flights)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(flights.signatureFile.name)) {
+          await m.addColumn(flights, flights.signatureFile);
         }
       }
     },

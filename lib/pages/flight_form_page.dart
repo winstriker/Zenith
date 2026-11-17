@@ -1,5 +1,9 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../core/fab_hero_tags.dart';
 
@@ -10,6 +14,8 @@ import '../repositories/aircraft_repository.dart';
 import '../repositories/flight_repository.dart';
 import '../services/adsb_flight_importer.dart';
 import '../services/database.dart';
+import '../services/pdf_export_service.dart';
+import '../services/person_photo_store.dart';
 import '../utils/tz_datetime.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/airport_search_dialog.dart';
@@ -22,6 +28,10 @@ import '../widgets/remarks_card.dart';
 import '../widgets/timezone_picker.dart';
 import 'aircraft_form_page.dart';
 import 'aircraft_select_page.dart';
+import 'image_crop_page.dart';
+import 'signature_pad_page.dart';
+
+enum _SignatureAction { draw, upload, photo, remove }
 
 class FlightFormPage extends ConsumerStatefulWidget {
   const FlightFormPage({super.key, this.flightToEdit, this.adsbImport})
@@ -42,6 +52,17 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final FlightFormNotifier _formNotifier;
   bool _saving = false;
+
+  /// Newly made signature, not yet copied into the store.
+  File? _pickedSignature;
+  bool _signatureRemoved = false;
+
+  /// The signature the flight was saved with, unless removed here.
+  String? get _storedSignature =>
+      _signatureRemoved ? null : widget.flightToEdit?.flight.signatureFile;
+
+  bool get _hasSignature =>
+      _pickedSignature != null || _storedSignature != null;
 
   @override
   void initState() {
@@ -331,11 +352,108 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 initialValue:
                     widget.flightToEdit?.flight.remarks ?? form.remarks,
                 onChanged: notifier.setRemarks,
+                signature: _signatureFile(),
+                onSignatureTap: _pickSignature,
               ),
               const SizedBox(height: 80),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// The signature to show: the new one, else the saved one.
+  File? _signatureFile() {
+    if (_pickedSignature != null) return _pickedSignature;
+    final stored = _storedSignature;
+    final dir = ref.watch(signatureDirectoryProvider).value;
+    if (stored == null || dir == null) return null;
+    return File('${dir.path}/$stored');
+  }
+
+  Future<void> _pickSignature() async {
+    final action = await showModalBottomSheet<_SignatureAction>(
+      context: context,
+      builder: (ctx) {
+        final error = Theme.of(ctx).colorScheme.error;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.draw_outlined),
+                title: const Text('Draw signature'),
+                onTap: () => Navigator.pop(ctx, _SignatureAction.draw),
+              ),
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: const Text('Upload PNG'),
+                onTap: () => Navigator.pop(ctx, _SignatureAction.upload),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Photograph paper logbook'),
+                subtitle: const Text('Crop it to the remarks of this flight'),
+                onTap: () => Navigator.pop(ctx, _SignatureAction.photo),
+              ),
+              if (_hasSignature)
+                ListTile(
+                  leading: Icon(Icons.delete_outline, color: error),
+                  title: Text(
+                    'Remove signature',
+                    style: TextStyle(color: error),
+                  ),
+                  onTap: () => Navigator.pop(ctx, _SignatureAction.remove),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (action == null || !mounted) return;
+    final File? picked;
+    switch (action) {
+      case _SignatureAction.remove:
+        setState(() {
+          _pickedSignature = null;
+          _signatureRemoved = true;
+        });
+        return;
+      case _SignatureAction.draw:
+        picked = await Navigator.push<File>(
+          context,
+          MaterialPageRoute(builder: (_) => const SignaturePadPage()),
+        );
+      case _SignatureAction.upload:
+        picked = await _pickAndCrop(ImageSource.gallery);
+      case _SignatureAction.photo:
+        picked = await _pickAndCrop(ImageSource.camera);
+    }
+    if (picked == null || !mounted) return;
+    setState(() {
+      _pickedSignature = picked;
+      // Replaced: the saved one goes.
+      _signatureRemoved = true;
+    });
+  }
+
+  /// Fits a picture into the remarks cell. It may be smaller than the cell
+  /// or off to a side: the rest is left transparent.
+  Future<File?> _pickAndCrop(ImageSource source) {
+    final (:x, :y) = PdfExportService.remarksCellRatio;
+    final isPhoto = source == ImageSource.camera;
+    return pickAndCropImage(
+      context,
+      source: source,
+      // An upload keeps its original file, and so its transparency.
+      maxPickSize: isPhoto ? 3000 : null,
+      spec: CropSpec(
+        title: isPhoto ? 'Crop remarks' : 'Fit signature',
+        aspectRatio: x / y,
+        // About 400 dpi in a 37 mm wide cell.
+        outputWidth: 600,
+        allowOutside: true,
       ),
     );
   }
@@ -434,8 +552,19 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     }
     final flightService = ref.read(flightServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
+    final signatures = ref.read(signatureStoreProvider);
     setState(() => _saving = true);
+    String? storedSignature;
     try {
+      if (_pickedSignature != null) {
+        storedSignature = await signatures.save(_pickedSignature!);
+      }
+      // Value.absent() = signature unchanged.
+      final signature = _pickedSignature != null
+          ? Value(storedSignature)
+          : _signatureRemoved
+          ? const Value<String?>(null)
+          : const Value<String?>.absent();
       final depCode =
           form.selectedDeparture?.ident ?? form.departureCode.trim();
       final arrCode = form.selectedArrival?.ident ?? form.arrivalCode.trim();
@@ -465,6 +594,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           nightMinutes: form.nightTime?.inMinutes,
           proficiencyCheck: form.isProficiencyCheck,
           crew: form.crewMembers,
+          signatureFile: signature,
         );
       } else {
         final flightId = await flightService.addFlight(
@@ -486,6 +616,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           nightMinutes: form.nightTime?.inMinutes,
           proficiencyCheck: form.isProficiencyCheck,
           crew: form.crewMembers,
+          signatureFile: storedSignature,
         );
         final draft = widget.adsbImport;
         if (draft != null) {
@@ -512,6 +643,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       notifier.reset();
 
       if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      // Don't leave a signature behind that no flight points to.
+      await signatures.delete(storedSignature);
+      rethrow;
     } finally {
       if (mounted) setState(() => _saving = false);
     }

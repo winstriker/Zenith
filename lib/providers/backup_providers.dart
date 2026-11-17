@@ -99,6 +99,7 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     ref.watch(databaseProvider),
     ref.watch(personPhotoStoreProvider),
     ref.watch(aircraftPhotoStoreProvider),
+    ref.watch(signatureStoreProvider),
     getTemporaryDirectory,
   );
 });

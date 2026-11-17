@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
@@ -48,15 +50,23 @@ class _Totals {
 enum _RemarksCell { certification, signature, coveredBySignature }
 
 class PdfExportService {
+  /// Width to height of a flight's remarks cell: a signature is fitted into
+  /// it, and a photo of the paper logbook's remarks is cropped to it.
+  static const remarksCellRatio = (x: 20, y: 3);
+
+  /// [signatures] are the images (PNG or JPEG) laid over the remarks, by
+  /// flight id.
   static Future<File> generateLogbook(
     List<FlightWithStats> flights, {
     Map<int, List<CrewMember>> crewByFlight = const {},
+    Map<int, Uint8List> signatures = const {},
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
   }) async {
     final html = _buildLogbookHtml(
       flights,
       crewByFlight: crewByFlight,
+      signatures: signatures,
       pilotName: pilotName,
       picNameMode: picNameMode,
     );
@@ -104,6 +114,21 @@ class PdfExportService {
       .replaceAll('>', '&gt;');
 
   static String _fmtInt(int n) => n > 0 ? '$n' : '';
+
+  /// The remarks cell, with [signature] laid over the text when there is one.
+  static String _remarksCell(String remarks, Uint8List? signature) {
+    if (signature == null) return '<td class="text-left">$remarks</td>';
+    final isPng =
+        signature.length > 4 &&
+        signature[0] == 0x89 &&
+        signature[1] == 0x50 &&
+        signature[2] == 0x4E &&
+        signature[3] == 0x47;
+    final src =
+        'data:image/${isPng ? 'png' : 'jpeg'};base64,${base64Encode(signature)}';
+    return '<td class="text-left signed">$remarks'
+        '<img class="signature" src="$src"></td>';
+  }
 
   static _Totals _calcPageTotals(List<LogbookEntry> page) {
     final t = _Totals();
@@ -208,6 +233,7 @@ class PdfExportService {
   static String _buildLogbookHtml(
     List<FlightWithStats> flights, {
     Map<int, List<CrewMember>> crewByFlight = const {},
+    Map<int, Uint8List> signatures = const {},
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
   }) {
@@ -217,8 +243,12 @@ class PdfExportService {
         ? 'SELF'
         : (pilotName ?? '');
 
+    // Oldest first, as a paper logbook is filled in.
+    final chronological = [
+      ...flights,
+    ]..sort((a, b) => a.flight.departureTime.compareTo(b.flight.departureTime));
     final entries = [
-      for (final f in flights)
+      for (final f in chronological)
         (
           flight: f,
           entry: LogbookEntry.of(
@@ -302,8 +332,17 @@ class PdfExportService {
     vertical-align: top;
     padding-top: 3px;
   }
+  .signed { position: relative; }
+  .signature {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
   .bg-grey { background-color: #f2f2f2; }
-  colgroup col:nth-child(12) { background-color: #fafafa; }
 </style>
 </head>
 <body>
@@ -386,7 +425,9 @@ class PdfExportService {
             ..write('<td>${time(LogbookTimeField.instructor)}</td>')
             ..write('<td></td>') // FSTD type
             ..write('<td></td>') // FSTD time
-            ..write('<td class="text-left">${_escape(entry.remarks)}</td>');
+            ..write(
+              _remarksCell(_escape(entry.remarks), signatures[f.flight.id]),
+            );
         } else {
           for (int j = 0; j < 23; j++) {
             buf.write('<td></td>');

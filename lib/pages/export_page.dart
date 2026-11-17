@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +12,7 @@ import '../providers/user_provider.dart';
 import '../services/database.dart';
 import '../services/file_opener.dart';
 import '../services/pdf_export_service.dart';
+import '../services/person_photo_store.dart';
 import '../widgets/section_header.dart';
 
 enum ExportFormat {
@@ -90,9 +92,17 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     final crew = await ref
         .read(databaseProvider)
         .getCrewForFlights(flights.map((f) => f.flight.id));
+    final store = ref.read(signatureStoreProvider);
+    final signatures = <int, Uint8List>{};
+    for (final f in flights) {
+      final name = f.flight.signatureFile;
+      final bytes = name == null ? null : await store.read(name);
+      if (bytes != null) signatures[f.flight.id] = bytes;
+    }
     final file = await PdfExportService.generateLogbook(
       flights,
       crewByFlight: crew,
+      signatures: signatures,
       pilotName: ref.read(userSignatureNameProvider),
       picNameMode: ref.read(picNameModeProvider),
     );

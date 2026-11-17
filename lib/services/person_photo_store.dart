@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -41,6 +42,19 @@ class PersonPhotoStore extends PhotoStore {
     : super(root, 'people_photos');
 }
 
+/// Signatures laid over the remarks of a flight in the exported logbook, in
+/// `<app support>/signatures/`: drawn in the app, uploaded, or photographed
+/// off the paper logbook.
+class SignatureStore extends PhotoStore {
+  SignatureStore(Future<Directory> Function() root) : super(root, 'signatures');
+
+  /// Content of the stored file [name], or null when it is missing.
+  Future<Uint8List?> read(String name) async {
+    final file = File('${(await directory).path}/$name');
+    return file.existsSync() ? file.readAsBytes() : null;
+  }
+}
+
 /// Aircraft photos the user picked themselves, in
 /// `<app support>/aircraft_photos/`. Photos found online are not stored.
 class AircraftPhotoStore extends PhotoStore {
@@ -65,4 +79,13 @@ final aircraftPhotoStoreProvider = Provider<AircraftPhotoStore>((ref) {
 /// widgets.
 final aircraftPhotoDirectoryProvider = FutureProvider<Directory>((ref) {
   return ref.watch(aircraftPhotoStoreProvider).directory;
+});
+
+final signatureStoreProvider = Provider<SignatureStore>((ref) {
+  return SignatureStore(getApplicationSupportDirectory);
+});
+
+/// Resolved signature folder, for building [File]s synchronously in widgets.
+final signatureDirectoryProvider = FutureProvider<Directory>((ref) {
+  return ref.watch(signatureStoreProvider).directory;
 });

@@ -25,7 +25,7 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   geolocator: ^14.0.2
   http: ^1.2.0
-  image_cropper: ^13.0.0
+  image: ^4.13.1
   image_picker: ^1.2.4
   intl: ^0.20.2
   lat_lng_to_timezone: ^0.2.0

@@ -5172,6 +5172,17 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _signatureFileMeta = const VerificationMeta(
+    'signatureFile',
+  );
+  @override
+  late final GeneratedColumn<String> signatureFile = GeneratedColumn<String>(
+    'signature_file',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5195,6 +5206,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     logbookOverrides,
     trackSource,
     proficiencyCheck,
+    signatureFile,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5370,6 +5382,15 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         ),
       );
     }
+    if (data.containsKey('signature_file')) {
+      context.handle(
+        _signatureFileMeta,
+        signatureFile.isAcceptableOrUnknown(
+          data['signature_file']!,
+          _signatureFileMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5465,6 +5486,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.bool,
         data['${effectivePrefix}proficiency_check'],
       )!,
+      signatureFile: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}signature_file'],
+      ),
     );
   }
 
@@ -5520,6 +5545,11 @@ class Flight extends DataClass implements Insertable<Flight> {
   /// crew: it then counts as the last check of the class or type rating of
   /// its aircraft.
   final bool proficiencyCheck;
+
+  /// File name of the signature (or photo of the paper logbook's remarks)
+  /// inside the app's signature folder, laid over the remarks in the
+  /// exported logbook.
+  final String? signatureFile;
   const Flight({
     required this.id,
     required this.title,
@@ -5542,6 +5572,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.logbookOverrides,
     this.trackSource,
     required this.proficiencyCheck,
+    this.signatureFile,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5601,6 +5632,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       map['track_source'] = Variable<String>(trackSource);
     }
     map['proficiency_check'] = Variable<bool>(proficiencyCheck);
+    if (!nullToAbsent || signatureFile != null) {
+      map['signature_file'] = Variable<String>(signatureFile);
+    }
     return map;
   }
 
@@ -5659,6 +5693,9 @@ class Flight extends DataClass implements Insertable<Flight> {
           ? const Value.absent()
           : Value(trackSource),
       proficiencyCheck: Value(proficiencyCheck),
+      signatureFile: signatureFile == null && nullToAbsent
+          ? const Value.absent()
+          : Value(signatureFile),
     );
   }
 
@@ -5695,6 +5732,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       ),
       trackSource: serializer.fromJson<String?>(json['trackSource']),
       proficiencyCheck: serializer.fromJson<bool>(json['proficiencyCheck']),
+      signatureFile: serializer.fromJson<String?>(json['signatureFile']),
     );
   }
   @override
@@ -5726,6 +5764,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       ),
       'trackSource': serializer.toJson<String?>(trackSource),
       'proficiencyCheck': serializer.toJson<bool>(proficiencyCheck),
+      'signatureFile': serializer.toJson<String?>(signatureFile),
     };
   }
 
@@ -5751,6 +5790,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<LogbookOverrides?> logbookOverrides = const Value.absent(),
     Value<String?> trackSource = const Value.absent(),
     bool? proficiencyCheck,
+    Value<String?> signatureFile = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -5783,6 +5823,9 @@ class Flight extends DataClass implements Insertable<Flight> {
         : this.logbookOverrides,
     trackSource: trackSource.present ? trackSource.value : this.trackSource,
     proficiencyCheck: proficiencyCheck ?? this.proficiencyCheck,
+    signatureFile: signatureFile.present
+        ? signatureFile.value
+        : this.signatureFile,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
@@ -5837,6 +5880,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       proficiencyCheck: data.proficiencyCheck.present
           ? data.proficiencyCheck.value
           : this.proficiencyCheck,
+      signatureFile: data.signatureFile.present
+          ? data.signatureFile.value
+          : this.signatureFile,
     );
   }
 
@@ -5863,7 +5909,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('nightMinutes: $nightMinutes, ')
           ..write('logbookOverrides: $logbookOverrides, ')
           ..write('trackSource: $trackSource, ')
-          ..write('proficiencyCheck: $proficiencyCheck')
+          ..write('proficiencyCheck: $proficiencyCheck, ')
+          ..write('signatureFile: $signatureFile')
           ..write(')'))
         .toString();
   }
@@ -5891,6 +5938,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     logbookOverrides,
     trackSource,
     proficiencyCheck,
+    signatureFile,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -5916,7 +5964,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.nightMinutes == this.nightMinutes &&
           other.logbookOverrides == this.logbookOverrides &&
           other.trackSource == this.trackSource &&
-          other.proficiencyCheck == this.proficiencyCheck);
+          other.proficiencyCheck == this.proficiencyCheck &&
+          other.signatureFile == this.signatureFile);
 }
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
@@ -5941,6 +5990,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<LogbookOverrides?> logbookOverrides;
   final Value<String?> trackSource;
   final Value<bool> proficiencyCheck;
+  final Value<String?> signatureFile;
   const FlightsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -5963,6 +6013,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.logbookOverrides = const Value.absent(),
     this.trackSource = const Value.absent(),
     this.proficiencyCheck = const Value.absent(),
+    this.signatureFile = const Value.absent(),
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
@@ -5986,6 +6037,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.logbookOverrides = const Value.absent(),
     this.trackSource = const Value.absent(),
     this.proficiencyCheck = const Value.absent(),
+    this.signatureFile = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
        isRecording = Value(isRecording);
@@ -6011,6 +6063,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<String>? logbookOverrides,
     Expression<String>? trackSource,
     Expression<bool>? proficiencyCheck,
+    Expression<String>? signatureFile,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6036,6 +6089,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (logbookOverrides != null) 'logbook_overrides': logbookOverrides,
       if (trackSource != null) 'track_source': trackSource,
       if (proficiencyCheck != null) 'proficiency_check': proficiencyCheck,
+      if (signatureFile != null) 'signature_file': signatureFile,
     });
   }
 
@@ -6061,6 +6115,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<LogbookOverrides?>? logbookOverrides,
     Value<String?>? trackSource,
     Value<bool>? proficiencyCheck,
+    Value<String?>? signatureFile,
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
@@ -6085,6 +6140,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       logbookOverrides: logbookOverrides ?? this.logbookOverrides,
       trackSource: trackSource ?? this.trackSource,
       proficiencyCheck: proficiencyCheck ?? this.proficiencyCheck,
+      signatureFile: signatureFile ?? this.signatureFile,
     );
   }
 
@@ -6160,6 +6216,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (proficiencyCheck.present) {
       map['proficiency_check'] = Variable<bool>(proficiencyCheck.value);
     }
+    if (signatureFile.present) {
+      map['signature_file'] = Variable<String>(signatureFile.value);
+    }
     return map;
   }
 
@@ -6186,7 +6245,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('nightMinutes: $nightMinutes, ')
           ..write('logbookOverrides: $logbookOverrides, ')
           ..write('trackSource: $trackSource, ')
-          ..write('proficiencyCheck: $proficiencyCheck')
+          ..write('proficiencyCheck: $proficiencyCheck, ')
+          ..write('signatureFile: $signatureFile')
           ..write(')'))
         .toString();
   }
@@ -14208,6 +14268,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<LogbookOverrides?> logbookOverrides,
       Value<String?> trackSource,
       Value<bool> proficiencyCheck,
+      Value<String?> signatureFile,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
@@ -14232,6 +14293,7 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<LogbookOverrides?> logbookOverrides,
       Value<String?> trackSource,
       Value<bool> proficiencyCheck,
+      Value<String?> signatureFile,
     });
 
 final class $$FlightsTableReferences
@@ -14426,6 +14488,11 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<bool> get proficiencyCheck => $composableBuilder(
     column: $table.proficiencyCheck,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get signatureFile => $composableBuilder(
+    column: $table.signatureFile,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14648,6 +14715,11 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get signatureFile => $composableBuilder(
+    column: $table.signatureFile,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AirportsTableOrderingComposer get departure {
     final $$AirportsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -14807,6 +14879,11 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<bool> get proficiencyCheck => $composableBuilder(
     column: $table.proficiencyCheck,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get signatureFile => $composableBuilder(
+    column: $table.signatureFile,
     builder: (column) => column,
   );
 
@@ -14986,6 +15063,7 @@ class $$FlightsTableTableManager
                     const Value.absent(),
                 Value<String?> trackSource = const Value.absent(),
                 Value<bool> proficiencyCheck = const Value.absent(),
+                Value<String?> signatureFile = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
                 title: title,
@@ -15008,6 +15086,7 @@ class $$FlightsTableTableManager
                 logbookOverrides: logbookOverrides,
                 trackSource: trackSource,
                 proficiencyCheck: proficiencyCheck,
+                signatureFile: signatureFile,
               ),
           createCompanionCallback:
               ({
@@ -15033,6 +15112,7 @@ class $$FlightsTableTableManager
                     const Value.absent(),
                 Value<String?> trackSource = const Value.absent(),
                 Value<bool> proficiencyCheck = const Value.absent(),
+                Value<String?> signatureFile = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
                 title: title,
@@ -15055,6 +15135,7 @@ class $$FlightsTableTableManager
                 logbookOverrides: logbookOverrides,
                 trackSource: trackSource,
                 proficiencyCheck: proficiencyCheck,
+                signatureFile: signatureFile,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -4,6 +4,7 @@ import '../repositories/flight_repository.dart';
 import '../services/database.dart';
 import '../services/flight_service.dart';
 import '../services/location_service.dart';
+import '../services/person_photo_store.dart';
 import 'database_provider.dart';
 
 // Flight Repository Provider
@@ -52,5 +53,5 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 // Legacy flight service provider (for mutation operations)
 final flightServiceProvider = Provider<FlightService>((ref) {
   final db = ref.watch(databaseProvider);
-  return FlightService(db);
+  return FlightService(db, ref.watch(signatureStoreProvider));
 });

@@ -68,17 +68,26 @@ class RestoreSummary {
 /// - `aircraft_photos/<name>`: aircraft photos picked by the user, when
 ///   photos are included. Aircraft photos found online are only links, and
 ///   travel inside the database.
+/// - `signatures/<name>`: flight signatures, always: they are part of the
+///   logbook.
 ///
 /// Restoring copies every table of the snapshot over the live database
 /// inside one transaction, so the app keeps its open connection and a failed
 /// restore changes nothing. A snapshot from an older schema still restores:
 /// only the columns both sides have are copied.
 class BackupService {
-  BackupService(this._db, this._photos, this._aircraftPhotos, this._workDir);
+  BackupService(
+    this._db,
+    this._photos,
+    this._aircraftPhotos,
+    this._signatures,
+    this._workDir,
+  );
 
   final LogbookDatabase _db;
   final PersonPhotoStore _photos;
   final AircraftPhotoStore _aircraftPhotos;
+  final SignatureStore _signatures;
 
   /// Scratch space for the database snapshot while it is packed/unpacked.
   final Future<Directory> Function() _workDir;
@@ -94,6 +103,7 @@ class BackupService {
   static const _databaseEntry = 'zenith.sqlite';
   static const _photosPrefix = 'photos/';
   static const _aircraftPhotosPrefix = 'aircraft_photos/';
+  static const _signaturesPrefix = 'signatures/';
 
   static String fileNameFor(DateTime time, {String suffix = ''}) {
     String two(int n) => n.toString().padLeft(2, '0');
@@ -151,6 +161,13 @@ class BackupService {
         'WHERE photo_file IS NOT NULL',
       );
     }
+    await _collectPhotos(
+      photos,
+      _signatures,
+      _signaturesPrefix,
+      'SELECT signature_file AS name FROM flights '
+      'WHERE signature_file IS NOT NULL',
+    );
 
     final manifest = jsonEncode({
       'format': format,
@@ -268,7 +285,7 @@ class BackupService {
       );
     }
 
-    final (database, photos, aircraftPhotos) = content!;
+    final (database, photos, aircraftPhotos, signatures) = content!;
     final file = await _tempFile('restore');
     await file.writeAsBytes(database, flush: true);
     try {
@@ -290,6 +307,12 @@ class BackupService {
           table: 'aircrafts',
           column: 'photo_file',
         );
+    await _restorePhotos(
+      _signatures,
+      signatures,
+      table: 'flights',
+      column: 'signature_file',
+    );
     // Backups older than aircraft classes come back without any.
     if (schema is int && schema < 5) await _db.assignDeducedAircraftClasses();
     _db.markTablesUpdated(_db.allTables);
@@ -304,11 +327,16 @@ class BackupService {
   }
 
   /// Unzips and validates a backup. With [withContent], also returns the
-  /// database snapshot, people's photos and aircraft photos.
+  /// database snapshot, people's photos, aircraft photos and signatures.
   static Future<
     (
       Map<String, Object?>,
-      (Uint8List, Map<String, Uint8List>, Map<String, Uint8List>)?,
+      (
+        Uint8List,
+        Map<String, Uint8List>,
+        Map<String, Uint8List>,
+        Map<String, Uint8List>,
+      )?,
     )
   >
   _open(Uint8List bytes, {required bool withContent}) async {
@@ -349,7 +377,12 @@ class BackupService {
         };
         return (
           manifest,
-          (database, under(_photosPrefix), under(_aircraftPhotosPrefix)),
+          (
+            database,
+            under(_photosPrefix),
+            under(_aircraftPhotosPrefix),
+            under(_signaturesPrefix),
+          ),
         );
       });
     } on BackupException {

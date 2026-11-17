@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -16,6 +18,7 @@ import '../providers/unit_provider.dart';
 import '../repositories/flight_repository.dart';
 import '../services/adsb_track_source.dart';
 import '../services/database.dart';
+import '../services/person_photo_store.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/base_map_layer.dart';
 import '../widgets/crew_card.dart';
@@ -79,6 +82,11 @@ class _FlightDetailView extends ConsumerWidget {
         : listed.copyWith(dataPoints: points);
     final approachType = flight.flight.approachType;
     final flightRules = flight.flight.flightRules;
+    final signatureName = flight.flight.signatureFile;
+    final signatureDir = ref.watch(signatureDirectoryProvider).value;
+    final signature = signatureName == null || signatureDir == null
+        ? null
+        : File('${signatureDir.path}/$signatureName');
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -147,8 +155,14 @@ class _FlightDetailView extends ConsumerWidget {
                       ],
                       const SizedBox(height: 12),
                       _FlightCrewCard(flight: flight.flight),
-                      if (flight.flight.remarks != null)
-                        RemarksCard(initialValue: flight.flight.remarks!),
+                      if (flight.flight.remarks != null ||
+                          signature != null) ...[
+                        const SizedBox(height: 12),
+                        RemarksCard(
+                          initialValue: flight.flight.remarks ?? '',
+                          signature: signature,
+                        ),
+                      ],
                       if (flight.dataPoints.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         _AltitudeChartCard(points: flight.dataPoints),

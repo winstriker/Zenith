@@ -38,12 +38,14 @@ void main() {
       source,
       PersonPhotoStore(() async => sourceRoot),
       AircraftPhotoStore(() async => sourceRoot),
+      SignatureStore(() async => sourceRoot),
       () async => Directory('${sourceRoot.path}/tmp'),
     );
     targetBackup = BackupService(
       target,
       PersonPhotoStore(() async => targetRoot),
       AircraftPhotoStore(() async => targetRoot),
+      SignatureStore(() async => targetRoot),
       () async => Directory('${targetRoot.path}/tmp'),
     );
   });
@@ -273,6 +275,32 @@ void main() {
       expect(aircraft['I-LINK']!.photoUrl, isNotNull);
     },
   );
+
+  test('signatures travel with the backup even without photos', () async {
+    await seed();
+    final signatures = Directory('${sourceRoot.path}/signatures')
+      ..createSync(recursive: true);
+    File('${signatures.path}/sig.png').writeAsBytesSync([5, 6, 7]);
+    await source
+        .update(source.flights)
+        .write(const FlightsCompanion(signatureFile: Value('sig.png')));
+    // A leftover in the target that no restored flight uses.
+    final targetSignatures = Directory('${targetRoot.path}/signatures')
+      ..createSync(recursive: true);
+    File('${targetSignatures.path}/stale.png').writeAsBytesSync([0]);
+
+    final snapshot = await sourceBackup.create(includePhotos: false);
+    await targetBackup.restore(snapshot.bytes);
+
+    final flight = await target.select(target.flights).getSingle();
+    expect(flight.signatureFile, 'sig.png');
+    expect(File('${targetSignatures.path}/sig.png').readAsBytesSync(), [
+      5,
+      6,
+      7,
+    ]);
+    expect(File('${targetSignatures.path}/stale.png').existsSync(), isFalse);
+  });
 
   test('without photos, missing pictures are cleared on restore', () async {
     await seed();

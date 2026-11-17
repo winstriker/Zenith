@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:uuid/uuid.dart';
 import '../core/fab_hero_tags.dart';
 
 import '../repositories/aircraft_repository.dart';
@@ -18,6 +16,7 @@ import '../widgets/aircraft_class_card.dart';
 import '../widgets/aircraft_photo_view.dart';
 import '../widgets/model_card.dart';
 import 'icao_aircraft_select_page.dart';
+import 'image_crop_page.dart';
 
 enum _PhotoAction { online, gallery, camera, remove }
 
@@ -312,69 +311,22 @@ class _AircraftFormPageState extends ConsumerState<AircraftFormPage> {
   }
 
   Future<void> _pickPhoto(ImageSource source) async {
-    final picked = await ImagePicker().pickImage(
+    final cropped = await pickAndCropImage(
+      context,
       source: source,
-      // Keep enough resolution for the user to crop into; the cropper
-      // produces the final file.
-      maxWidth: 3000,
-      maxHeight: 3000,
+      // The shape of the header.
+      spec: const CropSpec(
+        title: 'Crop photo',
+        aspectRatio: 3 / 2,
+        outputWidth: 1600,
+        jpegQuality: 85,
+      ),
     );
-    if (picked == null || !mounted) return;
-    // image_picker reuses its cache file names, so that file can vanish
-    // while uCrop is still reading it. Crop from a private, uniquely named
-    // copy instead.
-    final copy = File(
-      '${Directory.systemTemp.path}/crop_src_${const Uuid().v4()}.jpg',
-    );
-    await File(picked.path).copy(copy.path);
-    File? cropped;
-    try {
-      if (!mounted) return;
-      cropped = await _crop(copy.path);
-    } finally {
-      if (copy.existsSync()) await copy.delete();
-    }
     if (cropped == null || !mounted) return;
     setState(() {
       _pickedPhoto = cropped;
       _photoChanged = true;
     });
-  }
-
-  /// Lets the user crop [path] to the shape of the header, then downsizes
-  /// and compresses it. Returns null if cancelled.
-  Future<File?> _crop(String path) async {
-    final cs = Theme.of(context).colorScheme;
-    final cropped = await ImageCropper().cropImage(
-      sourcePath: path,
-      aspectRatio: const CropAspectRatio(ratioX: 3, ratioY: 2),
-      maxWidth: 1600,
-      maxHeight: 1067,
-      compressQuality: 85,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop photo',
-          toolbarColor: cs.surface,
-          toolbarWidgetColor: cs.onSurface,
-          backgroundColor: cs.surface,
-          activeControlsWidgetColor: cs.primary,
-          statusBarLight: cs.brightness == Brightness.light,
-          navBarLight: cs.brightness == Brightness.light,
-          lockAspectRatio: true,
-          initAspectRatio: CropAspectRatioPreset.ratio3x2,
-          aspectRatioPresets: const [CropAspectRatioPreset.ratio3x2],
-          hideBottomControls: false,
-        ),
-        IOSUiSettings(
-          title: 'Crop photo',
-          aspectRatioLockEnabled: true,
-          resetAspectRatioEnabled: false,
-          aspectRatioPickerButtonHidden: true,
-          aspectRatioPresets: const [CropAspectRatioPreset.ratio3x2],
-        ),
-      ],
-    );
-    return cropped == null ? null : File(cropped.path);
   }
 
   // ---------------------------------------------------------------------------
