@@ -147,6 +147,7 @@ class FlightService {
     String? pilotRole,
     int? instrumentMinutes,
     int? nightMinutes,
+    bool proficiencyCheck = false,
     List<CrewMember> crew = const [],
   }) async {
     final flightId = await database
@@ -170,6 +171,7 @@ class FlightService {
             pilotRole: Value(pilotRole),
             instrumentMinutes: Value(instrumentMinutes),
             nightMinutes: Value(nightMinutes),
+            proficiencyCheck: Value(proficiencyCheck),
           ),
         );
 
@@ -196,6 +198,7 @@ class FlightService {
           pilotRole: pilotRole,
           instrumentMinutes: instrumentMinutes,
           nightMinutes: nightMinutes,
+          proficiencyCheck: proficiencyCheck,
         ),
         dataPoints: [],
         departure: await resolveAirport(departureId),
@@ -224,6 +227,7 @@ class FlightService {
     String? pilotRole,
     int? instrumentMinutes,
     int? nightMinutes,
+    bool proficiencyCheck = false,
     List<CrewMember> crew = const [],
     bool isRecording = false,
   }) async {
@@ -249,6 +253,7 @@ class FlightService {
         pilotRole: Value(pilotRole),
         instrumentMinutes: Value(instrumentMinutes),
         nightMinutes: Value(nightMinutes),
+        proficiencyCheck: Value(proficiencyCheck),
         isRecording: Value(isRecording),
       ),
     );
@@ -278,6 +283,7 @@ class FlightService {
           pilotRole: pilotRole,
           instrumentMinutes: instrumentMinutes,
           nightMinutes: nightMinutes,
+          proficiencyCheck: proficiencyCheck,
           trackSource: _sessions[index].flight.trackSource,
           logbookOverrides: _sessions[index].flight.logbookOverrides,
         ),

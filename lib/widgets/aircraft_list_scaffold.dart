@@ -8,6 +8,7 @@ import '../providers/aircraft_providers.dart';
 import '../services/database.dart';
 import 'aircraft_card.dart';
 import 'empty_state.dart';
+import 'page_title.dart';
 
 /// Searchable list of the user's aircraft, framed like the detail pages:
 /// a close FAB at the top-left and an "Add" FAB at the bottom-right.
@@ -57,7 +58,6 @@ class _AircraftListScaffoldState extends ConsumerState<AircraftListScaffold> {
   @override
   Widget build(BuildContext context) {
     final aircraftAsync = ref.watch(aircraftListStreamProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -77,22 +77,8 @@ class _AircraftListScaffoldState extends ConsumerState<AircraftListScaffold> {
         body: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            // Leaves room for the close FAB pinned at the top-left.
             SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.paddingOf(context).top + 80,
-                  16,
-                  8,
-                ),
-                child: Text(
-                  widget.title,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              child: PageTitle(widget.title, belowCloseButton: true),
             ),
             SliverToBoxAdapter(
               child: Padding(

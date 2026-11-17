@@ -7,6 +7,7 @@ import '../providers/flight_providers.dart';
 import '../services/database.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/page_title.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
 
@@ -138,22 +139,8 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
         body: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            // Leaves room for the close FAB pinned at the top-left.
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.paddingOf(context).top + 80,
-                  16,
-                  8,
-                ),
-                child: Text(
-                  'Flights',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+            const SliverToBoxAdapter(
+              child: PageTitle('Flights', belowCloseButton: true),
             ),
             SliverToBoxAdapter(
               child: Padding(

@@ -6,6 +6,7 @@ import '../pages/person_form_page.dart';
 import '../providers/person_providers.dart';
 import '../services/database.dart';
 import 'empty_state.dart';
+import 'page_title.dart';
 import 'person_tile.dart';
 
 /// Searchable list of people, most recently flown with first, framed like the
@@ -57,7 +58,6 @@ class _PeopleListScaffoldState extends ConsumerState<PeopleListScaffold> {
   Widget build(BuildContext context) {
     final peopleAsync = ref.watch(peopleProvider(_query));
     final excluded = widget.excludeIds ?? const <int>{};
-    final theme = Theme.of(context);
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -79,22 +79,8 @@ class _PeopleListScaffoldState extends ConsumerState<PeopleListScaffold> {
         body: CustomScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            // Leaves room for the close FAB pinned at the top-left.
             SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.paddingOf(context).top + 80,
-                  16,
-                  8,
-                ),
-                child: Text(
-                  widget.title,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              child: PageTitle(widget.title, belowCloseButton: true),
             ),
             SliverToBoxAdapter(
               child: Padding(

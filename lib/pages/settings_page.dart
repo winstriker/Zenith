@@ -3,14 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/aircraft_providers.dart';
+import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
 import '../providers/map_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
+import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 import 'adsb_settings_page.dart';
 import 'backup_settings_page.dart';
+import 'currency_settings_page.dart';
 import 'export_page.dart';
 import 'map_settings_page.dart';
 import 'people_page.dart';
@@ -83,17 +86,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final unitMode = ref.watch(unitProvider);
     final mapSource = ref.watch(effectiveMapSourceProvider);
     final picNameMode = ref.watch(picNameModeProvider);
+    final currencySettings = ref.watch(currencySettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings'), centerTitle: true),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           8 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          const PageTitle('Settings', horizontalPadding: 0),
           const SectionHeader(title: 'Preferences', uppercase: true),
           Card(
             child: Column(
@@ -265,6 +269,35 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const SectionHeader(title: 'Licences & Currency', uppercase: true),
+          Card(
+            child: ListTile(
+              leading: Icon(
+                currencySettings.notificationsEnabled
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_off_outlined,
+              ),
+              title: const Text('Expiry Reminders'),
+              subtitle: Text(
+                !currencySettings.notificationsEnabled
+                    ? 'Off'
+                    : currencySettings.leads.isEmpty
+                    ? 'No reminders selected'
+                    : [
+                        for (final lead in ReminderLead.values)
+                          if (currencySettings.leads.contains(lead)) lead.label,
+                      ].join(', '),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const CurrencySettingsPage(),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),

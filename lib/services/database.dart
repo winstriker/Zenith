@@ -11,6 +11,7 @@ import '../models/aircraft_photo.dart';
 import '../models/aircraft_type_enums.dart';
 import '../models/airport_type.dart';
 import '../models/crew.dart';
+import '../models/licence.dart';
 import '../models/logbook_overrides.dart';
 import '../utils/night_time.dart';
 
@@ -19,6 +20,7 @@ export '../models/aircraft_photo.dart';
 export '../models/aircraft_type_enums.dart';
 export '../models/airport_type.dart';
 export '../models/crew.dart';
+export '../models/licence.dart';
 export '../models/logbook_overrides.dart';
 
 part 'database.g.dart';
@@ -208,6 +210,12 @@ class Flights extends Table {
   /// the app recorded itself, and for flights without a track.
   TextColumn get trackSource => text().nullable()();
 
+  /// Whether the flight was a proficiency check with an examiner in the
+  /// crew: it then counts as the last check of the class or type rating of
+  /// its aircraft.
+  BoolColumn get proficiencyCheck =>
+      boolean().withDefault(const Constant(false))();
+
   List<TableIndex> get indexes => [
     TableIndex(name: 'flights_departure_time_idx', columns: {departureTime}),
     TableIndex(name: 'flights_aircraft_id_idx', columns: {aircraftId}),
@@ -283,6 +291,71 @@ class IcaoAircrafts extends Table {
   IntColumn get engineCount => integer()();
   TextColumn get engineType => textEnum<EngineType>()();
   BoolColumn get userInserted => boolean().withDefault(const Constant(false))();
+}
+
+/// A pilot licence held by the user.
+class Licences extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get kind => textEnum<LicenceKind>()();
+  TextColumn get category => textEnum<AircraftCategory>()();
+
+  /// Licence number, as printed on it.
+  TextColumn get number => text().nullable()();
+
+  /// Who issued it: the competent authority ("ENAC", "LBA"...).
+  TextColumn get issuedBy => text().nullable()();
+  DateTimeColumn get issueDate => dateTime().nullable()();
+
+  /// Last proficiency check with an examiner, which keeps a LAPL(A) recent
+  /// for 2 years on its own (FCL.140.A(a)(2)).
+  DateTimeColumn get proficiencyCheckDate => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+}
+
+/// A rating, endorsement or certificate on a [Licences] row.
+@DataClassName('LicenceRating')
+class LicenceRatings extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get licence => integer().references(Licences, #id)();
+  TextColumn get kind => textEnum<RatingKind>()();
+
+  /// The class, for a [RatingKind.classRating].
+  TextColumn get aircraftClass => textEnum<AircraftClass>().nullable()();
+
+  /// What the pilot calls it: the type rating endorsement ("A320"), the
+  /// instructor certificate ("FI(A)"), the language...
+  TextColumn get name => text().nullable()();
+
+  /// Language proficiency level (4 to 6).
+  IntColumn get level => integer().nullable()();
+  DateTimeColumn get issueDate => dateTime().nullable()();
+
+  /// Last proficiency check (or skill test, assessment of competence).
+  DateTimeColumn get lastCheckDate => dateTime().nullable()();
+
+  /// Last day of validity, as endorsed on the licence. Null when it doesn't
+  /// expire.
+  DateTimeColumn get expiryDate => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  List<TableIndex> get indexes => [
+    TableIndex(name: 'licence_ratings_licence_idx', columns: {licence}),
+  ];
+}
+
+/// A medical certificate (Part-MED).
+@DataClassName('MedicalCertificate')
+class MedicalCertificates extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get medicalClass => textEnum<MedicalClass>()();
+  DateTimeColumn get examinationDate => dateTime().nullable()();
+
+  /// Last day of validity, as written on the certificate.
+  DateTimeColumn get expiryDate => dateTime()();
+
+  /// Limitations on the certificate (VML, SSL...).
+  TextColumn get limitations => text().nullable()();
+  TextColumn get notes => text().nullable()();
 }
 
 /// The night time of a flight from [departure] to [arrival] (see
@@ -605,6 +678,9 @@ extension ToIcaoAircraft on AircraftWithStats {
     IcaoAircrafts,
     People,
     FlightCrew,
+    Licences,
+    LicenceRatings,
+    MedicalCertificates,
   ],
   views: [AircraftWithStatss, FlightStats, AircraftWithIcaos],
 )
@@ -621,7 +697,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -708,6 +784,33 @@ class LogbookDatabase extends _$LogbookDatabase {
           }
         }
         await _backfillLogbookTimes();
+      }
+      if (from < 8) {
+        // createTable is CREATE TABLE IF NOT EXISTS: fine for the migration
+        // tests, which start from the current schema.
+        await m.createTable(licences);
+        await m.createTable(licenceRatings);
+        await m.createTable(medicalCertificates);
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS licence_ratings_licence_idx '
+          'ON licence_ratings (licence)',
+        );
+      }
+      if (from < 9) {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(flights)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(flights.proficiencyCheck.name)) {
+          await m.addColumn(flights, flights.proficiencyCheck);
+          // A flight with an examiner was, more often than not, a check.
+          await customStatement(
+            'UPDATE flights SET proficiency_check = 1 WHERE id IN '
+            "(SELECT flight FROM flight_crew WHERE role = 'exm')",
+          );
+        }
       }
     },
   );

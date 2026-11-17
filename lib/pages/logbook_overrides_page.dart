@@ -9,6 +9,7 @@ import '../repositories/flight_repository.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/duration_field.dart';
+import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 
 /// Lets the pilot replace any value of a flight's logbook line, for the
@@ -114,18 +115,13 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
         body: Form(
           key: _formKey,
           child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              MediaQuery.paddingOf(context).top + 80,
-              16,
-              16,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              Text(
+              const PageTitle(
                 'Logbook Overrides',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                belowCloseButton: true,
+                horizontalPadding: 0,
+                bottomPadding: 0,
               ),
               const SizedBox(height: 4),
               Text(

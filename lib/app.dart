@@ -9,10 +9,13 @@ import 'core/theme.dart';
 import 'pages/airports_page.dart';
 import 'pages/home_page.dart';
 import 'pages/intro_page.dart';
+import 'pages/licences_page.dart';
 import 'pages/settings_page.dart';
 import 'providers/aircraft_providers.dart';
 import 'providers/backup_providers.dart';
+import 'providers/licence_providers.dart';
 import 'providers/map_provider.dart';
+import 'providers/navigation_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/user_provider.dart';
 import 'widgets/floating_nav_bar.dart';
@@ -25,7 +28,6 @@ class LogbookApp extends ConsumerStatefulWidget {
 }
 
 class _LogbookAppState extends ConsumerState<LogbookApp> {
-  int _currentIndex = 0;
   bool _checkingPermission = true;
   bool _permissionGranted = false;
   late final AppLifecycleListener _lifecycle;
@@ -81,6 +83,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     // the lists read the table through streams, so the whole app (and any
     // animation on screen) doesn't need to rebuild when the load finishes.
     ref.listen(aircraftTypesLoadProvider, (_, _) {});
+    // Keeps licence & currency reminders scheduled, once there is a pilot.
+    if (!needsIntro) ref.listen(currencyReminderSyncProvider, (_, _) {});
 
     return MaterialApp(
       title: 'Logbook',
@@ -96,29 +100,26 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : needsIntro
             ? IntroPage(onPermissionGranted: _onPermissionGranted)
-            : _MainShell(
-                currentIndex: _currentIndex,
-                onDestinationSelected: (i) => setState(() => _currentIndex = i),
-              ),
+            : const _MainShell(),
       ),
     );
   }
 }
 
-/// Bottom-navigation shell holding the three top-level tabs.
-class _MainShell extends StatelessWidget {
-  const _MainShell({
-    required this.currentIndex,
-    required this.onDestinationSelected,
-  });
+/// Bottom-navigation shell holding the top-level tabs (see [MainTab]).
+class _MainShell extends ConsumerWidget {
+  const _MainShell();
 
-  final int currentIndex;
-  final ValueChanged<int> onDestinationSelected;
-
-  static const _pages = <Widget>[HomePage(), AirportsPage(), SettingsPage()];
+  static const _pages = <MainTab, Widget>{
+    MainTab.home: HomePage(),
+    MainTab.licences: LicencesPage(),
+    MainTab.airports: AirportsPage(),
+    MainTab.settings: SettingsPage(),
+  };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentIndex = ref.watch(mainTabProvider).index;
     return Scaffold(
       // Tab content scrolls behind the floating bar; the bar's height reaches
       // the pages as bottom MediaQuery padding.
@@ -142,8 +143,11 @@ class _MainShell extends StatelessWidget {
                 // would still take part in transitions (e.g. Home's "Add
                 // Flight" FAB flying in when a page pushed from Settings is
                 // popped).
-                for (final (i, page) in _pages.indexed)
-                  HeroMode(enabled: i == currentIndex, child: page),
+                for (final tab in MainTab.values)
+                  HeroMode(
+                    enabled: tab.index == currentIndex,
+                    child: _pages[tab]!,
+                  ),
               ],
             ),
           );
@@ -151,12 +155,18 @@ class _MainShell extends StatelessWidget {
       ),
       bottomNavigationBar: FloatingNavBar(
         selectedIndex: currentIndex,
-        onDestinationSelected: onDestinationSelected,
+        onDestinationSelected: (i) =>
+            ref.read(mainTabProvider.notifier).select(MainTab.values[i]),
         destinations: const [
           FloatingNavDestination(
             icon: Icons.home_outlined,
             selectedIcon: Icons.home,
             label: 'Home',
+          ),
+          FloatingNavDestination(
+            icon: Icons.badge_outlined,
+            selectedIcon: Icons.badge,
+            label: 'Licences',
           ),
           FloatingNavDestination(
             icon: Icons.local_airport_outlined,

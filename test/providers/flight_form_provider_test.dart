@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:zenith/providers/flight_form_provider.dart';
+import 'package:zenith/services/database.dart';
 
 void main() {
   setUpAll(tzdata.initializeTimeZones);
@@ -65,5 +66,31 @@ void main() {
 
   test('no night time without airport positions', () {
     expect(state().nightTime, isNull);
+  });
+
+  test('a proficiency check needs an examiner, ticked when one joins', () {
+    const examiner = CrewMember(
+      person: Person(id: 1, name: 'Anna', surname: 'Verdi'),
+      role: CrewRole.exm,
+    );
+    expect(state().hasExaminer, isFalse);
+    expect(state().isProficiencyCheck, isFalse);
+
+    notifier().addCrewMember(examiner);
+    expect(state().isProficiencyCheck, isTrue);
+    notifier().setProficiencyCheck(false);
+    expect(state().isProficiencyCheck, isFalse);
+
+    // Removed and added again: ticked again.
+    notifier().removeCrewMember(0);
+    notifier().addCrewMember(examiner);
+    expect(state().isProficiencyCheck, isTrue);
+
+    // No longer an examiner: not a check, whatever the box says.
+    notifier().updateCrewMember(
+      0,
+      CrewMember(person: examiner.person, role: CrewRole.ins),
+    );
+    expect(state().isProficiencyCheck, isFalse);
   });
 }

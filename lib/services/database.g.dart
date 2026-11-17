@@ -5157,6 +5157,21 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _proficiencyCheckMeta = const VerificationMeta(
+    'proficiencyCheck',
+  );
+  @override
+  late final GeneratedColumn<bool> proficiencyCheck = GeneratedColumn<bool>(
+    'proficiency_check',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("proficiency_check" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5179,6 +5194,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     nightMinutes,
     logbookOverrides,
     trackSource,
+    proficiencyCheck,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5345,6 +5361,15 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         ),
       );
     }
+    if (data.containsKey('proficiency_check')) {
+      context.handle(
+        _proficiencyCheckMeta,
+        proficiencyCheck.isAcceptableOrUnknown(
+          data['proficiency_check']!,
+          _proficiencyCheckMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5436,6 +5461,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.string,
         data['${effectivePrefix}track_source'],
       ),
+      proficiencyCheck: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}proficiency_check'],
+      )!,
     );
   }
 
@@ -5486,6 +5515,11 @@ class Flight extends DataClass implements Insertable<Flight> {
   /// provider it was fetched from (`AdsbTrackSource.id`). Null for a track
   /// the app recorded itself, and for flights without a track.
   final String? trackSource;
+
+  /// Whether the flight was a proficiency check with an examiner in the
+  /// crew: it then counts as the last check of the class or type rating of
+  /// its aircraft.
+  final bool proficiencyCheck;
   const Flight({
     required this.id,
     required this.title,
@@ -5507,6 +5541,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.nightMinutes,
     this.logbookOverrides,
     this.trackSource,
+    required this.proficiencyCheck,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5565,6 +5600,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     if (!nullToAbsent || trackSource != null) {
       map['track_source'] = Variable<String>(trackSource);
     }
+    map['proficiency_check'] = Variable<bool>(proficiencyCheck);
     return map;
   }
 
@@ -5622,6 +5658,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       trackSource: trackSource == null && nullToAbsent
           ? const Value.absent()
           : Value(trackSource),
+      proficiencyCheck: Value(proficiencyCheck),
     );
   }
 
@@ -5657,6 +5694,7 @@ class Flight extends DataClass implements Insertable<Flight> {
         json['logbookOverrides'],
       ),
       trackSource: serializer.fromJson<String?>(json['trackSource']),
+      proficiencyCheck: serializer.fromJson<bool>(json['proficiencyCheck']),
     );
   }
   @override
@@ -5687,6 +5725,7 @@ class Flight extends DataClass implements Insertable<Flight> {
         logbookOverrides,
       ),
       'trackSource': serializer.toJson<String?>(trackSource),
+      'proficiencyCheck': serializer.toJson<bool>(proficiencyCheck),
     };
   }
 
@@ -5711,6 +5750,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<int?> nightMinutes = const Value.absent(),
     Value<LogbookOverrides?> logbookOverrides = const Value.absent(),
     Value<String?> trackSource = const Value.absent(),
+    bool? proficiencyCheck,
   }) => Flight(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -5742,6 +5782,7 @@ class Flight extends DataClass implements Insertable<Flight> {
         ? logbookOverrides.value
         : this.logbookOverrides,
     trackSource: trackSource.present ? trackSource.value : this.trackSource,
+    proficiencyCheck: proficiencyCheck ?? this.proficiencyCheck,
   );
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
@@ -5793,6 +5834,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       trackSource: data.trackSource.present
           ? data.trackSource.value
           : this.trackSource,
+      proficiencyCheck: data.proficiencyCheck.present
+          ? data.proficiencyCheck.value
+          : this.proficiencyCheck,
     );
   }
 
@@ -5818,13 +5862,14 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('instrumentMinutes: $instrumentMinutes, ')
           ..write('nightMinutes: $nightMinutes, ')
           ..write('logbookOverrides: $logbookOverrides, ')
-          ..write('trackSource: $trackSource')
+          ..write('trackSource: $trackSource, ')
+          ..write('proficiencyCheck: $proficiencyCheck')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     title,
     departure,
@@ -5845,7 +5890,8 @@ class Flight extends DataClass implements Insertable<Flight> {
     nightMinutes,
     logbookOverrides,
     trackSource,
-  );
+    proficiencyCheck,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5869,7 +5915,8 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.instrumentMinutes == this.instrumentMinutes &&
           other.nightMinutes == this.nightMinutes &&
           other.logbookOverrides == this.logbookOverrides &&
-          other.trackSource == this.trackSource);
+          other.trackSource == this.trackSource &&
+          other.proficiencyCheck == this.proficiencyCheck);
 }
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
@@ -5893,6 +5940,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<int?> nightMinutes;
   final Value<LogbookOverrides?> logbookOverrides;
   final Value<String?> trackSource;
+  final Value<bool> proficiencyCheck;
   const FlightsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -5914,6 +5962,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.nightMinutes = const Value.absent(),
     this.logbookOverrides = const Value.absent(),
     this.trackSource = const Value.absent(),
+    this.proficiencyCheck = const Value.absent(),
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
@@ -5936,6 +5985,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.nightMinutes = const Value.absent(),
     this.logbookOverrides = const Value.absent(),
     this.trackSource = const Value.absent(),
+    this.proficiencyCheck = const Value.absent(),
   }) : title = Value(title),
        departureTime = Value(departureTime),
        isRecording = Value(isRecording);
@@ -5960,6 +6010,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<int>? nightMinutes,
     Expression<String>? logbookOverrides,
     Expression<String>? trackSource,
+    Expression<bool>? proficiencyCheck,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5984,6 +6035,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (nightMinutes != null) 'night_minutes': nightMinutes,
       if (logbookOverrides != null) 'logbook_overrides': logbookOverrides,
       if (trackSource != null) 'track_source': trackSource,
+      if (proficiencyCheck != null) 'proficiency_check': proficiencyCheck,
     });
   }
 
@@ -6008,6 +6060,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<int?>? nightMinutes,
     Value<LogbookOverrides?>? logbookOverrides,
     Value<String?>? trackSource,
+    Value<bool>? proficiencyCheck,
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
@@ -6031,6 +6084,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       nightMinutes: nightMinutes ?? this.nightMinutes,
       logbookOverrides: logbookOverrides ?? this.logbookOverrides,
       trackSource: trackSource ?? this.trackSource,
+      proficiencyCheck: proficiencyCheck ?? this.proficiencyCheck,
     );
   }
 
@@ -6103,6 +6157,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (trackSource.present) {
       map['track_source'] = Variable<String>(trackSource.value);
     }
+    if (proficiencyCheck.present) {
+      map['proficiency_check'] = Variable<bool>(proficiencyCheck.value);
+    }
     return map;
   }
 
@@ -6128,7 +6185,8 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('instrumentMinutes: $instrumentMinutes, ')
           ..write('nightMinutes: $nightMinutes, ')
           ..write('logbookOverrides: $logbookOverrides, ')
-          ..write('trackSource: $trackSource')
+          ..write('trackSource: $trackSource, ')
+          ..write('proficiencyCheck: $proficiencyCheck')
           ..write(')'))
         .toString();
   }
@@ -7209,6 +7267,1625 @@ class FlightCrewCompanion extends UpdateCompanion<FlightCrewEntry> {
           ..write('person: $person, ')
           ..write('role: $role, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LicencesTable extends Licences with TableInfo<$LicencesTable, Licence> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LicencesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<LicenceKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<LicenceKind>($LicencesTable.$converterkind);
+  @override
+  late final GeneratedColumnWithTypeConverter<AircraftCategory, String>
+  category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<AircraftCategory>($LicencesTable.$convertercategory);
+  static const VerificationMeta _numberMeta = const VerificationMeta('number');
+  @override
+  late final GeneratedColumn<String> number = GeneratedColumn<String>(
+    'number',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _issuedByMeta = const VerificationMeta(
+    'issuedBy',
+  );
+  @override
+  late final GeneratedColumn<String> issuedBy = GeneratedColumn<String>(
+    'issued_by',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _issueDateMeta = const VerificationMeta(
+    'issueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> issueDate = GeneratedColumn<DateTime>(
+    'issue_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _proficiencyCheckDateMeta =
+      const VerificationMeta('proficiencyCheckDate');
+  @override
+  late final GeneratedColumn<DateTime> proficiencyCheckDate =
+      GeneratedColumn<DateTime>(
+        'proficiency_check_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kind,
+    category,
+    number,
+    issuedBy,
+    issueDate,
+    proficiencyCheckDate,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'licences';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Licence> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('number')) {
+      context.handle(
+        _numberMeta,
+        number.isAcceptableOrUnknown(data['number']!, _numberMeta),
+      );
+    }
+    if (data.containsKey('issued_by')) {
+      context.handle(
+        _issuedByMeta,
+        issuedBy.isAcceptableOrUnknown(data['issued_by']!, _issuedByMeta),
+      );
+    }
+    if (data.containsKey('issue_date')) {
+      context.handle(
+        _issueDateMeta,
+        issueDate.isAcceptableOrUnknown(data['issue_date']!, _issueDateMeta),
+      );
+    }
+    if (data.containsKey('proficiency_check_date')) {
+      context.handle(
+        _proficiencyCheckDateMeta,
+        proficiencyCheckDate.isAcceptableOrUnknown(
+          data['proficiency_check_date']!,
+          _proficiencyCheckDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Licence map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Licence(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      kind: $LicencesTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      category: $LicencesTable.$convertercategory.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}category'],
+        )!,
+      ),
+      number: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}number'],
+      ),
+      issuedBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}issued_by'],
+      ),
+      issueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}issue_date'],
+      ),
+      proficiencyCheckDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}proficiency_check_date'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $LicencesTable createAlias(String alias) {
+    return $LicencesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<LicenceKind, String, String> $converterkind =
+      const EnumNameConverter<LicenceKind>(LicenceKind.values);
+  static JsonTypeConverter2<AircraftCategory, String, String>
+  $convertercategory = const EnumNameConverter<AircraftCategory>(
+    AircraftCategory.values,
+  );
+}
+
+class Licence extends DataClass implements Insertable<Licence> {
+  final int id;
+  final LicenceKind kind;
+  final AircraftCategory category;
+
+  /// Licence number, as printed on it.
+  final String? number;
+
+  /// Who issued it: the competent authority ("ENAC", "LBA"...).
+  final String? issuedBy;
+  final DateTime? issueDate;
+
+  /// Last proficiency check with an examiner, which keeps a LAPL(A) recent
+  /// for 2 years on its own (FCL.140.A(a)(2)).
+  final DateTime? proficiencyCheckDate;
+  final String? notes;
+  const Licence({
+    required this.id,
+    required this.kind,
+    required this.category,
+    this.number,
+    this.issuedBy,
+    this.issueDate,
+    this.proficiencyCheckDate,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    {
+      map['kind'] = Variable<String>($LicencesTable.$converterkind.toSql(kind));
+    }
+    {
+      map['category'] = Variable<String>(
+        $LicencesTable.$convertercategory.toSql(category),
+      );
+    }
+    if (!nullToAbsent || number != null) {
+      map['number'] = Variable<String>(number);
+    }
+    if (!nullToAbsent || issuedBy != null) {
+      map['issued_by'] = Variable<String>(issuedBy);
+    }
+    if (!nullToAbsent || issueDate != null) {
+      map['issue_date'] = Variable<DateTime>(issueDate);
+    }
+    if (!nullToAbsent || proficiencyCheckDate != null) {
+      map['proficiency_check_date'] = Variable<DateTime>(proficiencyCheckDate);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  LicencesCompanion toCompanion(bool nullToAbsent) {
+    return LicencesCompanion(
+      id: Value(id),
+      kind: Value(kind),
+      category: Value(category),
+      number: number == null && nullToAbsent
+          ? const Value.absent()
+          : Value(number),
+      issuedBy: issuedBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(issuedBy),
+      issueDate: issueDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(issueDate),
+      proficiencyCheckDate: proficiencyCheckDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(proficiencyCheckDate),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory Licence.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Licence(
+      id: serializer.fromJson<int>(json['id']),
+      kind: $LicencesTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      category: $LicencesTable.$convertercategory.fromJson(
+        serializer.fromJson<String>(json['category']),
+      ),
+      number: serializer.fromJson<String?>(json['number']),
+      issuedBy: serializer.fromJson<String?>(json['issuedBy']),
+      issueDate: serializer.fromJson<DateTime?>(json['issueDate']),
+      proficiencyCheckDate: serializer.fromJson<DateTime?>(
+        json['proficiencyCheckDate'],
+      ),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'kind': serializer.toJson<String>(
+        $LicencesTable.$converterkind.toJson(kind),
+      ),
+      'category': serializer.toJson<String>(
+        $LicencesTable.$convertercategory.toJson(category),
+      ),
+      'number': serializer.toJson<String?>(number),
+      'issuedBy': serializer.toJson<String?>(issuedBy),
+      'issueDate': serializer.toJson<DateTime?>(issueDate),
+      'proficiencyCheckDate': serializer.toJson<DateTime?>(
+        proficiencyCheckDate,
+      ),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  Licence copyWith({
+    int? id,
+    LicenceKind? kind,
+    AircraftCategory? category,
+    Value<String?> number = const Value.absent(),
+    Value<String?> issuedBy = const Value.absent(),
+    Value<DateTime?> issueDate = const Value.absent(),
+    Value<DateTime?> proficiencyCheckDate = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => Licence(
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    category: category ?? this.category,
+    number: number.present ? number.value : this.number,
+    issuedBy: issuedBy.present ? issuedBy.value : this.issuedBy,
+    issueDate: issueDate.present ? issueDate.value : this.issueDate,
+    proficiencyCheckDate: proficiencyCheckDate.present
+        ? proficiencyCheckDate.value
+        : this.proficiencyCheckDate,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  Licence copyWithCompanion(LicencesCompanion data) {
+    return Licence(
+      id: data.id.present ? data.id.value : this.id,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      category: data.category.present ? data.category.value : this.category,
+      number: data.number.present ? data.number.value : this.number,
+      issuedBy: data.issuedBy.present ? data.issuedBy.value : this.issuedBy,
+      issueDate: data.issueDate.present ? data.issueDate.value : this.issueDate,
+      proficiencyCheckDate: data.proficiencyCheckDate.present
+          ? data.proficiencyCheckDate.value
+          : this.proficiencyCheckDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Licence(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('category: $category, ')
+          ..write('number: $number, ')
+          ..write('issuedBy: $issuedBy, ')
+          ..write('issueDate: $issueDate, ')
+          ..write('proficiencyCheckDate: $proficiencyCheckDate, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    kind,
+    category,
+    number,
+    issuedBy,
+    issueDate,
+    proficiencyCheckDate,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Licence &&
+          other.id == this.id &&
+          other.kind == this.kind &&
+          other.category == this.category &&
+          other.number == this.number &&
+          other.issuedBy == this.issuedBy &&
+          other.issueDate == this.issueDate &&
+          other.proficiencyCheckDate == this.proficiencyCheckDate &&
+          other.notes == this.notes);
+}
+
+class LicencesCompanion extends UpdateCompanion<Licence> {
+  final Value<int> id;
+  final Value<LicenceKind> kind;
+  final Value<AircraftCategory> category;
+  final Value<String?> number;
+  final Value<String?> issuedBy;
+  final Value<DateTime?> issueDate;
+  final Value<DateTime?> proficiencyCheckDate;
+  final Value<String?> notes;
+  const LicencesCompanion({
+    this.id = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.category = const Value.absent(),
+    this.number = const Value.absent(),
+    this.issuedBy = const Value.absent(),
+    this.issueDate = const Value.absent(),
+    this.proficiencyCheckDate = const Value.absent(),
+    this.notes = const Value.absent(),
+  });
+  LicencesCompanion.insert({
+    this.id = const Value.absent(),
+    required LicenceKind kind,
+    required AircraftCategory category,
+    this.number = const Value.absent(),
+    this.issuedBy = const Value.absent(),
+    this.issueDate = const Value.absent(),
+    this.proficiencyCheckDate = const Value.absent(),
+    this.notes = const Value.absent(),
+  }) : kind = Value(kind),
+       category = Value(category);
+  static Insertable<Licence> custom({
+    Expression<int>? id,
+    Expression<String>? kind,
+    Expression<String>? category,
+    Expression<String>? number,
+    Expression<String>? issuedBy,
+    Expression<DateTime>? issueDate,
+    Expression<DateTime>? proficiencyCheckDate,
+    Expression<String>? notes,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kind != null) 'kind': kind,
+      if (category != null) 'category': category,
+      if (number != null) 'number': number,
+      if (issuedBy != null) 'issued_by': issuedBy,
+      if (issueDate != null) 'issue_date': issueDate,
+      if (proficiencyCheckDate != null)
+        'proficiency_check_date': proficiencyCheckDate,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  LicencesCompanion copyWith({
+    Value<int>? id,
+    Value<LicenceKind>? kind,
+    Value<AircraftCategory>? category,
+    Value<String?>? number,
+    Value<String?>? issuedBy,
+    Value<DateTime?>? issueDate,
+    Value<DateTime?>? proficiencyCheckDate,
+    Value<String?>? notes,
+  }) {
+    return LicencesCompanion(
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      category: category ?? this.category,
+      number: number ?? this.number,
+      issuedBy: issuedBy ?? this.issuedBy,
+      issueDate: issueDate ?? this.issueDate,
+      proficiencyCheckDate: proficiencyCheckDate ?? this.proficiencyCheckDate,
+      notes: notes ?? this.notes,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $LicencesTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(
+        $LicencesTable.$convertercategory.toSql(category.value),
+      );
+    }
+    if (number.present) {
+      map['number'] = Variable<String>(number.value);
+    }
+    if (issuedBy.present) {
+      map['issued_by'] = Variable<String>(issuedBy.value);
+    }
+    if (issueDate.present) {
+      map['issue_date'] = Variable<DateTime>(issueDate.value);
+    }
+    if (proficiencyCheckDate.present) {
+      map['proficiency_check_date'] = Variable<DateTime>(
+        proficiencyCheckDate.value,
+      );
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LicencesCompanion(')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('category: $category, ')
+          ..write('number: $number, ')
+          ..write('issuedBy: $issuedBy, ')
+          ..write('issueDate: $issueDate, ')
+          ..write('proficiencyCheckDate: $proficiencyCheckDate, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LicenceRatingsTable extends LicenceRatings
+    with TableInfo<$LicenceRatingsTable, LicenceRating> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LicenceRatingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _licenceMeta = const VerificationMeta(
+    'licence',
+  );
+  @override
+  late final GeneratedColumn<int> licence = GeneratedColumn<int>(
+    'licence',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES licences (id)',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<RatingKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<RatingKind>($LicenceRatingsTable.$converterkind);
+  @override
+  late final GeneratedColumnWithTypeConverter<AircraftClass?, String>
+  aircraftClass =
+      GeneratedColumn<String>(
+        'aircraft_class',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<AircraftClass?>(
+        $LicenceRatingsTable.$converteraircraftClassn,
+      );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _levelMeta = const VerificationMeta('level');
+  @override
+  late final GeneratedColumn<int> level = GeneratedColumn<int>(
+    'level',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _issueDateMeta = const VerificationMeta(
+    'issueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> issueDate = GeneratedColumn<DateTime>(
+    'issue_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCheckDateMeta = const VerificationMeta(
+    'lastCheckDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastCheckDate =
+      GeneratedColumn<DateTime>(
+        'last_check_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _expiryDateMeta = const VerificationMeta(
+    'expiryDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiryDate = GeneratedColumn<DateTime>(
+    'expiry_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    licence,
+    kind,
+    aircraftClass,
+    name,
+    level,
+    issueDate,
+    lastCheckDate,
+    expiryDate,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'licence_ratings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LicenceRating> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('licence')) {
+      context.handle(
+        _licenceMeta,
+        licence.isAcceptableOrUnknown(data['licence']!, _licenceMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_licenceMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    }
+    if (data.containsKey('level')) {
+      context.handle(
+        _levelMeta,
+        level.isAcceptableOrUnknown(data['level']!, _levelMeta),
+      );
+    }
+    if (data.containsKey('issue_date')) {
+      context.handle(
+        _issueDateMeta,
+        issueDate.isAcceptableOrUnknown(data['issue_date']!, _issueDateMeta),
+      );
+    }
+    if (data.containsKey('last_check_date')) {
+      context.handle(
+        _lastCheckDateMeta,
+        lastCheckDate.isAcceptableOrUnknown(
+          data['last_check_date']!,
+          _lastCheckDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expiry_date')) {
+      context.handle(
+        _expiryDateMeta,
+        expiryDate.isAcceptableOrUnknown(data['expiry_date']!, _expiryDateMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LicenceRating map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LicenceRating(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      licence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}licence'],
+      )!,
+      kind: $LicenceRatingsTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      aircraftClass: $LicenceRatingsTable.$converteraircraftClassn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}aircraft_class'],
+        ),
+      ),
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      ),
+      level: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}level'],
+      ),
+      issueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}issue_date'],
+      ),
+      lastCheckDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_check_date'],
+      ),
+      expiryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expiry_date'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $LicenceRatingsTable createAlias(String alias) {
+    return $LicenceRatingsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<RatingKind, String, String> $converterkind =
+      const EnumNameConverter<RatingKind>(RatingKind.values);
+  static JsonTypeConverter2<AircraftClass, String, String>
+  $converteraircraftClass = const EnumNameConverter<AircraftClass>(
+    AircraftClass.values,
+  );
+  static JsonTypeConverter2<AircraftClass?, String?, String?>
+  $converteraircraftClassn = JsonTypeConverter2.asNullable(
+    $converteraircraftClass,
+  );
+}
+
+class LicenceRating extends DataClass implements Insertable<LicenceRating> {
+  final int id;
+  final int licence;
+  final RatingKind kind;
+
+  /// The class, for a [RatingKind.classRating].
+  final AircraftClass? aircraftClass;
+
+  /// What the pilot calls it: the type rating endorsement ("A320"), the
+  /// instructor certificate ("FI(A)"), the language...
+  final String? name;
+
+  /// Language proficiency level (4 to 6).
+  final int? level;
+  final DateTime? issueDate;
+
+  /// Last proficiency check (or skill test, assessment of competence).
+  final DateTime? lastCheckDate;
+
+  /// Last day of validity, as endorsed on the licence. Null when it doesn't
+  /// expire.
+  final DateTime? expiryDate;
+  final String? notes;
+  const LicenceRating({
+    required this.id,
+    required this.licence,
+    required this.kind,
+    this.aircraftClass,
+    this.name,
+    this.level,
+    this.issueDate,
+    this.lastCheckDate,
+    this.expiryDate,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['licence'] = Variable<int>(licence);
+    {
+      map['kind'] = Variable<String>(
+        $LicenceRatingsTable.$converterkind.toSql(kind),
+      );
+    }
+    if (!nullToAbsent || aircraftClass != null) {
+      map['aircraft_class'] = Variable<String>(
+        $LicenceRatingsTable.$converteraircraftClassn.toSql(aircraftClass),
+      );
+    }
+    if (!nullToAbsent || name != null) {
+      map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || level != null) {
+      map['level'] = Variable<int>(level);
+    }
+    if (!nullToAbsent || issueDate != null) {
+      map['issue_date'] = Variable<DateTime>(issueDate);
+    }
+    if (!nullToAbsent || lastCheckDate != null) {
+      map['last_check_date'] = Variable<DateTime>(lastCheckDate);
+    }
+    if (!nullToAbsent || expiryDate != null) {
+      map['expiry_date'] = Variable<DateTime>(expiryDate);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  LicenceRatingsCompanion toCompanion(bool nullToAbsent) {
+    return LicenceRatingsCompanion(
+      id: Value(id),
+      licence: Value(licence),
+      kind: Value(kind),
+      aircraftClass: aircraftClass == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aircraftClass),
+      name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      level: level == null && nullToAbsent
+          ? const Value.absent()
+          : Value(level),
+      issueDate: issueDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(issueDate),
+      lastCheckDate: lastCheckDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCheckDate),
+      expiryDate: expiryDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiryDate),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory LicenceRating.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LicenceRating(
+      id: serializer.fromJson<int>(json['id']),
+      licence: serializer.fromJson<int>(json['licence']),
+      kind: $LicenceRatingsTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      aircraftClass: $LicenceRatingsTable.$converteraircraftClassn.fromJson(
+        serializer.fromJson<String?>(json['aircraftClass']),
+      ),
+      name: serializer.fromJson<String?>(json['name']),
+      level: serializer.fromJson<int?>(json['level']),
+      issueDate: serializer.fromJson<DateTime?>(json['issueDate']),
+      lastCheckDate: serializer.fromJson<DateTime?>(json['lastCheckDate']),
+      expiryDate: serializer.fromJson<DateTime?>(json['expiryDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'licence': serializer.toJson<int>(licence),
+      'kind': serializer.toJson<String>(
+        $LicenceRatingsTable.$converterkind.toJson(kind),
+      ),
+      'aircraftClass': serializer.toJson<String?>(
+        $LicenceRatingsTable.$converteraircraftClassn.toJson(aircraftClass),
+      ),
+      'name': serializer.toJson<String?>(name),
+      'level': serializer.toJson<int?>(level),
+      'issueDate': serializer.toJson<DateTime?>(issueDate),
+      'lastCheckDate': serializer.toJson<DateTime?>(lastCheckDate),
+      'expiryDate': serializer.toJson<DateTime?>(expiryDate),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  LicenceRating copyWith({
+    int? id,
+    int? licence,
+    RatingKind? kind,
+    Value<AircraftClass?> aircraftClass = const Value.absent(),
+    Value<String?> name = const Value.absent(),
+    Value<int?> level = const Value.absent(),
+    Value<DateTime?> issueDate = const Value.absent(),
+    Value<DateTime?> lastCheckDate = const Value.absent(),
+    Value<DateTime?> expiryDate = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => LicenceRating(
+    id: id ?? this.id,
+    licence: licence ?? this.licence,
+    kind: kind ?? this.kind,
+    aircraftClass: aircraftClass.present
+        ? aircraftClass.value
+        : this.aircraftClass,
+    name: name.present ? name.value : this.name,
+    level: level.present ? level.value : this.level,
+    issueDate: issueDate.present ? issueDate.value : this.issueDate,
+    lastCheckDate: lastCheckDate.present
+        ? lastCheckDate.value
+        : this.lastCheckDate,
+    expiryDate: expiryDate.present ? expiryDate.value : this.expiryDate,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  LicenceRating copyWithCompanion(LicenceRatingsCompanion data) {
+    return LicenceRating(
+      id: data.id.present ? data.id.value : this.id,
+      licence: data.licence.present ? data.licence.value : this.licence,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      aircraftClass: data.aircraftClass.present
+          ? data.aircraftClass.value
+          : this.aircraftClass,
+      name: data.name.present ? data.name.value : this.name,
+      level: data.level.present ? data.level.value : this.level,
+      issueDate: data.issueDate.present ? data.issueDate.value : this.issueDate,
+      lastCheckDate: data.lastCheckDate.present
+          ? data.lastCheckDate.value
+          : this.lastCheckDate,
+      expiryDate: data.expiryDate.present
+          ? data.expiryDate.value
+          : this.expiryDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LicenceRating(')
+          ..write('id: $id, ')
+          ..write('licence: $licence, ')
+          ..write('kind: $kind, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('name: $name, ')
+          ..write('level: $level, ')
+          ..write('issueDate: $issueDate, ')
+          ..write('lastCheckDate: $lastCheckDate, ')
+          ..write('expiryDate: $expiryDate, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    licence,
+    kind,
+    aircraftClass,
+    name,
+    level,
+    issueDate,
+    lastCheckDate,
+    expiryDate,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LicenceRating &&
+          other.id == this.id &&
+          other.licence == this.licence &&
+          other.kind == this.kind &&
+          other.aircraftClass == this.aircraftClass &&
+          other.name == this.name &&
+          other.level == this.level &&
+          other.issueDate == this.issueDate &&
+          other.lastCheckDate == this.lastCheckDate &&
+          other.expiryDate == this.expiryDate &&
+          other.notes == this.notes);
+}
+
+class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
+  final Value<int> id;
+  final Value<int> licence;
+  final Value<RatingKind> kind;
+  final Value<AircraftClass?> aircraftClass;
+  final Value<String?> name;
+  final Value<int?> level;
+  final Value<DateTime?> issueDate;
+  final Value<DateTime?> lastCheckDate;
+  final Value<DateTime?> expiryDate;
+  final Value<String?> notes;
+  const LicenceRatingsCompanion({
+    this.id = const Value.absent(),
+    this.licence = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.aircraftClass = const Value.absent(),
+    this.name = const Value.absent(),
+    this.level = const Value.absent(),
+    this.issueDate = const Value.absent(),
+    this.lastCheckDate = const Value.absent(),
+    this.expiryDate = const Value.absent(),
+    this.notes = const Value.absent(),
+  });
+  LicenceRatingsCompanion.insert({
+    this.id = const Value.absent(),
+    required int licence,
+    required RatingKind kind,
+    this.aircraftClass = const Value.absent(),
+    this.name = const Value.absent(),
+    this.level = const Value.absent(),
+    this.issueDate = const Value.absent(),
+    this.lastCheckDate = const Value.absent(),
+    this.expiryDate = const Value.absent(),
+    this.notes = const Value.absent(),
+  }) : licence = Value(licence),
+       kind = Value(kind);
+  static Insertable<LicenceRating> custom({
+    Expression<int>? id,
+    Expression<int>? licence,
+    Expression<String>? kind,
+    Expression<String>? aircraftClass,
+    Expression<String>? name,
+    Expression<int>? level,
+    Expression<DateTime>? issueDate,
+    Expression<DateTime>? lastCheckDate,
+    Expression<DateTime>? expiryDate,
+    Expression<String>? notes,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (licence != null) 'licence': licence,
+      if (kind != null) 'kind': kind,
+      if (aircraftClass != null) 'aircraft_class': aircraftClass,
+      if (name != null) 'name': name,
+      if (level != null) 'level': level,
+      if (issueDate != null) 'issue_date': issueDate,
+      if (lastCheckDate != null) 'last_check_date': lastCheckDate,
+      if (expiryDate != null) 'expiry_date': expiryDate,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  LicenceRatingsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? licence,
+    Value<RatingKind>? kind,
+    Value<AircraftClass?>? aircraftClass,
+    Value<String?>? name,
+    Value<int?>? level,
+    Value<DateTime?>? issueDate,
+    Value<DateTime?>? lastCheckDate,
+    Value<DateTime?>? expiryDate,
+    Value<String?>? notes,
+  }) {
+    return LicenceRatingsCompanion(
+      id: id ?? this.id,
+      licence: licence ?? this.licence,
+      kind: kind ?? this.kind,
+      aircraftClass: aircraftClass ?? this.aircraftClass,
+      name: name ?? this.name,
+      level: level ?? this.level,
+      issueDate: issueDate ?? this.issueDate,
+      lastCheckDate: lastCheckDate ?? this.lastCheckDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      notes: notes ?? this.notes,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (licence.present) {
+      map['licence'] = Variable<int>(licence.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $LicenceRatingsTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (aircraftClass.present) {
+      map['aircraft_class'] = Variable<String>(
+        $LicenceRatingsTable.$converteraircraftClassn.toSql(
+          aircraftClass.value,
+        ),
+      );
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (level.present) {
+      map['level'] = Variable<int>(level.value);
+    }
+    if (issueDate.present) {
+      map['issue_date'] = Variable<DateTime>(issueDate.value);
+    }
+    if (lastCheckDate.present) {
+      map['last_check_date'] = Variable<DateTime>(lastCheckDate.value);
+    }
+    if (expiryDate.present) {
+      map['expiry_date'] = Variable<DateTime>(expiryDate.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LicenceRatingsCompanion(')
+          ..write('id: $id, ')
+          ..write('licence: $licence, ')
+          ..write('kind: $kind, ')
+          ..write('aircraftClass: $aircraftClass, ')
+          ..write('name: $name, ')
+          ..write('level: $level, ')
+          ..write('issueDate: $issueDate, ')
+          ..write('lastCheckDate: $lastCheckDate, ')
+          ..write('expiryDate: $expiryDate, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MedicalCertificatesTable extends MedicalCertificates
+    with TableInfo<$MedicalCertificatesTable, MedicalCertificate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MedicalCertificatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<MedicalClass, String>
+  medicalClass =
+      GeneratedColumn<String>(
+        'medical_class',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<MedicalClass>(
+        $MedicalCertificatesTable.$convertermedicalClass,
+      );
+  static const VerificationMeta _examinationDateMeta = const VerificationMeta(
+    'examinationDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> examinationDate =
+      GeneratedColumn<DateTime>(
+        'examination_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _expiryDateMeta = const VerificationMeta(
+    'expiryDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiryDate = GeneratedColumn<DateTime>(
+    'expiry_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _limitationsMeta = const VerificationMeta(
+    'limitations',
+  );
+  @override
+  late final GeneratedColumn<String> limitations = GeneratedColumn<String>(
+    'limitations',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    medicalClass,
+    examinationDate,
+    expiryDate,
+    limitations,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'medical_certificates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MedicalCertificate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('examination_date')) {
+      context.handle(
+        _examinationDateMeta,
+        examinationDate.isAcceptableOrUnknown(
+          data['examination_date']!,
+          _examinationDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expiry_date')) {
+      context.handle(
+        _expiryDateMeta,
+        expiryDate.isAcceptableOrUnknown(data['expiry_date']!, _expiryDateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiryDateMeta);
+    }
+    if (data.containsKey('limitations')) {
+      context.handle(
+        _limitationsMeta,
+        limitations.isAcceptableOrUnknown(
+          data['limitations']!,
+          _limitationsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MedicalCertificate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MedicalCertificate(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      medicalClass: $MedicalCertificatesTable.$convertermedicalClass.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}medical_class'],
+        )!,
+      ),
+      examinationDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}examination_date'],
+      ),
+      expiryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expiry_date'],
+      )!,
+      limitations: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}limitations'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $MedicalCertificatesTable createAlias(String alias) {
+    return $MedicalCertificatesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<MedicalClass, String, String>
+  $convertermedicalClass = const EnumNameConverter<MedicalClass>(
+    MedicalClass.values,
+  );
+}
+
+class MedicalCertificate extends DataClass
+    implements Insertable<MedicalCertificate> {
+  final int id;
+  final MedicalClass medicalClass;
+  final DateTime? examinationDate;
+
+  /// Last day of validity, as written on the certificate.
+  final DateTime expiryDate;
+
+  /// Limitations on the certificate (VML, SSL...).
+  final String? limitations;
+  final String? notes;
+  const MedicalCertificate({
+    required this.id,
+    required this.medicalClass,
+    this.examinationDate,
+    required this.expiryDate,
+    this.limitations,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    {
+      map['medical_class'] = Variable<String>(
+        $MedicalCertificatesTable.$convertermedicalClass.toSql(medicalClass),
+      );
+    }
+    if (!nullToAbsent || examinationDate != null) {
+      map['examination_date'] = Variable<DateTime>(examinationDate);
+    }
+    map['expiry_date'] = Variable<DateTime>(expiryDate);
+    if (!nullToAbsent || limitations != null) {
+      map['limitations'] = Variable<String>(limitations);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  MedicalCertificatesCompanion toCompanion(bool nullToAbsent) {
+    return MedicalCertificatesCompanion(
+      id: Value(id),
+      medicalClass: Value(medicalClass),
+      examinationDate: examinationDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(examinationDate),
+      expiryDate: Value(expiryDate),
+      limitations: limitations == null && nullToAbsent
+          ? const Value.absent()
+          : Value(limitations),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory MedicalCertificate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MedicalCertificate(
+      id: serializer.fromJson<int>(json['id']),
+      medicalClass: $MedicalCertificatesTable.$convertermedicalClass.fromJson(
+        serializer.fromJson<String>(json['medicalClass']),
+      ),
+      examinationDate: serializer.fromJson<DateTime?>(json['examinationDate']),
+      expiryDate: serializer.fromJson<DateTime>(json['expiryDate']),
+      limitations: serializer.fromJson<String?>(json['limitations']),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'medicalClass': serializer.toJson<String>(
+        $MedicalCertificatesTable.$convertermedicalClass.toJson(medicalClass),
+      ),
+      'examinationDate': serializer.toJson<DateTime?>(examinationDate),
+      'expiryDate': serializer.toJson<DateTime>(expiryDate),
+      'limitations': serializer.toJson<String?>(limitations),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  MedicalCertificate copyWith({
+    int? id,
+    MedicalClass? medicalClass,
+    Value<DateTime?> examinationDate = const Value.absent(),
+    DateTime? expiryDate,
+    Value<String?> limitations = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => MedicalCertificate(
+    id: id ?? this.id,
+    medicalClass: medicalClass ?? this.medicalClass,
+    examinationDate: examinationDate.present
+        ? examinationDate.value
+        : this.examinationDate,
+    expiryDate: expiryDate ?? this.expiryDate,
+    limitations: limitations.present ? limitations.value : this.limitations,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  MedicalCertificate copyWithCompanion(MedicalCertificatesCompanion data) {
+    return MedicalCertificate(
+      id: data.id.present ? data.id.value : this.id,
+      medicalClass: data.medicalClass.present
+          ? data.medicalClass.value
+          : this.medicalClass,
+      examinationDate: data.examinationDate.present
+          ? data.examinationDate.value
+          : this.examinationDate,
+      expiryDate: data.expiryDate.present
+          ? data.expiryDate.value
+          : this.expiryDate,
+      limitations: data.limitations.present
+          ? data.limitations.value
+          : this.limitations,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MedicalCertificate(')
+          ..write('id: $id, ')
+          ..write('medicalClass: $medicalClass, ')
+          ..write('examinationDate: $examinationDate, ')
+          ..write('expiryDate: $expiryDate, ')
+          ..write('limitations: $limitations, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    medicalClass,
+    examinationDate,
+    expiryDate,
+    limitations,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MedicalCertificate &&
+          other.id == this.id &&
+          other.medicalClass == this.medicalClass &&
+          other.examinationDate == this.examinationDate &&
+          other.expiryDate == this.expiryDate &&
+          other.limitations == this.limitations &&
+          other.notes == this.notes);
+}
+
+class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
+  final Value<int> id;
+  final Value<MedicalClass> medicalClass;
+  final Value<DateTime?> examinationDate;
+  final Value<DateTime> expiryDate;
+  final Value<String?> limitations;
+  final Value<String?> notes;
+  const MedicalCertificatesCompanion({
+    this.id = const Value.absent(),
+    this.medicalClass = const Value.absent(),
+    this.examinationDate = const Value.absent(),
+    this.expiryDate = const Value.absent(),
+    this.limitations = const Value.absent(),
+    this.notes = const Value.absent(),
+  });
+  MedicalCertificatesCompanion.insert({
+    this.id = const Value.absent(),
+    required MedicalClass medicalClass,
+    this.examinationDate = const Value.absent(),
+    required DateTime expiryDate,
+    this.limitations = const Value.absent(),
+    this.notes = const Value.absent(),
+  }) : medicalClass = Value(medicalClass),
+       expiryDate = Value(expiryDate);
+  static Insertable<MedicalCertificate> custom({
+    Expression<int>? id,
+    Expression<String>? medicalClass,
+    Expression<DateTime>? examinationDate,
+    Expression<DateTime>? expiryDate,
+    Expression<String>? limitations,
+    Expression<String>? notes,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (medicalClass != null) 'medical_class': medicalClass,
+      if (examinationDate != null) 'examination_date': examinationDate,
+      if (expiryDate != null) 'expiry_date': expiryDate,
+      if (limitations != null) 'limitations': limitations,
+      if (notes != null) 'notes': notes,
+    });
+  }
+
+  MedicalCertificatesCompanion copyWith({
+    Value<int>? id,
+    Value<MedicalClass>? medicalClass,
+    Value<DateTime?>? examinationDate,
+    Value<DateTime>? expiryDate,
+    Value<String?>? limitations,
+    Value<String?>? notes,
+  }) {
+    return MedicalCertificatesCompanion(
+      id: id ?? this.id,
+      medicalClass: medicalClass ?? this.medicalClass,
+      examinationDate: examinationDate ?? this.examinationDate,
+      expiryDate: expiryDate ?? this.expiryDate,
+      limitations: limitations ?? this.limitations,
+      notes: notes ?? this.notes,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (medicalClass.present) {
+      map['medical_class'] = Variable<String>(
+        $MedicalCertificatesTable.$convertermedicalClass.toSql(
+          medicalClass.value,
+        ),
+      );
+    }
+    if (examinationDate.present) {
+      map['examination_date'] = Variable<DateTime>(examinationDate.value);
+    }
+    if (expiryDate.present) {
+      map['expiry_date'] = Variable<DateTime>(expiryDate.value);
+    }
+    if (limitations.present) {
+      map['limitations'] = Variable<String>(limitations.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MedicalCertificatesCompanion(')
+          ..write('id: $id, ')
+          ..write('medicalClass: $medicalClass, ')
+          ..write('examinationDate: $examinationDate, ')
+          ..write('expiryDate: $expiryDate, ')
+          ..write('limitations: $limitations, ')
+          ..write('notes: $notes')
           ..write(')'))
         .toString();
   }
@@ -8670,6 +10347,10 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   );
   late final $PeopleTable people = $PeopleTable(this);
   late final $FlightCrewTable flightCrew = $FlightCrewTable(this);
+  late final $LicencesTable licences = $LicencesTable(this);
+  late final $LicenceRatingsTable licenceRatings = $LicenceRatingsTable(this);
+  late final $MedicalCertificatesTable medicalCertificates =
+      $MedicalCertificatesTable(this);
   late final $AircraftWithStatssView aircraftWithStatss =
       $AircraftWithStatssView(this);
   late final $FlightStatsView flightStats = $FlightStatsView(this);
@@ -8696,6 +10377,9 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     flightDataPoints,
     people,
     flightCrew,
+    licences,
+    licenceRatings,
+    medicalCertificates,
     aircraftWithStatss,
     flightStats,
     aircraftWithIcaos,
@@ -12523,6 +14207,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<int?> nightMinutes,
       Value<LogbookOverrides?> logbookOverrides,
       Value<String?> trackSource,
+      Value<bool> proficiencyCheck,
     });
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
@@ -12546,6 +14231,7 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<int?> nightMinutes,
       Value<LogbookOverrides?> logbookOverrides,
       Value<String?> trackSource,
+      Value<bool> proficiencyCheck,
     });
 
 final class $$FlightsTableReferences
@@ -12735,6 +14421,11 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<String> get trackSource => $composableBuilder(
     column: $table.trackSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get proficiencyCheck => $composableBuilder(
+    column: $table.proficiencyCheck,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12952,6 +14643,11 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get proficiencyCheck => $composableBuilder(
+    column: $table.proficiencyCheck,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$AirportsTableOrderingComposer get departure {
     final $$AirportsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13106,6 +14802,11 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<String> get trackSource => $composableBuilder(
     column: $table.trackSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get proficiencyCheck => $composableBuilder(
+    column: $table.proficiencyCheck,
     builder: (column) => column,
   );
 
@@ -13284,6 +14985,7 @@ class $$FlightsTableTableManager
                 Value<LogbookOverrides?> logbookOverrides =
                     const Value.absent(),
                 Value<String?> trackSource = const Value.absent(),
+                Value<bool> proficiencyCheck = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
                 title: title,
@@ -13305,6 +15007,7 @@ class $$FlightsTableTableManager
                 nightMinutes: nightMinutes,
                 logbookOverrides: logbookOverrides,
                 trackSource: trackSource,
+                proficiencyCheck: proficiencyCheck,
               ),
           createCompanionCallback:
               ({
@@ -13329,6 +15032,7 @@ class $$FlightsTableTableManager
                 Value<LogbookOverrides?> logbookOverrides =
                     const Value.absent(),
                 Value<String?> trackSource = const Value.absent(),
+                Value<bool> proficiencyCheck = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
                 title: title,
@@ -13350,6 +15054,7 @@ class $$FlightsTableTableManager
                 nightMinutes: nightMinutes,
                 logbookOverrides: logbookOverrides,
                 trackSource: trackSource,
+                proficiencyCheck: proficiencyCheck,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -14523,6 +16228,1037 @@ typedef $$FlightCrewTableProcessedTableManager =
       FlightCrewEntry,
       PrefetchHooks Function({bool flight, bool person})
     >;
+typedef $$LicencesTableCreateCompanionBuilder =
+    LicencesCompanion Function({
+      Value<int> id,
+      required LicenceKind kind,
+      required AircraftCategory category,
+      Value<String?> number,
+      Value<String?> issuedBy,
+      Value<DateTime?> issueDate,
+      Value<DateTime?> proficiencyCheckDate,
+      Value<String?> notes,
+    });
+typedef $$LicencesTableUpdateCompanionBuilder =
+    LicencesCompanion Function({
+      Value<int> id,
+      Value<LicenceKind> kind,
+      Value<AircraftCategory> category,
+      Value<String?> number,
+      Value<String?> issuedBy,
+      Value<DateTime?> issueDate,
+      Value<DateTime?> proficiencyCheckDate,
+      Value<String?> notes,
+    });
+
+final class $$LicencesTableReferences
+    extends BaseReferences<_$LogbookDatabase, $LicencesTable, Licence> {
+  $$LicencesTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$LicenceRatingsTable, List<LicenceRating>>
+  _licenceRatingsRefsTable(_$LogbookDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.licenceRatings,
+        aliasName: 'licences__id__licence_ratings__licence',
+      );
+
+  $$LicenceRatingsTableProcessedTableManager get licenceRatingsRefs {
+    final manager = $$LicenceRatingsTableTableManager(
+      $_db,
+      $_db.licenceRatings,
+    ).filter((f) => f.licence.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_licenceRatingsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$LicencesTableFilterComposer
+    extends Composer<_$LogbookDatabase, $LicencesTable> {
+  $$LicencesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<LicenceKind, LicenceKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<AircraftCategory, AircraftCategory, String>
+  get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get number => $composableBuilder(
+    column: $table.number,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get issuedBy => $composableBuilder(
+    column: $table.issuedBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get issueDate => $composableBuilder(
+    column: $table.issueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get proficiencyCheckDate => $composableBuilder(
+    column: $table.proficiencyCheckDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> licenceRatingsRefs(
+    Expression<bool> Function($$LicenceRatingsTableFilterComposer f) f,
+  ) {
+    final $$LicenceRatingsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.licenceRatings,
+      getReferencedColumn: (t) => t.licence,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LicenceRatingsTableFilterComposer(
+            $db: $db,
+            $table: $db.licenceRatings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LicencesTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $LicencesTable> {
+  $$LicencesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get number => $composableBuilder(
+    column: $table.number,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get issuedBy => $composableBuilder(
+    column: $table.issuedBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get issueDate => $composableBuilder(
+    column: $table.issueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get proficiencyCheckDate => $composableBuilder(
+    column: $table.proficiencyCheckDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LicencesTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $LicencesTable> {
+  $$LicencesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<LicenceKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<AircraftCategory, String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get number =>
+      $composableBuilder(column: $table.number, builder: (column) => column);
+
+  GeneratedColumn<String> get issuedBy =>
+      $composableBuilder(column: $table.issuedBy, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get issueDate =>
+      $composableBuilder(column: $table.issueDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get proficiencyCheckDate => $composableBuilder(
+    column: $table.proficiencyCheckDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  Expression<T> licenceRatingsRefs<T extends Object>(
+    Expression<T> Function($$LicenceRatingsTableAnnotationComposer a) f,
+  ) {
+    final $$LicenceRatingsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.licenceRatings,
+      getReferencedColumn: (t) => t.licence,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LicenceRatingsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.licenceRatings,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$LicencesTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $LicencesTable,
+          Licence,
+          $$LicencesTableFilterComposer,
+          $$LicencesTableOrderingComposer,
+          $$LicencesTableAnnotationComposer,
+          $$LicencesTableCreateCompanionBuilder,
+          $$LicencesTableUpdateCompanionBuilder,
+          (Licence, $$LicencesTableReferences),
+          Licence,
+          PrefetchHooks Function({bool licenceRatingsRefs})
+        > {
+  $$LicencesTableTableManager(_$LogbookDatabase db, $LicencesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LicencesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LicencesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LicencesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<LicenceKind> kind = const Value.absent(),
+                Value<AircraftCategory> category = const Value.absent(),
+                Value<String?> number = const Value.absent(),
+                Value<String?> issuedBy = const Value.absent(),
+                Value<DateTime?> issueDate = const Value.absent(),
+                Value<DateTime?> proficiencyCheckDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => LicencesCompanion(
+                id: id,
+                kind: kind,
+                category: category,
+                number: number,
+                issuedBy: issuedBy,
+                issueDate: issueDate,
+                proficiencyCheckDate: proficiencyCheckDate,
+                notes: notes,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required LicenceKind kind,
+                required AircraftCategory category,
+                Value<String?> number = const Value.absent(),
+                Value<String?> issuedBy = const Value.absent(),
+                Value<DateTime?> issueDate = const Value.absent(),
+                Value<DateTime?> proficiencyCheckDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => LicencesCompanion.insert(
+                id: id,
+                kind: kind,
+                category: category,
+                number: number,
+                issuedBy: issuedBy,
+                issueDate: issueDate,
+                proficiencyCheckDate: proficiencyCheckDate,
+                notes: notes,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LicencesTable, Licence>(table),
+                  $$LicencesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({licenceRatingsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (licenceRatingsRefs) db.licenceRatings,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (licenceRatingsRefs)
+                    await $_getPrefetchedData<
+                      Licence,
+                      $LicencesTable,
+                      LicenceRating
+                    >(
+                      currentTable: table,
+                      referencedTable: $$LicencesTableReferences
+                          ._licenceRatingsRefsTable(db),
+                      managerFromTypedResult: (p0) => $$LicencesTableReferences(
+                        db,
+                        table,
+                        p0,
+                      ).licenceRatingsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.licence == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LicencesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $LicencesTable,
+      Licence,
+      $$LicencesTableFilterComposer,
+      $$LicencesTableOrderingComposer,
+      $$LicencesTableAnnotationComposer,
+      $$LicencesTableCreateCompanionBuilder,
+      $$LicencesTableUpdateCompanionBuilder,
+      (Licence, $$LicencesTableReferences),
+      Licence,
+      PrefetchHooks Function({bool licenceRatingsRefs})
+    >;
+typedef $$LicenceRatingsTableCreateCompanionBuilder =
+    LicenceRatingsCompanion Function({
+      Value<int> id,
+      required int licence,
+      required RatingKind kind,
+      Value<AircraftClass?> aircraftClass,
+      Value<String?> name,
+      Value<int?> level,
+      Value<DateTime?> issueDate,
+      Value<DateTime?> lastCheckDate,
+      Value<DateTime?> expiryDate,
+      Value<String?> notes,
+    });
+typedef $$LicenceRatingsTableUpdateCompanionBuilder =
+    LicenceRatingsCompanion Function({
+      Value<int> id,
+      Value<int> licence,
+      Value<RatingKind> kind,
+      Value<AircraftClass?> aircraftClass,
+      Value<String?> name,
+      Value<int?> level,
+      Value<DateTime?> issueDate,
+      Value<DateTime?> lastCheckDate,
+      Value<DateTime?> expiryDate,
+      Value<String?> notes,
+    });
+
+final class $$LicenceRatingsTableReferences
+    extends
+        BaseReferences<_$LogbookDatabase, $LicenceRatingsTable, LicenceRating> {
+  $$LicenceRatingsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $LicencesTable _licenceTable(_$LogbookDatabase db) =>
+      db.licences.createAlias('licence_ratings__licence__licences__id');
+
+  $$LicencesTableProcessedTableManager get licence {
+    final $_column = $_itemColumn<int>('licence')!;
+
+    final manager = $$LicencesTableTableManager(
+      $_db,
+      $_db.licences,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_licenceTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$LicenceRatingsTableFilterComposer
+    extends Composer<_$LogbookDatabase, $LicenceRatingsTable> {
+  $$LicenceRatingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<RatingKind, RatingKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<AircraftClass?, AircraftClass, String>
+  get aircraftClass => $composableBuilder(
+    column: $table.aircraftClass,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get issueDate => $composableBuilder(
+    column: $table.issueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastCheckDate => $composableBuilder(
+    column: $table.lastCheckDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$LicencesTableFilterComposer get licence {
+    final $$LicencesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.licence,
+      referencedTable: $db.licences,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LicencesTableFilterComposer(
+            $db: $db,
+            $table: $db.licences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LicenceRatingsTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $LicenceRatingsTable> {
+  $$LicenceRatingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get aircraftClass => $composableBuilder(
+    column: $table.aircraftClass,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get level => $composableBuilder(
+    column: $table.level,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get issueDate => $composableBuilder(
+    column: $table.issueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastCheckDate => $composableBuilder(
+    column: $table.lastCheckDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$LicencesTableOrderingComposer get licence {
+    final $$LicencesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.licence,
+      referencedTable: $db.licences,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LicencesTableOrderingComposer(
+            $db: $db,
+            $table: $db.licences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LicenceRatingsTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $LicenceRatingsTable> {
+  $$LicenceRatingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<RatingKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<AircraftClass?, String> get aircraftClass =>
+      $composableBuilder(
+        column: $table.aircraftClass,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get level =>
+      $composableBuilder(column: $table.level, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get issueDate =>
+      $composableBuilder(column: $table.issueDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastCheckDate => $composableBuilder(
+    column: $table.lastCheckDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  $$LicencesTableAnnotationComposer get licence {
+    final $$LicencesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.licence,
+      referencedTable: $db.licences,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LicencesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.licences,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$LicenceRatingsTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $LicenceRatingsTable,
+          LicenceRating,
+          $$LicenceRatingsTableFilterComposer,
+          $$LicenceRatingsTableOrderingComposer,
+          $$LicenceRatingsTableAnnotationComposer,
+          $$LicenceRatingsTableCreateCompanionBuilder,
+          $$LicenceRatingsTableUpdateCompanionBuilder,
+          (LicenceRating, $$LicenceRatingsTableReferences),
+          LicenceRating,
+          PrefetchHooks Function({bool licence})
+        > {
+  $$LicenceRatingsTableTableManager(
+    _$LogbookDatabase db,
+    $LicenceRatingsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LicenceRatingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LicenceRatingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LicenceRatingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> licence = const Value.absent(),
+                Value<RatingKind> kind = const Value.absent(),
+                Value<AircraftClass?> aircraftClass = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<int?> level = const Value.absent(),
+                Value<DateTime?> issueDate = const Value.absent(),
+                Value<DateTime?> lastCheckDate = const Value.absent(),
+                Value<DateTime?> expiryDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => LicenceRatingsCompanion(
+                id: id,
+                licence: licence,
+                kind: kind,
+                aircraftClass: aircraftClass,
+                name: name,
+                level: level,
+                issueDate: issueDate,
+                lastCheckDate: lastCheckDate,
+                expiryDate: expiryDate,
+                notes: notes,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int licence,
+                required RatingKind kind,
+                Value<AircraftClass?> aircraftClass = const Value.absent(),
+                Value<String?> name = const Value.absent(),
+                Value<int?> level = const Value.absent(),
+                Value<DateTime?> issueDate = const Value.absent(),
+                Value<DateTime?> lastCheckDate = const Value.absent(),
+                Value<DateTime?> expiryDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => LicenceRatingsCompanion.insert(
+                id: id,
+                licence: licence,
+                kind: kind,
+                aircraftClass: aircraftClass,
+                name: name,
+                level: level,
+                issueDate: issueDate,
+                lastCheckDate: lastCheckDate,
+                expiryDate: expiryDate,
+                notes: notes,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LicenceRatingsTable, LicenceRating>(table),
+                  $$LicenceRatingsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({licence = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (licence) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.licence,
+                                referencedTable: $$LicenceRatingsTableReferences
+                                    ._licenceTable(db),
+                                referencedColumn:
+                                    $$LicenceRatingsTableReferences
+                                        ._licenceTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$LicenceRatingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $LicenceRatingsTable,
+      LicenceRating,
+      $$LicenceRatingsTableFilterComposer,
+      $$LicenceRatingsTableOrderingComposer,
+      $$LicenceRatingsTableAnnotationComposer,
+      $$LicenceRatingsTableCreateCompanionBuilder,
+      $$LicenceRatingsTableUpdateCompanionBuilder,
+      (LicenceRating, $$LicenceRatingsTableReferences),
+      LicenceRating,
+      PrefetchHooks Function({bool licence})
+    >;
+typedef $$MedicalCertificatesTableCreateCompanionBuilder =
+    MedicalCertificatesCompanion Function({
+      Value<int> id,
+      required MedicalClass medicalClass,
+      Value<DateTime?> examinationDate,
+      required DateTime expiryDate,
+      Value<String?> limitations,
+      Value<String?> notes,
+    });
+typedef $$MedicalCertificatesTableUpdateCompanionBuilder =
+    MedicalCertificatesCompanion Function({
+      Value<int> id,
+      Value<MedicalClass> medicalClass,
+      Value<DateTime?> examinationDate,
+      Value<DateTime> expiryDate,
+      Value<String?> limitations,
+      Value<String?> notes,
+    });
+
+class $$MedicalCertificatesTableFilterComposer
+    extends Composer<_$LogbookDatabase, $MedicalCertificatesTable> {
+  $$MedicalCertificatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<MedicalClass, MedicalClass, String>
+  get medicalClass => $composableBuilder(
+    column: $table.medicalClass,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<DateTime> get examinationDate => $composableBuilder(
+    column: $table.examinationDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get limitations => $composableBuilder(
+    column: $table.limitations,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MedicalCertificatesTableOrderingComposer
+    extends Composer<_$LogbookDatabase, $MedicalCertificatesTable> {
+  $$MedicalCertificatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get medicalClass => $composableBuilder(
+    column: $table.medicalClass,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get examinationDate => $composableBuilder(
+    column: $table.examinationDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get limitations => $composableBuilder(
+    column: $table.limitations,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MedicalCertificatesTableAnnotationComposer
+    extends Composer<_$LogbookDatabase, $MedicalCertificatesTable> {
+  $$MedicalCertificatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<MedicalClass, String> get medicalClass =>
+      $composableBuilder(
+        column: $table.medicalClass,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<DateTime> get examinationDate => $composableBuilder(
+    column: $table.examinationDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiryDate => $composableBuilder(
+    column: $table.expiryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get limitations => $composableBuilder(
+    column: $table.limitations,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+}
+
+class $$MedicalCertificatesTableTableManager
+    extends
+        RootTableManager<
+          _$LogbookDatabase,
+          $MedicalCertificatesTable,
+          MedicalCertificate,
+          $$MedicalCertificatesTableFilterComposer,
+          $$MedicalCertificatesTableOrderingComposer,
+          $$MedicalCertificatesTableAnnotationComposer,
+          $$MedicalCertificatesTableCreateCompanionBuilder,
+          $$MedicalCertificatesTableUpdateCompanionBuilder,
+          (
+            MedicalCertificate,
+            BaseReferences<
+              _$LogbookDatabase,
+              $MedicalCertificatesTable,
+              MedicalCertificate
+            >,
+          ),
+          MedicalCertificate,
+          PrefetchHooks Function()
+        > {
+  $$MedicalCertificatesTableTableManager(
+    _$LogbookDatabase db,
+    $MedicalCertificatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MedicalCertificatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MedicalCertificatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$MedicalCertificatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<MedicalClass> medicalClass = const Value.absent(),
+                Value<DateTime?> examinationDate = const Value.absent(),
+                Value<DateTime> expiryDate = const Value.absent(),
+                Value<String?> limitations = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => MedicalCertificatesCompanion(
+                id: id,
+                medicalClass: medicalClass,
+                examinationDate: examinationDate,
+                expiryDate: expiryDate,
+                limitations: limitations,
+                notes: notes,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required MedicalClass medicalClass,
+                Value<DateTime?> examinationDate = const Value.absent(),
+                required DateTime expiryDate,
+                Value<String?> limitations = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+              }) => MedicalCertificatesCompanion.insert(
+                id: id,
+                medicalClass: medicalClass,
+                examinationDate: examinationDate,
+                expiryDate: expiryDate,
+                limitations: limitations,
+                notes: notes,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$MedicalCertificatesTable, MedicalCertificate>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$LogbookDatabase,
+                    $MedicalCertificatesTable,
+                    MedicalCertificate
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MedicalCertificatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LogbookDatabase,
+      $MedicalCertificatesTable,
+      MedicalCertificate,
+      $$MedicalCertificatesTableFilterComposer,
+      $$MedicalCertificatesTableOrderingComposer,
+      $$MedicalCertificatesTableAnnotationComposer,
+      $$MedicalCertificatesTableCreateCompanionBuilder,
+      $$MedicalCertificatesTableUpdateCompanionBuilder,
+      (
+        MedicalCertificate,
+        BaseReferences<
+          _$LogbookDatabase,
+          $MedicalCertificatesTable,
+          MedicalCertificate
+        >,
+      ),
+      MedicalCertificate,
+      PrefetchHooks Function()
+    >;
 
 class $LogbookDatabaseManager {
   final _$LogbookDatabase _db;
@@ -14549,4 +17285,10 @@ class $LogbookDatabaseManager {
       $$PeopleTableTableManager(_db, _db.people);
   $$FlightCrewTableTableManager get flightCrew =>
       $$FlightCrewTableTableManager(_db, _db.flightCrew);
+  $$LicencesTableTableManager get licences =>
+      $$LicencesTableTableManager(_db, _db.licences);
+  $$LicenceRatingsTableTableManager get licenceRatings =>
+      $$LicenceRatingsTableTableManager(_db, _db.licenceRatings);
+  $$MedicalCertificatesTableTableManager get medicalCertificates =>
+      $$MedicalCertificatesTableTableManager(_db, _db.medicalCertificates);
 }

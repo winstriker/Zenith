@@ -17,6 +17,7 @@ import '../widgets/crew_card.dart';
 import '../widgets/flight_form_card.dart';
 import '../widgets/flight_rules_card.dart';
 import '../widgets/landings_card.dart';
+import '../widgets/page_title.dart';
 import '../widgets/remarks_card.dart';
 import '../widgets/timezone_picker.dart';
 import 'aircraft_form_page.dart';
@@ -103,6 +104,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     for (final member in crew) {
       notifier.addCrewMember(member);
     }
+    notifier.setProficiencyCheck(f.proficiencyCheck);
     notifier.setNightLandings(f.nightLandings ?? 0);
     notifier.setDayLandings(f.dayLandings ?? 1);
     notifier.setFlightRules(f.flightRules ?? 'VFR');
@@ -236,22 +238,13 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
         body: Form(
           key: _formKey,
           child: ListView(
-            // Top padding leaves room for the close FAB pinned at the top-left.
-            padding: EdgeInsets.fromLTRB(
-              16,
-              MediaQuery.paddingOf(context).top + 80,
-              16,
-              16,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  widget.isEditing ? 'Edit Flight' : 'Log Flight',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              PageTitle(
+                widget.isEditing ? 'Edit Flight' : 'Log Flight',
+                belowCloseButton: true,
+                horizontalPadding: 0,
+                bottomPadding: 16,
               ),
               if (draft != null) ...[
                 _ImportSummary(draft: draft),
@@ -330,6 +323,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                 onCrewMemberAdded: notifier.addCrewMember,
                 onCrewMemberRemoved: notifier.removeCrewMember,
                 onCrewMemberChanged: notifier.updateCrewMember,
+                proficiencyCheck: form.proficiencyCheck,
+                onProficiencyCheckChanged: notifier.setProficiencyCheck,
               ),
               const SizedBox(height: 16),
               RemarksCard(
@@ -468,6 +463,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           pilotRole: form.pilotRole.name,
           instrumentMinutes: form.instrumentTime?.inMinutes,
           nightMinutes: form.nightTime?.inMinutes,
+          proficiencyCheck: form.isProficiencyCheck,
           crew: form.crewMembers,
         );
       } else {
@@ -488,6 +484,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           pilotRole: form.pilotRole.name,
           instrumentMinutes: form.instrumentTime?.inMinutes,
           nightMinutes: form.nightTime?.inMinutes,
+          proficiencyCheck: form.isProficiencyCheck,
           crew: form.crewMembers,
         );
         final draft = widget.adsbImport;

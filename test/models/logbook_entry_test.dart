@@ -18,6 +18,7 @@ FlightWithStats _flight({
     departureTime: _dep,
     arrivalTime: _dep.add(block),
     isRecording: false,
+    proficiencyCheck: false,
     flightRules: rules,
     instrumentMinutes: instrumentMinutes,
     nightMinutes: nightMinutes,

@@ -18,6 +18,8 @@ class CrewCard extends StatelessWidget {
     required ValueChanged<int> this.onCrewMemberRemoved,
     required void Function(int index, CrewMember member)
     this.onCrewMemberChanged,
+    this.proficiencyCheck = false,
+    this.onProficiencyCheckChanged,
   }) : onCrewMemberTap = null;
 
   /// No role changes, no add or remove. [onCrewMemberTap], if given, is
@@ -28,6 +30,8 @@ class CrewCard extends StatelessWidget {
     required this.crewMembers,
     this.onCrewMemberTap,
   }) : errorText = null,
+       proficiencyCheck = false,
+       onProficiencyCheckChanged = null,
        onPilotRoleChanged = null,
        onCrewMemberAdded = null,
        onCrewMemberRemoved = null,
@@ -43,6 +47,11 @@ class CrewCard extends StatelessWidget {
   final ValueChanged<int>? onCrewMemberRemoved;
   final void Function(int index, CrewMember member)? onCrewMemberChanged;
   final ValueChanged<CrewMember>? onCrewMemberTap;
+
+  /// Whether the "Proficiency Check" box is ticked. The box shows while an
+  /// examiner is in the crew and [onProficiencyCheckChanged] is given.
+  final bool proficiencyCheck;
+  final ValueChanged<bool>? onProficiencyCheckChanged;
 
   bool get _editable => onCrewMemberAdded != null;
 
@@ -141,6 +150,21 @@ class CrewCard extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+            ],
+            if (onProficiencyCheckChanged != null &&
+                crewMembers.any((m) => m.role == CrewRole.exm)) ...[
+              const Divider(height: 1),
+              CheckboxListTile(
+                value: proficiencyCheck,
+                onChanged: (v) => onProficiencyCheckChanged!(v ?? false),
+                title: const Text('Proficiency Check'),
+                subtitle: const Text(
+                  'Counts as the last check of the aircraft\'s class or type '
+                  'rating',
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
               ),
             ],
             if (errorText != null) ...[

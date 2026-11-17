@@ -34,6 +34,7 @@ class FlightFormState {
     this.instrumentMinutes,
     this.pilotRole = CrewRole.pic,
     List<CrewMember>? crewMembers,
+    this.proficiencyCheck = true,
     this.track = const [],
   }) : departureDate = departureDate ?? DateTime.now(),
        crewMembers = crewMembers ?? const [];
@@ -63,6 +64,11 @@ class FlightFormState {
   final CrewRole pilotRole;
   final List<CrewMember> crewMembers;
 
+  /// Whether the flight is a proficiency check, as the pilot ticked it.
+  /// Only asked, and only saved, when an examiner is in the crew: see
+  /// [isProficiencyCheck].
+  final bool proficiencyCheck;
+
   /// The flight's track (recorded, or from ADS-B), when it has one: the
   /// route night time is worked out along.
   final List<TimedPosition> track;
@@ -89,6 +95,7 @@ class FlightFormState {
     int? instrumentMinutes,
     CrewRole? pilotRole,
     List<CrewMember>? crewMembers,
+    bool? proficiencyCheck,
     List<TimedPosition>? track,
     bool clearInstrument = false,
     bool clearArrivalDate = false,
@@ -123,6 +130,7 @@ class FlightFormState {
           : (instrumentMinutes ?? this.instrumentMinutes),
       pilotRole: pilotRole ?? this.pilotRole,
       crewMembers: crewMembers ?? this.crewMembers,
+      proficiencyCheck: proficiencyCheck ?? this.proficiencyCheck,
       track: track ?? this.track,
     );
   }
@@ -252,6 +260,12 @@ class FlightFormState {
     arrival: selectedArrival,
     track: track,
   );
+
+  /// Whether someone in the crew flew as examiner.
+  bool get hasExaminer => crewMembers.any((m) => m.role == CrewRole.exm);
+
+  /// What gets saved: a proficiency check needs an examiner.
+  bool get isProficiencyCheck => hasExaminer && proficiencyCheck;
 
   /// Non-null when SELF's role and the crew roles are inconsistent.
   String? get crewError => crewValidationError(pilotRole, crewMembers);
@@ -423,18 +437,32 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
   void setPilotRole(CrewRole role) => state = state.copyWith(pilotRole: role);
 
   void addCrewMember(CrewMember member) =>
-      state = state.copyWith(crewMembers: [...state.crewMembers, member]);
+      _setCrew([...state.crewMembers, member]);
 
   void removeCrewMember(int index) {
     final updated = [...state.crewMembers];
     updated.removeAt(index);
-    state = state.copyWith(crewMembers: updated);
+    _setCrew(updated);
   }
 
   void updateCrewMember(int index, CrewMember member) {
     final updated = [...state.crewMembers];
     updated[index] = member;
-    state = state.copyWith(crewMembers: updated);
+    _setCrew(updated);
+  }
+
+  void setProficiencyCheck(bool value) =>
+      state = state.copyWith(proficiencyCheck: value);
+
+  /// An examiner joining the crew ticks the proficiency check again: it is
+  /// what a flight with an examiner usually is.
+  void _setCrew(List<CrewMember> crew) {
+    final examinerAdded =
+        !state.hasExaminer && crew.any((m) => m.role == CrewRole.exm);
+    state = state.copyWith(
+      crewMembers: crew,
+      proficiencyCheck: examinerAdded ? true : null,
+    );
   }
 
   void reset() => state = FlightFormState();
