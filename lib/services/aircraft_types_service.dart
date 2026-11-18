@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
+import '../models/sync_progress.dart';
 import 'database.dart';
 
 class AircraftTypesService {
@@ -11,83 +14,119 @@ class AircraftTypesService {
   final logger = Logger("Aircraft Types Service");
   final LogbookDatabase database;
   final String icaoTypesUrl = const String.fromEnvironment("ICAO_TYPES_URL");
-  final List<Function> _callbacks = [];
 
-  void addListener(Function fun) {
-    _callbacks.add(fun);
-  }
+  // Share of the progress bar given to the download; saving gets the rest.
+  static const _downloadEnd = 0.8;
 
-  void removeListener(Function fun) {
-    _callbacks.remove(fun);
-  }
+  /// Live progress of the ICAO types download.
+  final progress = ValueNotifier<SyncProgress>(
+    const SyncProgress(SyncPhase.idle),
+  );
 
-  void _notify() {
-    for (final fun in _callbacks) {
-      fun();
-    }
-  }
+  bool get isBusy => progress.value.isRunning;
 
-  Future<void> loadData({bool forceDownload = false}) async {
-    await repairOrphanedAircraft(database);
-    final stat = database.select(database.icaoAircrafts);
-    stat.where((val) => val.userInserted.equals(false));
-    stat.limit(1);
-    final result = await stat.getSingleOrNull();
-    if (!forceDownload && result != null) {
-      logger.log(
-        Level.INFO,
-        "Types Database is already populated, not downloading again.",
-      );
-      return;
-    }
-    return _loadData(
-      database,
-      icaoTypesUrl,
-      logger,
-      forceDownload: forceDownload,
-      notify: _notify,
+  void dispose() => progress.dispose();
+
+  void _setProgress(
+    SyncPhase phase, {
+    double? fraction,
+    String message = '',
+    Object? error,
+  }) {
+    progress.value = SyncProgress(
+      phase,
+      fraction: fraction,
+      message: message,
+      error: error,
     );
   }
 
-  static Future<void> _loadData(
-    LogbookDatabase database,
-    String icaoTypesUrl,
-    Logger logger, {
-    bool forceDownload = false,
-    Function? notify,
-  }) async {
-    final client = http.Client();
-    final url = icaoTypesUrl;
-
+  /// Downloads the ICAO types, unless already there and not [forceDownload].
+  /// Failures end in [SyncPhase.error] rather than throwing.
+  Future<void> loadData({bool forceDownload = false}) async {
+    if (isBusy) return;
+    // Mark as running synchronously so concurrent calls bail out above.
+    _setProgress(
+      SyncPhase.downloading,
+      fraction: 0,
+      message: 'Preparing download…',
+    );
     try {
-      final response = await client.post(Uri.parse(url));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw http.ClientException(
-          'ICAO types download failed (${response.statusCode})',
-          Uri.parse(url),
-        );
+      await repairOrphanedAircraft(database);
+      final stat = database.select(database.icaoAircrafts);
+      stat.where((val) => val.userInserted.equals(false));
+      stat.limit(1);
+      if (!forceDownload && await stat.getSingleOrNull() != null) {
+        logger.info("Types Database is already populated, not downloading.");
+        _setProgress(SyncPhase.idle);
+        return;
       }
+      final json = await _download();
+      _setProgress(
+        SyncPhase.saving,
+        fraction: _downloadEnd,
+        message: 'Saving aircraft types…',
+      );
       // Decoding and mapping run in the background isolate too: the list
       // is large and runs at startup, while the UI is animating.
-      final json = response.body;
       final count = await database.computeWithDatabase(
         computation: (db) => _parseAndSync(db, json),
         connect: LogbookDatabase.new,
       );
-      logger.log(
-        Level.INFO,
-        "Successfully synced $count aircraft types in the database.",
+      logger.info("Successfully synced $count aircraft types.");
+      _setProgress(
+        SyncPhase.done,
+        fraction: 1,
+        message: 'Aircraft types updated',
       );
-      if (notify != null) {
-        notify();
+    } catch (e, st) {
+      logger.severe("Error while loading aircraft types", e, st);
+      _setProgress(
+        SyncPhase.error,
+        message: 'Could not download aircraft types',
+        error: e,
+      );
+    }
+  }
+
+  /// Downloads the ICAO list, reporting byte-level progress.
+  Future<String> _download() async {
+    final client = http.Client();
+    try {
+      final uri = Uri.parse(icaoTypesUrl);
+      final response = await client.send(http.Request('POST', uri));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw http.ClientException(
+          'ICAO types download failed (${response.statusCode})',
+          uri,
+        );
       }
-    } catch (e) {
-      logger.log(Level.SEVERE, "Error while loading aircraft types. $e");
-      rethrow;
+      final total = response.contentLength;
+      final bytes = BytesBuilder(copy: false);
+      final throttle = Stopwatch()..start();
+      await for (final chunk in response.stream) {
+        bytes.add(chunk);
+        if (throttle.elapsedMilliseconds < 100) continue;
+        throttle.reset();
+        final received = bytes.length;
+        _setProgress(
+          SyncPhase.downloading,
+          // Unknown size: an indeterminate bar.
+          fraction: total == null || total == 0
+              ? null
+              : (received / total).clamp(0, 1) * _downloadEnd,
+          message:
+              'Downloading aircraft types — ${_mb(received)}'
+              '${total == null ? '' : ' / ${_mb(total)}'} MB',
+        );
+      }
+      return utf8.decode(bytes.takeBytes());
     } finally {
       client.close();
     }
   }
+
+  static String _mb(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);
 
   /// Runs in a background isolate: decodes the downloaded ICAO list and
   /// merges it into the table. Returns how many types were synced.
@@ -124,7 +163,7 @@ class AircraftTypesService {
   /// the id of any type that is still listed, because aircraft point to
   /// types by id. Types are matched on designator, model and manufacturer:
   /// matches are updated in place, new types are added, and types that left
-  /// the list are deleted unless an aircraft still uses them.
+  /// the list are deleted unless an aircraft or simulator still uses them.
   /// User-inserted types are never touched.
   static Future<void> syncTypes(
     LogbookDatabase db,
@@ -170,10 +209,7 @@ class AircraftTypesService {
       }
 
       final used = {
-        for (final row
-            in await db
-                .customSelect('SELECT DISTINCT icao_aircraft FROM aircrafts')
-                .get())
+        for (final row in await db.customSelect(_usedTypesSql).get())
           row.read<int>('icao_aircraft'),
       };
       final stale = [
@@ -193,15 +229,21 @@ class AircraftTypesService {
     });
   }
 
+  /// Ids of the types an aircraft or simulator points to.
+  static const _usedTypesSql =
+      'SELECT icao_aircraft FROM aircrafts '
+      'UNION SELECT icao_aircraft FROM simulators '
+      'WHERE icao_aircraft IS NOT NULL';
+
   /// Older versions replaced every ICAO type with new ids on reload, leaving
-  /// aircraft pointing at types that no longer exist (and so hidden from
-  /// every aircraft list). Gives each such aircraft an "Unknown type" at the
-  /// missing id so it shows up again and its type can be picked anew.
+  /// aircraft and simulators pointing at types that no longer exist (and so
+  /// hidden from every aircraft list). Gives each such id an "Unknown type"
+  /// so they show up again and their type can be picked anew.
   /// Returns how many types were recreated.
   static Future<int> repairOrphanedAircraft(LogbookDatabase db) async {
     final missing = await db
         .customSelect(
-          'SELECT DISTINCT icao_aircraft FROM aircrafts '
+          'SELECT icao_aircraft FROM ($_usedTypesSql) '
           'WHERE icao_aircraft NOT IN (SELECT id FROM icao_aircrafts)',
         )
         .get();

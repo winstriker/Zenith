@@ -243,7 +243,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
               ),
               if (sync.isRunning || sync.phase == SyncPhase.error)
                 SliverToBoxAdapter(
-                  child: _SyncBanner(
+                  child: SyncBanner(
                     progress: sync,
                     onRetry: () =>
                         ref.read(airportLoadProvider.notifier).refresh(),
@@ -541,31 +541,6 @@ class _NearbyHeader extends StatelessWidget {
               label: const Text('Show nearest'),
               onPressed: onShowNearest,
             ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Shown under the title while airport data is syncing, or after it failed.
-class _SyncBanner extends StatelessWidget {
-  const _SyncBanner({required this.progress, required this.onRetry});
-
-  final SyncProgress progress;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final isError = progress.phase == SyncPhase.error;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: SyncProgressIndicator(progress: progress, compact: true),
-          ),
-          if (isError)
-            TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_page_route.dart';
-import '../providers/aircraft_providers.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
 import '../repositories/flight_repository.dart';
 import '../widgets/page_header.dart';
 import 'adsb_settings_page.dart';
+import 'aircraft_types_page.dart';
 import 'backup_settings_page.dart';
 import 'currency_settings_page.dart';
 import 'export_page.dart';
@@ -61,23 +61,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ],
       ),
     );
-  }
-
-  Future<void> _reloadAircraftTypes() async {
-    try {
-      await ref.read(aircraftTypesLoadProvider.notifier).refresh();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Aircraft types reloaded successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to reload aircraft types: $e')),
-        );
-      }
-    }
   }
 
   Widget _tile(
@@ -199,10 +182,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           null,
                         ),
                         _tile(
-                          Icons.refresh,
-                          'Reload Aircraft Types',
+                          Icons.airplanemode_active,
+                          'Aircraft Types',
                           null,
-                          _reloadAircraftTypes,
+                          () => _open(const AircraftTypesPage()),
                           null,
                         ),
                         _tile(

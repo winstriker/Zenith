@@ -91,6 +91,14 @@ class AircraftRepository {
         .watch();
   }
 
+  /// The user's aircraft of the ICAO type [icaoAircraftId].
+  Stream<List<AircraftWithStats>> watchAircraftsOfType(int icaoAircraftId) {
+    return (_database.select(_database.aircraftWithStatss)
+          ..where((a) => a.icaoAircraft.equals(icaoAircraftId))
+          ..orderBy([(a) => OrderingTerm.asc(a.tailNumber)]))
+        .watch();
+  }
+
   /// Every ICAO type, for matching a type by name.
   Future<List<IcaoAircraft>> getAllIcaoAircrafts() {
     return _database.select(_database.icaoAircrafts).get();
@@ -162,6 +170,67 @@ class AircraftRepository {
       engineCount: engineCount,
       engineType: engineType,
     );
+  }
+
+  /// Stream of one ICAO type; null once deleted.
+  Stream<IcaoAircraft?> watchIcaoAircraft(int id) {
+    return (_database.select(
+      _database.icaoAircrafts,
+    )..where((t) => t.id.equals(id))).watchSingleOrNull();
+  }
+
+  /// Rewrites a custom type. Downloaded types are left alone: the next
+  /// download would undo the change.
+  Future<void> updateIcaoAircraft(
+    int id, {
+    required String modelFullName,
+    required String manufacturer,
+    required String designator,
+    required WakeTurbulenceCategory wakeTurbolenceCategory,
+    required WakeTurbulenceGroup wakeTurbolenceGroup,
+    required AircraftDescription description,
+    required int engineCount,
+    required EngineType engineType,
+  }) async {
+    await (_database.update(
+      _database.icaoAircrafts,
+    )..where((t) => t.id.equals(id) & t.userInserted.equals(true))).write(
+      IcaoAircraftsCompanion(
+        modelFullName: Value(modelFullName),
+        manufacturer: Value(manufacturer),
+        designator: Value(designator),
+        wakeTurbolenceCategory: Value(wakeTurbolenceCategory),
+        wakeTurbolenceGroup: Value(wakeTurbolenceGroup),
+        description: Value(description),
+        engineCount: Value(engineCount),
+        engineType: Value(engineType),
+      ),
+    );
+  }
+
+  /// How many aircraft and simulators are of the type [id].
+  Future<int> countTypeUsage(int id) async {
+    final row = await _database
+        .customSelect(
+          'SELECT (SELECT COUNT(*) FROM aircrafts WHERE icao_aircraft = ?1) '
+          '+ (SELECT COUNT(*) FROM simulators WHERE icao_aircraft = ?1) AS n',
+          variables: [Variable.withInt(id)],
+        )
+        .getSingle();
+    return row.read<int>('n');
+  }
+
+  /// Deletes a custom type, unless an aircraft or simulator still uses it:
+  /// foreign keys aren't enforced, so they would point at nothing. Returns
+  /// whether it was deleted.
+  Future<bool> deleteIcaoAircraft(int id) {
+    return _database.transaction(() async {
+      if (await countTypeUsage(id) > 0) return false;
+      final deleted = await (_database.delete(
+        _database.icaoAircrafts,
+      )..where((t) => t.id.equals(id) & t.userInserted.equals(true))).go();
+      return deleted > 0;
+    });
   }
 
   /// Rewrites an aircraft. When [photo] is given, its value (or null, to

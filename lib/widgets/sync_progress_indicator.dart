@@ -69,3 +69,29 @@ class SyncProgressIndicator extends StatelessWidget {
     );
   }
 }
+
+/// Shown under a page title while reference data is syncing, or after it
+/// failed, with a retry button then.
+class SyncBanner extends StatelessWidget {
+  const SyncBanner({super.key, required this.progress, required this.onRetry});
+
+  final SyncProgress progress;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = progress.phase == SyncPhase.error;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: SyncProgressIndicator(progress: progress, compact: true),
+          ),
+          if (isError)
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
