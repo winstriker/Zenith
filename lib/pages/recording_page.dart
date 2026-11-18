@@ -15,6 +15,7 @@ import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/info_row.dart';
+import '../widgets/picker_sheet.dart';
 import '../widgets/pulsing_dot.dart';
 import 'aircraft_form_page.dart';
 
@@ -264,20 +265,12 @@ class _RecordingSetupForm extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: DropdownButtonFormField<AircraftWithStats>(
-                      initialValue: selectedAircraft,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Aircraft (optional)',
-                        prefixIcon: Icon(Icons.airplanemode_active),
-                      ),
-                      items: [
-                        for (final aws in aircraftList)
-                          DropdownMenuItem(
-                            value: aws,
-                            child: Text(aws.modelFullName),
-                          ),
-                      ],
+                    child: SelectField<AircraftWithStats>(
+                      label: 'Aircraft (optional)',
+                      icon: Icons.airplanemode_active,
+                      value: selectedAircraft,
+                      items: aircraftList,
+                      itemLabel: (aws) => aws.modelFullName,
                       onChanged: onAircraftChanged,
                     ),
                   ),

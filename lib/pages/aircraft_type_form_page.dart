@@ -7,6 +7,7 @@ import '../repositories/aircraft_repository.dart';
 import '../services/database.dart';
 import '../utils/icao_designator.dart';
 import '../widgets/page_title.dart';
+import '../widgets/picker_sheet.dart';
 
 /// Full-page form that adds a custom aircraft type, or edits [type] when
 /// given. Pops the saved [IcaoAircraft].
@@ -178,17 +179,13 @@ class _AircraftTypeFormPageState extends ConsumerState<AircraftTypeFormPage> {
                       validator: _required,
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<AircraftDescription>(
-                      initialValue: _description,
-                      decoration: const InputDecoration(
-                        labelText: 'Aircraft Description',
-                        prefixIcon: Icon(Icons.description),
-                      ),
-                      items: [
-                        for (final e in AircraftDescription.values)
-                          DropdownMenuItem(value: e, child: Text(e.name)),
-                      ],
-                      onChanged: (v) => setState(() => _description = v!),
+                    SelectField<AircraftDescription>(
+                      label: 'Aircraft Description',
+                      icon: Icons.description,
+                      value: _description,
+                      items: AircraftDescription.values,
+                      itemLabel: (e) => e.name,
+                      onChanged: (v) => setState(() => _description = v),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -205,43 +202,31 @@ class _AircraftTypeFormPageState extends ConsumerState<AircraftTypeFormPage> {
                       onChanged: (v) => _engineCount = int.tryParse(v) ?? 1,
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<EngineType>(
-                      initialValue: _engineType,
-                      decoration: const InputDecoration(
-                        labelText: 'Engine Type',
-                        prefixIcon: Icon(Icons.settings),
-                      ),
-                      items: [
-                        for (final e in EngineType.values)
-                          DropdownMenuItem(value: e, child: Text(e.name)),
-                      ],
-                      onChanged: (v) => setState(() => _engineType = v!),
+                    SelectField<EngineType>(
+                      label: 'Engine Type',
+                      icon: Icons.settings,
+                      value: _engineType,
+                      items: EngineType.values,
+                      itemLabel: (e) => e.name,
+                      onChanged: (v) => setState(() => _engineType = v),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<WakeTurbulenceCategory>(
-                      initialValue: _wakeCategory,
-                      decoration: const InputDecoration(
-                        labelText: 'Wake Turbulence Category',
-                        prefixIcon: Icon(Icons.waves),
-                      ),
-                      items: [
-                        for (final e in WakeTurbulenceCategory.values)
-                          DropdownMenuItem(value: e, child: Text(e.name)),
-                      ],
-                      onChanged: (v) => setState(() => _wakeCategory = v!),
+                    SelectField<WakeTurbulenceCategory>(
+                      label: 'Wake Turbulence Category',
+                      icon: Icons.waves,
+                      value: _wakeCategory,
+                      items: WakeTurbulenceCategory.values,
+                      itemLabel: (e) => e.name,
+                      onChanged: (v) => setState(() => _wakeCategory = v),
                     ),
                     const SizedBox(height: 16),
-                    DropdownButtonFormField<WakeTurbulenceGroup>(
-                      initialValue: _wakeGroup,
-                      decoration: const InputDecoration(
-                        labelText: 'Wake Turbulence Group',
-                        prefixIcon: Icon(Icons.groups),
-                      ),
-                      items: [
-                        for (final e in WakeTurbulenceGroup.values)
-                          DropdownMenuItem(value: e, child: Text(e.name)),
-                      ],
-                      onChanged: (v) => setState(() => _wakeGroup = v!),
+                    SelectField<WakeTurbulenceGroup>(
+                      label: 'Wake Turbulence Group',
+                      icon: Icons.groups,
+                      value: _wakeGroup,
+                      items: WakeTurbulenceGroup.values,
+                      itemLabel: (e) => e.name,
+                      onChanged: (v) => setState(() => _wakeGroup = v),
                     ),
                   ],
                 ),

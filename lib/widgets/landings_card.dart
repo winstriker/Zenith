@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/landing_counter.dart';
+import '../widgets/picker_sheet.dart';
 
 class LandingsCard extends StatelessWidget {
   const LandingsCard({
@@ -47,34 +48,22 @@ class LandingsCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              if (onApproachTypeChanged == null) ...[
-                Text(
-                  approachType,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ] else ...[
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: approachType,
-                    isDense: true,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 'VISUAL', child: Text('VISUAL')),
-                      DropdownMenuItem(value: 'ILS', child: Text('ILS')),
-                      DropdownMenuItem(value: 'VOR', child: Text('VOR')),
-                      DropdownMenuItem(value: 'NDB', child: Text('NDB')),
-                      DropdownMenuItem(value: 'RNAV', child: Text('RNAV')),
-                      DropdownMenuItem(value: 'GPS', child: Text('GPS')),
-                      DropdownMenuItem(value: 'LOC', child: Text('LOC')),
-                      DropdownMenuItem(value: 'TACAN', child: Text('TACAN')),
-                    ],
-                    onChanged: (v) => onApproachTypeChanged!(v ?? 'VISUAL'),
-                  ),
-                ),
-              ],
+              InlineSelect<String>(
+                title: 'Approach',
+                value: approachType,
+                items: const [
+                  'VISUAL',
+                  'ILS',
+                  'VOR',
+                  'NDB',
+                  'RNAV',
+                  'GPS',
+                  'LOC',
+                  'TACAN',
+                ],
+                itemLabel: (v) => v,
+                onChanged: onApproachTypeChanged,
+              ),
             ],
           ),
         ),

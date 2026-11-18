@@ -6,6 +6,7 @@ import '../core/app_page_route.dart';
 import '../repositories/licence_repository.dart';
 import '../services/database.dart';
 import '../widgets/licence_form_widgets.dart';
+import '../widgets/picker_sheet.dart';
 import 'licence_detail_page.dart';
 
 /// Creates a licence, or edits [licence] when given. A new licence opens on
@@ -98,44 +99,24 @@ class _LicenceFormPageState extends ConsumerState<LicenceFormPage> {
       saving: _saving,
       onSave: _save,
       children: [
-        DropdownButtonFormField<LicenceKind>(
-          initialValue: _kind,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Licence',
-            prefixIcon: Icon(Icons.badge_outlined),
-          ),
-          items: [
-            for (final k in LicenceKind.values)
-              DropdownMenuItem(
-                value: k,
-                child: Text(
-                  k == LicenceKind.other
-                      ? k.description
-                      : '${k.label} · ${k.description}',
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-          ],
-          onChanged: (k) => _setKind(k!),
+        SelectField<LicenceKind>(
+          label: 'Licence',
+          icon: Icons.badge_outlined,
+          value: _kind,
+          items: LicenceKind.values,
+          itemLabel: (k) => k == LicenceKind.other
+              ? k.description
+              : '${k.label} · ${k.description}',
+          onChanged: _setKind,
         ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<AircraftCategory>(
-          key: ValueKey(_kind),
-          initialValue: _category,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Aircraft category',
-            prefixIcon: Icon(Icons.category_outlined),
-          ),
-          items: [
-            for (final c in _kind.categories)
-              DropdownMenuItem(
-                value: c,
-                child: Text('${c.label} (${c.suffix})'),
-              ),
-          ],
-          onChanged: (c) => setState(() => _category = c!),
+        SelectField<AircraftCategory>(
+          label: 'Aircraft category',
+          icon: Icons.category_outlined,
+          value: _category,
+          items: _kind.categories,
+          itemLabel: (c) => '${c.label} (${c.suffix})',
+          onChanged: (c) => setState(() => _category = c),
         ),
         const SizedBox(height: 16),
         TextField(

@@ -157,3 +157,157 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
     );
   }
 }
+
+/// A read-only field that opens a picker when tapped.
+class PickerField extends StatelessWidget {
+  const PickerField({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.onTap,
+    this.onClear,
+    this.errorText,
+    this.helperText,
+  });
+
+  final String label;
+  final IconData icon;
+  final String? value;
+
+  /// Null disables the field.
+  final VoidCallback? onTap;
+  final VoidCallback? onClear;
+  final String? errorText;
+  final String? helperText;
+
+  @override
+  Widget build(BuildContext context) {
+    final onClear = this.onClear;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        isEmpty: value == null,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          errorText: errorText,
+          helperText: helperText,
+          helperMaxLines: 2,
+          enabled: onTap != null,
+          suffixIcon: onClear != null
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 20),
+                  tooltip: 'Clear',
+                  onPressed: onClear,
+                )
+              : const Icon(Icons.arrow_drop_down),
+        ),
+        child: value == null
+            ? null
+            : Text(value!, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+}
+
+/// A [PickerField] that picks one of [items] from a [showPickerSheet] titled
+/// [label]. Null [onChanged] disables it.
+class SelectField<T> extends StatelessWidget {
+  const SelectField({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.onChanged,
+    this.errorText,
+  });
+
+  final String label;
+  final IconData icon;
+  final T? value;
+  final List<T> items;
+  final String Function(T item) itemLabel;
+  final ValueChanged<T>? onChanged;
+  final String? errorText;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = this.value;
+    final onChanged = this.onChanged;
+    return PickerField(
+      label: label,
+      icon: icon,
+      value: value == null ? null : itemLabel(value),
+      errorText: errorText,
+      onTap: onChanged == null
+          ? null
+          : () async {
+              final picked = await showPickerSheet<T>(
+                context,
+                title: label,
+                items: items,
+                label: itemLabel,
+                selected: value,
+              );
+              if (picked != null) onChanged(picked);
+            },
+    );
+  }
+}
+
+/// Bold inline value that opens a [showPickerSheet] titled [title] when
+/// tapped. Null [onChanged] renders it as plain read-only text.
+class InlineSelect<T> extends StatelessWidget {
+  const InlineSelect({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.items,
+    required this.itemLabel,
+    required this.onChanged,
+  });
+
+  final String title;
+  final T value;
+  final List<T> items;
+  final String Function(T item) itemLabel;
+  final ValueChanged<T>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final onChanged = this.onChanged;
+    final text = Text(
+      itemLabel(value),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+    );
+    if (onChanged == null) return text;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () async {
+        final picked = await showPickerSheet<T>(
+          context,
+          title: title,
+          items: items,
+          label: itemLabel,
+          selected: value,
+        );
+        if (picked != null) onChanged(picked);
+      },
+      child: Row(
+        children: [
+          Flexible(child: text),
+          Icon(
+            Icons.arrow_drop_down,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+}

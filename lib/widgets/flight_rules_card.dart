@@ -4,6 +4,15 @@ import '../models/logbook_entry.dart';
 import '../utils/duration_formatter.dart';
 import 'duration_field.dart';
 import 'overridden_icon.dart';
+import 'picker_sheet.dart';
+
+const _flightRules = {
+  'VFR': 'VFR',
+  'IFR': 'IFR',
+  'Y': 'Y - IFR/VFR',
+  'Z': 'Z - VFR/IFR',
+  'Z2': 'Z2 - VFR/IFR',
+};
 
 /// Flight rules, and the time flown under IFR, under VFR and at night.
 ///
@@ -74,45 +83,13 @@ class FlightRulesCard extends StatelessWidget {
                     children: [
                       Text('FLIGHT RULES', style: labelStyle),
                       const SizedBox(height: 2),
-                      if (!_editable)
-                        Text(
-                          flightRules,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        )
-                      else
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: flightRules,
-                            isDense: true,
-                            isExpanded: true,
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'VFR',
-                                child: Text('VFR'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'IFR',
-                                child: Text('IFR'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Y',
-                                child: Text('Y - IFR/VFR'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Z',
-                                child: Text('Z - VFR/IFR'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Z2',
-                                child: Text('Z2 - VFR/IFR'),
-                              ),
-                            ],
-                            onChanged: (v) => onFlightRulesChanged!(v ?? 'VFR'),
-                          ),
-                        ),
+                      InlineSelect<String>(
+                        title: 'Flight rules',
+                        value: flightRules,
+                        items: _flightRules.keys.toList(),
+                        itemLabel: (v) => _flightRules[v] ?? v,
+                        onChanged: onFlightRulesChanged,
+                      ),
                     ],
                   ),
                 ),

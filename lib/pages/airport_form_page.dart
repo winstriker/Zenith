@@ -433,7 +433,7 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
                 initialValue: countryCode,
                 validator: (value) =>
                     value == null ? 'Country is required.' : null,
-                builder: (field) => _PickerField(
+                builder: (field) => PickerField(
                   label: 'Country *',
                   icon: Icons.public,
                   value: country?.name ?? countryCode,
@@ -448,7 +448,7 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _PickerField(
+              PickerField(
                 label: 'Region',
                 icon: Icons.map_outlined,
                 value: region?.name,
@@ -545,57 +545,6 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// A read-only field that opens a picker when tapped.
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.onTap,
-    this.onClear,
-    this.errorText,
-    this.helperText,
-  });
-
-  final String label;
-  final IconData icon;
-  final String? value;
-
-  /// Null disables the field.
-  final VoidCallback? onTap;
-  final VoidCallback? onClear;
-  final String? errorText;
-  final String? helperText;
-
-  @override
-  Widget build(BuildContext context) {
-    final onClear = this.onClear;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: InputDecorator(
-        isEmpty: value == null,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
-          errorText: errorText,
-          helperText: helperText,
-          helperMaxLines: 2,
-          enabled: onTap != null,
-          suffixIcon: onClear != null
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 20),
-                  tooltip: 'Clear',
-                  onPressed: onClear,
-                )
-              : const Icon(Icons.arrow_drop_down),
-        ),
-        child: value == null ? null : Text(value!),
       ),
     );
   }

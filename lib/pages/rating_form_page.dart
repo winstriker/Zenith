@@ -8,6 +8,7 @@ import '../repositories/licence_repository.dart';
 import '../services/database.dart';
 import '../widgets/currency_widgets.dart';
 import '../widgets/licence_form_widgets.dart';
+import '../widgets/picker_sheet.dart';
 import 'rating_detail_page.dart';
 
 /// Adds a rating to [licence], or edits [rating] when given.
@@ -220,41 +221,23 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
       saving: _saving,
       onSave: _save,
       children: [
-        DropdownButtonFormField<RatingKind>(
-          initialValue: _kind,
-          isExpanded: true,
-          decoration: InputDecoration(
-            labelText: 'Kind',
-            prefixIcon: Icon(ratingKindIcon(_kind)),
-          ),
-          items: [
-            for (final k in _kinds)
-              DropdownMenuItem(value: k, child: Text(k.label)),
-          ],
-          onChanged: (k) => _setKind(k!),
+        SelectField<RatingKind>(
+          label: 'Kind',
+          icon: ratingKindIcon(_kind),
+          value: _kind,
+          items: _kinds,
+          itemLabel: (k) => k.label,
+          onChanged: _setKind,
         ),
         if (_kind == RatingKind.classRating) ...[
           const SizedBox(height: 16),
-          DropdownButtonFormField<AircraftClass>(
-            initialValue: _class,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Class',
-              prefixIcon: const Icon(Icons.flight),
-              errorText: _classError,
-            ),
-            items: [
-              for (final c in AircraftClass.forCategory(
-                _otherLicence ? null : _category,
-              ))
-                DropdownMenuItem(
-                  value: c,
-                  child: Text(
-                    '${c.label} · ${c.description}',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
+          SelectField<AircraftClass>(
+            label: 'Class',
+            icon: Icons.flight,
+            value: _class,
+            items: AircraftClass.forCategory(_otherLicence ? null : _category),
+            itemLabel: (c) => '${c.label} · ${c.description}',
+            errorText: _classError,
             onChanged: (c) => setState(() => _class = c),
           ),
         ],
