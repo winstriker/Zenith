@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/fab_hero_tags.dart';
 import '../models/sync_progress.dart';
+import '../providers/backup_providers.dart';
 import '../providers/update_providers.dart';
+import '../services/backup_service.dart';
 import '../widgets/page_title.dart';
 import '../widgets/sync_progress_indicator.dart';
 
@@ -17,7 +19,8 @@ class UpdatesPage extends ConsumerWidget {
     final status = ref.watch(updateProvider);
     final updates = ref.read(updateProvider.notifier);
     final progress = status.progress;
-    final busy = progress.isRunning;
+    final backingUp = ref.watch(backupControllerProvider).value?.busy ?? false;
+    final busy = progress.isRunning || backingUp;
 
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
@@ -78,7 +81,8 @@ class UpdatesPage extends ConsumerWidget {
                         ),
                         status.release != null && !busy
                             ? FilledButton.tonal(
-                                onPressed: updates.install,
+                                onPressed: () =>
+                                    _backUpAndInstall(context, ref),
                                 child: const Text('Install'),
                               )
                             : IconButton(
@@ -90,7 +94,17 @@ class UpdatesPage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (progress.phase != SyncPhase.idle)
+                if (backingUp)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: SyncProgressIndicator(
+                      progress: SyncProgress(
+                        SyncPhase.saving,
+                        message: 'Backing up before updating…',
+                      ),
+                    ),
+                  )
+                else if (progress.phase != SyncPhase.idle)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     // Done has no bar: the shared indicator would spin one.
@@ -135,5 +149,31 @@ class UpdatesPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Backs up the logbook and lets the user save a copy before installing,
+  /// so an update gone wrong can't cost them their data.
+  Future<void> _backUpAndInstall(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    void snack(String text) =>
+        messenger.showSnackBar(SnackBar(content: Text(text)));
+    try {
+      await ref
+          .read(backupControllerProvider.notifier)
+          .backUp(BackupDestination.local);
+      final store = ref.read(localBackupStoreProvider);
+      final latest = (await store.list()).where((b) => !b.isPreRestore);
+      if (latest.isEmpty || !await store.exportCopy(latest.first.file)) {
+        snack('Save the backup to install the update');
+        return;
+      }
+    } catch (e) {
+      snack(
+        'Backup failed, update not installed: '
+        '${e is BackupException ? e.message : e}',
+      );
+      return;
+    }
+    await ref.read(updateProvider.notifier).install();
   }
 }
