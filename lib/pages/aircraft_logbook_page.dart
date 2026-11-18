@@ -61,8 +61,6 @@ class _AircraftLogbookPageState extends ConsumerState<AircraftLogbookPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final designator = widget.aircraft.designator;
     final type = _type.text.trim().isEmpty ? designator : _type.text.trim();
     final subtitle = _subtitle.text.trim();
