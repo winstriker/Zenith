@@ -5,19 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'core/app_page_route.dart';
 import 'core/theme.dart';
 import 'pages/airports_page.dart';
 import 'pages/home_page.dart';
 import 'pages/intro_page.dart';
 import 'pages/licences_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/version_page.dart';
 import 'providers/aircraft_providers.dart';
 import 'providers/backup_providers.dart';
 import 'providers/licence_providers.dart';
 import 'providers/map_provider.dart';
 import 'providers/navigation_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/update_providers.dart';
 import 'providers/user_provider.dart';
+import 'services/update_service.dart';
 import 'widgets/floating_nav_bar.dart';
 
 class LogbookApp extends ConsumerStatefulWidget {
@@ -31,6 +35,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   bool _checkingPermission = true;
   bool _permissionGranted = false;
   late final AppLifecycleListener _lifecycle;
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
@@ -40,6 +46,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     // back to the foreground; the controller skips them if none is due.
     _lifecycle = AppLifecycleListener(onResume: _runAutomaticBackups);
     Future.delayed(const Duration(seconds: 5), _runAutomaticBackups);
+    Future.delayed(const Duration(seconds: 5), _checkForUpdates);
   }
 
   @override
@@ -51,6 +58,28 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   void _runAutomaticBackups() {
     if (!mounted || !ref.read(onboardingCompleteProvider)) return;
     unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
+  }
+
+  Future<void> _checkForUpdates() async {
+    if (!mounted ||
+        updatesRepoUrl.isEmpty ||
+        !ref.read(onboardingCompleteProvider) ||
+        !await AutoUpdateCheckNotifier.read()) {
+      return;
+    }
+    final release = await ref.read(updateProvider.notifier).check();
+    if (release == null) return;
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text('Zenith ${release.version} is available'),
+        action: SnackBarAction(
+          label: 'View',
+          onPressed: () => _navigatorKey.currentState?.push(
+            AppPageRoute<void>(builder: (_) => const VersionPage()),
+          ),
+        ),
+      ),
+    );
   }
 
   void _onPermissionGranted() {
@@ -88,6 +117,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
 
     return MaterialApp(
       title: 'Logbook',
+      navigatorKey: _navigatorKey,
+      scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

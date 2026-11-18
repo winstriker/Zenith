@@ -9,7 +9,6 @@ import '../providers/flight_providers.dart';
 import '../providers/theme_provider.dart';
 import '../repositories/flight_repository.dart';
 import '../widgets/page_header.dart';
-import 'about_page.dart';
 import 'adsb_settings_page.dart';
 import 'backup_settings_page.dart';
 import 'currency_settings_page.dart';
@@ -19,6 +18,7 @@ import 'people_page.dart';
 import 'personal_data_page.dart';
 import 'photo_settings_page.dart';
 import 'theme_settings_page.dart';
+import 'version_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -190,10 +190,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           () => _open(const CurrencySettingsPage()),
                         ),
                         _tile(
-                          Icons.info_outline,
-                          'About',
+                          Icons.tag,
+                          'Version',
                           null,
-                          () => _open(const AboutPage()),
+                          () => _open(const VersionPage()),
                         ),
                         _tile(
                           Icons.refresh,

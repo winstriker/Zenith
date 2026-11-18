@@ -8,6 +8,7 @@ import 'map_provider.dart';
 import 'provider_toggles.dart';
 import 'theme_provider.dart';
 import 'unit_provider.dart';
+import 'update_providers.dart';
 import 'user_provider.dart';
 
 /// How a preference is stored.
@@ -47,6 +48,8 @@ class AppSettingsBackup {
     // Backups.
     BackupSettingsNotifier.photosKey: _Kind.bool,
     BackupSettingsNotifier.frequencyKey: _Kind.string,
+    // Updates.
+    AutoUpdateCheckNotifier.prefsKey: _Kind.bool,
   };
 
   /// Without these the app goes back to the intro: a backup can replace
@@ -108,6 +111,7 @@ class AppSettingsBackup {
       ..invalidate(disabledHexSourcesProvider)
       ..invalidate(disabledPhotoSourcesProvider)
       ..invalidate(aircraftImageCacheLimitProvider)
-      ..invalidate(backupSettingsProvider);
+      ..invalidate(backupSettingsProvider)
+      ..invalidate(autoUpdateCheckProvider);
   }
 }
