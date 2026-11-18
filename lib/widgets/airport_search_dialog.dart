@@ -3,6 +3,8 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
+import '../pages/airport_form_page.dart';
 import '../repositories/airport_repository.dart';
 import '../services/database.dart';
 
@@ -138,6 +140,13 @@ class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
                       query.isNotEmpty && !_loadingRecent
                           ? 'No airports found for "$query"'
                           : 'Type to search airports',
+                      action: query.isEmpty || _loadingRecent
+                          ? null
+                          : TextButton.icon(
+                              onPressed: () => _addCustom(query),
+                              icon: const Icon(Icons.add_location_alt),
+                              label: const Text('Add as custom airport'),
+                            ),
                     ),
             ),
           ],
@@ -147,6 +156,21 @@ class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
   }
 
   void _select(Airport airport) => Navigator.pop(context, airport);
+
+  /// Opens the form for an airport of the user's own, and picks it once
+  /// added.
+  Future<void> _addCustom(String query) async {
+    final id = await Navigator.push<Object?>(
+      context,
+      AppPageRoute(
+        builder: (_) =>
+            AirportFormPage(initialIdent: query.contains(' ') ? null : query),
+      ),
+    );
+    if (id is! int || !mounted) return;
+    final airport = await ref.read(airportRepositoryProvider).getAirport(id);
+    if (airport != null && mounted) _select(airport);
+  }
 }
 
 class _AirportList extends StatelessWidget {
@@ -261,8 +285,9 @@ class _AirportTile extends StatelessWidget {
 }
 
 class _DialogMessage extends StatelessWidget {
-  const _DialogMessage(this.message);
+  const _DialogMessage(this.message, {this.action});
   final String message;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -270,12 +295,18 @@ class _DialogMessage extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Text(
-          message,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          textAlign: TextAlign.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (action != null) ...[const SizedBox(height: 12), action!],
+          ],
         ),
       ),
     );

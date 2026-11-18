@@ -11,10 +11,15 @@ class AirportCard extends StatelessWidget {
     required this.airport,
     this.onTap,
     this.distanceKm,
+    this.flightCount,
   });
   final Airport airport;
   final VoidCallback? onTap;
   final double? distanceKm;
+
+  /// How many flights departed from or arrived at the airport; no chip
+  /// when null or 0.
+  final int? flightCount;
 
   @override
   Widget build(BuildContext context) {
@@ -88,15 +93,23 @@ class AirportCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
                 InfoChip(
                   label: AirportType.getDisplayName(airport.type),
                   backgroundColor: cs.tertiaryContainer,
                   textColor: cs.onTertiaryContainer,
                 ),
-                if (distanceKm != null) ...[
-                  const SizedBox(width: 8),
+                if (airport.isCustom)
+                  InfoChip(
+                    label: 'Custom',
+                    icon: Icons.edit_location_alt_outlined,
+                    backgroundColor: cs.primaryContainer,
+                    textColor: cs.onPrimaryContainer,
+                  ),
+                if (distanceKm != null)
                   InfoChip(
                     label: distanceKm! < 1
                         ? '${(distanceKm! * 1000).toStringAsFixed(0)} m'
@@ -105,16 +118,20 @@ class AirportCard extends StatelessWidget {
                     backgroundColor: cs.surfaceContainerHighest,
                     textColor: cs.onSurfaceVariant,
                   ),
-                ],
-                if (airport.elevationFt != null) ...[
-                  const SizedBox(width: 8),
+                if (airport.elevationFt != null)
                   InfoChip(
                     label: '${airport.elevationFt!.toStringAsFixed(0)} ft',
                     icon: Icons.trending_up,
                     backgroundColor: cs.surfaceContainerHighest,
                     textColor: cs.onSurfaceVariant,
                   ),
-                ],
+                if (flightCount case final count? when count > 0)
+                  InfoChip(
+                    label: count == 1 ? '1 flight' : '$count flights',
+                    icon: Icons.flight_takeoff,
+                    backgroundColor: cs.surfaceContainerHighest,
+                    textColor: cs.onSurfaceVariant,
+                  ),
               ],
             ),
           ],

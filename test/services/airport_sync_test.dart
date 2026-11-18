@@ -145,6 +145,47 @@ void main() {
     expect(all[2]!.ident, isNull);
   });
 
+  test('custom airports survive the sync and keep their ident', () async {
+    await AirportsService.syncAirportData(
+      db,
+      _parse(_airport(1, 'LIMC', 'Malpensa')),
+    );
+    await db
+        .into(db.airports)
+        .insert(
+          AirportsCompanion.insert(
+            id: const Value(-1),
+            ident: const Value('LI99'),
+            name: const Value('My strip'),
+            type: AirportType.smallAirport,
+            continent: 'EU',
+            isoCountry: 'IT',
+            isoRegion: 'IT-U-A',
+          ),
+        );
+
+    // OurAirports later lists an airport with the custom airport's ident.
+    final summary = await AirportsService.syncAirportData(
+      db,
+      _parse(_airport(1, 'LIMC', 'Malpensa') + _airport(2, 'LI99', 'Other')),
+    );
+
+    final all = await airports();
+    expect(all.keys, unorderedEquals([-1, 1, 2]));
+    expect(all[-1]!.ident, 'LI99');
+    expect(all[-1]!.name, 'My strip');
+    expect(all[2]!.ident, isNull);
+    expect(summary.deleted, 0);
+
+    // Stable: syncing the same data again changes nothing.
+    final again = await AirportsService.syncAirportData(
+      db,
+      _parse(_airport(1, 'LIMC', 'Malpensa') + _airport(2, 'LI99', 'Other')),
+    );
+    expect(again.updated, 0);
+    expect((await airports())[-1]!.ident, 'LI99');
+  });
+
   test('a failing sync leaves the previous data intact', () async {
     await AirportsService.syncAirportData(
       db,

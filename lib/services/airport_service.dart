@@ -423,6 +423,10 @@ class AirportsService {
   /// Airports referenced by flights are never deleted; when OurAirports
   /// changes them they are updated in place (same id, so flights keep
   /// pointing at them).
+  ///
+  /// Custom airports (see [CustomAirport]) are left as they are. When
+  /// OurAirports brings an ident a custom airport already uses, the custom
+  /// airport keeps it and the OurAirports one is stored without one.
   static Future<AirportSyncSummary> syncAirportData(
     LogbookDatabase db,
     ParsedAirportData data, {
@@ -462,12 +466,25 @@ class AirportsService {
 
       // Airports: diff against what's stored.
       final referenced = await db.getReferencedAirportIds();
-      final existing = {
-        for (final a in await db.select(db.airports).get()) a.id: a,
-      };
-      final newIds = <int>{for (final a in data.airports) a.id};
-      final newIdents = <String>{
+      final existing = <int, Airport>{};
+      final customIdents = <String>{};
+      for (final a in await db.select(db.airports).get()) {
+        if (!a.isCustom) {
+          existing[a.id] = a;
+        } else if (a.ident != null) {
+          customIdents.add(a.ident!);
+        }
+      }
+      final incoming = [
         for (final a in data.airports)
+          if (customIdents.contains(a.ident))
+            a.copyWith(ident: const Value(null))
+          else
+            a,
+      ];
+      final newIds = <int>{for (final a in incoming) a.id};
+      final newIdents = <String>{
+        for (final a in incoming)
           if (a.ident != null) a.ident!,
       };
 
@@ -490,7 +507,7 @@ class AirportsService {
       final identChanged = <int>[];
       var added = 0;
       var updated = 0;
-      for (final airport in data.airports) {
+      for (final airport in incoming) {
         final old = existing[airport.id];
         if (old == null) {
           added++;
@@ -586,12 +603,39 @@ class AirportsService {
     return database.getCompleteAirportData(id);
   }
 
+  /// The [limit] airports most recently used in flights, as the data
+  /// changes, with their distance when the user's position is already known
+  /// (this doesn't look it up).
+  Stream<List<AirportWithDistance>> watchRecentAirports({int limit = 20}) {
+    return AirportRepository(database).watchRecentAirports(limit: limit).map((
+      list,
+    ) {
+      // Read on every update: the position may have been found since.
+      final here = position;
+      return [
+        for (final a in list)
+          AirportWithDistance(
+            a,
+            here == null || a.latitudeDeg == null || a.longitudeDeg == null
+                ? -1
+                : _distance(
+                    here.latitude,
+                    here.longitude,
+                    a.latitudeDeg!,
+                    a.longitudeDeg!,
+                  ),
+          ),
+      ];
+    });
+  }
+
   /// Forgets the user's position, so the next nearest-airports list looks
   /// it up again.
   void forgetPosition() => position = null;
 
   /// The [limit] airports nearest to the user, nearest first, as the data
-  /// changes. Alphabetical when their position can't be found.
+  /// changes. When their position can't be found, the airports most
+  /// recently used in flights instead (see [position]).
   Stream<List<AirportWithDistance>> watchNearAirportsWithFallback({
     int limit = 20,
   }) async* {
@@ -602,7 +646,7 @@ class AirportsService {
       } catch (e) {
         _syncLogger.log(
           Level.WARNING,
-          "Failed to get location, falling back to alphabetical: $e",
+          "Failed to get location, falling back to recent airports: $e",
         );
       } finally {
         isLocating = false;
@@ -611,9 +655,7 @@ class AirportsService {
     final repository = AirportRepository(database);
     final here = position;
     if (here == null) {
-      yield* repository
-          .watchAllAirportsAlphabetical(limit: limit)
-          .map((list) => [for (final a in list) AirportWithDistance(a, -1)]);
+      yield* watchRecentAirports(limit: limit);
       return;
     }
     yield* repository

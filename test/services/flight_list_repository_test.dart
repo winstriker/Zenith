@@ -92,4 +92,33 @@ void main() {
     expect(all.first.flight.title, 'F649');
     expect(all.last.flight.title, 'F0');
   });
+
+  test(
+    'airport pages hold its departures and arrivals, newest first',
+    () async {
+      Future<void> fly(String title, int day, {int? from, int? to}) => db
+          .into(db.flights)
+          .insert(
+            FlightsCompanion.insert(
+              title: title,
+              departureTime: DateTime(2026, 3, day, 10),
+              isRecording: false,
+              departure: Value(from),
+              arrival: Value(to),
+            ),
+          );
+      await fly('Out', 1, from: 1, to: 2);
+      await fly('In', 2, from: 2, to: 1);
+      await fly('Elsewhere', 3, from: 2, to: 3);
+      await fly('Local', 4, from: 1, to: 1);
+
+      Future<List<String>> page(int limit) async => [
+        for (final f
+            in await repo.watchFlightsForAirport(1, limit: limit).first)
+          f.flight.title,
+      ];
+      expect(await page(2), ['Local', 'In']);
+      expect(await page(20), ['Local', 'In', 'Out']);
+    },
+  );
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +16,7 @@ import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/hiding_chrome.dart';
 import '../widgets/load_more.dart';
 import '../widgets/pulsing_dot.dart';
 import '../widgets/simulator_card.dart';
@@ -52,41 +52,11 @@ class _HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  /// Hides the navigation bar and the FABs while the user scrolls down
-  /// through the flights, and shows them as soon as they scroll back up.
-  bool _onUserScroll(UserScrollNotification notification) {
-    if (notification.depth != 0) return false;
-    final chrome = ref.read(bottomChromeVisibleProvider.notifier);
-    switch (notification.direction) {
-      case ScrollDirection.reverse:
-        chrome.hide();
-      case ScrollDirection.forward:
-        chrome.show();
-      case ScrollDirection.idle:
-        break;
-    }
-    return false;
-  }
-
-  Future<void> _scrollToTop() async {
-    ref.read(bottomChromeVisibleProvider.notifier).show();
-    if (!_scroll.hasClients) return;
-    // From far down, jump to near the top first: animating past hundreds
-    // of flights would be slow and build every card on the way.
-    final nearTop = _scroll.position.viewportDimension * 2;
-    if (_scroll.offset > nearTop) _scroll.jumpTo(nearTop);
-    await _scroll.animateTo(
-      0,
-      duration: const Duration(milliseconds: 450),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     // Tapping Home in the navigation bar again goes back to the top.
     ref.listen(tabReselectProvider, (_, next) {
-      if (next?.tab == MainTab.home) _scrollToTop();
+      if (next?.tab == MainTab.home) scrollTabToTop(ref, _scroll);
     });
     final page = ref.watch(
       recordedFlightsPageProvider((limit: _limit, query: '', day: null)),
@@ -107,13 +77,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isRecording = gpsController.isTracking();
 
     return Scaffold(
-      floatingActionButton: const _HidingFabs(child: _HomeFabs()),
+      floatingActionButton: const HidingFabs(child: _HomeFabs()),
       body: _StatusBarScrim(
         controller: _scroll,
         // Fades in as the header's bottom edge reaches the status bar.
         showFrom: _HomeHeader._expandedHeight,
-        child: NotificationListener<UserScrollNotification>(
-          onNotification: _onUserScroll,
+        child: HideChromeOnScroll(
           child: LoadMoreScrollView(
             controller: _scroll,
             hasMore: hasMore,
@@ -314,35 +283,6 @@ void _openRecording(BuildContext context) {
 /// "Add Flight" FAB with a small "more" FAB above it that pops up the less
 /// common ways to log a flight (simulator session, recording, ADS-B
 /// import).
-/// Slides the FABs down and fades them out while
-/// [bottomChromeVisibleProvider] hides the navigation bar.
-class _HidingFabs extends ConsumerWidget {
-  const _HidingFabs({required this.child});
-  final Widget child;
-
-  static const _duration = Duration(milliseconds: 260);
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final visible = ref.watch(bottomChromeVisibleProvider);
-    final curve = visible ? Curves.easeOutCubic : Curves.easeInCubic;
-    return IgnorePointer(
-      ignoring: !visible,
-      child: AnimatedSlide(
-        offset: visible ? Offset.zero : const Offset(0, 2.5),
-        duration: _duration,
-        curve: curve,
-        child: AnimatedOpacity(
-          opacity: visible ? 1 : 0,
-          duration: _duration,
-          curve: curve,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
 class _HomeFabs extends StatelessWidget {
   const _HomeFabs();
 

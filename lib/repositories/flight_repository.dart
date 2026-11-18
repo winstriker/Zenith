@@ -115,6 +115,20 @@ class FlightRepository {
     );
   }
 
+  /// Stream of the flights that departed from or arrived at an airport,
+  /// newest first.
+  Stream<List<FlightWithStats>> watchFlightsForAirport(
+    int airportId, {
+    required int limit,
+  }) {
+    return _watchFlights(
+      where:
+          _database.flights.departure.equals(airportId) |
+          _database.flights.arrival.equals(airportId),
+      limit: limit,
+    );
+  }
+
   /// Stream of the sessions flown in a simulator, newest first.
   Stream<List<FlightWithStats>> watchSessionsForSimulator(
     int simulatorId, {

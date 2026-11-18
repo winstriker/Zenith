@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../repositories/airport_repository.dart';
+import '../repositories/flight_repository.dart';
 import '../services/airport_service.dart';
 import '../services/database.dart';
 import 'database_provider.dart';
@@ -52,19 +53,26 @@ typedef AirportsPageKey = ({
   String query,
   String? country,
   AirportType? type,
+  bool customOnly,
+  bool nearest,
 });
 
-/// The airports list: with no search or filter, the `limit` airports
-/// nearest to the user (alphabetical without their position); otherwise the
-/// first `limit` matching ones. Lists load more by asking a bigger `limit`.
+/// The airports list: with no search or filter, the `limit` airports most
+/// recently used, or with `nearest` those nearest to the user (most recently
+/// used again without their position); otherwise the first `limit` matching
+/// ones. Lists load more by asking a bigger `limit`.
 final airportsPageProvider = StreamProvider.autoDispose
     .family<List<AirportWithDistance>, AirportsPageKey>((ref, key) {
       final filtering =
-          key.query.isNotEmpty || key.country != null || key.type != null;
+          key.query.isNotEmpty ||
+          key.country != null ||
+          key.type != null ||
+          key.customOnly;
       if (!filtering) {
-        return ref
-            .watch(airportServiceProvider)
-            .watchNearAirportsWithFallback(limit: key.limit);
+        final service = ref.watch(airportServiceProvider);
+        return key.nearest
+            ? service.watchNearAirportsWithFallback(limit: key.limit)
+            : service.watchRecentAirports(limit: key.limit);
       }
       return ref
           .watch(airportRepositoryProvider)
@@ -72,6 +80,7 @@ final airportsPageProvider = StreamProvider.autoDispose
             query: key.query,
             countryCode: key.country,
             type: key.type,
+            customOnly: key.customOnly,
             limit: key.limit,
           )
           .map((list) => [for (final a in list) AirportWithDistance(a, -1)]);
@@ -84,6 +93,30 @@ final airportDetailsProvider = FutureProvider.autoDispose
       return ref
           .watch(airportServiceProvider)
           .getCompleteAirportData(airportId);
+    });
+
+/// Which part of an airport's flights a paged list shows.
+typedef AirportFlightsPageKey = ({int airportId, int limit});
+
+/// The newest `limit` flights that departed from or arrived at an airport.
+/// Lists load older flights by asking a bigger `limit`.
+final airportFlightsPageProvider = StreamProvider.autoDispose
+    .family<List<FlightWithStats>, AirportFlightsPageKey>((ref, key) {
+      return ref
+          .watch(flightRepositoryProvider)
+          .watchFlightsForAirport(key.airportId, limit: key.limit);
+    });
+
+/// How many flights departed from or arrived at each airport, by airport
+/// id. Airports no flight used are left out.
+final airportFlightCountsProvider = StreamProvider.autoDispose<Map<int, int>>(
+  (ref) => ref.watch(airportRepositoryProvider).watchFlightCounts(),
+);
+
+/// Stream of the regions of a country, by name.
+final regionsStreamProvider = StreamProvider.autoDispose
+    .family<List<Region>, String>((ref, countryCode) {
+      return ref.watch(airportRepositoryProvider).watchRegions(countryCode);
     });
 
 /// Stream of all countries

@@ -500,6 +500,12 @@ extension FlightDataPointPosition on FlightDataPoint {
       (time: timestamp, latitude: latitude, longitude: longitude);
 }
 
+/// Airports the user added themselves have negative ids: OurAirports ids are
+/// positive, so the two can never collide and the sync leaves these alone.
+extension CustomAirport on Airport {
+  bool get isCustom => id < 0;
+}
+
 class AirportWithEverything {
   AirportWithEverything({
     required this.airport,
@@ -511,8 +517,11 @@ class AirportWithEverything {
   final Airport airport;
   final List<Frequency> frequencies;
   final List<Runway> runways;
-  final Country country;
-  final Region region;
+
+  /// Null when the airport's country or region isn't in the dataset (yet),
+  /// e.g. a custom airport added before the airport data was downloaded.
+  final Country? country;
+  final Region? region;
 }
 
 class FlightWithStats {
@@ -1224,8 +1233,8 @@ class LogbookDatabase extends _$LogbookDatabase {
     if (row == null) return null;
 
     final airport = row.readTable(airports);
-    final country = row.readTable(countries);
-    final region = row.readTable(regions);
+    final country = row.readTableOrNull(countries);
+    final region = row.readTableOrNull(regions);
 
     final runwaysQuery = select(this.runways)
       ..where((r) => r.airport.equals(airportId));
