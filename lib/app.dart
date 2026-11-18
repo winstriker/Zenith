@@ -12,7 +12,7 @@ import 'pages/home_page.dart';
 import 'pages/intro_page.dart';
 import 'pages/licences_page.dart';
 import 'pages/settings_page.dart';
-import 'pages/version_page.dart';
+import 'pages/updates_page.dart';
 import 'providers/aircraft_providers.dart';
 import 'providers/backup_providers.dart';
 import 'providers/licence_providers.dart';
@@ -75,7 +75,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
         action: SnackBarAction(
           label: 'View',
           onPressed: () => _navigatorKey.currentState?.push(
-            AppPageRoute<void>(builder: (_) => const VersionPage()),
+            AppPageRoute<void>(builder: (_) => const UpdatesPage()),
           ),
         ),
       ),

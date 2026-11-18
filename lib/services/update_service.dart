@@ -10,8 +10,9 @@ import 'file_opener.dart';
 /// `https://github.com/winstriker/Zenith`. Empty: this build can't update.
 const updatesRepoUrl = String.fromEnvironment('UPDATES_REPO_URL');
 
-/// A published release: its tag (`v1.2.0+42`) and the APK to install.
-typedef AppRelease = ({String version, Uri apkUrl});
+/// A published release: its tag (`v1.2.0+42`), what changed since the
+/// previous one (empty for the first) and the APK to install.
+typedef AppRelease = ({String version, String notes, Uri apkUrl});
 
 /// Finds and downloads new versions from the repository's GitHub releases.
 ///
@@ -51,6 +52,7 @@ class UpdateService {
       if ((asset['name'] as String).endsWith('.apk')) {
         return (
           version: tag,
+          notes: ((json['body'] as String?) ?? '').trim(),
           apkUrl: Uri.parse(asset['browser_download_url'] as String),
         );
       }

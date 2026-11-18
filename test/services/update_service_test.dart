@@ -16,6 +16,7 @@ UpdateService _service(
     return http.Response(
       jsonEncode({
         'tag_name': tag,
+        'body': '- Fixed things\n',
         'assets': [
           for (final name in assets)
             {'name': name, 'browser_download_url': 'https://dl/$name'},
@@ -33,6 +34,7 @@ void main() {
       assets: ['notes.txt', 'zenith.apk'],
     ).latestNewer();
     expect(release?.version, 'v1.0.0+11');
+    expect(release?.notes, '- Fixed things');
     expect(release?.apkUrl, Uri.parse('https://dl/zenith.apk'));
   });
 
@@ -50,6 +52,9 @@ void main() {
   });
 
   test('no repository set up is an error', () {
-    expect(UpdateService(repoUrl: 'https://github.com/').latestNewer(), throwsFormatException);
+    expect(
+      UpdateService(repoUrl: 'https://github.com/').latestNewer(),
+      throwsFormatException,
+    );
   });
 }

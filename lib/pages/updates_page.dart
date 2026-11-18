@@ -8,8 +8,8 @@ import '../providers/update_providers.dart';
 import '../widgets/page_title.dart';
 import '../widgets/sync_progress_indicator.dart';
 
-class VersionPage extends ConsumerWidget {
-  const VersionPage({super.key});
+class UpdatesPage extends ConsumerWidget {
+  const UpdatesPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -70,6 +70,22 @@ class VersionPage extends ConsumerWidget {
                                 ),
                           )
                         : SyncProgressIndicator(progress: progress),
+                  ),
+                if (status.release?.notes case final notes?
+                    when notes.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "What's new",
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(notes),
+                      ],
+                    ),
                   ),
                 const Divider(height: 1, indent: 16),
                 SwitchListTile(

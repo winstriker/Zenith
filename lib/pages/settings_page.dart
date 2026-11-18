@@ -6,7 +6,6 @@ import '../core/app_page_route.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
-import '../providers/theme_provider.dart';
 import '../repositories/flight_repository.dart';
 import '../widgets/page_header.dart';
 import 'adsb_settings_page.dart';
@@ -18,7 +17,7 @@ import 'people_page.dart';
 import 'personal_data_page.dart';
 import 'photo_settings_page.dart';
 import 'theme_settings_page.dart';
-import 'version_page.dart';
+import 'updates_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -86,12 +85,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     String title,
     String? subtitle,
     VoidCallback onTap,
-  ) => ListTile(
-    leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-    title: Text(title),
-    subtitle: subtitle == null ? null : Text(subtitle),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: onTap,
+    Color? iconColor,
+  ) => Padding(
+    padding: const EdgeInsetsGeometry.fromLTRB(0, 6, 0, 6),
+    child: ListTile(
+      leading: Icon(
+        icon,
+        color: iconColor ?? Theme.of(context).colorScheme.primary,
+      ),
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    ),
   );
 
   void _open(Widget page) =>
@@ -100,7 +106,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final themeMode = ref.watch(themeProvider);
     final currencySettings = ref.watch(currencySettingsProvider);
 
     return Scaffold(
@@ -124,88 +129,88 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         _tile(
                           Icons.account_circle_outlined,
                           'Personal Data',
-                          'Name, previous logbook, signature',
+                          null,
                           () => _open(const PersonalDataPage()),
+                          null,
                         ),
                         _tile(
                           Icons.palette_outlined,
                           'Theme',
-                          switch (themeMode) {
-                            ThemeMode.light => 'Light',
-                            ThemeMode.dark => 'Dark',
-                            ThemeMode.system => 'Auto',
-                          },
+                          null,
                           () => _open(const ThemeSettingsPage()),
+                          null,
                         ),
                         _tile(
                           Icons.file_download_outlined,
                           'Export Data',
-                          'PDF, CSV or Json',
+                          null,
                           () => _open(const ExportPage()),
+                          null,
                         ),
                         _tile(
                           Icons.radar,
                           'ADS-B Providers',
                           null,
                           () => _open(const AdsbSettingsPage()),
+                          null,
                         ),
                         _tile(
                           Icons.photo_library_outlined,
                           'Photo Providers',
                           null,
                           () => _open(const PhotoSettingsPage()),
+                          null,
                         ),
                         _tile(
                           Icons.map_outlined,
                           'Map',
                           null,
                           () => _open(const MapSettingsPage()),
+                          null,
                         ),
                         _tile(
                           Icons.people_outline,
                           'People',
-                          'Manage crew members',
+                          null,
                           () => _open(const PeoplePage()),
+                          null,
                         ),
                         _tile(
                           Icons.backup_outlined,
                           'Backup Settings',
-                          'Manage your backups',
+                          null,
                           () => _open(const BackupSettingsPage()),
+                          null,
                         ),
                         _tile(
                           currencySettings.notificationsEnabled
                               ? Icons.notifications_active_outlined
                               : Icons.notifications_off_outlined,
                           'Expiry Reminders',
-                          !currencySettings.notificationsEnabled
-                              ? 'Off'
-                              : currencySettings.leads.isEmpty
-                              ? 'No reminders selected'
-                              : [
-                                  for (final lead in ReminderLead.values)
-                                    if (currencySettings.leads.contains(lead))
-                                      lead.label,
-                                ].join(', '),
+                          null,
                           () => _open(const CurrencySettingsPage()),
+                          null,
                         ),
                         _tile(
-                          Icons.tag,
-                          'Version',
+                          Icons.update,
+                          'Updates',
                           null,
-                          () => _open(const VersionPage()),
+                          () => _open(const UpdatesPage()),
+                          null,
                         ),
                         _tile(
                           Icons.refresh,
                           'Reload Aircraft Types',
-                          'from ICAO doc. 8643',
+                          null,
                           _reloadAircraftTypes,
+                          null,
                         ),
                         _tile(
                           Icons.delete_forever,
-                          'Clear All Flights',
-                          'Delete all recorded flight data',
+                          'Delete All Flights',
+                          null,
                           _clearAllFlights,
+                          theme.colorScheme.error,
                         ),
                       ].indexed) ...[
                         if (i > 0) const Divider(height: 1, indent: 16),
