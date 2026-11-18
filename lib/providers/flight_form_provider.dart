@@ -32,6 +32,7 @@ class FlightFormState {
     this.approachType = 'VISUAL',
     this.nightLandings = 0,
     this.dayLandings = 1,
+    this.mountainLandings = 0,
     this.flightRules = 'VFR',
     this.instrumentMinutes,
     this.pilotRole = CrewRole.pic,
@@ -64,6 +65,10 @@ class FlightFormState {
   final String approachType;
   final int nightLandings;
   final int dayLandings;
+
+  /// How many of the landings were on surfaces designated to require a
+  /// mountain rating (FCL.815(d)).
+  final int mountainLandings;
   final String flightRules;
 
   /// IFR time the pilot entered, for flights that change rules on the way.
@@ -101,6 +106,7 @@ class FlightFormState {
     String? approachType,
     int? nightLandings,
     int? dayLandings,
+    int? mountainLandings,
     String? flightRules,
     int? instrumentMinutes,
     CrewRole? pilotRole,
@@ -136,6 +142,7 @@ class FlightFormState {
       approachType: approachType ?? this.approachType,
       nightLandings: nightLandings ?? this.nightLandings,
       dayLandings: dayLandings ?? this.dayLandings,
+      mountainLandings: mountainLandings ?? this.mountainLandings,
       flightRules: flightRules ?? this.flightRules,
       instrumentMinutes: clearInstrument
           ? null
@@ -443,8 +450,10 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
       isSimulator: isSimulator,
       dayLandings: isSimulator ? 0 : 1,
       nightLandings: 0,
+      mountainLandings: 0,
     );
   }
+
   void setSelectedSimulator(SimulatorWithStats? simulator) =>
       state = state.copyWith(selectedSimulator: simulator);
   void setApproachType(String type) =>
@@ -452,6 +461,8 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
   void setNightLandings(int count) =>
       state = state.copyWith(nightLandings: count);
   void setDayLandings(int count) => state = state.copyWith(dayLandings: count);
+  void setMountainLandings(int count) =>
+      state = state.copyWith(mountainLandings: count);
   void setFlightRules(String rules) =>
       state = state.copyWith(flightRules: rules);
 

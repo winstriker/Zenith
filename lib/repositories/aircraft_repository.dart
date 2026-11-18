@@ -203,6 +203,22 @@ class AircraftRepository {
     }
   }
 
+  /// How the aircraft is written in the exported logbook: [type] instead of
+  /// its ICAO designator, and a [subtitle] line under it. Blank clears
+  /// either.
+  Future<void> setLogbookEntry(int id, {String? type, String? subtitle}) {
+    String? orNull(String? text) =>
+        text == null || text.trim().isEmpty ? null : text.trim();
+    return (_database.update(
+      _database.aircrafts,
+    )..where((a) => a.id.equals(id))).write(
+      AircraftsCompanion(
+        logbookType: Value(orNull(type)),
+        logbookSubtitle: Value(orNull(subtitle)),
+      ),
+    );
+  }
+
   /// Deletes an aircraft (and its photo file) and detaches it from its
   /// flights, atomically.
   Future<void> deleteAircraft(int id) async {

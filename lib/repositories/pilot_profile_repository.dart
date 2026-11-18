@@ -8,7 +8,8 @@ import '../services/database.dart';
 import '../services/person_photo_store.dart';
 
 /// The pilot's data kept in the logbook database (see [PilotProfile]): the
-/// totals carried forward from before the app, and their signature.
+/// totals carried forward from before the app, their address and their
+/// signature.
 class PilotProfileRepository {
   PilotProfileRepository(this._db, this._signatures);
   final LogbookDatabase _db;
@@ -26,6 +27,14 @@ class PilotProfileRepository {
   Future<void> setPreviousTotals(PreviousTotals totals) => _write(
     PilotProfileCompanion(
       previousTotals: Value(totals.isEmpty ? null : totals),
+    ),
+  );
+
+  /// The pilot's postal address, for the logbook's personal details
+  /// (AMC1 FCL.050(a)(1)). Empty clears it.
+  Future<void> setAddress(String address) => _write(
+    PilotProfileCompanion(
+      address: Value(address.trim().isEmpty ? null : address.trim()),
     ),
   );
 

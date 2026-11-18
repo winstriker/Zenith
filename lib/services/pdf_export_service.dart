@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
@@ -11,6 +12,7 @@ import '../models/logbook_entry.dart';
 import '../providers/user_provider.dart';
 import 'database.dart';
 import 'file_opener.dart';
+import 'logbook_text_fit.dart';
 
 const _rowsPerPage = 20;
 
@@ -65,6 +67,9 @@ class _Totals {
   }
 }
 
+/// A flight's line of the logbook: its cells, and the height it takes.
+typedef _Line = ({LogbookEntry entry, String cells, double heightMm});
+
 /// Content of column 12 (remarks) in the three totals rows.
 enum _RemarksCell { certification, signature, coveredBySignature }
 
@@ -79,7 +84,9 @@ class PdfExportService {
 
   /// [signatures] are the images (PNG or JPEG) laid over the remarks, by
   /// flight id. [pilotSignature] signs every page. [previousTotals] are
-  /// carried forward into the first page.
+  /// carried forward into the first page. [pilotName], [address] and
+  /// [licences] (one line per licence: kind and number) are the holder's
+  /// personal details on the cover (AMC1 FCL.050(a)(1)).
   static Future<File> generateLogbook(
     List<FlightWithStats> flights, {
     Map<int, List<CrewMember>> crewByFlight = const {},
@@ -88,6 +95,8 @@ class PdfExportService {
     PreviousTotals previousTotals = PreviousTotals.empty,
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
+    String? address,
+    List<String> licences = const [],
   }) async {
     final html = buildLogbookHtml(
       flights,
@@ -97,6 +106,8 @@ class PdfExportService {
       previousTotals: previousTotals,
       pilotName: pilotName,
       picNameMode: picNameMode,
+      address: address,
+      licences: licences,
     );
     final converter = HtmlToPdfConverter();
     final directory = await FileOpener.exportsDirectory();
@@ -141,6 +152,135 @@ class PdfExportService {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
 
+  /// Widths of the 23 columns, in % of the table.
+  static const _columnWidths = <double>[
+    5, 4, 3.5, 4, 3.5, 6.5, 4.5, 4, 4, 5, 4, 6, //
+    3, 3, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 5, 2.5, 11,
+  ];
+
+  /// Width of the table: an A4 landscape page less its margins.
+  static const _tableWidthMm = (297 - 2 * 7) * 0.999;
+
+  /// Height of a row whose text fits on its line.
+  static const _rowHeightMm = 5.5;
+
+  /// What a cell's padding and borders take from its height.
+  static const _cellPaddingMm = 0.7;
+
+  /// The height the data rows of a page may take: 20 rows of the usual
+  /// height, plus part of the room left under the table for rows that grew
+  /// to hold their text.
+  static const _pageRowsBudgetMm = _rowsPerPage * _rowHeightMm + 16;
+
+  /// Room for text in [column], with [sideMm] of padding.
+  static double _textWidthMm(int column, {double sideMm = 0.8}) =>
+      _columnWidths[column] * _tableWidthMm / 100 - sideMm;
+
+  static String _points(double pt) =>
+      pt == pt.roundToDouble() ? '${pt.toInt()}' : pt.toStringAsFixed(2);
+
+  /// [text] in an element of [tag], at its fitted size, wrapping when it
+  /// has to.
+  static String _fittedTag(
+    String tag,
+    FittedText fit, {
+    String classes = '',
+    String extra = '',
+  }) {
+    final cls = [
+      if (classes.isNotEmpty) classes,
+      if (fit.wraps) 'wrap',
+    ].join(' ');
+    return '<$tag${cls.isEmpty ? '' : ' class="$cls"'} '
+        'style="font-size:${_points(fit.points)}pt">'
+        '${_escape(fit.text)}$extra</$tag>';
+  }
+
+  /// A cell of [column] whose text is fitted to it (see [LogbookTextFit]):
+  /// set smaller, then on more lines, never cut off. Its text height is
+  /// what the row needs for it.
+  static ({String html, double heightMm}) _fittedCell(
+    String text,
+    int column, {
+    double maxPoints = 7,
+    double minPoints = LogbookTextFit.minPrintablePoints,
+    int maxLines = 1,
+    String classes = '',
+    String extra = '',
+    double sideMm = 0.8,
+  }) {
+    if (text.trim().isEmpty) {
+      return (
+        html: '<td${classes.isEmpty ? '' : ' class="$classes"'}>$extra</td>',
+        heightMm: 0,
+      );
+    }
+    final fit = LogbookTextFit.fit(
+      text.trim(),
+      widthMm: _textWidthMm(column, sideMm: sideMm),
+      maxPoints: maxPoints,
+      minPoints: minPoints,
+      maxLines: maxLines,
+    );
+    return (
+      html: _fittedTag('td', fit, classes: classes, extra: extra),
+      heightMm: fit.heightMm,
+    );
+  }
+
+  /// Column 4, aircraft "make, model, variant" (AMC1 FCL.050(a)(2)(iv)):
+  /// the ICAO type designator, or the pilot's own type and subtitle line
+  /// for the aircraft.
+  static ({String html, double heightMm}) _aircraftTypeCell(
+    AircraftWithStats? aircraft,
+  ) {
+    if (aircraft == null) return (html: '<td></td>', heightMm: 0);
+    final width = _textWidthMm(5);
+    final type = LogbookTextFit.fit(aircraft.logbookTypeLine, widthMm: width);
+    final subtitleText = aircraft.logbookSubtitleLine;
+    final subtitle = subtitleText == null
+        ? null
+        : LogbookTextFit.fit(
+            subtitleText,
+            widthMm: width,
+            maxPoints: LogbookTextFit.minPrintablePoints,
+          );
+    return (
+      html:
+          '<td class="type">${_fittedTag('div', type)}'
+          '${subtitle == null ? '' : _fittedTag('div', subtitle, classes: 'subtitle')}'
+          '</td>',
+      heightMm: type.heightMm + (subtitle?.heightMm ?? 0),
+    );
+  }
+
+  /// The first page: the holder's personal details (AMC1 FCL.050(a)(1)).
+  static String _coverPage({
+    required String? name,
+    required String? address,
+    required List<String> licences,
+  }) {
+    String field(String label, String? value) {
+      final text = value?.trim() ?? '';
+      return '<div class="cover-field"><div class="cover-label">$label</div>'
+          '<div class="cover-value">'
+          '${text.isEmpty ? '&nbsp;' : _escape(text).replaceAll('\n', '<br>')}'
+          '</div></div>';
+    }
+
+    return '<div class="logbook-page cover">'
+        '<h1>PILOT LOGBOOK</h1>'
+        '${field("Holder's name(s)", name)}'
+        '${field("Holder's licence number", licences.join('\n'))}'
+        '${field("Holder's address", address)}'
+        '<p class="cover-note">Electronic record kept in accordance with '
+        'FCL.050 and AMC1 FCL.050 of Regulation (EU) No 1178/2011. All '
+        'dates and times are UTC. Flight time is recorded from the moment '
+        'the aircraft first moves to take off until it finally comes to rest '
+        '(for helicopters, from rotor start until the rotor blades stop).</p>'
+        '</div>';
+  }
+
   static String _fmtInt(int n) => n > 0 ? '$n' : '';
 
   /// [image] (PNG or JPEG) as a data URI.
@@ -154,11 +294,77 @@ class PdfExportService {
     return 'data:image/${isPng ? 'png' : 'jpeg'};base64,${base64Encode(image)}';
   }
 
-  /// The remarks cell, with [signature] laid over the text when there is one.
-  static String _remarksCell(String remarks, Uint8List? signature) {
-    if (signature == null) return '<td class="text-left">$remarks</td>';
-    return '<td class="text-left signed">$remarks'
-        '<img class="signature" src="${_dataUri(signature)}"></td>';
+  /// The remarks cell, with [signature] laid over the text when there is
+  /// one. Up to 2 lines before the row grows.
+  static ({String html, double heightMm}) _remarksCell(
+    String remarks,
+    Uint8List? signature,
+  ) => _fittedCell(
+    remarks,
+    22,
+    maxLines: 2,
+    sideMm: 1.4,
+    classes: signature == null ? 'text-left' : 'text-left signed',
+    extra: signature == null
+        ? ''
+        : '<img class="signature" src="${_dataUri(signature)}">',
+  );
+
+  /// The cells of [flight]'s logbook line, and the height it needs.
+  static _Line _line(
+    FlightWithStats f,
+    LogbookEntry entry,
+    Uint8List? signature,
+    String Function(DateTime) date,
+    String Function(DateTime) time,
+  ) {
+    String duration(LogbookTimeField field) => _fmtDur(entry.time(field));
+    // A simulator session only has its date, column 11 and remarks
+    // (AMC1 FCL.050(i)(9)).
+    final session = f.isSimulatorSession;
+    String flown(String Function() value) => session ? '' : value();
+    final fitted = [
+      _fittedCell(f.departure?.ident ?? '', 1),
+      _fittedCell(f.arrival?.ident ?? '', 3),
+      _aircraftTypeCell(f.aircraftWithStats),
+      _fittedCell(f.aircraftWithStats?.tailNumber ?? '', 6),
+      _fittedCell(entry.picName, 11),
+      _fittedCell(f.simulator?.logbookType ?? '', 20),
+      _remarksCell(entry.remarks, signature),
+    ];
+    final [dep, arr, type, registration, picName, fstdType, remarks] = fitted;
+    final cells = StringBuffer()
+      ..write('<td>${date(f.flight.departureTime)}</td>')
+      ..write(dep.html)
+      ..write('<td>${flown(() => time(f.flight.departureTime))}</td>')
+      ..write(arr.html)
+      ..write(
+        '<td>${flown(() => f.flight.arrivalTime != null ? time(f.flight.arrivalTime!) : '')}</td>',
+      )
+      ..write(type.html)
+      ..write(registration.html)
+      ..write('<td>${duration(LogbookTimeField.singlePilotSe)}</td>')
+      ..write('<td>${duration(LogbookTimeField.singlePilotMe)}</td>')
+      ..write('<td>${duration(LogbookTimeField.multiPilot)}</td>')
+      ..write('<td>${duration(LogbookTimeField.total)}</td>')
+      ..write(picName.html)
+      ..write('<td>${_fmtInt(entry.dayLandings)}</td>')
+      ..write('<td>${_fmtInt(entry.nightLandings)}</td>')
+      ..write('<td>${duration(LogbookTimeField.night)}</td>')
+      ..write('<td>${duration(LogbookTimeField.ifr)}</td>')
+      ..write('<td>${duration(LogbookTimeField.pic)}</td>')
+      ..write('<td>${duration(LogbookTimeField.coPilot)}</td>')
+      ..write('<td>${duration(LogbookTimeField.dual)}</td>')
+      ..write('<td>${duration(LogbookTimeField.instructor)}</td>')
+      ..write(fstdType.html)
+      ..write('<td>${duration(LogbookTimeField.fstd)}</td>')
+      ..write(remarks.html);
+    final text = fitted.fold(0.0, (h, c) => max(h, c.heightMm));
+    return (
+      entry: entry,
+      cells: cells.toString(),
+      heightMm: max(_rowHeightMm, text + _cellPaddingMm),
+    );
   }
 
   static _Totals _calcPageTotals(List<LogbookEntry> page) {
@@ -209,7 +415,7 @@ class PdfExportService {
     switch (remarks) {
       case _RemarksCell.certification:
         buf.write(
-          '<td class="text-top text-left bold" style="font-size: 5pt;">I certify that the entries in this log are true.</td>',
+          '<td class="text-top text-left bold wrap" style="font-size: 6pt;">I certify that the entries in this log are true.</td>',
         );
       case _RemarksCell.signature:
         buf.write(
@@ -246,8 +452,8 @@ class PdfExportService {
   </tr>
   <tr>
     <th rowspan="2">DATE<br>(dd/mm/yy)</th>
-    <th colspan="2">DEPARTURE</th>
-    <th colspan="2">ARRIVAL</th>
+    <th colspan="2">DEPARTURE (UTC)</th>
+    <th colspan="2">ARRIVAL (UTC)</th>
     <th colspan="2">AIRCRAFT</th>
     <th colspan="2">SINGLE-PILOT TIME</th>
     <th rowspan="2">MULTI-PILOT<br>TIME</th>
@@ -262,7 +468,7 @@ class PdfExportService {
   <tr>
     <th>PLACE</th><th>TIME</th>
     <th>PLACE</th><th>TIME</th>
-    <th>TYPE</th><th>REG</th>
+    <th>MAKE, MODEL,<br>VARIANT</th><th>REGIS-<br>TRATION</th>
     <th>SE</th><th>ME</th>
     <th>DAY</th><th>NIGHT</th>
     <th>NIGHT</th><th>IFR</th>
@@ -282,13 +488,19 @@ class PdfExportService {
     PreviousTotals previousTotals = PreviousTotals.empty,
     String? pilotName,
     PicNameMode picNameMode = PicNameMode.self,
+    String? address,
+    List<String> licences = const [],
   }) {
     // Encoded once: the same picture signs every page.
     final pilotSignatureUri = pilotSignature == null
         ? null
         : _dataUri(pilotSignature);
+    // AMC1 FCL.050(i)(1), (2): the date the flight commences and all times
+    // in UTC.
     final dateFmt = DateFormat('dd/MM/yy');
     final timeFmt = DateFormat('HH:mm');
+    String date(DateTime d) => dateFmt.format(d.toUtc());
+    String time(DateTime d) => timeFmt.format(d.toUtc());
     final selfPicName = picNameMode == PicNameMode.self
         ? 'SELF'
         : (pilotName ?? '');
@@ -308,13 +520,24 @@ class PdfExportService {
           ),
         ),
     ];
-    final pages = <List<({FlightWithStats flight, LogbookEntry entry})>>[];
-    for (var i = 0; i < entries.length; i += _rowsPerPage) {
-      pages.add(
-        entries.sublist(i, (i + _rowsPerPage).clamp(0, entries.length)),
-      );
+    final lines = [
+      for (final (:flight, :entry) in entries)
+        _line(flight, entry, signatures[flight.flight.id], date, time),
+    ];
+    // At most 20 lines a page, fewer when some grew taller to hold their
+    // text: the table never runs off the page.
+    final pages = <List<_Line>>[[]];
+    var used = 0.0;
+    for (final line in lines) {
+      final page = pages.last;
+      if (page.length == _rowsPerPage ||
+          (page.isNotEmpty && used + line.heightMm > _pageRowsBudgetMm)) {
+        pages.add([]);
+        used = 0;
+      }
+      pages.last.add(line);
+      used += line.heightMm;
     }
-    if (pages.isEmpty) pages.add([]);
 
     final buf = StringBuffer();
     buf.write('''<!DOCTYPE html>
@@ -331,6 +554,9 @@ class PdfExportService {
     margin: 0;
     padding: 0;
     background: #ffffff;
+    /* No font boosting by the WebView: sizes print as set. */
+    -webkit-text-size-adjust: none;
+    text-size-adjust: none;
   }
   body {
     font-family: Arial, Helvetica, sans-serif;
@@ -358,15 +584,29 @@ class PdfExportService {
     word-wrap: break-word;
     overflow: hidden;
   }
+  /* Vertical centring: the font's line box sits high for capitals and
+     digits (no descenders), so a little more padding above than below
+     brings the ink to the middle of the cell. */
   th {
     font-weight: bold;
     font-size: 5pt;
-    padding: 8px 1px;
+    padding: 9.5px 1px 6.5px 1px;
     line-height: 1.1;
   }
   .row-data td {
     height: 5.5mm;
     font-size: 7pt;
+    line-height: 1.15;
+    white-space: nowrap;
+    padding-top: 2.25px;
+    padding-bottom: 0;
+  }
+  /* Text too long for its cell at the smallest size: on more lines, the
+     row growing to hold them. */
+  .row-data .wrap {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .bold { font-weight: bold; }
   .text-right {
@@ -378,7 +618,8 @@ class PdfExportService {
     text-align: left;
     padding-left: 4px;
   }
-  .text-top {
+  /* The certification and the pilot's signature box stay at the top. */
+  .row-data td.text-top {
     vertical-align: top;
     padding-top: 3px;
   }
@@ -402,103 +643,77 @@ class PdfExportService {
     object-position: center;
   }
   .bg-grey { background-color: #f2f2f2; }
+  td.type { text-align: center; }
+  .cover {
+    padding: 30mm 25mm 0 25mm;
+    font-size: 11pt;
+  }
+  .cover h1 {
+    text-align: center;
+    font-size: 26pt;
+    letter-spacing: 2pt;
+    margin: 0 0 18mm 0;
+  }
+  .cover-field { margin-bottom: 9mm; }
+  .cover-label {
+    font-size: 8pt;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  .cover-value {
+    border-bottom: 0.5px solid black;
+    min-height: 7mm;
+    padding: 2mm 0 1mm 0;
+  }
+  .cover-note {
+    margin-top: 14mm;
+    font-size: 8pt;
+    color: #333333;
+  }
 </style>
 </head>
 <body>
 ''');
+
+    buf.write(
+      _coverPage(name: pilotName, address: address, licences: licences),
+    );
 
     var prevTotals = _Totals.previous(previousTotals);
 
     for (int pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       final pageFlights = pages[pageIdx];
       final pageTotals = _calcPageTotals([
-        for (final row in pageFlights) row.entry,
+        for (final line in pageFlights) line.entry,
       ]);
+      final pageHeight = pageFlights.fold(0.0, (h, l) => h + l.heightMm);
+      // Empty lines up to 20, as far as the page has room.
+      final emptyLines = min(
+        _rowsPerPage - pageFlights.length,
+        ((_pageRowsBudgetMm - pageHeight) / _rowHeightMm).floor(),
+      );
       final grandTotals = prevTotals + pageTotals;
 
       buf.write('<div class="logbook-page">');
       buf.write('<table>');
-      buf.write('''
-<colgroup>
-  <col style="width:5%">
-  <col style="width:4%">
-  <col style="width:3.5%">
-  <col style="width:4%">
-  <col style="width:3.5%">
-  <col style="width:4.5%">
-  <col style="width:4.5%">
-  <col style="width:4%">
-  <col style="width:4%">
-  <col style="width:5%">
-  <col style="width:4%">
-  <col style="width:6%">
-  <col style="width:3%">
-  <col style="width:3%">
-  <col style="width:3.5%">
-  <col style="width:3.5%">
-  <col style="width:3.5%">
-  <col style="width:3.5%">
-  <col style="width:3.5%">
-  <col style="width:3.5%">
-  <col style="width:5%">
-  <col style="width:2.5%">
-  <col style="width:13%">
-</colgroup>
-''');
+      buf.write('<colgroup>');
+      for (final width in _columnWidths) {
+        buf.write('<col style="width:$width%">');
+      }
+      buf.write('</colgroup>');
       buf.write(_tableHeader());
       buf.write('<tbody>');
 
-      for (int i = 0; i < _rowsPerPage; i++) {
+      for (int i = 0; i < pageFlights.length + emptyLines; i++) {
         final grey = (i + 1) % 3 == 0 ? ' bg-grey' : '';
         buf.write('<tr class="row-data$grey">');
-
         if (i < pageFlights.length) {
-          final (flight: f, :entry) = pageFlights[i];
-          String time(LogbookTimeField field) => _fmtDur(entry.time(field));
-
-          final dayLandings = _fmtInt(entry.dayLandings);
-          final nightLandings = _fmtInt(entry.nightLandings);
-          // A simulator session only has its date, column 11 and remarks
-          // (AMC1 FCL.050(i)(9)).
-          final session = f.isSimulatorSession;
-          String flown(String Function() value) => session ? '' : value();
-
-          buf
-            ..write('<td>${dateFmt.format(f.flight.departureTime)}</td>')
-            ..write('<td>${f.departure?.ident ?? ''}</td>')
-            ..write(
-              '<td>${flown(() => timeFmt.format(f.flight.departureTime))}</td>',
-            )
-            ..write('<td>${f.arrival?.ident ?? ''}</td>')
-            ..write(
-              '<td>${flown(() => f.flight.arrivalTime != null ? timeFmt.format(f.flight.arrivalTime!) : '')}</td>',
-            )
-            ..write('<td>${f.aircraftWithStats?.designator ?? ''}</td>')
-            ..write('<td>${f.aircraftWithStats?.tailNumber ?? ''}</td>')
-            ..write('<td>${time(LogbookTimeField.singlePilotSe)}</td>')
-            ..write('<td>${time(LogbookTimeField.singlePilotMe)}</td>')
-            ..write('<td>${time(LogbookTimeField.multiPilot)}</td>')
-            ..write('<td>${time(LogbookTimeField.total)}</td>')
-            ..write('<td>${_escape(entry.picName)}</td>')
-            ..write('<td>$dayLandings</td>')
-            ..write('<td>$nightLandings</td>')
-            ..write('<td>${time(LogbookTimeField.night)}</td>')
-            ..write('<td>${time(LogbookTimeField.ifr)}</td>')
-            ..write('<td>${time(LogbookTimeField.pic)}</td>')
-            ..write('<td>${time(LogbookTimeField.coPilot)}</td>')
-            ..write('<td>${time(LogbookTimeField.dual)}</td>')
-            ..write('<td>${time(LogbookTimeField.instructor)}</td>')
-            ..write('<td>${_escape(f.simulator?.logbookType ?? '')}</td>')
-            ..write('<td>${time(LogbookTimeField.fstd)}</td>')
-            ..write(
-              _remarksCell(_escape(entry.remarks), signatures[f.flight.id]),
-            );
+          buf.write(pageFlights[i].cells);
         } else {
           for (int j = 0; j < 23; j++) {
             buf.write('<td></td>');
           }
         }
-
         buf.write('</tr>');
       }
 

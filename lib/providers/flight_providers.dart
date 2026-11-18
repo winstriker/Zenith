@@ -11,11 +11,6 @@ import 'database_provider.dart';
 // Provided by flight_repository.dart
 
 /// Stream of all recorded flights (new reactive approach)
-final flightListStreamProvider = StreamProvider<List<FlightWithStats>>((ref) {
-  final repository = ref.watch(flightRepositoryProvider);
-  return repository.watchRecordedFlights();
-});
-
 /// Which part of the logbook a paged flight list shows.
 typedef FlightsPageKey = ({int limit, String query, DateTime? day});
 

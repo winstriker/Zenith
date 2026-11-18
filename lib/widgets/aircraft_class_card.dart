@@ -145,6 +145,8 @@ Future<AircraftClassChoice?> showAircraftClassPicker(
             ),
             header('Class ratings'),
             for (final value in AircraftClass.classRatings) option(value),
+            header('Gyroplanes (GPL)'),
+            option(AircraftClass.spg),
             header('Type rating'),
             option(AircraftClass.type),
             header('Other licences'),

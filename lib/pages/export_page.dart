@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../models/currency.dart';
 import '../providers/database_provider.dart';
-import '../providers/flight_providers.dart';
 import '../providers/user_provider.dart';
+import '../repositories/flight_repository.dart';
+import '../repositories/licence_repository.dart';
 import '../repositories/pilot_profile_repository.dart';
 import '../services/database.dart';
 import '../services/file_opener.dart';
@@ -19,7 +21,7 @@ import '../widgets/section_header.dart';
 enum ExportFormat {
   pdf(
     label: 'PDF',
-    description: 'EASA-compliant logbook, ready to print',
+    description: '2026 EASA Part-FCL compliant',
     icon: Icons.picture_as_pdf_outlined,
     available: true,
   ),
@@ -63,14 +65,16 @@ class _ExportPageState extends ConsumerState<ExportPage> {
   bool _exporting = false;
 
   Future<void> _export() async {
-    final flights = ref.read(flightListStreamProvider).value ?? [];
-    if (flights.isEmpty) {
-      _showSnack('No flights to export');
-      return;
-    }
-
     setState(() => _exporting = true);
     try {
+      // Read now, and whole: the logbook has to contain every flight.
+      final flights = await ref
+          .read(flightRepositoryProvider)
+          .allRecordedFlights();
+      if (flights.isEmpty) {
+        _showSnack('No flights to export');
+        return;
+      }
       switch (_format) {
         case ExportFormat.pdf:
           await _exportPdf(flights);
@@ -102,6 +106,11 @@ class _ExportPageState extends ConsumerState<ExportPage> {
     }
     final profile = await ref.read(pilotProfileRepositoryProvider).get();
     final pilotSignatureFile = profile?.signatureFile;
+    // The holder's licence numbers, for the cover (AMC1 FCL.050(a)(1)).
+    final licences = await ref
+        .read(licenceRepositoryProvider)
+        .watchLicences()
+        .first;
     final file = await PdfExportService.generateLogbook(
       flights,
       crewByFlight: crew,
@@ -112,6 +121,13 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       previousTotals: profile?.previousTotals ?? PreviousTotals.empty,
       pilotName: ref.read(userSignatureNameProvider),
       picNameMode: ref.read(picNameModeProvider),
+      address: profile?.address,
+      licences: [
+        for (final l in licences)
+          if (l.licence.number?.trim() case final number?
+              when number.isNotEmpty)
+            '${l.licence.title} $number',
+      ],
     );
     _log.info('Logbook PDF written to ${file.path}');
     if (!await file.exists()) {

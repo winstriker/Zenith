@@ -30,30 +30,54 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
   late DateTime? _issueDate = widget.rating?.issueDate;
   late DateTime? _lastCheck = widget.rating?.lastCheckDate;
   late DateTime? _expiry = widget.rating?.expiryDate;
+  late bool _lightSingleEngine = widget.rating?.lightSingleEngine ?? false;
   List<String> _suggestions = const [];
   bool _saving = false;
   bool _submitted = false;
+
+  AircraftCategory get _category => widget.licence.category;
+  bool get _otherLicence => widget.licence.kind == LicenceKind.other;
 
   /// Kinds that make sense on the licence.
   late final List<RatingKind> _kinds = [
     for (final k in RatingKind.values)
       if (switch (k) {
+        // The aeroplane class ratings, or the SPG class of a GPL.
         RatingKind.classRating =>
-          widget.licence.category == AircraftCategory.aeroplane ||
-              widget.licence.kind == LicenceKind.other,
-        RatingKind.typeRating ||
-        RatingKind.instrument ||
-        RatingKind.enRouteInstrument ||
-        RatingKind.night => !const [
+          _category == AircraftCategory.aeroplane ||
+              _category == AircraftCategory.gyroplane ||
+              _otherLicence,
+        RatingKind.typeRating || RatingKind.night => !const [
           AircraftCategory.sailplane,
           AircraftCategory.balloon,
-        ].contains(widget.licence.category),
-        RatingKind.basicInstrument || RatingKind.mountain =>
-          widget.licence.category == AircraftCategory.aeroplane,
+        ].contains(_category),
+        // No IR for gyroplanes.
+        RatingKind.instrument => !const [
+          AircraftCategory.sailplane,
+          AircraftCategory.balloon,
+          AircraftCategory.gyroplane,
+        ].contains(_category),
+        // Article 4f(1): issued to CPL(A) and CPL(H) holders.
+        RatingKind.vcaTypeRating =>
+          (_category == AircraftCategory.aeroplane ||
+                  _category == AircraftCategory.helicopter) &&
+              const [
+                LicenceKind.cpl,
+                LicenceKind.atpl,
+                LicenceKind.other,
+              ].contains(widget.licence.kind),
+        RatingKind.basicInstrument ||
+        RatingKind.mountain => _category == AircraftCategory.aeroplane,
         _ => true,
       })
         k,
   ];
+
+  /// Whether the rating is a helicopter type rating, which may be for a
+  /// light single-engine type (FCL.740.H(a)(2)).
+  bool get _helicopterType =>
+      _kind == RatingKind.typeRating &&
+      _category == AircraftCategory.helicopter;
 
   @override
   void initState() {
@@ -93,8 +117,8 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
   bool get _hasChecks => switch (_kind) {
     RatingKind.classRating ||
     RatingKind.typeRating ||
+    RatingKind.vcaTypeRating ||
     RatingKind.instrument ||
-    RatingKind.enRouteInstrument ||
     RatingKind.basicInstrument ||
     RatingKind.mountain ||
     RatingKind.instructor ||
@@ -149,7 +173,9 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
       level: Value(_kind == RatingKind.languageProficiency ? _level : null),
       issueDate: Value(_issueDate),
       lastCheckDate: Value(_hasChecks ? _lastCheck : null),
-      expiryDate: Value(_expiry),
+      // FCL.815(d): a mountain rating no longer expires.
+      expiryDate: Value(_kind == RatingKind.mountain ? null : _expiry),
+      lightSingleEngine: Value(_helicopterType && _lightSingleEngine),
       notes: Value(notes.isEmpty ? null : notes),
     );
     final repo = ref.read(licenceRepositoryProvider);
@@ -177,7 +203,6 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
     return switch (_kind) {
       RatingKind.classRating => _class?.label ?? 'Class rating',
       RatingKind.instrument => 'IR',
-      RatingKind.enRouteInstrument => 'EIR',
       RatingKind.basicInstrument => 'BIR',
       _ when _kind.hasName && name.isNotEmpty => name,
       _ => _kind.label,
@@ -219,7 +244,9 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
               errorText: _classError,
             ),
             items: [
-              for (final c in AircraftClass.classRatings)
+              for (final c in AircraftClass.forCategory(
+                _otherLicence ? null : _category,
+              ))
                 DropdownMenuItem(
                   value: c,
                   child: Text(
@@ -244,10 +271,25 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
             isRequired: _kind != RatingKind.towing,
             capitalization: switch (_kind) {
               RatingKind.typeRating ||
+              RatingKind.vcaTypeRating ||
               RatingKind.instructor ||
               RatingKind.examiner => TextCapitalization.characters,
               _ => TextCapitalization.sentences,
             },
+          ),
+        ],
+        if (_helicopterType) ...[
+          const SizedBox(height: 8),
+          SwitchListTile(
+            value: _lightSingleEngine,
+            onChanged: (v) => setState(() => _lightSingleEngine = v),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Single-engine, up to 3 175 kg'),
+            subtitle: const Text(
+              'Maximum take-off mass up to 3 175 kg: may be revalidated with '
+              '6 hours as PIC and a refresher training instead of a check '
+              '(FCL.740.H(a)(2)).',
+            ),
           ),
         ],
         if (_kind == RatingKind.languageProficiency) ...[
@@ -295,14 +337,30 @@ class _RatingFormPageState extends ConsumerState<RatingFormPage> {
             onChanged: (d) => setState(() => _lastCheck = d),
           ),
         ],
-        const SizedBox(height: 16),
-        OptionalDateField(
-          label: 'Valid until',
-          icon: Icons.event_busy_outlined,
-          value: _expiry,
-          onChanged: (d) => setState(() => _expiry = d),
-        ),
-        if (suggested != null && suggested != _expiry) ...[
+        if (_kind == RatingKind.mountain)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'The mountain rating doesn\'t expire. Its privileges need 6 '
+              'landings on mountain surfaces or a proficiency check in the '
+              'last 2 years (FCL.815(d)).',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+        else ...[
+          const SizedBox(height: 16),
+          OptionalDateField(
+            label: 'Valid until',
+            icon: Icons.event_busy_outlined,
+            value: _expiry,
+            onChanged: (d) => setState(() => _expiry = d),
+          ),
+        ],
+        if (_kind != RatingKind.mountain &&
+            suggested != null &&
+            suggested != _expiry) ...[
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,

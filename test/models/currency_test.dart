@@ -13,11 +13,13 @@ void main() {
     LicenceKind kind = LicenceKind.ppl,
     AircraftCategory category = AircraftCategory.aeroplane,
     DateTime? check,
+    DateTime? issued,
   }) => Licence(
     id: id,
     kind: kind,
     category: category,
     proficiencyCheckDate: check,
+    issueDate: issued,
   );
 
   var nextRatingId = 1;
@@ -28,6 +30,7 @@ void main() {
     DateTime? expiry,
     DateTime? lastCheck,
     int licenceId = 1,
+    bool lightSingleEngine = false,
   }) => LicenceRating(
     id: nextRatingId++,
     licence: licenceId,
@@ -36,6 +39,7 @@ void main() {
     name: name,
     expiryDate: expiry,
     lastCheckDate: lastCheck,
+    lightSingleEngine: lightSingleEngine,
   );
 
   CurrencyFlight flight(
@@ -50,6 +54,12 @@ void main() {
     Duration instructor = Duration.zero,
     bool check = false,
     SimulatorKind? simulator,
+    Duration ifr = Duration.zero,
+    bool approach = false,
+    Duration sessionInstruction = Duration.zero,
+    int mountain = 0,
+    bool cruiseRelief = false,
+    EngineType? engine,
   }) => CurrencyFlight(
     date: date,
     total: total,
@@ -62,6 +72,13 @@ void main() {
     typeRating: type,
     proficiencyCheck: check,
     simulator: simulator,
+    ifr: ifr,
+    picIfr: ifr,
+    instrumentApproach: approach,
+    sessionInstruction: sessionInstruction,
+    mountainLandings: mountain,
+    cruiseRelief: cruiseRelief,
+    engineType: engine,
   );
 
   List<CurrencyItem> compute(
@@ -619,6 +636,429 @@ void main() {
       expect(RatingKind.instructor.validityFor(), 36);
       expect(RatingKind.languageProficiency.validityFor(level: 4), 48);
       expect(RatingKind.languageProficiency.validityFor(level: 6), isNull);
+    });
+  });
+
+  group('Easy Access Rules, October 2026', () {
+    test('mountain rating: no expiry, privileges kept by landings', () {
+      final mountain = rating(
+        RatingKind.mountain,
+        // Entered before the rating stopped expiring: ignored.
+        expiry: DateTime(2026, 1, 31),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(), [mountain]),
+        ],
+        [
+          flight(DateTime(2025, 6, 10), landings: 4, mountain: 4),
+          flight(DateTime(2026, 2, 3), landings: 2, mountain: 2),
+          flight(DateTime(2026, 3, 3), landings: 5),
+        ],
+      );
+      expect(items.where((i) => i.key == 'rating:${mountain.id}'), isEmpty);
+      final privileges = item(items, 'mountain:${mountain.id}');
+      expect(privileges.kind, CurrencyKind.recency);
+      expect(privileges.reference, 'FCL.815(d)');
+      expect(privileges.requirements.single.done, 6);
+      // The 6th landing back is 2 years old on 10 Jun 2027.
+      expect(privileges.validUntil, DateTime(2027, 6, 10));
+      expect(privileges.ratingId, mountain.id);
+    });
+
+    test('mountain rating: or a proficiency check in the last 2 years', () {
+      final mountain = rating(
+        RatingKind.mountain,
+        lastCheck: DateTime(2025, 9),
+      );
+      final items = compute([
+        LicenceWithRatings(licence(), [mountain]),
+      ], const []);
+      expect(
+        item(items, 'mountain:${mountain.id}').validUntil,
+        DateTime(2027, 9),
+      );
+      expect(RatingKind.mountain.validityFor(), isNull);
+    });
+
+    group('helicopter type ratings (FCL.740.H)', () {
+      LicenceRating r44({bool light = true}) => rating(
+        RatingKind.typeRating,
+        name: 'R44',
+        expiry: DateTime(2027, 1, 31),
+        lightSingleEngine: light,
+      );
+
+      test('light single-engine: 6 h PIC and a refresher instead', () {
+        final r = r44();
+        final items = compute(
+          [
+            LicenceWithRatings(licence(category: AircraftCategory.helicopter), [
+              r,
+            ]),
+          ],
+          [
+            for (var i = 0; i < 3; i++)
+              flight(
+                DateTime(2026, 3, 1 + i),
+                cls: AircraftClass.type,
+                type: 'R44',
+                total: const Duration(hours: 2),
+              ),
+            // The refresher, half in an FSTD of the type, in the 3 months
+            // before expiry (from 31 Oct 2026).
+            flight(
+              DateTime(2026, 11, 2),
+              cls: AircraftClass.type,
+              type: 'R44',
+              total: const Duration(minutes: 30),
+              dual: const Duration(minutes: 30),
+            ),
+            flight(
+              DateTime(2026, 11, 3),
+              cls: AircraftClass.type,
+              type: 'R44',
+              total: Duration.zero,
+              landings: 0,
+              simulator: SimulatorKind.ftd,
+              sessionInstruction: const Duration(minutes: 30),
+            ),
+          ],
+        );
+        final validity = item(items, 'rating:${r.id}');
+        expect(validity.reference, 'FCL.740.H(a)(1)(i)');
+        expect(validity.sections, hasLength(2));
+        expect(validity.sections.first.reference, 'FCL.740.H(a)(1)(ii)');
+        final light = validity.sections.last;
+        expect(light.reference, 'FCL.740.H(a)(2)(ii)');
+        expect(light.requirements[0].done, 6 * 60);
+        expect(light.requirements[1].done, 60);
+        expect(light.met, isTrue);
+      });
+
+      test('not offered for other helicopter types', () {
+        final r = r44(light: false);
+        final items = compute([
+          LicenceWithRatings(licence(category: AircraftCategory.helicopter), [
+            r,
+          ]),
+        ], const []);
+        expect(item(items, 'rating:${r.id}').sections, hasLength(1));
+      });
+
+      test('LAPL(H) refresher training may be flown in an FSTD', () {
+        final r = rating(RatingKind.typeRating, name: 'R22');
+        final items = compute(
+          [
+            LicenceWithRatings(
+              licence(
+                kind: LicenceKind.lapl,
+                category: AircraftCategory.helicopter,
+              ),
+              [r],
+            ),
+          ],
+          [
+            for (var i = 0; i < 6; i++)
+              flight(
+                DateTime(2026, 6, 1 + i),
+                cls: AircraftClass.type,
+                type: 'R22',
+              ),
+            flight(
+              DateTime(2026, 6, 10),
+              cls: AircraftClass.type,
+              type: 'R22',
+              total: Duration.zero,
+              landings: 0,
+              simulator: SimulatorKind.ftd,
+              sessionInstruction: const Duration(hours: 1),
+            ),
+          ],
+        );
+        final lapl = item(items, 'lapl:1:${r.id}');
+        expect(lapl.requirements.every((q) => q.met), isTrue);
+        expect(lapl.validUntil, DateTime(2027, 6));
+      });
+    });
+
+    test('SEP (L) and SEP (S): 1 h PIC and 6 landings in each', () {
+      final land = rating(
+        RatingKind.classRating,
+        cls: AircraftClass.sepLand,
+        expiry: DateTime(2027, 3, 31),
+      );
+      final sea = rating(
+        RatingKind.classRating,
+        cls: AircraftClass.sepSea,
+        expiry: DateTime(2027, 3, 31),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(), [land, sea]),
+        ],
+        [
+          flight(
+            DateTime(2026, 5),
+            total: const Duration(hours: 10),
+            landings: 10,
+          ),
+          flight(
+            DateTime(2026, 5, 2),
+            cls: AircraftClass.sepSea,
+            total: const Duration(hours: 2),
+            landings: 2,
+          ),
+        ],
+      );
+      final byLabel = {
+        for (final r in item(items, 'rating:${sea.id}').requirements)
+          r.label: r,
+      };
+      expect(byLabel['Flight time']!.done, 12 * 60);
+      expect(byLabel['Take-offs and landings in SEP (L)']!.met, isTrue);
+      expect(byLabel['PIC time in SEP (S)']!.met, isTrue);
+      expect(byLabel['Take-offs and landings in SEP (S)']!.done, 2);
+      expect(byLabel['Take-offs and landings in SEP (S)']!.met, isFalse);
+    });
+
+    test('BIR: 6 h PIC under IFR, 3 approaches and a training flight', () {
+      final bir = rating(
+        RatingKind.basicInstrument,
+        expiry: DateTime(2027, 3, 31),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(), [bir]),
+        ],
+        [
+          for (var i = 0; i < 3; i++)
+            flight(
+              DateTime(2026, 5, 1 + i),
+              total: const Duration(hours: 2),
+              ifr: const Duration(hours: 2),
+              approach: true,
+            ),
+          flight(
+            DateTime(2026, 6),
+            total: const Duration(hours: 1, minutes: 5),
+            dual: const Duration(hours: 1, minutes: 5),
+          ),
+        ],
+      );
+      final validity = item(items, 'rating:${bir.id}');
+      expect(validity.reference, 'FCL.835(g)(2)(ii)');
+      expect(validity.requirementsMet, isTrue);
+      expect(validity.sections.single.reference, 'FCL.835(g)(2)(i)');
+      expect(validity.notes, contains(contains('every other revalidation')));
+    });
+
+    test('VCA type rating: 2 h on type and a check (Article 4f)', () {
+      final vca = rating(
+        RatingKind.vcaTypeRating,
+        name: 'VC2',
+        expiry: DateTime(2027, 2, 28),
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(kind: LicenceKind.cpl), [vca]),
+        ],
+        [
+          flight(
+            DateTime(2026, 11),
+            cls: AircraftClass.type,
+            type: 'VC2',
+            total: const Duration(hours: 2),
+            landings: 3,
+          ),
+        ],
+      );
+      final validity = item(items, 'rating:${vca.id}');
+      expect(validity.reference, 'Article 4f(5)(a)(i)');
+      expect(validity.requirementsMet, isTrue);
+      expect(validity.sections.single.reference, 'Article 4f(5)(a)(ii)');
+      expect(
+        item(items, 'passengers:type:VC2').requirements.single.met,
+        isTrue,
+      );
+      expect(RatingKind.vcaTypeRating.validityFor(), 12);
+    });
+
+    group('GPL (Regulation (EU) 2025/134)', () {
+      final gplLicence = licence(
+        kind: LicenceKind.gpl,
+        category: AircraftCategory.gyroplane,
+        issued: DateTime(2026, 4),
+      );
+
+      test('recency: 12 h, 12 landings, 1 h refresher in 2 years', () {
+        final spg = rating(RatingKind.classRating, cls: AircraftClass.spg);
+        final items = compute(
+          [
+            LicenceWithRatings(gplLicence, [spg]),
+          ],
+          [
+            flight(
+              DateTime(2026, 5),
+              cls: AircraftClass.spg,
+              dual: const Duration(hours: 1),
+            ),
+            for (var i = 0; i < 11; i++)
+              flight(DateTime(2026, 6, 1 + i), cls: AircraftClass.spg),
+          ],
+        );
+        final recency = item(items, 'gpl:1:${spg.id}');
+        expect(recency.reference, 'FCL.240.G');
+        expect(recency.validUntil, DateTime(2028, 5));
+        // Passengers after 10 h as PIC since the issue: 11 h flown.
+        expect(items.where((i) => i.key == 'gpl-passengers:1'), isEmpty);
+        // FCL.060(b) applies to gyroplanes: no landings in the last 90
+        // days.
+        expect(item(items, 'passengers:class:spg').validUntil, isNull);
+      });
+
+      test('passengers only after 10 h as PIC', () {
+        final items = compute(
+          [LicenceWithRatings(gplLicence, const [])],
+          [
+            // Before the issue: doesn't count.
+            flight(DateTime(2026, 3), cls: AircraftClass.spg),
+            flight(
+              DateTime(2026, 5),
+              cls: AircraftClass.spg,
+              total: const Duration(hours: 4),
+            ),
+          ],
+        );
+        final pax = item(items, 'gpl-passengers:1');
+        expect(pax.reference, 'FCL.205.G(a)(2)');
+        expect(pax.validUntil, isNull);
+        expect(pax.requirements.single.done, 4 * 60);
+        expect(item(items, 'gpl:1').reference, 'FCL.240.G');
+      });
+    });
+
+    test('cruise relief co-pilot: 3 sectors in 90 days (FCL.060(b)(3))', () {
+      final b777 = rating(
+        RatingKind.typeRating,
+        name: 'B777',
+        expiry: DateTime(2027, 5, 31),
+      );
+      CurrencyFlight crcp(DateTime d) => flight(
+        d,
+        cls: AircraftClass.type,
+        type: 'B777',
+        landings: 0,
+        cruiseRelief: true,
+      );
+      final items = compute(
+        [
+          LicenceWithRatings(licence(kind: LicenceKind.atpl), [b777]),
+        ],
+        [
+          crcp(DateTime(2026, 11)),
+          crcp(DateTime(2026, 10)),
+          crcp(DateTime(2026, 9)),
+        ],
+      );
+      final cr = item(items, 'crcp:type:B777');
+      expect(cr.requirements.single.done, 3);
+      expect(cr.validUntil, DateTime(2026, 11, 30));
+      // No cruise relief flown: nothing to show.
+      expect(
+        compute([
+          LicenceWithRatings(licence(kind: LicenceKind.atpl), [b777]),
+        ], const []).where((i) => i.key.startsWith('crcp:')),
+        isEmpty,
+      );
+    });
+
+    test('SEP variants with another type of engine (FCL.710(d))', () {
+      final sep = rating(RatingKind.classRating, cls: AircraftClass.sepLand);
+      final items = compute(
+        [
+          LicenceWithRatings(licence(), [sep]),
+        ],
+        [
+          flight(DateTime(2026, 10), engine: EngineType.piston),
+          flight(DateTime(2025, 2, 10), engine: EngineType.electric),
+        ],
+      );
+      expect(
+        item(items, 'sep-variant:electric').validUntil,
+        DateTime(2027, 2, 10),
+      );
+      // Only piston SEPs flown: nothing to track.
+      expect(
+        compute(
+          [
+            LicenceWithRatings(licence(), [sep]),
+          ],
+          [flight(DateTime(2026, 10), engine: EngineType.piston)],
+        ).where((i) => i.key.startsWith('sep-variant:')),
+        isEmpty,
+      );
+    });
+
+    group('renewal (FCL.740(b), FCL.625(c))', () {
+      test('an instructor may assess an SEP rating for 3 years', () {
+        final sep = rating(
+          RatingKind.classRating,
+          cls: AircraftClass.sepLand,
+          expiry: DateTime(2025, 1, 31),
+        );
+        final validity = item(
+          compute([
+            LicenceWithRatings(licence(), [sep]),
+          ], const []),
+          'rating:${sep.id}',
+        );
+        expect(validity.reference, 'FCL.740(b)');
+        expect(validity.notes.first, contains('or an instructor'));
+        expect(validity.notes.last, contains('31 Jan 2028'));
+      });
+
+      test('an IR not renewed for 7 years means the exams again', () {
+        final ir = rating(RatingKind.instrument, expiry: DateTime(2019, 1, 31));
+        final validity = item(
+          compute([
+            LicenceWithRatings(licence(), [ir]),
+          ], const []),
+          'rating:${ir.id}',
+        );
+        expect(validity.reference, 'FCL.625(c)');
+        expect(validity.notes.last, contains('FCL.625(d)'));
+      });
+    });
+
+    test('FI(As) revalidate with 20 hours of instruction', () {
+      final fi = rating(
+        RatingKind.instructor,
+        name: 'FI(As)',
+        expiry: DateTime(2027, 5, 31),
+      );
+      final validity = item(
+        compute([
+          LicenceWithRatings(licence(), [fi]),
+        ], const []),
+        'rating:${fi.id}',
+      );
+      expect(validity.requirements.single.needed, 20 * 60);
+    });
+
+    test('class and type checks may be EBT practical assessments', () {
+      final mep = rating(
+        RatingKind.classRating,
+        cls: AircraftClass.mepLand,
+        expiry: DateTime(2027, 2, 28),
+      );
+      final items = compute([
+        LicenceWithRatings(licence(), [mep]),
+      ], const []);
+      expect(
+        item(items, 'rating:${mep.id}').sections.single.notes,
+        contains(contains('EBT practical assessment')),
+      );
     });
   });
 

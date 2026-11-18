@@ -129,6 +129,10 @@ class _FlightDetailView extends ConsumerWidget {
           approachType: approachType,
           nightLandings: flight.flight.nightLandings ?? 0,
           dayLandings: flight.flight.dayLandings ?? 0,
+          mountainLandings: switch (flight.flight.mountainLandings) {
+            final n? when n > 0 => n,
+            _ => null,
+          },
         ),
       ],
       if (flightRules != null && !isSession) ...[

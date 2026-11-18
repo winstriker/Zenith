@@ -80,4 +80,16 @@ void main() {
     expect(await titles(limit: 3, day: DateTime(2026, 1, 3)), ['Next day']);
     expect(await titles(limit: 3, query: 'circuit 9'), ['Circuit 9']);
   });
+
+  test('the logbook export gets every flight, not a page', () async {
+    final start = DateTime(2024, 1, 1, 10);
+    for (var i = 0; i < 650; i++) {
+      await addFlight('F$i', start.add(Duration(days: i)));
+    }
+    await addFlight('Recording', DateTime(2026, 11), recording: true);
+    final all = await repo.allRecordedFlights();
+    expect(all, hasLength(650));
+    expect(all.first.flight.title, 'F649');
+    expect(all.last.flight.title, 'F0');
+  });
 }

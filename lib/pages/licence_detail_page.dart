@@ -66,14 +66,18 @@ class _LicenceDetailView extends ConsumerWidget {
     final items = ref.watch(currencyItemsProvider).value ?? const [];
     final validity = {
       for (final item in items)
-        if (item.kind == CurrencyKind.validity && item.ratingId != null)
+        // A mountain rating doesn't expire: its card shows whether its
+        // privileges can be used (FCL.815(d)).
+        if ((item.kind == CurrencyKind.validity ||
+                item.key.startsWith('mountain:')) &&
+            item.ratingId != null)
           item.ratingId!: item,
     };
     final recency = [
       for (final item in items)
         if (item.kind == CurrencyKind.recency &&
             item.licenceId == l.id &&
-            item.key.startsWith('lapl:'))
+            (item.key.startsWith('lapl:') || item.key.startsWith('gpl')))
           item,
     ];
 
@@ -242,7 +246,6 @@ class _RatingCard extends StatelessWidget {
     final item = this.item;
     final subtitle = [
       if (rating.kind != RatingKind.instrument &&
-          rating.kind != RatingKind.enRouteInstrument &&
           rating.kind != RatingKind.basicInstrument &&
           rating.kind != RatingKind.classRating &&
           rating.kind != RatingKind.night &&

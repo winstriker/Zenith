@@ -11,6 +11,7 @@ import '../core/fab_hero_tags.dart';
 import '../providers/database_provider.dart';
 import '../providers/flight_form_provider.dart';
 import '../providers/flight_providers.dart';
+import '../providers/licence_providers.dart';
 import '../repositories/aircraft_repository.dart';
 import '../repositories/flight_repository.dart';
 import '../services/adsb_flight_importer.dart';
@@ -162,6 +163,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     notifier.setProficiencyCheck(f.proficiencyCheck);
     notifier.setNightLandings(f.nightLandings ?? 0);
     notifier.setDayLandings(f.dayLandings ?? 1);
+    notifier.setMountainLandings(f.mountainLandings ?? 0);
     notifier.setFlightRules(f.flightRules ?? 'VFR');
     if (f.instrumentMinutes != null) {
       notifier.setInstrumentTime(Duration(minutes: f.instrumentMinutes!));
@@ -270,6 +272,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   Widget build(BuildContext context) {
     final form = ref.watch(flightFormProvider);
     final notifier = _formNotifier;
+    final holdsMountainRating =
+        ref
+            .watch(licencesStreamProvider)
+            .value
+            ?.any((l) => l.ratings.any((r) => r.kind == RatingKind.mountain)) ??
+        false;
     final draft = widget.adsbImport;
     final missingRegistration =
         draft?.registration != null && form.selectedAircraft == null
@@ -420,6 +428,12 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   onNightLandingsChanged: notifier.setNightLandings,
                   dayLandings: form.dayLandings,
                   onDayLandingsChanged: notifier.setDayLandings,
+                  // Asked of mountain rating holders only (FCL.815(d)).
+                  mountainLandings:
+                      holdsMountainRating || form.mountainLandings > 0
+                      ? form.mountainLandings
+                      : null,
+                  onMountainLandingsChanged: notifier.setMountainLandings,
                 ),
                 const SizedBox(height: 16),
                 FlightRulesCard(
@@ -734,6 +748,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           approachType: form.approachType,
           nightLandings: form.nightLandings,
           dayLandings: form.dayLandings,
+          // Never more than the landings flown.
+          mountainLandings: form.mountainLandings.clamp(
+            0,
+            form.dayLandings + form.nightLandings,
+          ),
           flightRules: form.flightRules,
           remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
           departureIanaLocation: form.depIanaLocation,
@@ -756,6 +775,11 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           approachType: form.approachType,
           nightLandings: form.nightLandings,
           dayLandings: form.dayLandings,
+          // Never more than the landings flown.
+          mountainLandings: form.mountainLandings.clamp(
+            0,
+            form.dayLandings + form.nightLandings,
+          ),
           flightRules: form.flightRules,
           remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
           departureIanaLocation: form.depIanaLocation,

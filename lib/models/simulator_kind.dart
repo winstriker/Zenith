@@ -1,23 +1,31 @@
 // The kinds of flight simulation training device (FSTD) a session can be
 // flown in.
 //
-// From the definitions of Part-FCL (FCL.010 and GM1 FCL.010, Easy Access
-// Rules, August 2020 edition) and the qualification levels of CS-FSTD:
+// From the definitions of Part-FCL (FCL.010, FCL.036 and GM1 FCL.010, Easy
+// Access Rules for Aircrew, October 2026 edition) and the qualification
+// levels of CS-FSTD:
 //  * FFS: full flight simulator, a full size replica of a specific type with
 //    a visual and a motion system. Levels A to D;
 //  * FTD: flight training device, a replica of a type's flight deck without
-//    the motion or (for aeroplanes) visual system. Levels 1 to 3;
+//    the motion or (for aeroplanes) visual system. Levels 1 to 3, and for
+//    helicopters 2 MCC and 3 MCC;
 //  * FNPT: flight and navigation procedures trainer, representing a type or
 //    a class. Levels I to III, MCC when qualified for multi-crew training;
 //  * BITD: basic instrument training device, for basic instrument flight
 //    training only.
+//
+// From 30 April 2028 (Implementing Regulation (EU) 2026/781) an FSTD may
+// instead be qualified with an FSTD capability signature (FCS) under
+// CS-FSTD Issue 1, and the devices above become "legacy FSTDs". FCL.036
+// maps an FCS to the type and level it is equivalent to: such a device is
+// entered as that type and level.
 //
 // Values are stored by name in the database (textEnum): don't rename them
 // without a migration.
 
 enum SimulatorKind {
   ffs('FFS', 'Full flight simulator', ['A', 'B', 'C', 'D']),
-  ftd('FTD', 'Flight training device', ['1', '2', '3']),
+  ftd('FTD', 'Flight training device', ['1', '2', '3', '2 MCC', '3 MCC']),
   fnpt('FNPT', 'Flight and navigation procedures trainer', [
     'I',
     'II',

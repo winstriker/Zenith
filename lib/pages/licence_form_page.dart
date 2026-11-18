@@ -33,6 +33,10 @@ class _LicenceFormPageState extends ConsumerState<LicenceFormPage> {
   bool get _isLaplA =>
       _kind == LicenceKind.lapl && _category == AircraftCategory.aeroplane;
 
+  /// Whether a proficiency check keeps the licence itself recent: LAPL(A)
+  /// (FCL.140.A(a)(2)) and GPL (FCL.240.G(a)(2)).
+  bool get _hasLicenceCheck => _isLaplA || _kind == LicenceKind.gpl;
+
   @override
   void dispose() {
     _number.dispose();
@@ -64,7 +68,7 @@ class _LicenceFormPageState extends ConsumerState<LicenceFormPage> {
       number: _text(_number),
       issuedBy: _text(_issuedBy),
       issueDate: Value(_issueDate),
-      proficiencyCheckDate: Value(_isLaplA ? _checkDate : null),
+      proficiencyCheckDate: Value(_hasLicenceCheck ? _checkDate : null),
       notes: _text(_notes),
     );
     final existing = widget.licence;
@@ -157,18 +161,25 @@ class _LicenceFormPageState extends ConsumerState<LicenceFormPage> {
           label: 'Issue date',
           value: _issueDate,
           lastDate: DateTime.now(),
+          helperText: _kind == LicenceKind.gpl
+              ? 'Passengers only after 10 hours as PIC on gyroplanes since '
+                    'the issue (FCL.205.G(a)(2)).'
+              : null,
           onChanged: (d) => setState(() => _issueDate = d),
         ),
-        if (_isLaplA) ...[
+        if (_hasLicenceCheck) ...[
           const SizedBox(height: 16),
           OptionalDateField(
             label: 'Last proficiency check',
             icon: Icons.fact_check_outlined,
             value: _checkDate,
             lastDate: DateTime.now(),
-            helperText:
-                'A proficiency check with an examiner keeps a LAPL(A) recent '
-                'for 2 years (FCL.140.A).',
+            helperText: _isLaplA
+                ? 'A proficiency check with an examiner keeps a LAPL(A) '
+                      'recent for 2 years (FCL.140.A).'
+                : 'A proficiency check with an examiner keeps a GPL recent '
+                      'for 2 years (FCL.240.G). Recency is per class or '
+                      'type: with ratings entered, their check dates count.',
             onChanged: (d) => setState(() => _checkDate = d),
           ),
         ],

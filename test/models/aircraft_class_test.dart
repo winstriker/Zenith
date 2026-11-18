@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zenith/models/aircraft_class.dart';
 import 'package:zenith/models/aircraft_type_enums.dart';
+import 'package:zenith/models/licence.dart';
 
 void main() {
   List<AircraftClass> candidates(
@@ -94,8 +95,13 @@ void main() {
       deduce(AircraftDescription.balloon, 0, EngineType.none),
       AircraftClass.balloon,
     );
+    // A Part-FCL gyroplane (GPL, SPG class) or an ultralight one.
+    expect(candidates(AircraftDescription.gyrocopter, 1, EngineType.piston), [
+      AircraftClass.spg,
+      AircraftClass.other,
+    ]);
     expect(
-      deduce(AircraftDescription.gyrocopter, 1, EngineType.piston),
+      deduce(AircraftDescription.ultralightAutogyro, 1, EngineType.piston),
       AircraftClass.other,
     );
     expect(
@@ -118,5 +124,17 @@ void main() {
     expect(AircraftClass.tmg.isClassRating, isTrue);
     expect(AircraftClass.type.isClassRating, isFalse);
     expect(AircraftClass.sailplane.isClassRating, isFalse);
+    expect(AircraftClass.spg.isClassRating, isTrue);
+  });
+
+  test('the classes of a licence follow its category', () {
+    expect(AircraftClass.forCategory(AircraftCategory.gyroplane), [
+      AircraftClass.spg,
+    ]);
+    expect(
+      AircraftClass.forCategory(AircraftCategory.aeroplane),
+      AircraftClass.classRatings,
+    );
+    expect(AircraftClass.forCategory(null), contains(AircraftClass.spg));
   });
 }

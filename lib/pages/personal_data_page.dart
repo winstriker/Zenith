@@ -36,10 +36,23 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
       title: 'Full Name',
       initial: ref.read(userSignatureNameProvider) ?? '',
       hint: 'e.g. John A. Smith',
-      helper: 'Signs your logbook, and is the PIC name when set to it',
+      helper: null,
     );
     if (name != null) {
       await ref.read(userSignatureNameProvider.notifier).setSignatureName(name);
+    }
+  }
+
+  Future<void> _editAddress(String? current) async {
+    final address = await _editText(
+      title: 'Address',
+      initial: current ?? '',
+      hint: 'Street, postcode, city, country',
+      helper: null,
+      multiline: true,
+    );
+    if (address != null) {
+      await ref.read(pilotProfileRepositoryProvider).setAddress(address);
     }
   }
 
@@ -48,23 +61,30 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
       title: 'Nickname',
       initial: ref.read(userNicknameProvider) ?? '',
       hint: 'e.g. Captain',
-      helper: 'Used in greetings',
+      helper: null,
     );
     if (nickname != null) {
       await ref.read(userNicknameProvider.notifier).setNickname(nickname);
     }
   }
 
-  /// The trimmed text, or null when cancelled. Never empty.
+  /// The trimmed text, or null when cancelled. Never empty, unless
+  /// [multiline], where empty clears it.
   Future<String?> _editText({
     required String title,
     required String initial,
     required String hint,
-    required String helper,
+    required String? helper,
+    bool multiline = false,
   }) => showDialog<String>(
     context: context,
-    builder: (_) =>
-        _TextDialog(title: title, initial: initial, hint: hint, helper: helper),
+    builder: (_) => _TextDialog(
+      title: title,
+      initial: initial,
+      hint: hint,
+      helper: helper,
+      multiline: multiline,
+    ),
   );
 
   Future<void> _editPreviousTotals() => Navigator.push<bool>(
@@ -202,6 +222,16 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
                   trailing: const Icon(Icons.edit_outlined),
                   onTap: _editNickname,
                 ),
+                const Divider(height: 1, indent: 72),
+                ListTile(
+                  leading: Icon(Icons.home_outlined, color: cs.primary),
+                  title: const Text('Address'),
+                  subtitle: Text(profile.value?.address ?? '—'),
+                  trailing: const Icon(Icons.edit_outlined),
+                  onTap: profile.hasValue
+                      ? () => _editAddress(profile.value?.address)
+                      : null,
+                ),
               ],
             ),
           ),
@@ -241,16 +271,6 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 40),
-                    child: Text(
-                      'Signs every page of the exported logbook',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 12),
                   if (signature != null)
                     SignaturePreview(
@@ -286,12 +306,16 @@ class _TextDialog extends StatefulWidget {
     required this.initial,
     required this.hint,
     required this.helper,
+    this.multiline = false,
   });
 
   final String title;
   final String initial;
   final String hint;
-  final String helper;
+  final String? helper;
+
+  /// Several lines, and may be left empty.
+  final bool multiline;
 
   @override
   State<_TextDialog> createState() => _TextDialogState();
@@ -309,7 +333,7 @@ class _TextDialogState extends State<_TextDialog> {
 
   void _save() {
     final text = _controller.text.trim();
-    if (text.isEmpty) {
+    if (text.isEmpty && !widget.multiline) {
       setState(() => _error = "Can't be empty");
       return;
     }
@@ -324,13 +348,16 @@ class _TextDialogState extends State<_TextDialog> {
         controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.words,
+        minLines: widget.multiline ? 2 : 1,
+        maxLines: widget.multiline ? 4 : 1,
+        keyboardType: widget.multiline ? TextInputType.multiline : null,
         decoration: InputDecoration(
           hintText: widget.hint,
           helperText: widget.helper,
           helperMaxLines: 2,
           errorText: _error,
         ),
-        onSubmitted: (_) => _save(),
+        onSubmitted: widget.multiline ? null : (_) => _save(),
       ),
       actions: [
         TextButton(

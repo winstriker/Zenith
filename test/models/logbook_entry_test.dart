@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zenith/models/crew_rules.dart';
 import 'package:zenith/models/logbook_entry.dart';
 import 'package:zenith/services/database.dart';
 
@@ -12,6 +13,8 @@ FlightWithStats _flight({
   LogbookOverrides? overrides,
   Duration block = const Duration(minutes: 90),
   int? simulatorId,
+  bool proficiencyCheck = false,
+  String? remarks = 'Nice',
 }) => FlightWithStats(
   flight: Flight(
     id: 1,
@@ -19,12 +22,12 @@ FlightWithStats _flight({
     departureTime: _dep,
     arrivalTime: _dep.add(block),
     isRecording: false,
-    proficiencyCheck: false,
+    proficiencyCheck: proficiencyCheck,
     flightRules: rules,
     instrumentMinutes: instrumentMinutes,
     nightMinutes: nightMinutes,
     pilotRole: pilotRole,
-    remarks: 'Nice',
+    remarks: remarks,
     dayLandings: 1,
     logbookOverrides: overrides,
     simulatorId: simulatorId,
@@ -228,6 +231,109 @@ void main() {
         LogbookEntry.of(_flight()).time(LogbookTimeField.fstd),
         Duration.zero,
       );
+    });
+  });
+
+  group('pilot function and remarks (AMC1 FCL.050)', () {
+    const examiner = CrewMember(
+      person: Person(id: 5, name: 'Marco', surname: 'Rossi'),
+      role: CrewRole.exm,
+    );
+    const instructor = CrewMember(
+      person: Person(id: 6, name: 'Giulia', surname: 'Bassi'),
+      role: CrewRole.ins,
+    );
+    const pic = CrewMember(
+      person: Person(id: 7, name: 'Anna', surname: 'Verdi'),
+      role: CrewRole.pic,
+    );
+
+    test('a check passed is PIC time, the examiner named', () {
+      final entry = LogbookEntry.of(
+        _flight(pilotRole: 'dual', proficiencyCheck: true, remarks: null),
+        crew: const [examiner],
+      );
+      expect(entry.time(LogbookTimeField.pic), _m(90));
+      expect(entry.time(LogbookTimeField.dual), Duration.zero);
+      expect(entry.picName, 'Rossi');
+      expect(entry.remarks, 'Proficiency check, examiner Marco Rossi');
+    });
+
+    test('the remarks saying which check keep their words', () {
+      final entry = LogbookEntry.of(
+        _flight(
+          pilotRole: 'dual',
+          proficiencyCheck: true,
+          remarks: 'SEP skill test',
+        ),
+        crew: const [examiner],
+      );
+      expect(entry.remarks, 'Examiner Marco Rossi. SEP skill test');
+    });
+
+    test('without the check, a flight with an examiner stays dual', () {
+      final entry = LogbookEntry.of(
+        _flight(pilotRole: 'dual'),
+        crew: const [examiner],
+      );
+      expect(entry.time(LogbookTimeField.dual), _m(90));
+      expect(entry.time(LogbookTimeField.pic), Duration.zero);
+    });
+
+    test('dual flights name their instructor', () {
+      final entry = LogbookEntry.of(
+        _flight(pilotRole: 'dual'),
+        crew: const [instructor],
+      );
+      expect(entry.remarks, 'Instructor Giulia Bassi. Nice');
+    });
+
+    test('PICUS is PIC time certified by the PIC', () {
+      final entry = LogbookEntry.of(
+        _flight(pilotRole: 'picus'),
+        crew: const [pic],
+      );
+      expect(entry.time(LogbookTimeField.pic), _m(90));
+      expect(entry.picName, 'Verdi');
+      expect(entry.remarks, 'PICUS, PIC Anna Verdi. Nice');
+    });
+
+    test('SPIC is PIC time certified by the instructor', () {
+      final entry = LogbookEntry.of(
+        _flight(pilotRole: 'spic', remarks: null),
+        crew: const [instructor],
+      );
+      expect(entry.time(LogbookTimeField.pic), _m(90));
+      expect(entry.picName, 'Bassi');
+      expect(entry.remarks, 'SPIC, instructor Giulia Bassi');
+    });
+
+    test('a cruise relief co-pilot logs co-pilot, multi-pilot time', () {
+      final entry = LogbookEntry.of(
+        _flight(pilotRole: 'crcp', remarks: null),
+        crew: const [pic],
+      );
+      expect(entry.time(LogbookTimeField.coPilot), _m(90));
+      expect(entry.time(LogbookTimeField.multiPilot), _m(90));
+      expect(entry.time(LogbookTimeField.pic), Duration.zero);
+      expect(entry.remarks, 'CRCP');
+    });
+
+    test('a check in an FSTD is said in the remarks', () {
+      final entry = LogbookEntry.of(
+        _flight(simulatorId: 3, proficiencyCheck: true, remarks: null),
+        crew: const [examiner],
+      );
+      expect(entry.remarks, 'Proficiency check, examiner Marco Rossi');
+    });
+
+    test('PICUS, SPIC and CRCP need who certifies them in the crew', () {
+      expect(crewValidationError(CrewRole.picus, const []), isNotNull);
+      expect(crewValidationError(CrewRole.picus, const [pic]), isNull);
+      expect(crewValidationError(CrewRole.spic, const []), isNotNull);
+      expect(crewValidationError(CrewRole.spic, const [instructor]), isNull);
+      expect(crewValidationError(CrewRole.crcp, const []), isNotNull);
+      expect(crewValidationError(CrewRole.crcp, const [pic]), isNull);
     });
   });
 }

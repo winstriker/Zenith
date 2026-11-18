@@ -1,10 +1,11 @@
 // Pilot licences, the ratings and certificates endorsed on them, and medical
 // certificates.
 //
-// Follows EASA Part-FCL (Easy Access Rules, August 2020 edition). Only the
-// handful of categories the currency logic depends on are built in; anything
-// that changes over time (type rating endorsements, instructor certificate
-// names...) is typed in by the pilot.
+// Follows EASA Part-FCL (Easy Access Rules for Aircrew, October 2026
+// edition: Regulation (EU) No 1178/2011 up to Implementing Regulation (EU)
+// 2026/781). Only the handful of categories the currency logic depends on are
+// built in; anything that changes over time (type rating endorsements,
+// instructor certificate names...) is typed in by the pilot.
 //
 // Values are stored by name in the database (textEnum), so value names are
 // part of the schema: don't rename them without a migration.
@@ -20,6 +21,9 @@ enum LicenceKind {
   atpl('ATPL', 'Airline transport pilot licence'),
   spl('SPL', 'Sailplane pilot licence'),
   bpl('BPL', 'Balloon pilot licence'),
+
+  /// Gyroplane pilot licence (FCL.205.G, Regulation (EU) 2025/134).
+  gpl('GPL', 'Gyroplane pilot licence'),
 
   /// A licence outside Part-FCL: national, FAA, ultralight...
   other('Other', 'National or non-EASA licence');
@@ -41,6 +45,7 @@ enum LicenceKind {
     mpl => const [AircraftCategory.aeroplane],
     spl => const [AircraftCategory.sailplane],
     bpl => const [AircraftCategory.balloon],
+    gpl => const [AircraftCategory.gyroplane],
     other => AircraftCategory.values,
   };
 
@@ -56,7 +61,8 @@ enum AircraftCategory {
   poweredLift('PL', 'Powered-lift'),
   airship('As', 'Airship'),
   sailplane('S', 'Sailplane'),
-  balloon('B', 'Balloon');
+  balloon('B', 'Balloon'),
+  gyroplane('G', 'Gyroplane');
 
   const AircraftCategory(this.suffix, this.label);
 
@@ -68,8 +74,14 @@ enum AircraftCategory {
 enum RatingKind {
   classRating('Class rating'),
   typeRating('Type rating'),
+
+  /// Type rating for a VTOL-capable aircraft (VCA), held with a CPL(A) or
+  /// CPL(H) (Article 4f of Regulation (EU) No 1178/2011).
+  vcaTypeRating('VCA type rating'),
   instrument('Instrument rating (IR)'),
-  enRouteInstrument('En route instrument rating (EIR)'),
+
+  // The en route instrument rating (EIR, FCL.825) is gone: its holders could
+  // use it until 8 September 2022 (Article 4c).
   basicInstrument('Basic instrument rating (BIR)'),
   night('Night rating'),
   mountain('Mountain rating'),
@@ -89,6 +101,7 @@ enum RatingKind {
   /// certificate, a language).
   bool get hasName => const [
     typeRating,
+    vcaTypeRating,
     instructor,
     examiner,
     languageProficiency,
@@ -98,7 +111,7 @@ enum RatingKind {
 
   /// What to call the name field.
   String get nameLabel => switch (this) {
-    typeRating => 'Type rating endorsement',
+    typeRating || vcaTypeRating => 'Type rating endorsement',
     instructor => 'Certificate',
     examiner => 'Certificate',
     languageProficiency => 'Language',
@@ -108,8 +121,9 @@ enum RatingKind {
 
   String? get nameHint => switch (this) {
     typeRating => 'e.g. A320, B737 300-900, R44',
-    instructor => 'e.g. FI(A), CRI(A), TRI(A)',
-    examiner => 'e.g. FE(A), CRE',
+    vcaTypeRating => 'As endorsed on the licence',
+    instructor => 'e.g. FI(A), CRI(A), TRI(H), FI(G)',
+    examiner => 'e.g. FE(A), CRE, FE(G)',
     languageProficiency => 'e.g. English',
     towing => 'Sailplane or banner',
     _ => null,
@@ -122,15 +136,18 @@ enum RatingKind {
     // FCL.740(a): 1 year, 2 for single-pilot single-engine class ratings.
     classRating => null,
     typeRating => 12,
-    // FCL.625(a), FCL.825(g)(1), FCL.835(g)(1).
-    instrument || enRouteInstrument || basicInstrument => 12,
-    // FCL.815(d).
-    mountain => 24,
+    // Article 4f(5).
+    vcaTypeRating => 12,
+    // FCL.625(a), FCL.835(g)(1).
+    instrument || basicInstrument => 12,
     // FCL.940, FCL.1025(a): 3 years.
     instructor || examiner => 36,
     // FCL.055(c): depends on the level.
     languageProficiency => null,
-    night || aerobatic || towing || flightTest || other => null,
+    // FCL.815(d): since Regulation (EU) 2024/2076 the mountain rating
+    // doesn't expire any more. Its privileges need recent landings or a
+    // check instead (see the currency rules).
+    mountain || night || aerobatic || towing || flightTest || other => null,
   };
 
   /// The validity of a rating of this kind, in months: see
@@ -153,8 +170,8 @@ enum RatingKind {
   /// The rule the validity comes from.
   String? get reference => switch (this) {
     classRating || typeRating => 'FCL.740',
+    vcaTypeRating => 'Article 4f',
     instrument => 'FCL.625',
-    enRouteInstrument => 'FCL.825',
     basicInstrument => 'FCL.835',
     mountain => 'FCL.815',
     instructor => 'FCL.940',

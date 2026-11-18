@@ -117,6 +117,25 @@ class AircraftDetailsCard extends StatelessWidget {
               ),
             ),
           ],
+          if (aircraft.hasLogbookOverride) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.edit_note, size: 18, color: cs.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'Logbook: ${[aircraft.logbookTypeLine, ?aircraft.logbookSubtitleLine].join(' · ')}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (aircraft.notes != null && aircraft.notes!.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(

@@ -51,7 +51,11 @@ class LogbookEntry {
         },
         overrides: applied,
         computedPicName: '',
-        remarks: f.remarks ?? '',
+        // AMC1 FCL.050(i)(9)(iii): the exercise goes in the remarks.
+        remarks: _remarks(
+          f.remarks,
+          automatic: _checkRemarks(f, crew, multiPilotOnly: false),
+        ),
         dayLandings: 0,
         nightLandings: 0,
       );
@@ -65,7 +69,11 @@ class LogbookEntry {
 
     final multiEngine = (flight.aircraftWithStats?.engineCount ?? 1) > 1;
     final selfRole = CrewRole.fromString(f.pilotRole ?? CrewRole.pic.name);
-    final logbook = LogbookFunction.resolve(selfRole, crew);
+    final logbook = LogbookFunction.resolve(
+      selfRole,
+      crew,
+      proficiencyCheck: f.proficiencyCheck,
+    );
     // A second in command on board (or being it) makes it a multi-pilot
     // flight: its time goes in that column instead of the single-pilot ones.
     final multiPilot = isMultiPilot(selfRole, crew);
@@ -105,23 +113,106 @@ class LogbookEntry {
       },
       overrides: applied,
       computedPicName: logbook.picPerson?.surname ?? selfPicName,
-      remarks: f.remarks ?? '',
+      remarks: _remarks(
+        f.remarks,
+        automatic: [
+          ..._checkRemarks(
+            f,
+            crew,
+            // AMC1 FCL.050(i)(10)(v): a check in a single-pilot aircraft
+            // flown in multi-pilot operation says so. Class rated
+            // aeroplanes are single-pilot ones.
+            multiPilotOnly:
+                multiPilot &&
+                (flight.aircraftWithStats?.aircraftClass?.isClassRating ??
+                    false),
+          ),
+          ..._functionRemarks(selfRole, crew, f.proficiencyCheck),
+        ],
+      ),
       dayLandings: f.dayLandings ?? 0,
       nightLandings: f.nightLandings ?? 0,
     );
   }
 
   /// Whether a flight is logged as multi-pilot: when it has a second in
-  /// command, the pilot or one of the crew.
-  static bool isMultiPilot(CrewRole selfRole, List<CrewMember> crew) =>
-      selfRole == CrewRole.sic || crew.any((m) => m.role == CrewRole.sic);
+  /// command or a cruise relief co-pilot, the pilot or one of the crew.
+  static bool isMultiPilot(CrewRole selfRole, List<CrewMember> crew) {
+    bool coPilot(CrewRole r) => r == CrewRole.sic || r == CrewRole.crcp;
+    return coPilot(selfRole) || crew.any((m) => coPilot(m.role));
+  }
+
+  /// [remarks] typed by the pilot, after the entries AMC1 FCL.050(i)(10)
+  /// says should always be made.
+  static String _remarks(String? remarks, {required List<String> automatic}) =>
+      [
+        ...automatic,
+        if (remarks?.trim() case final r? when r.isNotEmpty) r,
+      ].join('. ');
+
+  static Person? _single(List<CrewMember> crew, CrewRole role) {
+    final matches = crew.where((m) => m.role == role).toList();
+    return matches.length == 1 ? matches.first.person : null;
+  }
+
+  /// AMC1 FCL.050(i)(10)(ii) and (v): the details of skill tests and
+  /// proficiency checks, with the examiner's name.
+  static List<String> _checkRemarks(
+    Flight f,
+    List<CrewMember> crew, {
+    required bool multiPilotOnly,
+  }) {
+    final examiner = _single(crew, CrewRole.exm);
+    if (!f.proficiencyCheck || examiner == null) return const [];
+    final typed = (f.remarks ?? '').toLowerCase();
+    // The pilot already said which test or check it was.
+    final described =
+        typed.contains('skill test') ||
+        typed.contains('check') ||
+        typed.contains('opc') ||
+        typed.contains('lpc');
+    return [
+      described
+          ? 'Examiner ${examiner.fullName}'
+          : 'Proficiency check, examiner ${examiner.fullName}',
+      if (multiPilotOnly) 'MP only',
+    ];
+  }
+
+  /// AMC1 FCL.050(i)(10)(iii), (iv) and (vi): who certifies PICUS and SPIC
+  /// time, the instructor of a dual flight (needed for SEP, TMG and
+  /// single-engine helicopter revalidations and LAPL recency), and CRCP.
+  static List<String> _functionRemarks(
+    CrewRole selfRole,
+    List<CrewMember> crew,
+    bool proficiencyCheck,
+  ) => switch (selfRole) {
+    CrewRole.picus => [
+      if (_single(crew, CrewRole.pic) case final pic?)
+        'PICUS, PIC ${pic.fullName}',
+    ],
+    CrewRole.spic => [
+      if (_single(crew, CrewRole.ins) ?? _single(crew, CrewRole.pic)
+          case final ins?)
+        'SPIC, instructor ${ins.fullName}',
+    ],
+    CrewRole.dual when !proficiencyCheck => [
+      if (_single(crew, CrewRole.ins) case final ins?)
+        'Instructor ${ins.fullName}',
+    ],
+    CrewRole.crcp => const ['CRCP'],
+    _ => const [],
+  };
 
   /// Each column as worked out from the flight, before the overrides.
   final Map<LogbookTimeField, Duration> computed;
   final LogbookOverrides overrides;
   final String computedPicName;
 
-  /// Remarks are logged as they are: they can't be overridden.
+  /// The remarks typed for the flight, after the entries the logbook should
+  /// always have (AMC1 FCL.050(i)(10)): checks and their examiner, who
+  /// certifies PICUS and SPIC time, the instructor of dual flights, CRCP.
+  /// They can't be overridden.
   final String remarks;
 
   /// Landings are logged as they are: they can't be overridden. None for a

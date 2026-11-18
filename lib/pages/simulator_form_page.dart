@@ -276,6 +276,15 @@ class _SimulatorFormPageState extends ConsumerState<SimulatorFormPage> {
                   color: cs.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'A device qualified with an FSTD capability signature (FCS) '
+                'is entered as the type and level its FCS is equivalent to '
+                '(FCL.036).',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
               if (_kind.levels.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text('Level', style: theme.textTheme.labelLarge),

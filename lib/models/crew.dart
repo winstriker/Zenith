@@ -2,6 +2,10 @@ enum CrewRole {
   pic,
   picus,
   sic,
+
+  /// Cruise relief co-pilot (AMC1 FCL.050(b)(3)): logs co-pilot time while
+  /// occupying a pilot's seat, with 'CRCP' in the remarks.
+  crcp,
   dual,
   spic,
   ins,
@@ -19,6 +23,8 @@ enum CrewRole {
         return 'PICUS';
       case CrewRole.sic:
         return 'SIC';
+      case CrewRole.crcp:
+        return 'CRCP';
       case CrewRole.dual:
         return 'DUAL';
       case CrewRole.spic:
@@ -46,6 +52,8 @@ enum CrewRole {
         return 'PIC under Supervision - PICUS,P1S';
       case CrewRole.sic:
         return 'Second in Command';
+      case CrewRole.crcp:
+        return 'Cruise Relief Co-Pilot';
       case CrewRole.dual:
         return 'Dual received';
       case CrewRole.spic:
@@ -71,6 +79,8 @@ enum CrewRole {
         return 'PF, Pilot Flying with Frozen ATPL';
       case CrewRole.sic:
         return 'Co-Pilot, First Officer, P2';
+      case CrewRole.crcp:
+        return 'Relieves the pilots in cruise, logs co-pilot time';
       case CrewRole.dual:
         return 'Pilot in Training (with Instructor)';
       case CrewRole.spic:

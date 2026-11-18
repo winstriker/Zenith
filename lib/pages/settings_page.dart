@@ -10,6 +10,7 @@ import '../providers/map_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/unit_provider.dart';
 import '../providers/user_provider.dart';
+import '../repositories/flight_repository.dart';
 import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 import 'adsb_settings_page.dart';
@@ -45,8 +46,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           FilledButton(
             onPressed: () async {
               final flightService = ref.read(flightServiceProvider);
-              final flightsAsync = ref.read(flightListStreamProvider);
-              final sessions = flightsAsync.value?.toList() ?? [];
+              final sessions = await ref
+                  .read(flightRepositoryProvider)
+                  .allRecordedFlights();
               for (final s in sessions) {
                 await flightService.deleteSession(s.flight.id);
               }

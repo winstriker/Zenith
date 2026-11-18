@@ -18,9 +18,8 @@ String formatLicenceDate(DateTime date) => _dateFormat.format(date);
 IconData ratingKindIcon(RatingKind kind) => switch (kind) {
   RatingKind.classRating => Icons.flight,
   RatingKind.typeRating => Icons.airplanemode_active,
-  RatingKind.instrument ||
-  RatingKind.enRouteInstrument ||
-  RatingKind.basicInstrument => Icons.explore_outlined,
+  RatingKind.vcaTypeRating => Icons.flight_takeoff,
+  RatingKind.instrument || RatingKind.basicInstrument => Icons.explore_outlined,
   RatingKind.night => Icons.nightlight_outlined,
   RatingKind.mountain => Icons.terrain_outlined,
   RatingKind.instructor || RatingKind.examiner => Icons.school_outlined,
@@ -306,7 +305,10 @@ List<Widget> currencyNotes(
       Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Text(
-          'EASA Part-$reference',
+          // Articles are of the cover regulation, points of Part-FCL.
+          reference.startsWith('Article')
+              ? 'Regulation (EU) No 1178/2011, $reference'
+              : 'EASA Part-$reference',
           style: theme.textTheme.labelSmall?.copyWith(
             color: cs.onSurfaceVariant.withValues(alpha: 0.8),
           ),

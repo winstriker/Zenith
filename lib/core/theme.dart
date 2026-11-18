@@ -82,6 +82,7 @@ class AppColors extends ThemeExtension<AppColors> {
     CrewRole.pic: Color(0xFF1565C0),
     CrewRole.picus: Color(0xFFE65100),
     CrewRole.sic: Color(0xFF1976D2),
+    CrewRole.crcp: Color(0xFF0D47A1),
     CrewRole.dual: Color(0xFF2E7D32),
     CrewRole.spic: Color(0xFF388E3C),
     CrewRole.ins: Color(0xFFD32F2F),

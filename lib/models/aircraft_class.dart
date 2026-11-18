@@ -10,14 +10,19 @@
 //  * a "SEP aeroplane" may also have an electric or hybrid engine
 //    (Regulation (EU) No 1178/2011, Article 2(8c));
 //  * every other aeroplane (all jets, all multi-engine turboprops, multi-pilot
-//    aeroplanes), every helicopter, powered-lift aircraft and airship needs
-//    its own type rating.
-// Sailplanes and balloons are licensed under Part-SFCL and Part-BFCL.
+//    aeroplanes), every helicopter, powered-lift aircraft, VTOL-capable
+//    aircraft (VCA) and airship needs its own type rating;
+//  * gyroplanes flown on a GPL (FCL.235.G, Regulation (EU) 2025/134) are in
+//    the single-propeller gyroplane (SPG) class, piston, electric or hybrid,
+//    or need privileges for their own type.
+// Sailplanes and balloons are licensed under Part-SFCL and Part-BFCL;
+// ultralight gyroplanes stay under national rules.
 //
 // Values are stored by name in the database (textEnum), so value names are
 // part of the schema: don't rename them without a migration.
 
 import 'aircraft_type_enums.dart';
+import 'licence.dart' show AircraftCategory;
 
 enum AircraftClass {
   sepLand('SEP (L)', 'Single-engine piston, land'),
@@ -27,6 +32,9 @@ enum AircraftClass {
   setLand('SET (L)', 'Single-engine turboprop, land'),
   setSea('SET (S)', 'Single-engine turboprop, sea'),
   tmg('TMG', 'Touring motor glider'),
+
+  /// Single-propeller gyroplane class of the GPL (FCL.235.G(a)(1)).
+  spg('SPG', 'Single-propeller gyroplane'),
 
   /// Not part of any class: flown on its own type rating. The rating itself
   /// (e.g. "A320") is kept next to the class, in `Aircrafts.typeRating`.
@@ -55,10 +63,19 @@ enum AircraftClass {
     tmg,
   ];
 
+  /// The classes a licence of [category] gives privileges for: the
+  /// aeroplane class ratings, or the SPG class of a GPL.
+  static List<AircraftClass> forCategory(AircraftCategory? category) =>
+      switch (category) {
+        AircraftCategory.gyroplane => const [spg],
+        AircraftCategory.aeroplane => classRatings,
+        _ => const [...classRatings, spg],
+      };
+
   /// Classes that are neither a class rating nor a type rating.
   static const nonPartFcl = [sailplane, balloon, other];
 
-  bool get isClassRating => classRatings.contains(this);
+  bool get isClassRating => classRatings.contains(this) || this == spg;
 
   /// Whether the class alone tells the engine type and count (SEP, MEP,
   /// SET), so they don't need to be shown next to it.
@@ -97,6 +114,8 @@ enum AircraftClass {
       case AircraftDescription.balloon:
         return const [balloon];
       case AircraftDescription.gyrocopter:
+        // A Part-FCL gyroplane, or an ultralight one under national rules.
+        return const [spg, other];
       case AircraftDescription.microlightAutogyro:
       case AircraftDescription.microlightHelicopter:
       case AircraftDescription.paraplane:

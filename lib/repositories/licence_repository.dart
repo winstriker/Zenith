@@ -87,7 +87,7 @@ class LicenceRepository {
       ..addColumns([name])
       ..where(_db.licenceRatings.kind.equalsValue(kind) & name.isNotNull());
     final names = {for (final row in await own.get()) row.read(name)!};
-    if (kind == RatingKind.typeRating) {
+    if (kind == RatingKind.typeRating || kind == RatingKind.vcaTypeRating) {
       final rating = _db.aircrafts.typeRating;
       final fromAircraft = _db.selectOnly(_db.aircrafts, distinct: true)
         ..addColumns([rating])
@@ -167,6 +167,10 @@ class LicenceRepository {
                 _db.simulators,
                 _db.simulators.id.equalsExp(_db.flights.simulatorId),
               ),
+              leftOuterJoin(
+                _db.icaoAircrafts,
+                _db.icaoAircrafts.id.equalsExp(_db.aircrafts.icaoAircraft),
+              ),
             ])..where(
               _db.flights.isRecording.equals(false) &
                   _db.flights.departureTime.isBiggerOrEqualValue(since),
@@ -185,7 +189,10 @@ class LicenceRepository {
     final flight = row.readTable(_db.flights);
     final aircraft = row.readTableOrNull(_db.aircrafts);
     final simulator = row.readTableOrNull(_db.simulators);
+    final icao = row.readTableOrNull(_db.icaoAircrafts);
     final members = crew[flight.id] ?? const <CrewMember>[];
+    final selfRole = CrewRole.fromString(flight.pilotRole ?? CrewRole.pic.name);
+    final session = flight.arrivalTime?.difference(flight.departureTime);
     final entry = LogbookEntry.of(
       FlightWithStats(flight: flight, dataPoints: const []),
       crew: members,
@@ -214,6 +221,22 @@ class LicenceRepository {
       // Not without the examiner, should they have been removed since.
       proficiencyCheck:
           flight.proficiencyCheck && members.any((m) => m.role == CrewRole.exm),
+      engineType: simulator == null ? icao?.engineType : null,
+      instrumentApproach:
+          simulator == null &&
+          flight.approachType != null &&
+          flight.approachType != 'VISUAL',
+      // A session flown as student counts as training with an instructor
+      // where the rules accept an FSTD.
+      sessionInstruction:
+          simulator != null &&
+              selfRole == CrewRole.dual &&
+              session != null &&
+              !session.isNegative
+          ? session
+          : Duration.zero,
+      mountainLandings: simulator == null ? flight.mountainLandings ?? 0 : 0,
+      cruiseRelief: selfRole == CrewRole.crcp,
     );
   }
 }

@@ -172,6 +172,14 @@ class Aircrafts extends Table {
   TextColumn get photoThumbnailUrl => text().nullable()();
   TextColumn get photoLink => text().nullable()();
   TextColumn get photoCredit => text().nullable()();
+
+  /// How the aircraft is written in column 4 of the exported logbook,
+  /// instead of its ICAO type designator: e.g. "B747" for a "B744".
+  TextColumn get logbookType => text().nullable()();
+
+  /// A second line under the type in the exported logbook, for the model or
+  /// variant ("747-400F"). None by default.
+  TextColumn get logbookSubtitle => text().nullable()();
 }
 
 /// A flight simulation training device the user flies sessions in. A
@@ -231,6 +239,11 @@ class Flights extends Table {
   TextColumn get approachType => text().nullable()();
   IntColumn get nightLandings => integer().nullable()();
   IntColumn get dayLandings => integer().nullable()();
+
+  /// How many of the landings were on a surface designated to require a
+  /// mountain rating: what keeps its privileges (FCL.815(d)(1)). Null when
+  /// none.
+  IntColumn get mountainLandings => integer().nullable()();
   TextColumn get flightRules => text().nullable()();
   TextColumn get remarks => text().nullable()();
   TextColumn get pilotRole => text().nullable()();
@@ -388,6 +401,13 @@ class LicenceRatings extends Table {
   DateTimeColumn get expiryDate => dateTime().nullable()();
   TextColumn get notes => text().nullable()();
 
+  /// For a helicopter type rating: whether the type is a single-engine
+  /// helicopter with a maximum take-off mass up to 3 175 kg, which may be
+  /// revalidated with 6 hours as PIC and a refresher training instead of a
+  /// proficiency check (FCL.740.H(a)(2)).
+  BoolColumn get lightSingleEngine =>
+      boolean().withDefault(const Constant(false))();
+
   List<TableIndex> get indexes => [
     TableIndex(name: 'licence_ratings_licence_idx', columns: {licence}),
   ];
@@ -424,6 +444,10 @@ class PilotProfile extends Table {
   /// put in the "pilot's signature" box of each page of the exported
   /// logbook.
   TextColumn get signatureFile => text().nullable()();
+
+  /// The pilot's postal address, part of the personal details a logbook
+  /// records (AMC1 FCL.050(a)(1)). Several lines.
+  TextColumn get address => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -711,6 +735,8 @@ abstract class AircraftWithStatss extends View {
           aircrafts.photoThumbnailUrl,
           aircrafts.photoLink,
           aircrafts.photoCredit,
+          aircrafts.logbookType,
+          aircrafts.logbookSubtitle,
           icaoAircrafts.description,
           icaoAircrafts.modelFullName,
           icaoAircrafts.designator,
@@ -753,6 +779,8 @@ abstract class AircraftWithIcaos extends View {
           aircrafts.photoThumbnailUrl,
           aircrafts.photoLink,
           aircrafts.photoCredit,
+          aircrafts.logbookType,
+          aircrafts.logbookSubtitle,
           icaoAircrafts.description,
           icaoAircrafts.modelFullName,
           icaoAircrafts.designator,
@@ -780,6 +808,26 @@ extension AircraftWithStatsPhoto on AircraftWithStats {
     link: photoLink,
     credit: photoCredit,
   );
+}
+
+extension AircraftWithStatsLogbook on AircraftWithStats {
+  /// What column 4 of the exported logbook says: the pilot's override, or
+  /// the ICAO type designator.
+  String get logbookTypeLine {
+    final custom = logbookType?.trim() ?? '';
+    return custom.isEmpty ? designator : custom;
+  }
+
+  /// The second line of column 4, when the pilot gave one.
+  String? get logbookSubtitleLine {
+    final custom = logbookSubtitle?.trim() ?? '';
+    return custom.isEmpty ? null : custom;
+  }
+
+  /// Whether the logbook entry is overridden at all.
+  bool get hasLogbookOverride =>
+      (logbookType?.trim() ?? '').isNotEmpty ||
+      (logbookSubtitle?.trim() ?? '').isNotEmpty;
 }
 
 extension ToIcaoAircraft on AircraftWithStats {
@@ -833,7 +881,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -978,7 +1026,58 @@ class LogbookDatabase extends _$LogbookDatabase {
       if (from < 12) {
         await m.createTable(pilotProfile);
       }
+      if (from < 13) {
+        Future<Set<String>> columns(String table) async => {
+          for (final row in await customSelect(
+            'PRAGMA table_info($table)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!(await columns(
+          'licence_ratings',
+        )).contains(licenceRatings.lightSingleEngine.name)) {
+          await m.addColumn(licenceRatings, licenceRatings.lightSingleEngine);
+        }
+        if (!(await columns(
+          'flights',
+        )).contains(flights.mountainLandings.name)) {
+          await m.addColumn(flights, flights.mountainLandings);
+        }
+        if (!(await columns(
+          'pilot_profile',
+        )).contains(pilotProfile.address.name)) {
+          await m.addColumn(pilotProfile, pilotProfile.address);
+        }
+        await retireEnRouteInstrumentRatings();
+      }
+      if (from < 14) {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(aircrafts)',
+          ).get())
+            row.read<String>('name'),
+        };
+        for (final column in [
+          aircrafts.logbookType,
+          aircrafts.logbookSubtitle,
+        ]) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(aircrafts, column);
+          }
+        }
+        // The aircraft views list the new columns.
+        await m.recreateAllViews();
+      }
     },
+  );
+
+  /// The en route instrument rating (FCL.825) was deleted from Part-FCL:
+  /// EIRs could only be used until 8 September 2022 (Article 4c). Ratings
+  /// recorded as one become "other" ratings named EIR, kept for the record.
+  Future<void> retireEnRouteInstrumentRatings() => customStatement(
+    "UPDATE licence_ratings SET kind = 'other', "
+    "name = COALESCE(NULLIF(TRIM(name), ''), 'EIR') "
+    "WHERE kind = 'enRouteInstrument'",
   );
 
   /// Works out the instrument and night time of the flights logged before

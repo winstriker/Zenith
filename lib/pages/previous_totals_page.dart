@@ -120,16 +120,6 @@ class _PreviousTotalsPageState extends ConsumerState<PreviousTotalsPage> {
                       horizontalPadding: 0,
                       bottomPadding: 0,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'The totals of the logbook you kept before Zenith, as '
-                      'on its last page. They are carried forward into the '
-                      'first page of the exported logbook, as the total '
-                      'from previous pages.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     for (final (title, fields) in _sections) ...[
                       _Section(

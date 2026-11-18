@@ -19,6 +19,14 @@ class FlightRepository {
     );
   }
 
+  /// Every recorded flight and simulator session, newest first, as they
+  /// are now: what the logbook export and "delete all" work on. Unlike
+  /// [watchRecordedFlights], nothing is left out.
+  Future<List<FlightWithStats>> allRecordedFlights() => _watchFlights(
+    where: _database.flights.isRecording.equals(false),
+    limit: null,
+  ).first;
+
   /// The newest [limit] recorded flights that match [query] (see
   /// `sqlMatchesAllTokens`) and, when given, departed on the local [day].
   /// Newest first; a list grows into older flights by asking a bigger
@@ -239,7 +247,8 @@ class FlightRepository {
       $IcaoAircraftsTable simulatorType,
     )?
     matching,
-    int limit = 10,
+    // Null: every matching flight.
+    int? limit = 10,
     int? offset,
   }) {
     final departure = _database.alias(_database.airports, "dep");
@@ -287,8 +296,8 @@ class FlightRepository {
             OrderingTerm.desc(_database.flights.departureTime),
             // Ties keep their place from one page to the next.
             OrderingTerm.desc(_database.flights.id),
-          ])
-          ..limit(limit, offset: offset);
+          ]);
+    if (limit != null) stat.limit(limit, offset: offset);
 
     final flightStream = stat.watch();
 

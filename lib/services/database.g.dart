@@ -4344,6 +4344,28 @@ class $AircraftsTable extends Aircrafts
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _logbookTypeMeta = const VerificationMeta(
+    'logbookType',
+  );
+  @override
+  late final GeneratedColumn<String> logbookType = GeneratedColumn<String>(
+    'logbook_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _logbookSubtitleMeta = const VerificationMeta(
+    'logbookSubtitle',
+  );
+  @override
+  late final GeneratedColumn<String> logbookSubtitle = GeneratedColumn<String>(
+    'logbook_subtitle',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4357,6 +4379,8 @@ class $AircraftsTable extends Aircrafts
     photoThumbnailUrl,
     photoLink,
     photoCredit,
+    logbookType,
+    logbookSubtitle,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4440,6 +4464,24 @@ class $AircraftsTable extends Aircrafts
         ),
       );
     }
+    if (data.containsKey('logbook_type')) {
+      context.handle(
+        _logbookTypeMeta,
+        logbookType.isAcceptableOrUnknown(
+          data['logbook_type']!,
+          _logbookTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('logbook_subtitle')) {
+      context.handle(
+        _logbookSubtitleMeta,
+        logbookSubtitle.isAcceptableOrUnknown(
+          data['logbook_subtitle']!,
+          _logbookSubtitleMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4495,6 +4537,14 @@ class $AircraftsTable extends Aircrafts
         DriftSqlType.string,
         data['${effectivePrefix}photo_credit'],
       ),
+      logbookType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_type'],
+      ),
+      logbookSubtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_subtitle'],
+      ),
     );
   }
 
@@ -4537,6 +4587,14 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   final String? photoThumbnailUrl;
   final String? photoLink;
   final String? photoCredit;
+
+  /// How the aircraft is written in column 4 of the exported logbook,
+  /// instead of its ICAO type designator: e.g. "B747" for a "B744".
+  final String? logbookType;
+
+  /// A second line under the type in the exported logbook, for the model or
+  /// variant ("747-400F"). None by default.
+  final String? logbookSubtitle;
   const Aircraft({
     required this.id,
     required this.icaoAircraft,
@@ -4549,6 +4607,8 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     this.photoThumbnailUrl,
     this.photoLink,
     this.photoCredit,
+    this.logbookType,
+    this.logbookSubtitle,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4582,6 +4642,12 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     if (!nullToAbsent || photoCredit != null) {
       map['photo_credit'] = Variable<String>(photoCredit);
     }
+    if (!nullToAbsent || logbookType != null) {
+      map['logbook_type'] = Variable<String>(logbookType);
+    }
+    if (!nullToAbsent || logbookSubtitle != null) {
+      map['logbook_subtitle'] = Variable<String>(logbookSubtitle);
+    }
     return map;
   }
 
@@ -4614,6 +4680,12 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       photoCredit: photoCredit == null && nullToAbsent
           ? const Value.absent()
           : Value(photoCredit),
+      logbookType: logbookType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logbookType),
+      logbookSubtitle: logbookSubtitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logbookSubtitle),
     );
   }
 
@@ -4638,6 +4710,8 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       ),
       photoLink: serializer.fromJson<String?>(json['photoLink']),
       photoCredit: serializer.fromJson<String?>(json['photoCredit']),
+      logbookType: serializer.fromJson<String?>(json['logbookType']),
+      logbookSubtitle: serializer.fromJson<String?>(json['logbookSubtitle']),
     );
   }
   @override
@@ -4657,6 +4731,8 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       'photoThumbnailUrl': serializer.toJson<String?>(photoThumbnailUrl),
       'photoLink': serializer.toJson<String?>(photoLink),
       'photoCredit': serializer.toJson<String?>(photoCredit),
+      'logbookType': serializer.toJson<String?>(logbookType),
+      'logbookSubtitle': serializer.toJson<String?>(logbookSubtitle),
     };
   }
 
@@ -4672,6 +4748,8 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     Value<String?> photoThumbnailUrl = const Value.absent(),
     Value<String?> photoLink = const Value.absent(),
     Value<String?> photoCredit = const Value.absent(),
+    Value<String?> logbookType = const Value.absent(),
+    Value<String?> logbookSubtitle = const Value.absent(),
   }) => Aircraft(
     id: id ?? this.id,
     icaoAircraft: icaoAircraft ?? this.icaoAircraft,
@@ -4688,6 +4766,10 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
         : this.photoThumbnailUrl,
     photoLink: photoLink.present ? photoLink.value : this.photoLink,
     photoCredit: photoCredit.present ? photoCredit.value : this.photoCredit,
+    logbookType: logbookType.present ? logbookType.value : this.logbookType,
+    logbookSubtitle: logbookSubtitle.present
+        ? logbookSubtitle.value
+        : this.logbookSubtitle,
   );
   Aircraft copyWithCompanion(AircraftsCompanion data) {
     return Aircraft(
@@ -4714,6 +4796,12 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       photoCredit: data.photoCredit.present
           ? data.photoCredit.value
           : this.photoCredit,
+      logbookType: data.logbookType.present
+          ? data.logbookType.value
+          : this.logbookType,
+      logbookSubtitle: data.logbookSubtitle.present
+          ? data.logbookSubtitle.value
+          : this.logbookSubtitle,
     );
   }
 
@@ -4730,7 +4818,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           ..write('photoUrl: $photoUrl, ')
           ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
           ..write('photoLink: $photoLink, ')
-          ..write('photoCredit: $photoCredit')
+          ..write('photoCredit: $photoCredit, ')
+          ..write('logbookType: $logbookType, ')
+          ..write('logbookSubtitle: $logbookSubtitle')
           ..write(')'))
         .toString();
   }
@@ -4748,6 +4838,8 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     photoThumbnailUrl,
     photoLink,
     photoCredit,
+    logbookType,
+    logbookSubtitle,
   );
   @override
   bool operator ==(Object other) =>
@@ -4763,7 +4855,9 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
           other.photoUrl == this.photoUrl &&
           other.photoThumbnailUrl == this.photoThumbnailUrl &&
           other.photoLink == this.photoLink &&
-          other.photoCredit == this.photoCredit);
+          other.photoCredit == this.photoCredit &&
+          other.logbookType == this.logbookType &&
+          other.logbookSubtitle == this.logbookSubtitle);
 }
 
 class AircraftsCompanion extends UpdateCompanion<Aircraft> {
@@ -4778,6 +4872,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   final Value<String?> photoThumbnailUrl;
   final Value<String?> photoLink;
   final Value<String?> photoCredit;
+  final Value<String?> logbookType;
+  final Value<String?> logbookSubtitle;
   const AircraftsCompanion({
     this.id = const Value.absent(),
     this.icaoAircraft = const Value.absent(),
@@ -4790,6 +4886,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     this.photoThumbnailUrl = const Value.absent(),
     this.photoLink = const Value.absent(),
     this.photoCredit = const Value.absent(),
+    this.logbookType = const Value.absent(),
+    this.logbookSubtitle = const Value.absent(),
   });
   AircraftsCompanion.insert({
     this.id = const Value.absent(),
@@ -4803,6 +4901,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     this.photoThumbnailUrl = const Value.absent(),
     this.photoLink = const Value.absent(),
     this.photoCredit = const Value.absent(),
+    this.logbookType = const Value.absent(),
+    this.logbookSubtitle = const Value.absent(),
   }) : icaoAircraft = Value(icaoAircraft),
        tailNumber = Value(tailNumber);
   static Insertable<Aircraft> custom({
@@ -4817,6 +4917,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     Expression<String>? photoThumbnailUrl,
     Expression<String>? photoLink,
     Expression<String>? photoCredit,
+    Expression<String>? logbookType,
+    Expression<String>? logbookSubtitle,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4830,6 +4932,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
       if (photoThumbnailUrl != null) 'photo_thumbnail_url': photoThumbnailUrl,
       if (photoLink != null) 'photo_link': photoLink,
       if (photoCredit != null) 'photo_credit': photoCredit,
+      if (logbookType != null) 'logbook_type': logbookType,
+      if (logbookSubtitle != null) 'logbook_subtitle': logbookSubtitle,
     });
   }
 
@@ -4845,6 +4949,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     Value<String?>? photoThumbnailUrl,
     Value<String?>? photoLink,
     Value<String?>? photoCredit,
+    Value<String?>? logbookType,
+    Value<String?>? logbookSubtitle,
   }) {
     return AircraftsCompanion(
       id: id ?? this.id,
@@ -4858,6 +4964,8 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
       photoThumbnailUrl: photoThumbnailUrl ?? this.photoThumbnailUrl,
       photoLink: photoLink ?? this.photoLink,
       photoCredit: photoCredit ?? this.photoCredit,
+      logbookType: logbookType ?? this.logbookType,
+      logbookSubtitle: logbookSubtitle ?? this.logbookSubtitle,
     );
   }
 
@@ -4899,6 +5007,12 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     if (photoCredit.present) {
       map['photo_credit'] = Variable<String>(photoCredit.value);
     }
+    if (logbookType.present) {
+      map['logbook_type'] = Variable<String>(logbookType.value);
+    }
+    if (logbookSubtitle.present) {
+      map['logbook_subtitle'] = Variable<String>(logbookSubtitle.value);
+    }
     return map;
   }
 
@@ -4915,7 +5029,9 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
           ..write('photoUrl: $photoUrl, ')
           ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
           ..write('photoLink: $photoLink, ')
-          ..write('photoCredit: $photoCredit')
+          ..write('photoCredit: $photoCredit, ')
+          ..write('logbookType: $logbookType, ')
+          ..write('logbookSubtitle: $logbookSubtitle')
           ..write(')'))
         .toString();
   }
@@ -5710,6 +5826,17 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _mountainLandingsMeta = const VerificationMeta(
+    'mountainLandings',
+  );
+  @override
+  late final GeneratedColumn<int> mountainLandings = GeneratedColumn<int>(
+    'mountain_landings',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _flightRulesMeta = const VerificationMeta(
     'flightRules',
   );
@@ -5827,6 +5954,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     approachType,
     nightLandings,
     dayLandings,
+    mountainLandings,
     flightRules,
     remarks,
     pilotRole,
@@ -5963,6 +6091,15 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         ),
       );
     }
+    if (data.containsKey('mountain_landings')) {
+      context.handle(
+        _mountainLandingsMeta,
+        mountainLandings.isAcceptableOrUnknown(
+          data['mountain_landings']!,
+          _mountainLandingsMeta,
+        ),
+      );
+    }
     if (data.containsKey('flight_rules')) {
       context.handle(
         _flightRulesMeta,
@@ -6094,6 +6231,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.int,
         data['${effectivePrefix}day_landings'],
       ),
+      mountainLandings: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mountain_landings'],
+      ),
       flightRules: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}flight_rules'],
@@ -6165,6 +6306,11 @@ class Flight extends DataClass implements Insertable<Flight> {
   final String? approachType;
   final int? nightLandings;
   final int? dayLandings;
+
+  /// How many of the landings were on a surface designated to require a
+  /// mountain rating: what keeps its privileges (FCL.815(d)(1)). Null when
+  /// none.
+  final int? mountainLandings;
   final String? flightRules;
   final String? remarks;
   final String? pilotRole;
@@ -6212,6 +6358,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     this.approachType,
     this.nightLandings,
     this.dayLandings,
+    this.mountainLandings,
     this.flightRules,
     this.remarks,
     this.pilotRole,
@@ -6258,6 +6405,9 @@ class Flight extends DataClass implements Insertable<Flight> {
     }
     if (!nullToAbsent || dayLandings != null) {
       map['day_landings'] = Variable<int>(dayLandings);
+    }
+    if (!nullToAbsent || mountainLandings != null) {
+      map['mountain_landings'] = Variable<int>(mountainLandings);
     }
     if (!nullToAbsent || flightRules != null) {
       map['flight_rules'] = Variable<String>(flightRules);
@@ -6325,6 +6475,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       dayLandings: dayLandings == null && nullToAbsent
           ? const Value.absent()
           : Value(dayLandings),
+      mountainLandings: mountainLandings == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mountainLandings),
       flightRules: flightRules == null && nullToAbsent
           ? const Value.absent()
           : Value(flightRules),
@@ -6377,6 +6530,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       approachType: serializer.fromJson<String?>(json['approachType']),
       nightLandings: serializer.fromJson<int?>(json['nightLandings']),
       dayLandings: serializer.fromJson<int?>(json['dayLandings']),
+      mountainLandings: serializer.fromJson<int?>(json['mountainLandings']),
       flightRules: serializer.fromJson<String?>(json['flightRules']),
       remarks: serializer.fromJson<String?>(json['remarks']),
       pilotRole: serializer.fromJson<String?>(json['pilotRole']),
@@ -6410,6 +6564,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       'approachType': serializer.toJson<String?>(approachType),
       'nightLandings': serializer.toJson<int?>(nightLandings),
       'dayLandings': serializer.toJson<int?>(dayLandings),
+      'mountainLandings': serializer.toJson<int?>(mountainLandings),
       'flightRules': serializer.toJson<String?>(flightRules),
       'remarks': serializer.toJson<String?>(remarks),
       'pilotRole': serializer.toJson<String?>(pilotRole),
@@ -6439,6 +6594,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<String?> approachType = const Value.absent(),
     Value<int?> nightLandings = const Value.absent(),
     Value<int?> dayLandings = const Value.absent(),
+    Value<int?> mountainLandings = const Value.absent(),
     Value<String?> flightRules = const Value.absent(),
     Value<String?> remarks = const Value.absent(),
     Value<String?> pilotRole = const Value.absent(),
@@ -6469,6 +6625,9 @@ class Flight extends DataClass implements Insertable<Flight> {
         ? nightLandings.value
         : this.nightLandings,
     dayLandings: dayLandings.present ? dayLandings.value : this.dayLandings,
+    mountainLandings: mountainLandings.present
+        ? mountainLandings.value
+        : this.mountainLandings,
     flightRules: flightRules.present ? flightRules.value : this.flightRules,
     remarks: remarks.present ? remarks.value : this.remarks,
     pilotRole: pilotRole.present ? pilotRole.value : this.pilotRole,
@@ -6521,6 +6680,9 @@ class Flight extends DataClass implements Insertable<Flight> {
       dayLandings: data.dayLandings.present
           ? data.dayLandings.value
           : this.dayLandings,
+      mountainLandings: data.mountainLandings.present
+          ? data.mountainLandings.value
+          : this.mountainLandings,
       flightRules: data.flightRules.present
           ? data.flightRules.value
           : this.flightRules,
@@ -6564,6 +6726,7 @@ class Flight extends DataClass implements Insertable<Flight> {
           ..write('approachType: $approachType, ')
           ..write('nightLandings: $nightLandings, ')
           ..write('dayLandings: $dayLandings, ')
+          ..write('mountainLandings: $mountainLandings, ')
           ..write('flightRules: $flightRules, ')
           ..write('remarks: $remarks, ')
           ..write('pilotRole: $pilotRole, ')
@@ -6593,6 +6756,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     approachType,
     nightLandings,
     dayLandings,
+    mountainLandings,
     flightRules,
     remarks,
     pilotRole,
@@ -6621,6 +6785,7 @@ class Flight extends DataClass implements Insertable<Flight> {
           other.approachType == this.approachType &&
           other.nightLandings == this.nightLandings &&
           other.dayLandings == this.dayLandings &&
+          other.mountainLandings == this.mountainLandings &&
           other.flightRules == this.flightRules &&
           other.remarks == this.remarks &&
           other.pilotRole == this.pilotRole &&
@@ -6647,6 +6812,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<String?> approachType;
   final Value<int?> nightLandings;
   final Value<int?> dayLandings;
+  final Value<int?> mountainLandings;
   final Value<String?> flightRules;
   final Value<String?> remarks;
   final Value<String?> pilotRole;
@@ -6671,6 +6837,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.approachType = const Value.absent(),
     this.nightLandings = const Value.absent(),
     this.dayLandings = const Value.absent(),
+    this.mountainLandings = const Value.absent(),
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
     this.pilotRole = const Value.absent(),
@@ -6696,6 +6863,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     this.approachType = const Value.absent(),
     this.nightLandings = const Value.absent(),
     this.dayLandings = const Value.absent(),
+    this.mountainLandings = const Value.absent(),
     this.flightRules = const Value.absent(),
     this.remarks = const Value.absent(),
     this.pilotRole = const Value.absent(),
@@ -6723,6 +6891,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Expression<String>? approachType,
     Expression<int>? nightLandings,
     Expression<int>? dayLandings,
+    Expression<int>? mountainLandings,
     Expression<String>? flightRules,
     Expression<String>? remarks,
     Expression<String>? pilotRole,
@@ -6750,6 +6919,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       if (approachType != null) 'approach_type': approachType,
       if (nightLandings != null) 'night_landings': nightLandings,
       if (dayLandings != null) 'day_landings': dayLandings,
+      if (mountainLandings != null) 'mountain_landings': mountainLandings,
       if (flightRules != null) 'flight_rules': flightRules,
       if (remarks != null) 'remarks': remarks,
       if (pilotRole != null) 'pilot_role': pilotRole,
@@ -6777,6 +6947,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     Value<String?>? approachType,
     Value<int?>? nightLandings,
     Value<int?>? dayLandings,
+    Value<int?>? mountainLandings,
     Value<String?>? flightRules,
     Value<String?>? remarks,
     Value<String?>? pilotRole,
@@ -6803,6 +6974,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
       approachType: approachType ?? this.approachType,
       nightLandings: nightLandings ?? this.nightLandings,
       dayLandings: dayLandings ?? this.dayLandings,
+      mountainLandings: mountainLandings ?? this.mountainLandings,
       flightRules: flightRules ?? this.flightRules,
       remarks: remarks ?? this.remarks,
       pilotRole: pilotRole ?? this.pilotRole,
@@ -6864,6 +7036,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     if (dayLandings.present) {
       map['day_landings'] = Variable<int>(dayLandings.value);
     }
+    if (mountainLandings.present) {
+      map['mountain_landings'] = Variable<int>(mountainLandings.value);
+    }
     if (flightRules.present) {
       map['flight_rules'] = Variable<String>(flightRules.value);
     }
@@ -6913,6 +7088,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
           ..write('approachType: $approachType, ')
           ..write('nightLandings: $nightLandings, ')
           ..write('dayLandings: $dayLandings, ')
+          ..write('mountainLandings: $mountainLandings, ')
           ..write('flightRules: $flightRules, ')
           ..write('remarks: $remarks, ')
           ..write('pilotRole: $pilotRole, ')
@@ -8654,6 +8830,21 @@ class $LicenceRatingsTable extends LicenceRatings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _lightSingleEngineMeta = const VerificationMeta(
+    'lightSingleEngine',
+  );
+  @override
+  late final GeneratedColumn<bool> lightSingleEngine = GeneratedColumn<bool>(
+    'light_single_engine',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("light_single_engine" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -8666,6 +8857,7 @@ class $LicenceRatingsTable extends LicenceRatings
     lastCheckDate,
     expiryDate,
     notes,
+    lightSingleEngine,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -8729,6 +8921,15 @@ class $LicenceRatingsTable extends LicenceRatings
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('light_single_engine')) {
+      context.handle(
+        _lightSingleEngineMeta,
+        lightSingleEngine.isAcceptableOrUnknown(
+          data['light_single_engine']!,
+          _lightSingleEngineMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -8782,6 +8983,10 @@ class $LicenceRatingsTable extends LicenceRatings
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      lightSingleEngine: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}light_single_engine'],
+      )!,
     );
   }
 
@@ -8825,6 +9030,12 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
   /// expire.
   final DateTime? expiryDate;
   final String? notes;
+
+  /// For a helicopter type rating: whether the type is a single-engine
+  /// helicopter with a maximum take-off mass up to 3 175 kg, which may be
+  /// revalidated with 6 hours as PIC and a refresher training instead of a
+  /// proficiency check (FCL.740.H(a)(2)).
+  final bool lightSingleEngine;
   const LicenceRating({
     required this.id,
     required this.licence,
@@ -8836,6 +9047,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
     this.lastCheckDate,
     this.expiryDate,
     this.notes,
+    required this.lightSingleEngine,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8870,6 +9082,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    map['light_single_engine'] = Variable<bool>(lightSingleEngine);
     return map;
   }
 
@@ -8897,6 +9110,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      lightSingleEngine: Value(lightSingleEngine),
     );
   }
 
@@ -8920,6 +9134,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
       lastCheckDate: serializer.fromJson<DateTime?>(json['lastCheckDate']),
       expiryDate: serializer.fromJson<DateTime?>(json['expiryDate']),
       notes: serializer.fromJson<String?>(json['notes']),
+      lightSingleEngine: serializer.fromJson<bool>(json['lightSingleEngine']),
     );
   }
   @override
@@ -8940,6 +9155,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
       'lastCheckDate': serializer.toJson<DateTime?>(lastCheckDate),
       'expiryDate': serializer.toJson<DateTime?>(expiryDate),
       'notes': serializer.toJson<String?>(notes),
+      'lightSingleEngine': serializer.toJson<bool>(lightSingleEngine),
     };
   }
 
@@ -8954,6 +9170,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
     Value<DateTime?> lastCheckDate = const Value.absent(),
     Value<DateTime?> expiryDate = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    bool? lightSingleEngine,
   }) => LicenceRating(
     id: id ?? this.id,
     licence: licence ?? this.licence,
@@ -8969,6 +9186,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
         : this.lastCheckDate,
     expiryDate: expiryDate.present ? expiryDate.value : this.expiryDate,
     notes: notes.present ? notes.value : this.notes,
+    lightSingleEngine: lightSingleEngine ?? this.lightSingleEngine,
   );
   LicenceRating copyWithCompanion(LicenceRatingsCompanion data) {
     return LicenceRating(
@@ -8988,6 +9206,9 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
           ? data.expiryDate.value
           : this.expiryDate,
       notes: data.notes.present ? data.notes.value : this.notes,
+      lightSingleEngine: data.lightSingleEngine.present
+          ? data.lightSingleEngine.value
+          : this.lightSingleEngine,
     );
   }
 
@@ -9003,7 +9224,8 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
           ..write('issueDate: $issueDate, ')
           ..write('lastCheckDate: $lastCheckDate, ')
           ..write('expiryDate: $expiryDate, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('lightSingleEngine: $lightSingleEngine')
           ..write(')'))
         .toString();
   }
@@ -9020,6 +9242,7 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
     lastCheckDate,
     expiryDate,
     notes,
+    lightSingleEngine,
   );
   @override
   bool operator ==(Object other) =>
@@ -9034,7 +9257,8 @@ class LicenceRating extends DataClass implements Insertable<LicenceRating> {
           other.issueDate == this.issueDate &&
           other.lastCheckDate == this.lastCheckDate &&
           other.expiryDate == this.expiryDate &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.lightSingleEngine == this.lightSingleEngine);
 }
 
 class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
@@ -9048,6 +9272,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
   final Value<DateTime?> lastCheckDate;
   final Value<DateTime?> expiryDate;
   final Value<String?> notes;
+  final Value<bool> lightSingleEngine;
   const LicenceRatingsCompanion({
     this.id = const Value.absent(),
     this.licence = const Value.absent(),
@@ -9059,6 +9284,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
     this.lastCheckDate = const Value.absent(),
     this.expiryDate = const Value.absent(),
     this.notes = const Value.absent(),
+    this.lightSingleEngine = const Value.absent(),
   });
   LicenceRatingsCompanion.insert({
     this.id = const Value.absent(),
@@ -9071,6 +9297,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
     this.lastCheckDate = const Value.absent(),
     this.expiryDate = const Value.absent(),
     this.notes = const Value.absent(),
+    this.lightSingleEngine = const Value.absent(),
   }) : licence = Value(licence),
        kind = Value(kind);
   static Insertable<LicenceRating> custom({
@@ -9084,6 +9311,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
     Expression<DateTime>? lastCheckDate,
     Expression<DateTime>? expiryDate,
     Expression<String>? notes,
+    Expression<bool>? lightSingleEngine,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -9096,6 +9324,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
       if (lastCheckDate != null) 'last_check_date': lastCheckDate,
       if (expiryDate != null) 'expiry_date': expiryDate,
       if (notes != null) 'notes': notes,
+      if (lightSingleEngine != null) 'light_single_engine': lightSingleEngine,
     });
   }
 
@@ -9110,6 +9339,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
     Value<DateTime?>? lastCheckDate,
     Value<DateTime?>? expiryDate,
     Value<String?>? notes,
+    Value<bool>? lightSingleEngine,
   }) {
     return LicenceRatingsCompanion(
       id: id ?? this.id,
@@ -9122,6 +9352,7 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
       lastCheckDate: lastCheckDate ?? this.lastCheckDate,
       expiryDate: expiryDate ?? this.expiryDate,
       notes: notes ?? this.notes,
+      lightSingleEngine: lightSingleEngine ?? this.lightSingleEngine,
     );
   }
 
@@ -9164,6 +9395,9 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (lightSingleEngine.present) {
+      map['light_single_engine'] = Variable<bool>(lightSingleEngine.value);
+    }
     return map;
   }
 
@@ -9179,7 +9413,8 @@ class LicenceRatingsCompanion extends UpdateCompanion<LicenceRating> {
           ..write('issueDate: $issueDate, ')
           ..write('lastCheckDate: $lastCheckDate, ')
           ..write('expiryDate: $expiryDate, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('lightSingleEngine: $lightSingleEngine')
           ..write(')'))
         .toString();
   }
@@ -9664,8 +9899,24 @@ class $PilotProfileTable extends PilotProfile
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, previousTotals, signatureFile];
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    previousTotals,
+    signatureFile,
+    address,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -9688,6 +9939,12 @@ class $PilotProfileTable extends PilotProfile
           data['signature_file']!,
           _signatureFileMeta,
         ),
+      );
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
       );
     }
     return context;
@@ -9713,6 +9970,10 @@ class $PilotProfileTable extends PilotProfile
         DriftSqlType.string,
         data['${effectivePrefix}signature_file'],
       ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
     );
   }
 
@@ -9737,10 +9998,15 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
   /// put in the "pilot's signature" box of each page of the exported
   /// logbook.
   final String? signatureFile;
+
+  /// The pilot's postal address, part of the personal details a logbook
+  /// records (AMC1 FCL.050(a)(1)). Several lines.
+  final String? address;
   const PilotProfileRow({
     required this.id,
     this.previousTotals,
     this.signatureFile,
+    this.address,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -9754,6 +10020,9 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
     if (!nullToAbsent || signatureFile != null) {
       map['signature_file'] = Variable<String>(signatureFile);
     }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
     return map;
   }
 
@@ -9766,6 +10035,9 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
       signatureFile: signatureFile == null && nullToAbsent
           ? const Value.absent()
           : Value(signatureFile),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
     );
   }
 
@@ -9780,6 +10052,7 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
         json['previousTotals'],
       ),
       signatureFile: serializer.fromJson<String?>(json['signatureFile']),
+      address: serializer.fromJson<String?>(json['address']),
     );
   }
   @override
@@ -9789,6 +10062,7 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
       'id': serializer.toJson<int>(id),
       'previousTotals': serializer.toJson<PreviousTotals?>(previousTotals),
       'signatureFile': serializer.toJson<String?>(signatureFile),
+      'address': serializer.toJson<String?>(address),
     };
   }
 
@@ -9796,6 +10070,7 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
     int? id,
     Value<PreviousTotals?> previousTotals = const Value.absent(),
     Value<String?> signatureFile = const Value.absent(),
+    Value<String?> address = const Value.absent(),
   }) => PilotProfileRow(
     id: id ?? this.id,
     previousTotals: previousTotals.present
@@ -9804,6 +10079,7 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
     signatureFile: signatureFile.present
         ? signatureFile.value
         : this.signatureFile,
+    address: address.present ? address.value : this.address,
   );
   PilotProfileRow copyWithCompanion(PilotProfileCompanion data) {
     return PilotProfileRow(
@@ -9814,6 +10090,7 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
       signatureFile: data.signatureFile.present
           ? data.signatureFile.value
           : this.signatureFile,
+      address: data.address.present ? data.address.value : this.address,
     );
   }
 
@@ -9822,45 +10099,52 @@ class PilotProfileRow extends DataClass implements Insertable<PilotProfileRow> {
     return (StringBuffer('PilotProfileRow(')
           ..write('id: $id, ')
           ..write('previousTotals: $previousTotals, ')
-          ..write('signatureFile: $signatureFile')
+          ..write('signatureFile: $signatureFile, ')
+          ..write('address: $address')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, previousTotals, signatureFile);
+  int get hashCode => Object.hash(id, previousTotals, signatureFile, address);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is PilotProfileRow &&
           other.id == this.id &&
           other.previousTotals == this.previousTotals &&
-          other.signatureFile == this.signatureFile);
+          other.signatureFile == this.signatureFile &&
+          other.address == this.address);
 }
 
 class PilotProfileCompanion extends UpdateCompanion<PilotProfileRow> {
   final Value<int> id;
   final Value<PreviousTotals?> previousTotals;
   final Value<String?> signatureFile;
+  final Value<String?> address;
   const PilotProfileCompanion({
     this.id = const Value.absent(),
     this.previousTotals = const Value.absent(),
     this.signatureFile = const Value.absent(),
+    this.address = const Value.absent(),
   });
   PilotProfileCompanion.insert({
     this.id = const Value.absent(),
     this.previousTotals = const Value.absent(),
     this.signatureFile = const Value.absent(),
+    this.address = const Value.absent(),
   });
   static Insertable<PilotProfileRow> custom({
     Expression<int>? id,
     Expression<String>? previousTotals,
     Expression<String>? signatureFile,
+    Expression<String>? address,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (previousTotals != null) 'previous_totals': previousTotals,
       if (signatureFile != null) 'signature_file': signatureFile,
+      if (address != null) 'address': address,
     });
   }
 
@@ -9868,11 +10152,13 @@ class PilotProfileCompanion extends UpdateCompanion<PilotProfileRow> {
     Value<int>? id,
     Value<PreviousTotals?>? previousTotals,
     Value<String?>? signatureFile,
+    Value<String?>? address,
   }) {
     return PilotProfileCompanion(
       id: id ?? this.id,
       previousTotals: previousTotals ?? this.previousTotals,
       signatureFile: signatureFile ?? this.signatureFile,
+      address: address ?? this.address,
     );
   }
 
@@ -9892,6 +10178,9 @@ class PilotProfileCompanion extends UpdateCompanion<PilotProfileRow> {
     if (signatureFile.present) {
       map['signature_file'] = Variable<String>(signatureFile.value);
     }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
     return map;
   }
 
@@ -9900,7 +10189,8 @@ class PilotProfileCompanion extends UpdateCompanion<PilotProfileRow> {
     return (StringBuffer('PilotProfileCompanion(')
           ..write('id: $id, ')
           ..write('previousTotals: $previousTotals, ')
-          ..write('signatureFile: $signatureFile')
+          ..write('signatureFile: $signatureFile, ')
+          ..write('address: $address')
           ..write(')'))
         .toString();
   }
@@ -9918,6 +10208,8 @@ class AircraftWithStats extends DataClass {
   final String? photoThumbnailUrl;
   final String? photoLink;
   final String? photoCredit;
+  final String? logbookType;
+  final String? logbookSubtitle;
   final AircraftDescription description;
   final String modelFullName;
   final String designator;
@@ -9943,6 +10235,8 @@ class AircraftWithStats extends DataClass {
     this.photoThumbnailUrl,
     this.photoLink,
     this.photoCredit,
+    this.logbookType,
+    this.logbookSubtitle,
     required this.description,
     required this.modelFullName,
     required this.designator,
@@ -9978,6 +10272,8 @@ class AircraftWithStats extends DataClass {
       ),
       photoLink: serializer.fromJson<String?>(json['photoLink']),
       photoCredit: serializer.fromJson<String?>(json['photoCredit']),
+      logbookType: serializer.fromJson<String?>(json['logbookType']),
+      logbookSubtitle: serializer.fromJson<String?>(json['logbookSubtitle']),
       description: $IcaoAircraftsTable.$converterdescription.fromJson(
         serializer.fromJson<String>(json['description']),
       ),
@@ -10019,6 +10315,8 @@ class AircraftWithStats extends DataClass {
       'photoThumbnailUrl': serializer.toJson<String?>(photoThumbnailUrl),
       'photoLink': serializer.toJson<String?>(photoLink),
       'photoCredit': serializer.toJson<String?>(photoCredit),
+      'logbookType': serializer.toJson<String?>(logbookType),
+      'logbookSubtitle': serializer.toJson<String?>(logbookSubtitle),
       'description': serializer.toJson<String>(
         $IcaoAircraftsTable.$converterdescription.toJson(description),
       ),
@@ -10059,6 +10357,8 @@ class AircraftWithStats extends DataClass {
     Value<String?> photoThumbnailUrl = const Value.absent(),
     Value<String?> photoLink = const Value.absent(),
     Value<String?> photoCredit = const Value.absent(),
+    Value<String?> logbookType = const Value.absent(),
+    Value<String?> logbookSubtitle = const Value.absent(),
     AircraftDescription? description,
     String? modelFullName,
     String? designator,
@@ -10088,6 +10388,10 @@ class AircraftWithStats extends DataClass {
         : this.photoThumbnailUrl,
     photoLink: photoLink.present ? photoLink.value : this.photoLink,
     photoCredit: photoCredit.present ? photoCredit.value : this.photoCredit,
+    logbookType: logbookType.present ? logbookType.value : this.logbookType,
+    logbookSubtitle: logbookSubtitle.present
+        ? logbookSubtitle.value
+        : this.logbookSubtitle,
     description: description ?? this.description,
     modelFullName: modelFullName ?? this.modelFullName,
     designator: designator ?? this.designator,
@@ -10121,6 +10425,8 @@ class AircraftWithStats extends DataClass {
           ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
           ..write('photoLink: $photoLink, ')
           ..write('photoCredit: $photoCredit, ')
+          ..write('logbookType: $logbookType, ')
+          ..write('logbookSubtitle: $logbookSubtitle, ')
           ..write('description: $description, ')
           ..write('modelFullName: $modelFullName, ')
           ..write('designator: $designator, ')
@@ -10151,6 +10457,8 @@ class AircraftWithStats extends DataClass {
     photoThumbnailUrl,
     photoLink,
     photoCredit,
+    logbookType,
+    logbookSubtitle,
     description,
     modelFullName,
     designator,
@@ -10180,6 +10488,8 @@ class AircraftWithStats extends DataClass {
           other.photoThumbnailUrl == this.photoThumbnailUrl &&
           other.photoLink == this.photoLink &&
           other.photoCredit == this.photoCredit &&
+          other.logbookType == this.logbookType &&
+          other.logbookSubtitle == this.logbookSubtitle &&
           other.description == this.description &&
           other.modelFullName == this.modelFullName &&
           other.designator == this.designator &&
@@ -10219,6 +10529,8 @@ class $AircraftWithStatssView
     photoThumbnailUrl,
     photoLink,
     photoCredit,
+    logbookType,
+    logbookSubtitle,
     description,
     modelFullName,
     designator,
@@ -10290,6 +10602,14 @@ class $AircraftWithStatssView
       photoCredit: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}photo_credit'],
+      ),
+      logbookType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_type'],
+      ),
+      logbookSubtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_subtitle'],
       ),
       description: $IcaoAircraftsTable.$converterdescription.fromSql(
         attachedDatabase.typeMapping.read(
@@ -10434,6 +10754,20 @@ class $AircraftWithStatssView
     aliasedName,
     true,
     generatedAs: GeneratedAs(aircrafts.photoCredit, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> logbookType = GeneratedColumn<String>(
+    'logbook_type',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.logbookType, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> logbookSubtitle = GeneratedColumn<String>(
+    'logbook_subtitle',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.logbookSubtitle, false),
     type: DriftSqlType.string,
   );
   late final GeneratedColumnWithTypeConverter<AircraftDescription, String>
@@ -10795,6 +11129,8 @@ class AircraftWithIcao extends DataClass {
   final String? photoThumbnailUrl;
   final String? photoLink;
   final String? photoCredit;
+  final String? logbookType;
+  final String? logbookSubtitle;
   final AircraftDescription description;
   final String modelFullName;
   final String designator;
@@ -10816,6 +11152,8 @@ class AircraftWithIcao extends DataClass {
     this.photoThumbnailUrl,
     this.photoLink,
     this.photoCredit,
+    this.logbookType,
+    this.logbookSubtitle,
     required this.description,
     required this.modelFullName,
     required this.designator,
@@ -10847,6 +11185,8 @@ class AircraftWithIcao extends DataClass {
       ),
       photoLink: serializer.fromJson<String?>(json['photoLink']),
       photoCredit: serializer.fromJson<String?>(json['photoCredit']),
+      logbookType: serializer.fromJson<String?>(json['logbookType']),
+      logbookSubtitle: serializer.fromJson<String?>(json['logbookSubtitle']),
       description: $IcaoAircraftsTable.$converterdescription.fromJson(
         serializer.fromJson<String>(json['description']),
       ),
@@ -10884,6 +11224,8 @@ class AircraftWithIcao extends DataClass {
       'photoThumbnailUrl': serializer.toJson<String?>(photoThumbnailUrl),
       'photoLink': serializer.toJson<String?>(photoLink),
       'photoCredit': serializer.toJson<String?>(photoCredit),
+      'logbookType': serializer.toJson<String?>(logbookType),
+      'logbookSubtitle': serializer.toJson<String?>(logbookSubtitle),
       'description': serializer.toJson<String>(
         $IcaoAircraftsTable.$converterdescription.toJson(description),
       ),
@@ -10920,6 +11262,8 @@ class AircraftWithIcao extends DataClass {
     Value<String?> photoThumbnailUrl = const Value.absent(),
     Value<String?> photoLink = const Value.absent(),
     Value<String?> photoCredit = const Value.absent(),
+    Value<String?> logbookType = const Value.absent(),
+    Value<String?> logbookSubtitle = const Value.absent(),
     AircraftDescription? description,
     String? modelFullName,
     String? designator,
@@ -10945,6 +11289,10 @@ class AircraftWithIcao extends DataClass {
         : this.photoThumbnailUrl,
     photoLink: photoLink.present ? photoLink.value : this.photoLink,
     photoCredit: photoCredit.present ? photoCredit.value : this.photoCredit,
+    logbookType: logbookType.present ? logbookType.value : this.logbookType,
+    logbookSubtitle: logbookSubtitle.present
+        ? logbookSubtitle.value
+        : this.logbookSubtitle,
     description: description ?? this.description,
     modelFullName: modelFullName ?? this.modelFullName,
     designator: designator ?? this.designator,
@@ -10970,6 +11318,8 @@ class AircraftWithIcao extends DataClass {
           ..write('photoThumbnailUrl: $photoThumbnailUrl, ')
           ..write('photoLink: $photoLink, ')
           ..write('photoCredit: $photoCredit, ')
+          ..write('logbookType: $logbookType, ')
+          ..write('logbookSubtitle: $logbookSubtitle, ')
           ..write('description: $description, ')
           ..write('modelFullName: $modelFullName, ')
           ..write('designator: $designator, ')
@@ -10984,7 +11334,7 @@ class AircraftWithIcao extends DataClass {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     tailNumber,
     notes,
@@ -10996,6 +11346,8 @@ class AircraftWithIcao extends DataClass {
     photoThumbnailUrl,
     photoLink,
     photoCredit,
+    logbookType,
+    logbookSubtitle,
     description,
     modelFullName,
     designator,
@@ -11005,7 +11357,7 @@ class AircraftWithIcao extends DataClass {
     wakeTurbolenceCategory,
     wakeTurbolenceGroup,
     userInserted,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -11021,6 +11373,8 @@ class AircraftWithIcao extends DataClass {
           other.photoThumbnailUrl == this.photoThumbnailUrl &&
           other.photoLink == this.photoLink &&
           other.photoCredit == this.photoCredit &&
+          other.logbookType == this.logbookType &&
+          other.logbookSubtitle == this.logbookSubtitle &&
           other.description == this.description &&
           other.modelFullName == this.modelFullName &&
           other.designator == this.designator &&
@@ -11055,6 +11409,8 @@ class $AircraftWithIcaosView
     photoThumbnailUrl,
     photoLink,
     photoCredit,
+    logbookType,
+    logbookSubtitle,
     description,
     modelFullName,
     designator,
@@ -11122,6 +11478,14 @@ class $AircraftWithIcaosView
       photoCredit: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}photo_credit'],
+      ),
+      logbookType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_type'],
+      ),
+      logbookSubtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_subtitle'],
       ),
       description: $IcaoAircraftsTable.$converterdescription.fromSql(
         attachedDatabase.typeMapping.read(
@@ -11250,6 +11614,20 @@ class $AircraftWithIcaosView
     aliasedName,
     true,
     generatedAs: GeneratedAs(aircrafts.photoCredit, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> logbookType = GeneratedColumn<String>(
+    'logbook_type',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.logbookType, false),
+    type: DriftSqlType.string,
+  );
+  late final GeneratedColumn<String> logbookSubtitle = GeneratedColumn<String>(
+    'logbook_subtitle',
+    aliasedName,
+    true,
+    generatedAs: GeneratedAs(aircrafts.logbookSubtitle, false),
     type: DriftSqlType.string,
   );
   late final GeneratedColumnWithTypeConverter<AircraftDescription, String>
@@ -14794,6 +15172,8 @@ typedef $$AircraftsTableCreateCompanionBuilder =
       Value<String?> photoThumbnailUrl,
       Value<String?> photoLink,
       Value<String?> photoCredit,
+      Value<String?> logbookType,
+      Value<String?> logbookSubtitle,
     });
 typedef $$AircraftsTableUpdateCompanionBuilder =
     AircraftsCompanion Function({
@@ -14808,6 +15188,8 @@ typedef $$AircraftsTableUpdateCompanionBuilder =
       Value<String?> photoThumbnailUrl,
       Value<String?> photoLink,
       Value<String?> photoCredit,
+      Value<String?> logbookType,
+      Value<String?> logbookSubtitle,
     });
 
 final class $$AircraftsTableReferences
@@ -14909,6 +15291,16 @@ class $$AircraftsTableFilterComposer
 
   ColumnFilters<String> get photoCredit => $composableBuilder(
     column: $table.photoCredit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logbookType => $composableBuilder(
+    column: $table.logbookType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logbookSubtitle => $composableBuilder(
+    column: $table.logbookSubtitle,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15020,6 +15412,16 @@ class $$AircraftsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get logbookType => $composableBuilder(
+    column: $table.logbookType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logbookSubtitle => $composableBuilder(
+    column: $table.logbookSubtitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$IcaoAircraftsTableOrderingComposer get icaoAircraft {
     final $$IcaoAircraftsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -15091,6 +15493,16 @@ class $$AircraftsTableAnnotationComposer
 
   GeneratedColumn<String> get photoCredit => $composableBuilder(
     column: $table.photoCredit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get logbookType => $composableBuilder(
+    column: $table.logbookType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get logbookSubtitle => $composableBuilder(
+    column: $table.logbookSubtitle,
     builder: (column) => column,
   );
 
@@ -15182,6 +15594,8 @@ class $$AircraftsTableTableManager
                 Value<String?> photoThumbnailUrl = const Value.absent(),
                 Value<String?> photoLink = const Value.absent(),
                 Value<String?> photoCredit = const Value.absent(),
+                Value<String?> logbookType = const Value.absent(),
+                Value<String?> logbookSubtitle = const Value.absent(),
               }) => AircraftsCompanion(
                 id: id,
                 icaoAircraft: icaoAircraft,
@@ -15194,6 +15608,8 @@ class $$AircraftsTableTableManager
                 photoThumbnailUrl: photoThumbnailUrl,
                 photoLink: photoLink,
                 photoCredit: photoCredit,
+                logbookType: logbookType,
+                logbookSubtitle: logbookSubtitle,
               ),
           createCompanionCallback:
               ({
@@ -15208,6 +15624,8 @@ class $$AircraftsTableTableManager
                 Value<String?> photoThumbnailUrl = const Value.absent(),
                 Value<String?> photoLink = const Value.absent(),
                 Value<String?> photoCredit = const Value.absent(),
+                Value<String?> logbookType = const Value.absent(),
+                Value<String?> logbookSubtitle = const Value.absent(),
               }) => AircraftsCompanion.insert(
                 id: id,
                 icaoAircraft: icaoAircraft,
@@ -15220,6 +15638,8 @@ class $$AircraftsTableTableManager
                 photoThumbnailUrl: photoThumbnailUrl,
                 photoLink: photoLink,
                 photoCredit: photoCredit,
+                logbookType: logbookType,
+                logbookSubtitle: logbookSubtitle,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -15810,6 +16230,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
       Value<String?> approachType,
       Value<int?> nightLandings,
       Value<int?> dayLandings,
+      Value<int?> mountainLandings,
       Value<String?> flightRules,
       Value<String?> remarks,
       Value<String?> pilotRole,
@@ -15836,6 +16257,7 @@ typedef $$FlightsTableUpdateCompanionBuilder =
       Value<String?> approachType,
       Value<int?> nightLandings,
       Value<int?> dayLandings,
+      Value<int?> mountainLandings,
       Value<String?> flightRules,
       Value<String?> remarks,
       Value<String?> pilotRole,
@@ -16015,6 +16437,11 @@ class $$FlightsTableFilterComposer
 
   ColumnFilters<int> get dayLandings => $composableBuilder(
     column: $table.dayLandings,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mountainLandings => $composableBuilder(
+    column: $table.mountainLandings,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16266,6 +16693,11 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get mountainLandings => $composableBuilder(
+    column: $table.mountainLandings,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get flightRules => $composableBuilder(
     column: $table.flightRules,
     builder: (column) => ColumnOrderings(column),
@@ -16456,6 +16888,11 @@ class $$FlightsTableAnnotationComposer
 
   GeneratedColumn<int> get dayLandings => $composableBuilder(
     column: $table.dayLandings,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get mountainLandings => $composableBuilder(
+    column: $table.mountainLandings,
     builder: (column) => column,
   );
 
@@ -16693,6 +17130,7 @@ class $$FlightsTableTableManager
                 Value<String?> approachType = const Value.absent(),
                 Value<int?> nightLandings = const Value.absent(),
                 Value<int?> dayLandings = const Value.absent(),
+                Value<int?> mountainLandings = const Value.absent(),
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
                 Value<String?> pilotRole = const Value.absent(),
@@ -16718,6 +17156,7 @@ class $$FlightsTableTableManager
                 approachType: approachType,
                 nightLandings: nightLandings,
                 dayLandings: dayLandings,
+                mountainLandings: mountainLandings,
                 flightRules: flightRules,
                 remarks: remarks,
                 pilotRole: pilotRole,
@@ -16744,6 +17183,7 @@ class $$FlightsTableTableManager
                 Value<String?> approachType = const Value.absent(),
                 Value<int?> nightLandings = const Value.absent(),
                 Value<int?> dayLandings = const Value.absent(),
+                Value<int?> mountainLandings = const Value.absent(),
                 Value<String?> flightRules = const Value.absent(),
                 Value<String?> remarks = const Value.absent(),
                 Value<String?> pilotRole = const Value.absent(),
@@ -16769,6 +17209,7 @@ class $$FlightsTableTableManager
                 approachType: approachType,
                 nightLandings: nightLandings,
                 dayLandings: dayLandings,
+                mountainLandings: mountainLandings,
                 flightRules: flightRules,
                 remarks: remarks,
                 pilotRole: pilotRole,
@@ -18336,6 +18777,7 @@ typedef $$LicenceRatingsTableCreateCompanionBuilder =
       Value<DateTime?> lastCheckDate,
       Value<DateTime?> expiryDate,
       Value<String?> notes,
+      Value<bool> lightSingleEngine,
     });
 typedef $$LicenceRatingsTableUpdateCompanionBuilder =
     LicenceRatingsCompanion Function({
@@ -18349,6 +18791,7 @@ typedef $$LicenceRatingsTableUpdateCompanionBuilder =
       Value<DateTime?> lastCheckDate,
       Value<DateTime?> expiryDate,
       Value<String?> notes,
+      Value<bool> lightSingleEngine,
     });
 
 final class $$LicenceRatingsTableReferences
@@ -18434,6 +18877,11 @@ class $$LicenceRatingsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<bool> get lightSingleEngine => $composableBuilder(
+    column: $table.lightSingleEngine,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$LicencesTableFilterComposer get licence {
     final $$LicencesTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -18512,6 +18960,11 @@ class $$LicenceRatingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get lightSingleEngine => $composableBuilder(
+    column: $table.lightSingleEngine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$LicencesTableOrderingComposer get licence {
     final $$LicencesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -18579,6 +19032,11 @@ class $$LicenceRatingsTableAnnotationComposer
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
+  GeneratedColumn<bool> get lightSingleEngine => $composableBuilder(
+    column: $table.lightSingleEngine,
+    builder: (column) => column,
+  );
+
   $$LicencesTableAnnotationComposer get licence {
     final $$LicencesTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -18643,6 +19101,7 @@ class $$LicenceRatingsTableTableManager
                 Value<DateTime?> lastCheckDate = const Value.absent(),
                 Value<DateTime?> expiryDate = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<bool> lightSingleEngine = const Value.absent(),
               }) => LicenceRatingsCompanion(
                 id: id,
                 licence: licence,
@@ -18654,6 +19113,7 @@ class $$LicenceRatingsTableTableManager
                 lastCheckDate: lastCheckDate,
                 expiryDate: expiryDate,
                 notes: notes,
+                lightSingleEngine: lightSingleEngine,
               ),
           createCompanionCallback:
               ({
@@ -18667,6 +19127,7 @@ class $$LicenceRatingsTableTableManager
                 Value<DateTime?> lastCheckDate = const Value.absent(),
                 Value<DateTime?> expiryDate = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<bool> lightSingleEngine = const Value.absent(),
               }) => LicenceRatingsCompanion.insert(
                 id: id,
                 licence: licence,
@@ -18678,6 +19139,7 @@ class $$LicenceRatingsTableTableManager
                 lastCheckDate: lastCheckDate,
                 expiryDate: expiryDate,
                 notes: notes,
+                lightSingleEngine: lightSingleEngine,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -19002,12 +19464,14 @@ typedef $$PilotProfileTableCreateCompanionBuilder =
       Value<int> id,
       Value<PreviousTotals?> previousTotals,
       Value<String?> signatureFile,
+      Value<String?> address,
     });
 typedef $$PilotProfileTableUpdateCompanionBuilder =
     PilotProfileCompanion Function({
       Value<int> id,
       Value<PreviousTotals?> previousTotals,
       Value<String?> signatureFile,
+      Value<String?> address,
     });
 
 class $$PilotProfileTableFilterComposer
@@ -19032,6 +19496,11 @@ class $$PilotProfileTableFilterComposer
 
   ColumnFilters<String> get signatureFile => $composableBuilder(
     column: $table.signatureFile,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get address => $composableBuilder(
+    column: $table.address,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -19059,6 +19528,11 @@ class $$PilotProfileTableOrderingComposer
     column: $table.signatureFile,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get address => $composableBuilder(
+    column: $table.address,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PilotProfileTableAnnotationComposer
@@ -19083,6 +19557,9 @@ class $$PilotProfileTableAnnotationComposer
     column: $table.signatureFile,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get address =>
+      $composableBuilder(column: $table.address, builder: (column) => column);
 }
 
 class $$PilotProfileTableTableManager
@@ -19125,20 +19602,24 @@ class $$PilotProfileTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<PreviousTotals?> previousTotals = const Value.absent(),
                 Value<String?> signatureFile = const Value.absent(),
+                Value<String?> address = const Value.absent(),
               }) => PilotProfileCompanion(
                 id: id,
                 previousTotals: previousTotals,
                 signatureFile: signatureFile,
+                address: address,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 Value<PreviousTotals?> previousTotals = const Value.absent(),
                 Value<String?> signatureFile = const Value.absent(),
+                Value<String?> address = const Value.absent(),
               }) => PilotProfileCompanion.insert(
                 id: id,
                 previousTotals: previousTotals,
                 signatureFile: signatureFile,
+                address: address,
               ),
           withReferenceMapper: (p0) => p0
               .map(

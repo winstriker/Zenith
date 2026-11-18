@@ -332,6 +332,10 @@ class BackupService {
     ]);
     // Backups older than aircraft classes come back without any.
     if (schema is int && schema < 5) await _db.assignDeducedAircraftClasses();
+    // Backups from before the EIR was retired may still have some.
+    if (schema is int && schema < 13) {
+      await _db.retireEnRouteInstrumentRatings();
+    }
     _db.markTablesUpdated(_db.allTables);
 
     final counts = await _counts();

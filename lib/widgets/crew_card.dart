@@ -159,10 +159,12 @@ class CrewCard extends StatelessWidget {
               CheckboxListTile(
                 value: proficiencyCheck,
                 onChanged: (v) => onProficiencyCheckChanged!(v ?? false),
-                title: const Text('Proficiency Check'),
+                title: const Text('Check Passed'),
                 subtitle: const Text(
-                  'Counts as the last check of the aircraft\'s class or type '
-                  'rating',
+                  'A skill test or proficiency check passed: the last check '
+                  'of the aircraft\'s class or type rating. Flown as '
+                  'candidate (DUAL), it is logged as PIC time for the '
+                  'examiner to countersign',
                 ),
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,

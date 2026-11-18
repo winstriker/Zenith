@@ -9,8 +9,8 @@ import '../repositories/flight_repository.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/duration_field.dart';
+import '../widgets/logbook_override_widgets.dart';
 import '../widgets/page_title.dart';
-import '../widgets/section_header.dart';
 
 /// Lets the pilot replace any value of a flight's logbook line, for the
 /// exported logbook. Date, airports, times, aircraft and landings come from
@@ -141,7 +141,7 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
               const SizedBox(height: 16),
               for (final (title, fields)
                   in _isSession ? _sessionSections : _sections) ...[
-                _Section(
+                LogbookOverrideSection(
                   title: title,
                   children: [
                     for (final field in fields)
@@ -157,10 +157,10 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
                 const SizedBox(height: 16),
               ],
               if (!_isSession)
-                _Section(
+                LogbookOverrideSection(
                   title: 'PIC NAME',
                   children: [
-                    _TextRow(
+                    LogbookOverrideTextRow(
                       controller: _picName,
                       hint: entry.computedPicName,
                       onChanged: (text) => setState(
@@ -183,37 +183,6 @@ class _LogbookOverridesPageState extends ConsumerState<LogbookOverridesPage> {
               const SizedBox(height: 80),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SectionHeader(
-              title: title,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            ...children,
-          ],
         ),
       ),
     );
@@ -279,44 +248,6 @@ class _TimeRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// A text value: the computed one as the hint, a clear button once there is
-/// an override.
-class _TextRow extends StatelessWidget {
-  const _TextRow({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) => TextFormField(
-        controller: controller,
-        decoration: InputDecoration(
-          hintText: hint.isEmpty ? '—' : hint,
-          suffixIcon: controller.text.trim().isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'Use computed value',
-                  icon: const Icon(Icons.undo, size: 20),
-                  onPressed: () {
-                    controller.clear();
-                    onChanged('');
-                  },
-                ),
-        ),
-        onChanged: onChanged,
-      ),
     );
   }
 }

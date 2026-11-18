@@ -8,7 +8,9 @@ import '../services/database.dart';
 import '../widgets/aircraft_details_card.dart';
 import '../widgets/aircraft_photo_view.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/speed_dial_fab.dart';
 import 'aircraft_form_page.dart';
+import 'aircraft_logbook_page.dart';
 import 'flight_detail_page.dart';
 
 class AircraftDetailPage extends ConsumerWidget {
@@ -36,11 +38,23 @@ class AircraftDetailPage extends ConsumerWidget {
             child: const Icon(Icons.close),
           ),
           body: Scaffold(
-            floatingActionButton: FloatingActionButton.extended(
-              heroTag: primaryFabHeroTag,
-              label: const Text("Edit"),
-              icon: const Icon(Icons.edit),
-              onPressed: () async {
+            floatingActionButton: SpeedDialFab(
+              actions: [
+                SpeedDialAction(
+                  heroTag: 'aircraftLogbookOverridesFab',
+                  icon: Icons.edit_note,
+                  label: 'Logbook overrides',
+                  onPressed: () => Navigator.push(
+                    context,
+                    AppPageRoute<void>(
+                      builder: (_) => AircraftLogbookPage(aircraft: aircraft),
+                    ),
+                  ),
+                ),
+              ],
+              primaryIcon: Icons.edit,
+              primaryLabel: 'Edit',
+              onPrimaryPressed: () async {
                 final deleted = await Navigator.push<bool>(
                   context,
                   AppPageRoute(
