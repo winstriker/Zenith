@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/fab_hero_tags.dart';
 import '../core/theme.dart';
 import '../providers/backup_providers.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_backup_client.dart';
 import '../services/local_backup_store.dart';
+import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 
 final _dateFormat = DateFormat('d MMM yyyy, HH:mm');
@@ -252,7 +254,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               ),
               const Divider(height: 1, indent: 72),
               ListTile(
-                leading: const Icon(Icons.cloud_download_outlined),
+                leading: Icon(
+                  Icons.cloud_download_outlined,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 title: Text('Restore from ${d.label}'),
                 subtitle: Text('Choose one of your ${d.label} backups'),
                 trailing: const Icon(Icons.chevron_right),
@@ -321,7 +326,13 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
 
     if (settings == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Backup'), centerTitle: true),
+        floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+        floatingActionButton: FloatingActionButton(
+          heroTag: closeFabHeroTag,
+          tooltip: 'Close',
+          onPressed: () => Navigator.pop(context),
+          child: const Icon(Icons.close),
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -329,17 +340,31 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     final notifier = ref.read(backupSettingsProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Backup'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         children: [
+          const PageTitle(
+            'Backup',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           // ---------------------------------------------------------------
           const SectionHeader(title: 'General', uppercase: true),
           Card(
             child: Column(
               children: [
                 SwitchListTile(
-                  secondary: const Icon(Icons.photo_library_outlined),
+                  secondary: Icon(
+                    Icons.photo_library_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Include crew photos'),
                   subtitle: const Text('Makes backups larger.'),
                   value: settings.includePhotos,
@@ -417,7 +442,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                 ),
                 const Divider(height: 1, indent: 72),
                 ListTile(
-                  leading: const Icon(Icons.folder_outlined),
+                  leading: Icon(
+                    Icons.folder_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Backups on this device'),
                   subtitle: Text(switch (localCount) {
                     null => 'Loading…',
@@ -431,7 +459,10 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                 ),
                 const Divider(height: 1, indent: 72),
                 ListTile(
-                  leading: const Icon(Icons.file_open_outlined),
+                  leading: Icon(
+                    Icons.file_open_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Restore from file'),
                   trailing: const Icon(Icons.chevron_right),
                   enabled: !backupState.busy,
@@ -471,7 +502,9 @@ class _CloudAccountTile extends ConsumerWidget {
     return ListTile(
       leading: Icon(
         connected ? Icons.cloud_done_outlined : Icons.cloud_outlined,
-        color: connected ? context.appColors.success : null,
+        color: connected
+            ? context.appColors.success
+            : Theme.of(context).colorScheme.primary,
       ),
       title: Text(destination.label),
       // One line: a long email shrinks to fit instead of wrapping.
@@ -532,7 +565,10 @@ class _BackupNowTile extends StatelessWidget {
     final theme = Theme.of(context);
     final last = status.lastBackupAt;
     return ListTile(
-      leading: const Icon(Icons.backup_outlined),
+      leading: Icon(
+        Icons.backup_outlined,
+        color: Theme.of(context).colorScheme.primary,
+      ),
       title: const Text('Back up now'),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -577,7 +613,10 @@ class _CloudBackupsSheet extends ConsumerWidget {
       items: backups,
       onRetry: () => ref.invalidate(cloudBackupsProvider(destination)),
       itemBuilder: (b) => ListTile(
-        leading: const Icon(Icons.cloud_outlined),
+        leading: Icon(
+          Icons.cloud_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
         title: Text(_dateFormat.format(b.createdAt)),
         subtitle: Text(_formatSize(b.size)),
         trailing: const Icon(Icons.restore),
@@ -603,6 +642,7 @@ class _LocalBackupsSheet extends ConsumerWidget {
       itemBuilder: (b) => ListTile(
         leading: Icon(
           b.isPreRestore ? Icons.settings_backup_restore : Icons.save_outlined,
+          color: Theme.of(context).colorScheme.primary,
         ),
         title: Text(_dateFormat.format(b.createdAt)),
         subtitle: Text(

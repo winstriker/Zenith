@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/fab_hero_tags.dart';
 import '../providers/carto_provider.dart';
 import '../providers/map_provider.dart';
+import '../widgets/page_title.dart';
 import '../widgets/secret_status.dart';
 import '../widgets/section_header.dart';
 
@@ -40,15 +42,22 @@ class MapSettingsPage extends ConsumerWidget {
         ref.watch(mapTilesProvider).value is OsmMapTiles;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Map'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           8 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          const PageTitle('Map', belowCloseButton: true, horizontalPadding: 0),
           const SectionHeader(title: 'Map Style', uppercase: true),
           Card(
             child: RadioGroup<MapSource>(

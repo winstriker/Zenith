@@ -8,7 +8,7 @@ import '../providers/licence_providers.dart';
 import '../services/database.dart';
 import '../widgets/currency_widgets.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/page_title.dart';
+import '../widgets/page_header.dart';
 import '../widgets/section_header.dart';
 import '../widgets/speed_dial_fab.dart';
 import 'currency_settings_page.dart';
@@ -33,17 +33,15 @@ class LicencesPage extends ConsumerWidget {
       floatingActionButton: const _LicencesFabs(),
       body: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(
-            child: PageTitle(
-              'Licences & Currency',
-              trailing: IconButton(
-                tooltip: 'Reminders',
-                icon: const Icon(Icons.notifications_outlined),
-                onPressed: () => Navigator.push(
-                  context,
-                  AppPageRoute<void>(
-                    builder: (_) => const CurrencySettingsPage(),
-                  ),
+          PageHeader(
+            'Licences',
+            trailing: IconButton(
+              tooltip: 'Reminders',
+              icon: const Icon(Icons.notifications_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                AppPageRoute<void>(
+                  builder: (_) => const CurrencySettingsPage(),
                 ),
               ),
             ),
@@ -203,7 +201,6 @@ class _LicencesList extends ConsumerWidget {
             ),
           ],
           if (licences.isNotEmpty) ...[
-            const SectionHeader(title: 'Licences', uppercase: true),
             for (final l in licences)
               _LicenceCard(
                 licence: l,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/fab_hero_tags.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/licence_providers.dart';
+import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 
 /// When to be reminded that a licence, rating, medical or recency is about
@@ -86,15 +88,26 @@ class _CurrencySettingsPageState extends ConsumerState<CurrencySettingsPage> {
     final enabled = settings.notificationsEnabled;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Licence Reminders'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           24 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          const PageTitle(
+            'Licence Reminders',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           Card(
             child: Column(
               children: [

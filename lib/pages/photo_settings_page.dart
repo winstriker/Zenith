@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/fab_hero_tags.dart';
 import '../providers/provider_toggles.dart';
 import '../services/aircraft_image_cache.dart';
 import '../services/aircraft_lookup_service.dart';
+import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 
 /// Where aircraft photos are looked for, and how many of them are kept on
@@ -126,15 +128,26 @@ class PhotoSettingsPage extends ConsumerWidget {
     final limit = ref.watch(aircraftImageCacheLimitProvider);
     final saved = ref.watch(aircraftImageCacheSizeProvider).value;
     return Scaffold(
-      appBar: AppBar(title: const Text('Aircraft Photos'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           8 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          const PageTitle(
+            'Aircraft Photos',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           const SectionHeader(title: 'Photo Providers', uppercase: true),
           Card(
             clipBehavior: Clip.antiAlias,
@@ -160,7 +173,10 @@ class PhotoSettingsPage extends ConsumerWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.photo_library_outlined),
+                  leading: Icon(
+                    Icons.photo_library_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Offline Aircraft Photos'),
                   subtitle: Text(
                     limit == 0
@@ -172,7 +188,10 @@ class PhotoSettingsPage extends ConsumerWidget {
                 ),
                 const Divider(height: 1, indent: 72),
                 ListTile(
-                  leading: const Icon(Icons.delete_sweep_outlined),
+                  leading: Icon(
+                    Icons.delete_sweep_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   title: const Text('Delete Saved Photos'),
                   subtitle: Text(
                     saved == null ? 'Calculating…' : _megabytes(saved),

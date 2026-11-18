@@ -1,217 +1,66 @@
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logging/logging.dart';
-import 'package:share_plus/share_plus.dart';
 
-import '../models/currency.dart';
-import '../providers/database_provider.dart';
-import '../providers/user_provider.dart';
-import '../repositories/flight_repository.dart';
-import '../repositories/licence_repository.dart';
-import '../repositories/pilot_profile_repository.dart';
-import '../services/database.dart';
-import '../services/file_opener.dart';
-import '../services/pdf_export_service.dart';
-import '../services/person_photo_store.dart';
-import '../widgets/section_header.dart';
+import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
+import '../widgets/page_title.dart';
+import 'pdf_export_settings_page.dart';
 
-enum ExportFormat {
-  pdf(
-    label: 'PDF',
-    description: '2026 EASA Part-FCL compliant',
-    icon: Icons.picture_as_pdf_outlined,
-    available: true,
-  ),
-  csv(
-    label: 'CSV',
-    description: 'Spreadsheet-friendly flight list',
-    icon: Icons.table_chart_outlined,
-    available: false,
-  ),
-  json(
-    label: 'JSON',
-    description: 'Full data dump for backup or import',
-    icon: Icons.data_object,
-    available: false,
-  );
-
-  const ExportFormat({
-    required this.label,
-    required this.description,
-    required this.icon,
-    required this.available,
-  });
-
-  final String label;
-  final String description;
-  final IconData icon;
-  final bool available;
-}
-
-class ExportPage extends ConsumerStatefulWidget {
+class ExportPage extends StatelessWidget {
   const ExportPage({super.key});
 
   @override
-  ConsumerState<ExportPage> createState() => _ExportPageState();
-}
-
-class _ExportPageState extends ConsumerState<ExportPage> {
-  static final _log = Logger('Export');
-
-  ExportFormat _format = ExportFormat.pdf;
-  bool _exporting = false;
-
-  Future<void> _export() async {
-    setState(() => _exporting = true);
-    try {
-      // Read now, and whole: the logbook has to contain every flight.
-      final flights = await ref
-          .read(flightRepositoryProvider)
-          .allRecordedFlights();
-      if (flights.isEmpty) {
-        _showSnack('No flights to export');
-        return;
-      }
-      switch (_format) {
-        case ExportFormat.pdf:
-          await _exportPdf(flights);
-        case ExportFormat.csv:
-          // TODO: implement CSV export
-          throw UnimplementedError('CSV export not implemented yet');
-        case ExportFormat.json:
-          // TODO: implement JSON export
-          throw UnimplementedError('JSON export not implemented yet');
-      }
-    } catch (e, st) {
-      _log.severe('${_format.label} export failed', e, st);
-      _showSnack('Export failed: $e');
-    } finally {
-      if (mounted) setState(() => _exporting = false);
-    }
-  }
-
-  Future<void> _exportPdf(List<FlightWithStats> flights) async {
-    final crew = await ref
-        .read(databaseProvider)
-        .getCrewForFlights(flights.map((f) => f.flight.id));
-    final store = ref.read(signatureStoreProvider);
-    final signatures = <int, Uint8List>{};
-    for (final f in flights) {
-      final name = f.flight.signatureFile;
-      final bytes = name == null ? null : await store.read(name);
-      if (bytes != null) signatures[f.flight.id] = bytes;
-    }
-    final profile = await ref.read(pilotProfileRepositoryProvider).get();
-    final pilotSignatureFile = profile?.signatureFile;
-    // The holder's licence numbers, for the cover (AMC1 FCL.050(a)(1)).
-    final licences = await ref
-        .read(licenceRepositoryProvider)
-        .watchLicences()
-        .first;
-    final file = await PdfExportService.generateLogbook(
-      flights,
-      crewByFlight: crew,
-      signatures: signatures,
-      pilotSignature: pilotSignatureFile == null
-          ? null
-          : await store.read(pilotSignatureFile),
-      previousTotals: profile?.previousTotals ?? PreviousTotals.empty,
-      pilotName: ref.read(userSignatureNameProvider),
-      picNameMode: ref.read(picNameModeProvider),
-      address: profile?.address,
-      licences: [
-        for (final l in licences)
-          if (l.licence.number?.trim() case final number?
-              when number.isNotEmpty)
-            '${l.licence.title} $number',
-      ],
-    );
-    _log.info('Logbook PDF written to ${file.path}');
-    if (!await file.exists()) {
-      throw StateError('Generated PDF not found at ${file.path}');
-    }
-
-    await FileOpener.open(file.path, mimeType: 'application/pdf');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Logbook exported'),
-        action: SnackBarAction(label: 'Share', onPressed: () => _share(file)),
-      ),
-    );
-  }
-
-  Future<void> _share(File file) async {
-    try {
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path, mimeType: 'application/pdf')],
-          subject: 'Logbook export',
-        ),
-      );
-    } catch (e, st) {
-      _log.severe('Sharing ${file.path} failed', e, st);
-      _showSnack('Share failed: $e');
-    }
-  }
-
-  void _showSnack(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Export Data'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         children: [
-          const SectionHeader(title: 'Format', uppercase: true),
+          const PageTitle(
+            'Export Data',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           Card(
-            child: Column(
-              children: [
-                for (final (i, format) in ExportFormat.values.indexed) ...[
-                  if (i > 0) const Divider(height: 1, indent: 72),
-                  ListTile(
-                    enabled: format.available && !_exporting,
-                    leading: Icon(format.icon),
-                    title: Text(format.label),
-                    subtitle: Text(
-                      format.available ? format.description : 'Coming soon',
-                    ),
-                    trailing: Icon(
-                      _format == format
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: _format == format
-                          ? theme.colorScheme.primary
-                          : null,
-                    ),
-                    onTap: () => setState(() => _format = format),
-                  ),
-                ],
-              ],
+            child: ListTile(
+              leading: Icon(
+                Icons.picture_as_pdf_outlined,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text('PDF'),
+              subtitle: const Text('2026 EASA Part-FCL compliant'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                AppPageRoute<void>(
+                  builder: (_) => const PdfExportSettingsPage(),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _exporting ? null : _export,
-            icon: _exporting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.file_download_outlined),
-            label: Text(_exporting ? 'Exporting…' : 'Export ${_format.label}'),
+          // shortcut: CSV/JSON have no export yet, so no page to open; add one when they're implemented.
+          const Card(
+            child: ListTile(
+              enabled: false,
+              leading: Icon(Icons.table_chart_outlined),
+              title: Text('CSV'),
+              subtitle: Text('Coming soon'),
+              trailing: Icon(Icons.chevron_right),
+            ),
+          ),
+          const Card(
+            child: ListTile(
+              enabled: false,
+              leading: Icon(Icons.data_object),
+              title: Text('JSON'),
+              subtitle: Text('Coming soon'),
+              trailing: Icon(Icons.chevron_right),
+            ),
           ),
         ],
       ),

@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../providers/user_provider.dart';
 import '../repositories/pilot_profile_repository.dart';
 import '../services/database.dart';
 import '../services/pdf_export_service.dart';
 import '../services/person_photo_store.dart';
 import '../utils/duration_formatter.dart';
+import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
 import '../widgets/signature_preview.dart';
 import 'image_crop_page.dart';
@@ -194,15 +196,26 @@ class _PersonalDataPageState extends ConsumerState<PersonalDataPage> {
     final (:x, :y) = PdfExportService.pilotSignatureRatio;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Personal Data'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           24 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          const PageTitle(
+            'Personal Data',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           const SectionHeader(title: 'Pilot', uppercase: true),
           Card(
             child: Column(

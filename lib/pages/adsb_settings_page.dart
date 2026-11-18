@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/fab_hero_tags.dart';
 import '../models/sync_progress.dart';
 import '../providers/adsb_providers.dart';
 import '../providers/provider_toggles.dart';
@@ -12,6 +13,7 @@ import '../services/adsb_track_source.dart';
 import '../services/aircraft_hex_resolver.dart';
 import '../services/aircraft_lookup_service.dart';
 import '../services/aircraft_registry_service.dart';
+import '../widgets/page_title.dart';
 import '../widgets/secret_status.dart';
 import '../widgets/section_header.dart';
 import '../widgets/sync_progress_indicator.dart';
@@ -35,15 +37,26 @@ class AdsbSettingsPage extends ConsumerWidget {
         .setEnabled(provider.id, enabled: enabled);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ADS-B'), centerTitle: true),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
+      ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           8 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          const PageTitle(
+            'ADS-B',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           const SectionHeader(title: 'Track Providers', uppercase: true),
           Card(
             clipBehavior: Clip.antiAlias,

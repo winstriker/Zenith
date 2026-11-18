@@ -379,13 +379,33 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                 _ReplayTopBar(
                   title: widget.flight.flight.title,
                   pointsCount: _points.length,
-                  speedBadge: AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, _) => _currentSpeed == null
-                        ? const SizedBox.shrink()
-                        : _SpeedBadge(
-                            value: _formatSpeed(_currentSpeed, isMetric),
-                          ),
+                  speedBadge: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _animationController,
+                        builder: (context, _) => _currentSpeed == null
+                            ? const SizedBox.shrink()
+                            : _SpeedBadge(
+                                value: _formatSpeed(_currentSpeed, isMetric),
+                              ),
+                      ),
+                      const SizedBox(width: 8),
+                      Tooltip(
+                        message: 'Switch units',
+                        child: _SpeedChip(
+                          label: isMetric ? 'km/h · m' : 'kts · ft',
+                          selected: false,
+                          onTap: () => ref
+                              .read(unitProvider.notifier)
+                              .setUnit(
+                                isMetric
+                                    ? MeasurementUnit.knots
+                                    : MeasurementUnit.metric,
+                              ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 // The top-left corner of the map is under the top bar.

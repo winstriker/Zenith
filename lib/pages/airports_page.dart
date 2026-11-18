@@ -12,7 +12,7 @@ import '../widgets/airport_card.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/hiding_chrome.dart';
 import '../widgets/load_more.dart';
-import '../widgets/page_title.dart';
+import '../widgets/page_header.dart';
 import '../widgets/picker_sheet.dart';
 import '../widgets/sync_progress_indicator.dart';
 import 'airport_detail_page.dart';
@@ -233,14 +233,12 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
             controller: controller,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
-              SliverToBoxAdapter(
-                child: PageTitle(
-                  'Airports',
-                  trailing: IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Download airport data again',
-                    onPressed: sync.isRunning ? null : _refreshData,
-                  ),
+              PageHeader(
+                'Airports',
+                trailing: IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Download airport data again',
+                  onPressed: sync.isRunning ? null : _refreshData,
                 ),
               ),
               if (sync.isRunning || sync.phase == SyncPhase.error)
@@ -253,7 +251,7 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                 ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: TextField(
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
