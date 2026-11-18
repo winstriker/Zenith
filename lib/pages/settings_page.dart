@@ -6,7 +6,6 @@ import '../core/app_page_route.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
-import '../providers/map_provider.dart';
 import '../providers/theme_provider.dart';
 import '../repositories/flight_repository.dart';
 import '../widgets/page_header.dart';
@@ -102,7 +101,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeMode = ref.watch(themeProvider);
-    final mapSource = ref.watch(effectiveMapSourceProvider);
     final currencySettings = ref.watch(currencySettingsProvider);
 
     return Scaffold(

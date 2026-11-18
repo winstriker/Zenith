@@ -89,7 +89,6 @@ class _PreviousTotalsPageState extends ConsumerState<PreviousTotalsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final draft = _draft;
 
     return Scaffold(
