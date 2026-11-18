@@ -31,7 +31,7 @@ class UpdatesPage extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         children: [
           const PageTitle(
-            'Version',
+            'Updates',
             belowCloseButton: true,
             horizontalPadding: 0,
           ),
@@ -39,21 +39,56 @@ class UpdatesPage extends ConsumerWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                ListTile(
-                  leading: Icon(Icons.flight_takeoff, color: primary),
-                  title: const Text('Zenith'),
-                  subtitle: const Text('Version $appBuildName'),
-                  trailing: status.release != null && !busy
-                      ? FilledButton.tonal(
-                          onPressed: updates.install,
-                          child: const Text('Install'),
-                        )
-                      : IconButton(
-                          icon: const Icon(Icons.refresh),
-                          tooltip: 'Check for updates',
-                          onPressed: busy ? null : updates.check,
-                        ),
+                // Plain Row, not ListTile: ListTile shrinks a large leading
+                // and pins text to baselines instead of centering it.
+                InkWell(
                   onTap: busy ? null : updates.check,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            'assets/images/zenith_logo.png',
+                            width: 56,
+                            height: 56,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Zenith',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              Text(
+                                'Version $appBuildName',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        status.release != null && !busy
+                            ? FilledButton.tonal(
+                                onPressed: updates.install,
+                                child: const Text('Install'),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.refresh),
+                                tooltip: 'Check for updates',
+                                onPressed: busy ? null : updates.check,
+                              ),
+                      ],
+                    ),
+                  ),
                 ),
                 if (progress.phase != SyncPhase.idle)
                   Padding(
