@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -230,7 +230,11 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
     );
   }
 
-  List<Widget> _cloudSection(BackupDestination d, BackupState backupState) {
+  List<Widget> _cloudSection(
+    BackupDestination d,
+    BackupState backupState,
+    BackupSettings settings,
+  ) {
     final auth = ref.watch(cloudAuthProvider(d));
     final connected = auth.value ?? false;
     return [
@@ -259,17 +263,117 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 title: Text('Restore from ${d.label}'),
-                subtitle: Text('Choose one of your ${d.label} backups'),
                 trailing: const Icon(Icons.chevron_right),
                 enabled: !backupState.busy,
                 onTap: () => _showCloudBackups(d),
               ),
+              ..._destinationSettings(d, settings.of(d)),
             ],
           ],
         ),
       ),
       const SizedBox(height: 8),
     ];
+  }
+
+  /// Frequency, crew photos and retention of one destination.
+  List<Widget> _destinationSettings(
+    BackupDestination d,
+    DestinationSettings s,
+  ) {
+    final theme = Theme.of(context);
+    final notifier = ref.read(backupSettingsProvider.notifier);
+    return [
+      const Divider(height: 1, indent: 72),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.schedule, color: theme.colorScheme.primary),
+                const SizedBox(width: 16),
+                Text('Automatic Backups', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<BackupFrequency>(
+                showSelectedIcon: false,
+                segments: [
+                  for (final f in BackupFrequency.values)
+                    ButtonSegment(value: f, label: Text(f.label)),
+                ],
+                selected: {s.frequency},
+                onSelectionChanged: (v) => notifier.setFrequency(d, v.first),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const Divider(height: 1, indent: 72),
+      SwitchListTile(
+        secondary: Icon(
+          Icons.photo_library_outlined,
+          color: theme.colorScheme.primary,
+        ),
+        title: const Text('Include crew photos'),
+        subtitle: const Text('Makes backups larger.'),
+        value: s.includePhotos,
+        onChanged: (v) => notifier.setIncludePhotos(d, v),
+      ),
+      const Divider(height: 1, indent: 72),
+      ListTile(
+        leading: Icon(Icons.history, color: theme.colorScheme.primary),
+        title: const Text('Backups to keep'),
+        subtitle: Text('Last ${s.keep}, older ones are deleted'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _chooseKeep(d, s.keep),
+      ),
+    ];
+  }
+
+  Future<void> _chooseKeep(BackupDestination d, int current) async {
+    const custom = 0;
+    final isCustom = !DestinationSettings.keepChoices.contains(current);
+    var chosen = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Backups to keep on ${d.label}'),
+        contentPadding: const EdgeInsets.only(top: 12, bottom: 8),
+        content: RadioGroup<int>(
+          groupValue: isCustom ? custom : current,
+          onChanged: (value) => Navigator.pop(ctx, value),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final n in DestinationSettings.keepChoices)
+                RadioListTile<int>(value: n, title: Text('Last $n')),
+              RadioListTile<int>(
+                value: custom,
+                title: Text(isCustom ? 'Custom (last $current)' : 'Custom'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (chosen == custom && mounted) {
+      chosen = await showDialog<int>(
+        context: context,
+        builder: (_) => _CustomKeepDialog(initial: current),
+      );
+    }
+    if (chosen == null || chosen == current) return;
+    await ref.read(backupSettingsProvider.notifier).setKeep(d, chosen);
   }
 
   Future<void> _showLocalBackups() async {
@@ -318,7 +422,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       ref.read(backupNoticeProvider.notifier).clear();
     });
 
-    final theme = Theme.of(context);
     final settings = ref.watch(backupSettingsProvider).value;
     final backupState =
         ref.watch(backupControllerProvider).value ?? const BackupState();
@@ -337,8 +440,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       );
     }
 
-    final notifier = ref.read(backupSettingsProvider.notifier);
-
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
       floatingActionButton: FloatingActionButton(
@@ -355,69 +456,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
             belowCloseButton: true,
             horizontalPadding: 0,
           ),
-          // ---------------------------------------------------------------
-          const SectionHeader(title: 'General', uppercase: true),
-          Card(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  secondary: Icon(
-                    Icons.photo_library_outlined,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  title: const Text('Include crew photos'),
-                  subtitle: const Text('Makes backups larger.'),
-                  value: settings.includePhotos,
-                  onChanged: notifier.setIncludePhotos,
-                ),
-                const Divider(height: 1, indent: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            color: theme.colorScheme.primary,
-                          ),
-                          const SizedBox(width: 16),
-                          Text(
-                            'Automatic Backups',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<BackupFrequency>(
-                          showSelectedIcon: false,
-                          segments: [
-                            for (final f in BackupFrequency.values)
-                              ButtonSegment(value: f, label: Text(f.label)),
-                          ],
-                          selected: {settings.frequency},
-                          onSelectionChanged: (s) =>
-                              notifier.setFrequency(s.first),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // ---------------------------------------------------------------
-          for (final d in BackupDestination.cloud)
-            ..._cloudSection(d, backupState),
-
           // ---------------------------------------------------------------
           SectionHeader(
             title: 'Local',
@@ -468,10 +506,19 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                   enabled: !backupState.busy,
                   onTap: _restoreFromFile,
                 ),
+                ..._destinationSettings(
+                  BackupDestination.local,
+                  settings.of(BackupDestination.local),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 80),
+          const SizedBox(height: 8),
+
+          // ---------------------------------------------------------------
+          for (final d in BackupDestination.cloud)
+            ..._cloudSection(d, backupState, settings),
+          const SizedBox(height: 72),
         ],
       ),
     );
@@ -724,7 +771,11 @@ class _BackupsSheet<T> extends StatelessWidget {
             child: items.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
+                // heightFactor keeps Center from filling the sheet's 70% max height.
+                child: Center(
+                  heightFactor: 1,
+                  child: CircularProgressIndicator(),
+                ),
               ),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.all(24),
@@ -764,6 +815,65 @@ class _BackupsSheet<T> extends StatelessWidget {
           SizedBox(height: 16 + MediaQuery.paddingOf(context).bottom),
         ],
       ),
+    );
+  }
+}
+
+/// Asks for how many backups to keep.
+class _CustomKeepDialog extends StatefulWidget {
+  const _CustomKeepDialog({required this.initial});
+  final int initial;
+
+  @override
+  State<_CustomKeepDialog> createState() => _CustomKeepDialogState();
+}
+
+class _CustomKeepDialogState extends State<_CustomKeepDialog> {
+  late final _controller = TextEditingController(
+    text: widget.initial.toString(),
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    const min = DestinationSettings.keepMin;
+    const max = DestinationSettings.keepMax;
+    final value = int.tryParse(_controller.text.trim());
+    if (value == null || value < min || value > max) {
+      setState(() => _error = 'Between $min and $max');
+      return;
+    }
+    Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Backups to Keep'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          labelText: 'Most recent backups to keep',
+          errorText: _error,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
+      ],
     );
   }
 }

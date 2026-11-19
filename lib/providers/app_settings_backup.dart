@@ -27,7 +27,7 @@ enum _Kind { bool, int, string, stringList }
 class AppSettingsBackup {
   AppSettingsBackup._();
 
-  static const _keys = {
+  static final _keys = {
     // Pilot.
     UserNicknameNotifier.prefsKey: _Kind.string,
     UserSignatureNameNotifier.prefsKey: _Kind.string,
@@ -49,8 +49,11 @@ class AppSettingsBackup {
     disabledPhotoSourcesKey: _Kind.stringList,
     AircraftImageCacheLimit.prefsKey: _Kind.int,
     // Backups.
-    BackupSettingsNotifier.photosKey: _Kind.bool,
-    BackupSettingsNotifier.frequencyKey: _Kind.string,
+    for (final d in BackupDestination.values) ...{
+      BackupSettingsNotifier.photosKey(d): _Kind.bool,
+      BackupSettingsNotifier.frequencyKey(d): _Kind.string,
+      BackupSettingsNotifier.keepKey(d): _Kind.int,
+    },
     // Updates.
     AutoUpdateCheckNotifier.prefsKey: _Kind.bool,
   };

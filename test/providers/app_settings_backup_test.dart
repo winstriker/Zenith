@@ -13,6 +13,8 @@ void main() {
         'user_nickname': 'Ace',
         'currency_reminder_leads': ['days30'],
         'adsb_disabled_track_providers': ['opensky'],
+        'backup_dropbox_keep': 20,
+        'backup_local_frequency': 'daily',
         // Not settings to carry around.
         'carto_api_key': 'secret',
         'dropbox_access_token': 'token',
@@ -28,6 +30,8 @@ void main() {
         'user_nickname': 'Ace',
         'currency_reminder_leads': ['days30'],
         'adsb_disabled_track_providers': ['opensky'],
+        'backup_dropbox_keep': 20,
+        'backup_local_frequency': 'daily',
       });
     },
   );

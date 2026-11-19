@@ -51,51 +51,110 @@ enum BackupDestination {
   static const cloud = [dropbox, googleDrive];
 }
 
-class BackupSettings {
-  const BackupSettings({
-    this.includePhotos = true,
-    this.frequency = BackupFrequency.weekly,
+/// How one destination is backed up to.
+class DestinationSettings {
+  const DestinationSettings({
+    required this.includePhotos,
+    required this.frequency,
+    required this.keep,
   });
 
   final bool includePhotos;
   final BackupFrequency frequency;
 
-  BackupSettings copyWith({bool? includePhotos, BackupFrequency? frequency}) =>
-      BackupSettings(
-        includePhotos: includePhotos ?? this.includePhotos,
-        frequency: frequency ?? this.frequency,
+  /// Backups kept; older ones are deleted after each backup.
+  final int keep;
+
+  static const keepChoices = [3, 5];
+  static const keepMin = 1;
+  static const keepMax = 100;
+
+  static DestinationSettings defaultsFor(BackupDestination d) =>
+      DestinationSettings(
+        includePhotos: true,
+        frequency: BackupFrequency.weekly,
+        keep: d.isCloud ? 3 : 5,
       );
+
+  DestinationSettings copyWith({
+    bool? includePhotos,
+    BackupFrequency? frequency,
+    int? keep,
+  }) => DestinationSettings(
+    includePhotos: includePhotos ?? this.includePhotos,
+    frequency: frequency ?? this.frequency,
+    keep: keep ?? this.keep,
+  );
+}
+
+class BackupSettings {
+  const BackupSettings(this._byDestination);
+
+  final Map<BackupDestination, DestinationSettings> _byDestination;
+
+  DestinationSettings of(BackupDestination d) =>
+      _byDestination[d] ?? DestinationSettings.defaultsFor(d);
+
+  BackupSettings withDestination(BackupDestination d, DestinationSettings s) =>
+      BackupSettings({..._byDestination, d: s});
 }
 
 class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
-  static const photosKey = 'backup_include_photos';
-  static const frequencyKey = 'backup_frequency';
+  static String photosKey(BackupDestination d) =>
+      'backup_${d.name}_include_photos';
+  static String frequencyKey(BackupDestination d) =>
+      'backup_${d.name}_frequency';
+  static String keepKey(BackupDestination d) => 'backup_${d.name}_keep';
 
   @override
   Future<BackupSettings> build() async {
     final prefs = await SharedPreferences.getInstance();
-    const defaults = BackupSettings();
-    return BackupSettings(
-      includePhotos: prefs.getBool(photosKey) ?? defaults.includePhotos,
+    return BackupSettings({
+      for (final d in BackupDestination.values) d: _read(prefs, d),
+    });
+  }
+
+  static DestinationSettings _read(
+    SharedPreferences prefs,
+    BackupDestination d,
+  ) {
+    final defaults = DestinationSettings.defaultsFor(d);
+    return DestinationSettings(
+      includePhotos: prefs.getBool(photosKey(d)) ?? defaults.includePhotos,
       frequency: BackupFrequency.values.firstWhere(
-        (f) => f.name == prefs.getString(frequencyKey),
+        (f) => f.name == prefs.getString(frequencyKey(d)),
         orElse: () => defaults.frequency,
       ),
+      keep: prefs.getInt(keepKey(d)) ?? defaults.keep,
     );
   }
 
-  Future<void> setIncludePhotos(bool value) async {
-    state = AsyncData((await future).copyWith(includePhotos: value));
-    await (await SharedPreferences.getInstance()).setBool(photosKey, value);
+  Future<void> _update(
+    BackupDestination d,
+    DestinationSettings Function(DestinationSettings) change,
+  ) async {
+    final current = await future;
+    state = AsyncData(current.withDestination(d, change(current.of(d))));
   }
 
-  Future<void> setFrequency(BackupFrequency value) async {
-    state = AsyncData((await future).copyWith(frequency: value));
+  Future<void> setIncludePhotos(BackupDestination d, bool value) async {
+    await _update(d, (s) => s.copyWith(includePhotos: value));
+    await (await SharedPreferences.getInstance()).setBool(photosKey(d), value);
+  }
+
+  Future<void> setFrequency(BackupDestination d, BackupFrequency value) async {
+    await _update(d, (s) => s.copyWith(frequency: value));
     await (await SharedPreferences.getInstance()).setString(
-      frequencyKey,
+      frequencyKey(d),
       value.name,
     );
     unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
+  }
+
+  /// Takes effect at the next backup, which prunes down to [value].
+  Future<void> setKeep(BackupDestination d, int value) async {
+    await _update(d, (s) => s.copyWith(keep: value));
+    await (await SharedPreferences.getInstance()).setInt(keepKey(d), value);
   }
 }
 
@@ -365,10 +424,6 @@ final backupControllerProvider =
     AsyncNotifierProvider<BackupController, BackupState>(BackupController.new);
 
 class BackupController extends AsyncNotifier<BackupState> {
-  /// Backups kept per destination; older ones are deleted.
-  static const keepCloud = 10;
-  static const keepLocal = 5;
-
   bool _autoRunning = false;
 
   static String _key(BackupDestination d, String field) =>
@@ -405,13 +460,13 @@ class BackupController extends AsyncNotifier<BackupState> {
     _autoRunning = true;
     try {
       final settings = await ref.read(backupSettingsProvider.future);
-      final dueAfter = settings.frequency.dueAfter;
-      if (dueAfter == null) return;
       final current = await future;
       if (current.busy) return;
 
       final due = <BackupDestination>[];
       for (final d in BackupDestination.values) {
+        final dueAfter = settings.of(d).frequency.dueAfter;
+        if (dueAfter == null) continue;
         if (d.isCloud && !await ref.read(cloudAuthProvider(d).future)) {
           continue;
         }
@@ -443,49 +498,61 @@ class BackupController extends AsyncNotifier<BackupState> {
 
     Object? firstError;
     try {
-      final BackupSnapshot snapshot;
-      try {
-        snapshot = await ref
-            .read(backupServiceProvider)
-            .create(
-              includePhotos: settings.includePhotos,
-              settings: AppSettingsBackup.read(
-                await SharedPreferences.getInstance(),
-              ),
-            );
-      } catch (e) {
-        for (final d in todo) {
-          await _record(d, error: _message(e));
-        }
-        rethrow;
-      }
-
-      // An empty logbook (fresh install) must never push out real backups.
-      if (automatic && snapshot.isEmpty) {
-        _log.info('Logbook is empty, skipping automatic backup.');
-        return;
-      }
-
+      // Destinations that want the same content share one snapshot.
+      final groups = <bool, List<BackupDestination>>{};
       for (final d in todo) {
+        groups.putIfAbsent(settings.of(d).includePhotos, () => []).add(d);
+      }
+      for (final MapEntry(key: includePhotos, value: group) in groups.entries) {
+        final BackupSnapshot snapshot;
         try {
-          final unchanged =
-              automatic &&
-              (await future).statusOf(d).lastHash == snapshot.contentHash;
-          if (unchanged) {
-            _log.info('${d.name}: no changes since last backup.');
-          } else {
-            await _upload(d, snapshot);
-          }
-          await _record(d, at: snapshot.createdAt, hash: snapshot.contentHash);
+          snapshot = await ref
+              .read(backupServiceProvider)
+              .create(
+                includePhotos: includePhotos,
+                settings: AppSettingsBackup.read(
+                  await SharedPreferences.getInstance(),
+                ),
+              );
         } catch (e) {
-          _log.warning('${d.name} backup failed: $e');
-          await _record(d, error: _message(e));
-          if (e is CloudReauthRequired) {
-            await ref
-                .read(cloudAuthProvider(d).notifier)
-                .sessionExpired(e.message);
+          for (final d in group) {
+            await _record(d, error: _message(e));
           }
           firstError ??= e;
+          continue;
+        }
+
+        // An empty logbook (fresh install) must never push out real backups.
+        if (automatic && snapshot.isEmpty) {
+          _log.info('Logbook is empty, skipping automatic backup.');
+          return;
+        }
+
+        for (final d in group) {
+          try {
+            final unchanged =
+                automatic &&
+                (await future).statusOf(d).lastHash == snapshot.contentHash;
+            if (unchanged) {
+              _log.info('${d.name}: no changes since last backup.');
+            } else {
+              await _upload(d, snapshot, keep: settings.of(d).keep);
+            }
+            await _record(
+              d,
+              at: snapshot.createdAt,
+              hash: snapshot.contentHash,
+            );
+          } catch (e) {
+            _log.warning('${d.name} backup failed: $e');
+            await _record(d, error: _message(e));
+            if (e is CloudReauthRequired) {
+              await ref
+                  .read(cloudAuthProvider(d).notifier)
+                  .sessionExpired(e.message);
+            }
+            firstError ??= e;
+          }
         }
       }
     } finally {
@@ -498,7 +565,11 @@ class BackupController extends AsyncNotifier<BackupState> {
     }
   }
 
-  Future<void> _upload(BackupDestination d, BackupSnapshot snapshot) async {
+  Future<void> _upload(
+    BackupDestination d,
+    BackupSnapshot snapshot, {
+    required int keep,
+  }) async {
     switch (d) {
       case BackupDestination.dropbox || BackupDestination.googleDrive:
         final client = ref.read(cloudClientProvider(d));
@@ -508,12 +579,12 @@ class BackupController extends AsyncNotifier<BackupState> {
           'to ${d.label}.',
         );
         await client.upload(snapshot.fileName, snapshot.bytes);
-        await client.prune(keep: keepCloud);
+        await client.prune(keep: keep);
         ref.invalidate(cloudBackupsProvider(d));
       case BackupDestination.local:
         final store = ref.read(localBackupStoreProvider);
         await store.save(snapshot);
-        await store.prune(keep: keepLocal);
+        await store.prune(keep: keep);
         ref.invalidate(localBackupsProvider);
     }
   }
@@ -538,7 +609,8 @@ class BackupController extends AsyncNotifier<BackupState> {
       );
       if (!safety.isEmpty) {
         await store.save(safety, preRestore: true);
-        await store.prune(keep: keepLocal);
+        final settings = await ref.read(backupSettingsProvider.future);
+        await store.prune(keep: settings.of(BackupDestination.local).keep);
       }
       final summary = await service.restore(bytes);
       if (summary.settings case final settings?) {
