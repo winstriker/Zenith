@@ -180,6 +180,14 @@ class _FlightDetailView extends ConsumerWidget {
               label: 'Logbook overrides',
               onPressed: () => _openOverrides(context, flight),
             ),
+            SpeedDialAction(
+              heroTag: 'deleteFab',
+              icon: Icons.delete_outline,
+              label: 'Delete',
+              backgroundColor: Theme.of(context).colorScheme.errorContainer,
+              foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+              onPressed: () => _delete(context, ref, flight),
+            ),
           ],
           primaryIcon: Icons.edit,
           primaryLabel: 'Edit',
@@ -221,6 +229,41 @@ class _FlightDetailView extends ConsumerWidget {
       ),
     );
   }
+}
+
+Future<void> _delete(
+  BuildContext context,
+  WidgetRef ref,
+  FlightWithStats flight,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Delete Flight'),
+      content: Text(
+        'Are you sure you want to delete "${flight.flight.title}"?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(ctx).colorScheme.error,
+            foregroundColor: Theme.of(ctx).colorScheme.onError,
+          ),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+  // Pop first so the page doesn't flash "Flight not found" while closing.
+  final service = ref.read(flightServiceProvider);
+  Navigator.pop(context);
+  await service.deleteSession(flight.flight.id);
 }
 
 void _openOverrides(BuildContext context, FlightWithStats flight) {
