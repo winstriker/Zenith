@@ -7,7 +7,7 @@ Future<T?> showPickerSheet<T>(
   required String title,
   required List<T> items,
   required String Function(T item) label,
-  String Function(T item)? subtitle,
+  String? Function(T item)? subtitle,
   T? selected,
   String searchHint = 'Search...',
 }) {
@@ -39,7 +39,7 @@ class _PickerSheet<T> extends StatefulWidget {
   final String title;
   final List<T> items;
   final String Function(T item) label;
-  final String Function(T item)? subtitle;
+  final String? Function(T item)? subtitle;
   final T? selected;
   final String searchHint;
 
@@ -59,7 +59,7 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
     return [
       for (final item in widget.items)
         if (widget.label(item).toLowerCase().contains(q) ||
-            (widget.subtitle?.call(item).toLowerCase().contains(q) ?? false))
+            (widget.subtitle?.call(item)?.toLowerCase().contains(q) ?? false))
           item,
     ];
   }

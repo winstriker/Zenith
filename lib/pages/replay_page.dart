@@ -1,18 +1,23 @@
+import 'dart:async';
 import 'dart:math' show sin, cos, atan2;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../core/theme.dart';
+import '../providers/replay_speed_provider.dart';
 import '../providers/unit_provider.dart';
 import '../services/adsb_track_source.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../widgets/base_map_layer.dart';
+import '../widgets/flight_route_layer.dart';
 import '../widgets/map_attribution.dart';
+import '../widgets/picker_sheet.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
   const ReplayPage({super.key, required this.flight});
@@ -34,6 +39,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   late final List<FlightDataPoint> _points;
   late final List<LatLng> _pathPoints;
 
+  /// Everything the map shows: the track or the great circle, and the
+  /// airports.
+  late final List<LatLng> _extent;
+
   /// Seconds from the first position to each one. The replay follows the
   /// clock of the flight: the aircraft moves at the speed it flew, and
   /// waits where it waited.
@@ -53,8 +62,25 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   late double _speed;
   bool _mapReady = false;
 
+  /// The bars over the map, hidden while the user moves the map.
+  bool _overlayVisible = true;
+  Timer? _overlayTimer;
+
+  /// Map moves made by the user, as opposed to the replay's own.
+  static const _userMoves = {
+    MapEventSource.onDrag,
+    MapEventSource.onMultiFinger,
+    MapEventSource.flingAnimationController,
+    MapEventSource.doubleTapZoomAnimationController,
+    MapEventSource.doubleTapHold,
+    MapEventSource.scrollWheel,
+  };
+
   /// Without a faster choice, a replay would last as long as the flight.
-  static const _speeds = [1.0, 10.0, 30.0, 100.0];
+  static const _speeds = [1.0, 30.0, 100.0, 300.0];
+
+  /// The picker's "Custom" item, which asks for the speed.
+  static const _customChoice = 0.0;
 
   /// What the replay of a whole flight should about last to start with.
   static const _comfortable = Duration(minutes: 2);
@@ -69,11 +95,16 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     );
     _animationController.addListener(_onAnimationTick);
     _animationController.addStatusListener(_onAnimationStatusChanged);
+    // The speed chosen last time, over the one picked for this flight.
+    LastReplaySpeed.read().then((saved) {
+      if (saved != null && mounted) _setSpeed(saved.toDouble());
+    });
   }
 
   void _initFlightData() {
     _points = widget.flight.dataPoints;
     _pathPoints = [for (final p in _points) LatLng(p.latitude, p.longitude)];
+    _extent = FlightRouteLayer.extent(widget.flight, _pathPoints);
 
     var elapsed = <double>[
       for (final p in _points)
@@ -90,7 +121,8 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     _trackDuration = Duration(
       milliseconds: elapsed.isEmpty ? 0 : (elapsed.last * 1000).round(),
     );
-    // The slowest speed that shows the whole flight in a couple of minutes.
+    // Until a speed is chosen: the slowest that shows the whole flight in a
+    // couple of minutes.
     _speed = _speeds.firstWhere(
       (speed) => _trackDuration * (1 / speed) <= _comfortable,
       orElse: () => _speeds.last,
@@ -235,9 +267,83 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     _animationController.removeListener(_onAnimationTick);
     _animationController.removeStatusListener(_onAnimationStatusChanged);
     _animationController.dispose();
+    _overlayTimer?.cancel();
     _mapController.dispose();
     super.dispose();
   }
+
+  /// Hides the bars while the map moves under the user's fingers, and shows
+  /// them again once it has been still for a moment.
+  void _onMapEvent(MapEvent event) {
+    if (!_userMoves.contains(event.source)) return;
+    _overlayTimer?.cancel();
+    _overlayTimer = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _overlayVisible = true);
+    });
+    if (_overlayVisible) setState(() => _overlayVisible = false);
+  }
+
+  Future<void> _pickSpeed() async {
+    final custom = ref.read(customReplaySpeedProvider);
+    final picked = await showPickerSheet<double>(
+      context,
+      title: 'Replay speed',
+      items: [..._speeds, _customChoice],
+      label: (s) => switch (s) {
+        _customChoice => 'Custom',
+        1 => 'Real time',
+        _ => '${s.toInt()}x faster',
+      },
+      subtitle: (s) => s != _customChoice
+          ? null
+          : custom == null
+          ? 'Choose your own speed'
+          : '${custom}x faster',
+      selected: _speeds.contains(_speed) ? _speed : _customChoice,
+    );
+    if (picked == null || !mounted) return;
+    var speed = picked.toInt();
+    if (picked == _customChoice) {
+      final chosen = await showDialog<int>(
+        context: context,
+        builder: (_) => _CustomSpeedDialog(initial: custom),
+      );
+      if (chosen == null || !mounted) return;
+      await ref.read(customReplaySpeedProvider.notifier).set(chosen);
+      speed = chosen;
+    }
+    if (!mounted) return;
+    _setSpeed(speed.toDouble());
+    await LastReplaySpeed.write(speed);
+  }
+
+  Future<void> _pickUnits() async {
+    final picked = await showPickerSheet<MeasurementUnit>(
+      context,
+      title: 'Units',
+      items: MeasurementUnit.values,
+      label: (u) => switch (u) {
+        MeasurementUnit.metric => 'Metric',
+        MeasurementUnit.knots => 'Aviation',
+      },
+      subtitle: (u) => switch (u) {
+        MeasurementUnit.metric => 'Speed in km/h, altitude in metres',
+        MeasurementUnit.knots => 'Speed in knots, altitude in feet',
+      },
+      selected: ref.read(unitProvider),
+    );
+    if (picked != null) await ref.read(unitProvider.notifier).setUnit(picked);
+  }
+
+  /// [child] faded out and untouchable while the map is being moved.
+  Widget _overlay(Widget child) => IgnorePointer(
+    ignoring: !_overlayVisible,
+    child: AnimatedOpacity(
+      opacity: _overlayVisible ? 1 : 0,
+      duration: const Duration(milliseconds: 200),
+      child: child,
+    ),
+  );
 
   void _onMapReady() {
     _mapReady = true;
@@ -246,10 +352,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
 
   /// Shows the whole flight, clear of the bars drawn over the map.
   void _fitMapBounds() {
-    if (!_mapReady || _pathPoints.isEmpty) return;
-    final bounds = LatLngBounds.fromPoints(_pathPoints);
+    if (!_mapReady || _extent.isEmpty) return;
+    final bounds = LatLngBounds.fromPoints(_extent);
     if (bounds.southWest == bounds.northEast) {
-      _mapController.move(_pathPoints.first, 13.0);
+      _mapController.move(_extent.first, 13.0);
     } else {
       final padding = MediaQuery.paddingOf(context);
       _mapController.fitCamera(
@@ -257,9 +363,9 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
           bounds: bounds,
           padding: EdgeInsets.fromLTRB(
             40,
-            padding.top + 110,
+            padding.top + 80,
             40,
-            padding.bottom + 270,
+            padding.bottom + 300,
           ),
         ),
       );
@@ -279,7 +385,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     final cs = Theme.of(context).colorScheme;
     final overlay = context.appColors.overlay;
     final padding = MediaQuery.paddingOf(context);
-    final points = _points;
     final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
     // An ADS-B track is shown with the credit its provider asks for.
     final provider = AdsbProvider.byId(widget.flight.flight.trackSource);
@@ -292,11 +397,10 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: points.isNotEmpty
-                  ? LatLng(points.first.latitude, points.first.longitude)
-                  : const LatLng(51.5, -0.09),
+              initialCenter: _extent.firstOrNull ?? const LatLng(51.5, -0.09),
               initialZoom: 10.0,
               onMapReady: _onMapReady,
+              onMapEvent: _onMapEvent,
             ),
             children: [
               const BaseMapLayer(),
@@ -311,6 +415,8 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                     ),
                   ],
                 ),
+              // Under the plane, which flies over them.
+              FlightRouteLayer(flight: widget.flight, path: _pathPoints),
               // Animated trail + plane marker
               AnimatedBuilder(
                 animation: _animationController,
@@ -359,125 +465,106 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             left: 0,
             right: 0,
             height: 140 + padding.top,
-            child: _ScrimGradient(
-              colors: [
-                overlay.withValues(alpha: 0.7),
-                overlay.withValues(alpha: 0.3),
-                overlay.withValues(alpha: 0),
-              ],
+            child: _overlay(
+              _ScrimGradient(
+                colors: [
+                  overlay.withValues(alpha: 0.7),
+                  overlay.withValues(alpha: 0.3),
+                  overlay.withValues(alpha: 0),
+                ],
+              ),
             ),
           ),
 
-          // Top bar with flight info and (animated) speed
+          // Top bar with flight info
           Positioned(
             top: padding.top + 4,
             left: 4,
             right: 4,
+            child: _overlay(
+              _ReplayTopBar(
+                title: widget.flight.flight.title,
+                pointsCount: _points.length,
+              ),
+            ),
+          ),
+
+          // Without a track there is nothing to play: only the route.
+          if (_pathPoints.length >= 2) ...[
+            // Bottom gradient overlay (static)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 260 + padding.bottom,
+              child: _overlay(
+                _ScrimGradient(
+                  colors: [
+                    overlay.withValues(alpha: 0),
+                    overlay.withValues(alpha: 0.5),
+                    overlay.withValues(alpha: 0.8),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
+          // The credits the map and the track need: in the bottom corner,
+          // below the controls, and kept while they fade.
+          Positioned(
+            bottom: padding.bottom + 4,
+            left: 16,
+            right: 16,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _ReplayTopBar(
-                  title: widget.flight.flight.title,
-                  pointsCount: _points.length,
-                  speedBadge: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedBuilder(
+                if (_pathPoints.length >= 2) ...[
+                  _overlay(
+                    SizedBox(
+                      width: double.infinity,
+                      child: AnimatedBuilder(
                         animation: _animationController,
-                        builder: (context, _) => _currentSpeed == null
-                            ? const SizedBox.shrink()
-                            : _SpeedBadge(
-                                value: _formatSpeed(_currentSpeed, isMetric),
-                              ),
-                      ),
-                      const SizedBox(width: 8),
-                      Tooltip(
-                        message: 'Switch units',
-                        child: _SpeedChip(
-                          label: isMetric ? 'km/h · m' : 'kts · ft',
-                          selected: false,
-                          onTap: () => ref
-                              .read(unitProvider.notifier)
-                              .setUnit(
-                                isMetric
-                                    ? MeasurementUnit.knots
-                                    : MeasurementUnit.metric,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // The top-left corner of the map is under the top bar.
-                const Padding(
-                  padding: EdgeInsets.only(left: 8, top: 4),
-                  child: MapAttributionLabel(),
-                ),
-                if (provider != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 4),
-                    child: Text(
-                      provider.attribution,
-                      style: TextStyle(
-                        color: context.appColors.onOverlay.withValues(
-                          alpha: 0.7,
-                        ),
-                        fontSize: 10,
+                        builder: (context, _) {
+                          final elapsed =
+                              _trackDuration * _animationController.value;
+                          return _ReplayControlPanel(
+                            progress: _animationController.value,
+                            elapsed: elapsed,
+                            remaining: _trackDuration - elapsed,
+                            altitude: _formatAltitude(
+                              _currentAltitude,
+                              isMetric,
+                            ),
+                            speed: _formatSpeed(_currentSpeed, isMetric),
+                            isPlaying: _animationController.isAnimating,
+                            playbackSpeed: _speed,
+                            units: isMetric ? 'Metric' : 'kts · ft',
+                            onSeek: _onSliderChanged,
+                            onTogglePlayback: _togglePlayback,
+                            onPickSpeed: _pickSpeed,
+                            onPickUnits: _pickUnits,
+                          );
+                        },
                       ),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                ],
+                const MapAttributionLabel(),
+                if (provider != null)
+                  Text(
+                    provider.attribution,
+                    textAlign: TextAlign.end,
+                    style: mapCreditStyle(context),
+                  ),
               ],
-            ),
-          ),
-
-          // Bottom gradient overlay (static)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 260 + padding.bottom,
-            child: _ScrimGradient(
-              colors: [
-                overlay.withValues(alpha: 0),
-                overlay.withValues(alpha: 0.5),
-                overlay.withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-
-          // Control panel - animated
-          Positioned(
-            bottom: padding.bottom + 16,
-            left: 16,
-            right: 16,
-            child: AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, _) {
-                final elapsed = _trackDuration * _animationController.value;
-                return _ReplayControlPanel(
-                  progress: _animationController.value,
-                  elapsed: elapsed,
-                  remaining: _trackDuration - elapsed,
-                  altitude: _formatAltitude(_currentAltitude, isMetric),
-                  speed: _formatSpeed(_currentSpeed, isMetric),
-                  isPlaying: _animationController.isAnimating,
-                  playbackSpeed: _speed,
-                  playbackSpeeds: _speeds,
-                  onSeek: _onSliderChanged,
-                  onTogglePlayback: _togglePlayback,
-                  onPlaybackSpeedChanged: _setSpeed,
-                );
-              },
             ),
           ),
 
           // Empty state for insufficient data
-          if (_pathPoints.length < 2)
-            _ReplayEmptyState(
-              message: _pathPoints.isEmpty
-                  ? 'No flight data available'
-                  : 'Not enough points to replay',
-            ),
+          if (_extent.isEmpty)
+            const _ReplayEmptyState(message: 'No flight data available'),
         ],
       ),
     );
@@ -505,98 +592,51 @@ class _ScrimGradient extends StatelessWidget {
 }
 
 class _ReplayTopBar extends StatelessWidget {
-  const _ReplayTopBar({
-    required this.title,
-    required this.pointsCount,
-    required this.speedBadge,
-  });
+  const _ReplayTopBar({required this.title, required this.pointsCount});
 
   final String title;
   final int pointsCount;
-  final Widget speedBadge;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.appColors;
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            IconButton(
-              icon: Icon(Icons.arrow_back, color: colors.onOverlay),
-              onPressed: () => Navigator.pop(context),
-              style: IconButton.styleFrom(
-                backgroundColor: colors.overlay.withValues(alpha: 0.26),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: colors.onOverlay,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$pointsCount data points',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onOverlay.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            speedBadge,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SpeedBadge extends StatelessWidget {
-  const _SpeedBadge({required this.value});
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: colors.overlay.withValues(alpha: 0.26),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
         children: [
-          Text(
-            'SPD',
-            style: TextStyle(
-              color: colors.onOverlay.withValues(alpha: 0.54),
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+          IconButton(
+            icon: Icon(Icons.arrow_back, color: colors.onOverlay),
+            onPressed: () => Navigator.pop(context),
+            style: IconButton.styleFrom(
+              backgroundColor: colors.overlay.withValues(alpha: 0.26),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              color: colors.onOverlay,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colors.onOverlay,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$pointsCount data points',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onOverlay.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -674,10 +714,11 @@ class _ReplayControlPanel extends StatelessWidget {
     required this.speed,
     required this.isPlaying,
     required this.playbackSpeed,
-    required this.playbackSpeeds,
+    required this.units,
     required this.onSeek,
     required this.onTogglePlayback,
-    required this.onPlaybackSpeedChanged,
+    required this.onPickSpeed,
+    required this.onPickUnits,
   });
 
   final double progress;
@@ -687,10 +728,11 @@ class _ReplayControlPanel extends StatelessWidget {
   final String speed;
   final bool isPlaying;
   final double playbackSpeed;
-  final List<double> playbackSpeeds;
+  final String units;
   final ValueChanged<double> onSeek;
   final VoidCallback onTogglePlayback;
-  final ValueChanged<double> onPlaybackSpeedChanged;
+  final VoidCallback onPickSpeed;
+  final VoidCallback onPickUnits;
 
   @override
   Widget build(BuildContext context) {
@@ -756,8 +798,17 @@ class _ReplayControlPanel extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Both halves alike, so the two selectors are as wide.
+                  Expanded(
+                    child: _OverlaySelect(
+                      tooltip: 'Replay speed',
+                      icon: Icons.fast_forward_rounded,
+                      label: '${playbackSpeed.toInt()}x',
+                      onTap: onPickSpeed,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
                   SizedBox(
                     width: 48,
                     height: 48,
@@ -778,16 +829,15 @@ class _ReplayControlPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  for (final s in playbackSpeeds)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: _SpeedChip(
-                        label: '${s.toInt()}x',
-                        selected: playbackSpeed == s,
-                        onTap: () => onPlaybackSpeedChanged(s),
-                      ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _OverlaySelect(
+                      tooltip: 'Units',
+                      icon: Icons.straighten_rounded,
+                      label: units,
+                      onTap: onPickUnits,
                     ),
+                  ),
                 ],
               ),
             ],
@@ -867,41 +917,123 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-class _SpeedChip extends StatelessWidget {
-  const _SpeedChip({
+/// A value on the replay's control panel that opens a picker when tapped.
+class _OverlaySelect extends StatelessWidget {
+  const _OverlaySelect({
+    required this.tooltip,
+    required this.icon,
     required this.label,
-    required this.selected,
     required this.onTap,
   });
+  final String tooltip;
+  final IconData icon;
   final String label;
-  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final onOverlay = context.appColors.onOverlay;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? cs.primary : onOverlay.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? cs.primary : onOverlay.withValues(alpha: 0.12),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? cs.onPrimary : onOverlay.withValues(alpha: 0.6),
-            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-            fontSize: 13,
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: BorderSide(color: onOverlay.withValues(alpha: 0.12)),
+    );
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: onOverlay.withValues(alpha: 0.08),
+        shape: shape,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: shape,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: onOverlay.withValues(alpha: 0.6)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: onOverlay,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_drop_down,
+                  size: 20,
+                  color: onOverlay.withValues(alpha: 0.6),
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Asks for a replay speed of the pilot's own.
+class _CustomSpeedDialog extends StatefulWidget {
+  const _CustomSpeedDialog({required this.initial});
+  final int? initial;
+
+  @override
+  State<_CustomSpeedDialog> createState() => _CustomSpeedDialogState();
+}
+
+class _CustomSpeedDialogState extends State<_CustomSpeedDialog> {
+  late final _controller = TextEditingController(
+    text: widget.initial?.toString() ?? '',
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    const min = CustomReplaySpeedNotifier.min;
+    const max = CustomReplaySpeedNotifier.max;
+    final value = int.tryParse(_controller.text.trim());
+    if (value == null || value < min || value > max) {
+      setState(() => _error = 'Between $min and $max');
+      return;
+    }
+    Navigator.pop(context, value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Custom Speed'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          labelText: 'Times faster than the flight',
+          suffixText: 'x',
+          errorText: _error,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
+      ],
     );
   }
 }

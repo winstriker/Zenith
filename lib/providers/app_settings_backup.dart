@@ -6,6 +6,7 @@ import 'backup_providers.dart';
 import 'currency_settings_provider.dart';
 import 'map_provider.dart';
 import 'provider_toggles.dart';
+import 'replay_speed_provider.dart';
 import 'theme_provider.dart';
 import 'unit_provider.dart';
 import 'update_providers.dart';
@@ -35,6 +36,8 @@ class AppSettingsBackup {
     ThemeNotifier.prefsKey: _Kind.int,
     UnitNotifier.prefsKey: _Kind.int,
     MapSourceNotifier.prefsKey: _Kind.string,
+    CustomReplaySpeedNotifier.prefsKey: _Kind.int,
+    LastReplaySpeed.prefsKey: _Kind.int,
     // Licence reminders.
     CurrencySettingsNotifier.enabledKey: _Kind.bool,
     CurrencySettingsNotifier.leadsKey: _Kind.stringList,
@@ -106,6 +109,7 @@ class AppSettingsBackup {
       ..invalidate(themeProvider)
       ..invalidate(unitProvider)
       ..invalidate(mapSourceProvider)
+      ..invalidate(customReplaySpeedProvider)
       ..invalidate(currencySettingsProvider)
       ..invalidate(disabledTrackProvidersProvider)
       ..invalidate(disabledHexSourcesProvider)

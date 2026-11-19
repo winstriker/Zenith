@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/theme.dart';
 import '../providers/map_provider.dart';
 
 final _osmCopyright = Uri.parse('https://www.openstreetmap.org/copyright');
@@ -16,7 +17,7 @@ class MapAttribution extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Align(
       alignment: Alignment.topLeft,
-      child: MapAttributionLabel(),
+      child: Padding(padding: EdgeInsets.all(4), child: MapAttributionLabel()),
     );
   }
 }
@@ -35,25 +36,22 @@ class MapAttributionLabel extends ConsumerWidget {
       null => null,
     };
     if (text == null) return const SizedBox.shrink();
-    final theme = Theme.of(context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () =>
           launchUrl(_osmCopyright, mode: LaunchMode.externalApplication),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.6,
-          ),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
+      child: Text(text, style: mapCreditStyle(context)),
     );
   }
+}
+
+/// Small, quiet text for the credits drawn over a map (tiles, track source),
+/// shadowed to stay readable on light and dark tiles alike.
+TextStyle mapCreditStyle(BuildContext context) {
+  final colors = context.appColors;
+  return TextStyle(
+    color: colors.onOverlay.withValues(alpha: 0.7),
+    fontSize: 10,
+    shadows: [Shadow(color: colors.overlay, blurRadius: 3)],
+  );
 }
