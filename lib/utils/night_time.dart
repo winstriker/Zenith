@@ -73,7 +73,7 @@ class NightTime {
         final fraction = span <= 0
             ? 1.0
             : time.difference(a.time).inMilliseconds / span;
-        position = _GreatCircle(_point(a), _point(b)).at(fraction);
+        position = GreatCircle(_point(a), _point(b)).at(fraction);
       }
       if (isNight(time, position)) nightSeconds += end - start;
     }
@@ -133,8 +133,8 @@ class NightTime {
 }
 
 /// Positions along the great circle from one point to another.
-class _GreatCircle {
-  _GreatCircle(GeoPoint from, GeoPoint to)
+class GreatCircle {
+  GreatCircle(GeoPoint from, GeoPoint to)
     : _a = _vector(from),
       _b = _vector(to) {
     final dot = (_a[0] * _b[0] + _a[1] * _b[1] + _a[2] * _b[2]).clamp(

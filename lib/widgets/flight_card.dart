@@ -18,8 +18,12 @@ class FlightCard extends StatelessWidget {
     this.onLongPress,
     this.useOuterPadding = true,
     this.totalTimeOverride,
+    this.onAirportTap,
   });
   final FlightWithStats flight;
+
+  /// Called with the departure or arrival airport when its column is tapped.
+  final ValueChanged<Airport>? onAirportTap;
 
   /// Shown instead of the block time, marked as overridden, when the pilot
   /// overrode the total time for the logbook (the FSTD time of a simulator
@@ -72,6 +76,7 @@ class FlightCard extends StatelessWidget {
                 Expanded(
                   child: _FlightEndpoint(
                     airport: flight.departure,
+                    onTap: onAirportTap,
                     localTime: depLocal,
                     alignEnd: false,
                   ),
@@ -86,6 +91,7 @@ class FlightCard extends StatelessWidget {
                 Expanded(
                   child: _FlightEndpoint(
                     airport: flight.arrival,
+                    onTap: onAirportTap,
                     localTime: arrLocal ?? depLocal,
                     alignEnd: true,
                   ),
@@ -105,9 +111,11 @@ class _FlightEndpoint extends StatelessWidget {
     required this.airport,
     required this.localTime,
     required this.alignEnd,
+    this.onTap,
   });
 
   final Airport? airport;
+  final ValueChanged<Airport>? onTap;
   final tz.TZDateTime localTime;
   final bool alignEnd;
 
@@ -143,7 +151,7 @@ class _FlightEndpoint extends StatelessWidget {
           )
         : null;
 
-    return Column(
+    final column = Column(
       crossAxisAlignment: alignEnd
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
@@ -203,6 +211,13 @@ class _FlightEndpoint extends StatelessWidget {
           ),
         ],
       ],
+    );
+    final a = airport;
+    if (a == null || onTap == null) return column;
+    return InkWell(
+      onTap: () => onTap!(a),
+      borderRadius: BorderRadius.circular(8),
+      child: column,
     );
   }
 }

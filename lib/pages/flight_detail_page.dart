@@ -9,7 +9,6 @@ import 'package:latlong2/latlong.dart';
 
 import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
-import '../core/theme.dart';
 import '../models/flight_track.dart';
 import '../models/logbook_entry.dart';
 import '../providers/adsb_providers.dart';
@@ -24,6 +23,7 @@ import '../widgets/aircraft_card.dart';
 import '../widgets/base_map_layer.dart';
 import '../widgets/crew_card.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/flight_route_layer.dart';
 import '../widgets/flight_rules_card.dart';
 import '../widgets/info_row.dart';
 import '../widgets/landings_card.dart';
@@ -34,6 +34,8 @@ import '../widgets/section_header.dart';
 import '../widgets/simulator_card.dart';
 import '../widgets/speed_dial_fab.dart';
 import 'adsb_track_page.dart';
+import 'aircraft_detail_page.dart';
+import 'airport_detail_page.dart';
 import 'flight_form_page.dart';
 import 'logbook_overrides_page.dart';
 import 'person_detail_page.dart';
@@ -102,6 +104,11 @@ class _FlightDetailView extends ConsumerWidget {
             .flight
             .logbookOverrides
             ?.times[isSession ? LogbookTimeField.fstd : LogbookTimeField.total],
+        onAirportTap: (airport) => Navigator.of(context).push(
+          AppPageRoute<void>(
+            builder: (_) => AirportDetailPage(airportId: airport.id),
+          ),
+        ),
       ),
       const SizedBox(height: 12),
       if (isSession)
@@ -121,6 +128,14 @@ class _FlightDetailView extends ConsumerWidget {
         AircraftCard(
           aircraft: flight.aircraftWithStats,
           useOuterPadding: false,
+          onTap: switch (flight.aircraftWithStats) {
+            final aircraft? => () => Navigator.of(context).push(
+              AppPageRoute<void>(
+                builder: (_) => AircraftDetailPage(aircraftId: aircraft.id),
+              ),
+            ),
+            null => null,
+          },
         ),
       // A flight the app recorded has none of these until it is edited.
       if (approachType != null) ...[
@@ -388,12 +403,6 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     for (final p in flight.dataPoints) LatLng(p.latitude, p.longitude),
   ];
 
-  static LatLng? _position(Airport? airport) {
-    final lat = airport?.latitudeDeg;
-    final lon = airport?.longitudeDeg;
-    return lat == null || lon == null ? null : LatLng(lat, lon);
-  }
-
   @override
   void didUpdateWidget(_FlightMapCard old) {
     super.didUpdateWidget(old);
@@ -401,8 +410,9 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     // fetched or removed.
     if (!identical(old.flight.dataPoints, widget.flight.dataPoints)) {
       _path = _pathOf(widget.flight);
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fitMapBounds());
     }
+    // The map can't be moved: it follows the flight, airports edited too.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitMapBounds());
   }
 
   @override
@@ -411,18 +421,9 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     super.dispose();
   }
 
-  /// Everything the map should show: the track when there is one, the
-  /// airports otherwise.
-  List<LatLng> get _extent => _path.length >= 2
-      ? _path
-      : [
-          ?_position(widget.flight.departure),
-          ?_position(widget.flight.arrival),
-        ];
-
   void _fitMapBounds() {
     if (!_mapReady || !mounted) return;
-    final extent = _extent;
+    final extent = FlightRouteLayer.extent(widget.flight, _path);
     if (extent.isEmpty) return;
     final bounds = LatLngBounds.fromPoints(extent);
     if (bounds.southWest == bounds.northEast) {
@@ -451,14 +452,10 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
     final flight = widget.flight;
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final hasTrack = _path.length >= 2;
-    // A recorded flight may have no airports: its track still has two ends.
-    final start =
-        _position(flight.departure) ?? (hasTrack ? _path.first : null);
-    final end = _position(flight.arrival) ?? (hasTrack ? _path.last : null);
+    final extent = FlightRouteLayer.extent(flight, _path);
 
     final Widget content;
-    if (start == null) {
+    if (extent.isEmpty) {
       content = Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -482,10 +479,13 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
       content = FlutterMap(
         mapController: _mapController,
         options: MapOptions(
-          initialCenter: start,
+          initialCenter: extent.first,
           initialZoom: 10.0,
           interactionOptions: const InteractionOptions(
-            flags: InteractiveFlag.all & ~InteractiveFlag.doubleTapZoom,
+            flags: InteractiveFlag.none,
+          ),
+          onTap: (_, _) => Navigator.of(context).push(
+            AppPageRoute<void>(builder: (_) => ReplayPage(flight: flight)),
           ),
           onMapReady: () {
             _mapReady = true;
@@ -495,51 +495,13 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
         children: [
           const BaseMapLayer(),
           const MapAttribution(),
-          // The track flown, or a straight line between the airports.
-          if (hasTrack)
+          if (_path.length >= 2)
             PolylineLayer(
               polylines: [
                 Polyline(points: _path, strokeWidth: 3, color: cs.primary),
               ],
-            )
-          else if (end != null)
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: [start, end],
-                  strokeWidth: 3,
-                  color: cs.primary,
-                ),
-              ],
             ),
-          // Departure / Arrival markers
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: start,
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                child: _RouteMarker(
-                  icon: Icons.flight_takeoff,
-                  color: cs.primary,
-                  foreground: cs.onPrimary,
-                ),
-              ),
-              if (end != null)
-                Marker(
-                  point: end,
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  child: _RouteMarker(
-                    icon: Icons.flight_land,
-                    color: cs.error,
-                    foreground: cs.onError,
-                  ),
-                ),
-            ],
-          ),
+          FlightRouteLayer(flight: flight, path: _path),
         ],
       );
     }
@@ -549,38 +511,6 @@ class _FlightMapCardState extends ConsumerState<_FlightMapCard> {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(height: _mapHeight, child: content),
-    );
-  }
-}
-
-class _RouteMarker extends StatelessWidget {
-  const _RouteMarker({
-    required this.icon,
-    required this.color,
-    required this.foreground,
-  });
-
-  final IconData icon;
-  final Color color;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.appColors;
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: colors.onOverlay, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Icon(icon, size: 12, color: foreground),
     );
   }
 }
