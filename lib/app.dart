@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 
 import 'core/app_page_route.dart';
 import 'core/theme.dart';
@@ -32,7 +31,7 @@ class LogbookApp extends ConsumerStatefulWidget {
 }
 
 class _LogbookAppState extends ConsumerState<LogbookApp> {
-  bool _checkingPermission = true;
+  // Only flips when the intro grants location access, to rebuild home.
   bool _permissionGranted = false;
   late final AppLifecycleListener _lifecycle;
   final _navigatorKey = GlobalKey<NavigatorState>();
@@ -41,7 +40,6 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   @override
   void initState() {
     super.initState();
-    _checkLocationPermission();
     // Automatic backups run shortly after launch and whenever the app comes
     // back to the foreground; the controller skips them if none is due.
     _lifecycle = AppLifecycleListener(onResume: _runAutomaticBackups);
@@ -86,17 +84,6 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     setState(() => _permissionGranted = true);
   }
 
-  Future<void> _checkLocationPermission() async {
-    final status = await Geolocator.checkPermission();
-    if (!mounted) return;
-    setState(() {
-      _permissionGranted =
-          status == LocationPermission.always ||
-          status == LocationPermission.whileInUse;
-      _checkingPermission = false;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
@@ -127,9 +114,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
       // once location permission is granted.
       home: KeyedSubtree(
         key: ValueKey(_permissionGranted),
-        child: _checkingPermission
-            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-            : needsIntro
+        child: needsIntro
             ? IntroPage(onPermissionGranted: _onPermissionGranted)
             : const _MainShell(),
       ),

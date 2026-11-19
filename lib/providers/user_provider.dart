@@ -1,21 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'shared_preferences_provider.dart';
+
 class UserNicknameNotifier extends Notifier<String?> {
   static const prefsKey = 'user_nickname';
 
   @override
   String? build() {
-    _loadNickname();
-    return null;
-  }
-
-  Future<void> _loadNickname() async {
-    final prefs = await SharedPreferences.getInstance();
-    final nickname = prefs.getString(prefsKey);
-    if (nickname != null && nickname.isNotEmpty) {
-      state = nickname;
-    }
+    final nickname = ref.read(sharedPreferencesProvider).getString(prefsKey);
+    return nickname == null || nickname.isEmpty ? null : nickname;
   }
 
   Future<void> setNickname(String nickname) async {
@@ -34,16 +28,8 @@ class UserSignatureNameNotifier extends Notifier<String?> {
 
   @override
   String? build() {
-    _loadSignatureName();
-    return null;
-  }
-
-  Future<void> _loadSignatureName() async {
-    final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString(prefsKey);
-    if (name != null && name.isNotEmpty) {
-      state = name;
-    }
+    final name = ref.read(sharedPreferencesProvider).getString(prefsKey);
+    return name == null || name.isEmpty ? null : name;
   }
 
   Future<void> setSignatureName(String name) async {
@@ -62,15 +48,7 @@ class OnboardingCompleteNotifier extends Notifier<bool> {
   static const _key = 'onboarding_complete';
 
   @override
-  bool build() {
-    _loadComplete();
-    return false;
-  }
-
-  Future<void> _loadComplete() async {
-    final prefs = await SharedPreferences.getInstance();
-    state = prefs.getBool(_key) ?? false;
-  }
+  bool build() => ref.read(sharedPreferencesProvider).getBool(_key) ?? false;
 
   Future<void> setComplete() async {
     state = true;
