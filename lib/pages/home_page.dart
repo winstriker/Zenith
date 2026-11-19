@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/gps_tracking_provider.dart';
-import '../providers/home_header_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/user_provider.dart';
 import '../repositories/pilot_profile_repository.dart';
@@ -18,6 +15,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/hiding_chrome.dart';
 import '../widgets/load_more.dart';
+import '../widgets/page_header.dart';
 import '../widgets/pulsing_dot.dart';
 import '../widgets/simulator_card.dart';
 import '../widgets/speed_dial_fab.dart';
@@ -26,7 +24,6 @@ import 'aircrafts_page.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
 import 'flights_page.dart';
-import 'image_crop_page.dart';
 import 'recording_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -78,10 +75,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       floatingActionButton: const HidingFabs(child: _HomeFabs()),
-      body: _StatusBarScrim(
-        controller: _scroll,
-        // Fades in as the header's bottom edge reaches the status bar.
-        showFrom: _HomeHeader._expandedHeight,
+      body: StatusBarScrim(
         child: HideChromeOnScroll(
           child: LoadMoreScrollView(
             controller: _scroll,
@@ -91,7 +85,17 @@ class _HomePageState extends ConsumerState<HomePage> {
             builder: (context, controller) => CustomScrollView(
               controller: controller,
               slivers: [
-                _HomeHeader(nickname: nickname),
+                PageHeader(
+                  nickname ?? 'Pilot',
+                  tab: MainTab.home,
+                  overline: 'Welcome back,',
+                  motif: (size, color) => Image.asset(
+                    'assets/images/zenith_logo.png',
+                    width: size,
+                    height: size,
+                    color: color,
+                  ),
+                ),
                 if (isRecording)
                   const SliverToBoxAdapter(child: _RecordingBanner()),
                 SliverToBoxAdapter(
@@ -182,83 +186,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 }
 
-/// Once the header has scrolled away, covers the status bar with the page
-/// background, so the flights don't scroll under the clock and icons.
-/// Fades in over the last few pixels before [controller] reaches
-/// [showFrom].
-class _StatusBarScrim extends StatelessWidget {
-  const _StatusBarScrim({
-    required this.controller,
-    required this.showFrom,
-    required this.child,
-  });
-
-  final ScrollController controller;
-  final double showFrom;
-  final Widget child;
-
-  static const _fadeDistance = 24.0;
-
-  /// Soft edge under the status bar, so cards fade out rather than being
-  /// cut by a line.
-  static const _edge = 16.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final background = theme.scaffoldBackgroundColor;
-    final top = MediaQuery.paddingOf(context).top;
-    final dark = theme.brightness == Brightness.dark;
-    final overlay = dark
-        ? SystemUiOverlayStyle.light
-        : SystemUiOverlayStyle.dark;
-
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: top + _edge,
-          child: IgnorePointer(
-            child: ListenableBuilder(
-              listenable: controller,
-              builder: (context, scrim) {
-                final offset = controller.hasClients ? controller.offset : 0.0;
-                final t =
-                    ((offset - (showFrom - _fadeDistance)) / _fadeDistance)
-                        .clamp(0.0, 1.0);
-                // Status bar icons for the page, once the header (which
-                // sets them for itself) is gone.
-                return AnnotatedRegion<SystemUiOverlayStyle>(
-                  value: overlay.copyWith(statusBarColor: Colors.transparent),
-                  sized: false,
-                  child: Opacity(opacity: t, child: scrim),
-                );
-              },
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      background,
-                      background,
-                      background.withValues(alpha: 0),
-                    ],
-                    stops: [0, top / (top + _edge), 1],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 void _openFlights(BuildContext context) {
   Navigator.push(
     context,
@@ -335,191 +262,6 @@ class _HomeFabs extends StatelessWidget {
       onPrimaryPressed: () => Navigator.push(
         context,
         AppPageRoute<void>(builder: (_) => const FlightFormPage()),
-      ),
-    );
-  }
-}
-
-enum _HeaderImageAction { gallery, camera, remove }
-
-/// The welcome banner. Shows the picture the user picked, if any, faded into
-/// the page towards the bottom so the greeting reads on any picture;
-/// otherwise a gradient of the theme colors.
-class _HomeHeader extends ConsumerWidget {
-  const _HomeHeader({required this.nickname});
-  final String? nickname;
-
-  static const _expandedHeight = 200.0;
-
-  Future<void> _changeImage(
-    BuildContext context,
-    WidgetRef ref, {
-    required bool hasImage,
-  }) async {
-    final action = await showModalBottomSheet<_HeaderImageAction>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(ctx, _HeaderImageAction.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take a photo'),
-              onTap: () => Navigator.pop(ctx, _HeaderImageAction.camera),
-            ),
-            if (hasImage)
-              ListTile(
-                leading: Icon(
-                  Icons.delete_outline,
-                  color: Theme.of(ctx).colorScheme.error,
-                ),
-                title: Text(
-                  'Remove image',
-                  style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-                ),
-                onTap: () => Navigator.pop(ctx, _HeaderImageAction.remove),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (action == null || !context.mounted) return;
-    final notifier = ref.read(homeHeaderImageProvider.notifier);
-    if (action == _HeaderImageAction.remove) {
-      await notifier.remove();
-      return;
-    }
-    // Framed like the expanded header, status bar included.
-    final width = MediaQuery.sizeOf(context).width;
-    final height = _expandedHeight + MediaQuery.paddingOf(context).top;
-    final cropped = await pickAndCropImage(
-      context,
-      source: action == _HeaderImageAction.gallery
-          ? ImageSource.gallery
-          : ImageSource.camera,
-      spec: CropSpec(
-        title: 'Crop header image',
-        aspectRatio: width / height,
-        outputWidth: 1440,
-        jpegQuality: 85,
-      ),
-    );
-    if (cropped == null) return;
-    await notifier.set(cropped);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final image = ref.watch(homeHeaderImageProvider);
-    final hasImage = image != null;
-    final background = theme.scaffoldBackgroundColor;
-    // The text sits on the faded page background, picture or not.
-    final foreground = cs.onSurface;
-
-    return SliverAppBar(
-      expandedHeight: _expandedHeight,
-      // Scrolls away entirely; _StatusBarScrim takes over the status bar.
-      flexibleSpace: FlexibleSpaceBar(
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (image != null)
-              Image.file(
-                image,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => ColoredBox(color: background),
-              )
-            else ...[
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      cs.primary,
-                      cs.primary.withValues(alpha: 0.8),
-                      cs.secondary,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: -40,
-                top: -40,
-                child: Icon(
-                  Icons.flight,
-                  size: 180,
-                  color: cs.onPrimary.withValues(alpha: 0.1),
-                ),
-              ),
-              Positioned(
-                left: -20,
-                bottom: -20,
-                child: Icon(
-                  Icons.flight,
-                  size: 120,
-                  color: cs.onPrimary.withValues(alpha: 0.08),
-                ),
-              ),
-            ],
-            // Fades from the page background at the bottom to mostly the
-            // picture (or colors) at the top, like Saikou's home banner.
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [background, background.withValues(alpha: 0.24)],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 60, 56, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'Welcome back,',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: foreground.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    nickname ?? 'Pilot',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              right: 8,
-              bottom: 8,
-              child: IconButton(
-                tooltip: hasImage ? 'Change header image' : 'Add header image',
-                iconSize: 20,
-                visualDensity: VisualDensity.compact,
-                style: IconButton.styleFrom(
-                  foregroundColor: foreground,
-                  backgroundColor: foreground.withValues(alpha: 0.12),
-                ),
-                onPressed: () => _changeImage(context, ref, hasImage: hasImage),
-                icon: const Icon(Icons.photo_camera_outlined),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

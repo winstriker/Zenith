@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_page_route.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
+import '../providers/navigation_provider.dart';
 import '../repositories/flight_repository.dart';
 import '../widgets/page_header.dart';
 import 'adsb_settings_page.dart';
@@ -92,130 +93,136 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final currencySettings = ref.watch(currencySettingsProvider);
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          const PageHeader('Settings'),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              8 + MediaQuery.paddingOf(context).bottom,
+      body: StatusBarScrim(
+        child: CustomScrollView(
+          slivers: [
+            PageHeader(
+              'Settings',
+              tab: MainTab.settings,
+              motif: iconMotif(Icons.settings),
             ),
-            sliver: SliverList.list(
-              children: [
-                Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      for (final (i, tile) in <Widget>[
-                        _tile(
-                          Icons.account_circle_outlined,
-                          'Personal Data',
-                          null,
-                          () => _open(const PersonalDataPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.palette_outlined,
-                          'Theme',
-                          null,
-                          () => _open(const ThemeSettingsPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.file_download_outlined,
-                          'Export Data',
-                          null,
-                          () => _open(const ExportPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.radar,
-                          'ADS-B Providers',
-                          null,
-                          () => _open(const AdsbSettingsPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.photo_library_outlined,
-                          'Photo Providers',
-                          null,
-                          () => _open(const PhotoSettingsPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.map_outlined,
-                          'Map',
-                          null,
-                          () => _open(const MapSettingsPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.people_outline,
-                          'People',
-                          null,
-                          () => _open(const PeoplePage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.backup_outlined,
-                          'Backup Settings',
-                          null,
-                          () => _open(const BackupSettingsPage()),
-                          null,
-                        ),
-                        _tile(
-                          currencySettings.notificationsEnabled
-                              ? Icons.notifications_active_outlined
-                              : Icons.notifications_off_outlined,
-                          'Expiry Reminders',
-                          null,
-                          () => _open(const CurrencySettingsPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.update,
-                          'Updates',
-                          null,
-                          () => _open(const UpdatesPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.airplanemode_active,
-                          'Aircraft Types',
-                          null,
-                          () => _open(const AircraftTypesPage()),
-                          null,
-                        ),
-                        _tile(
-                          Icons.delete_forever,
-                          'Delete All Flights',
-                          null,
-                          _clearAllFlights,
-                          theme.colorScheme.error,
-                        ),
-                      ].indexed) ...[
-                        if (i > 0) const Divider(height: 1, indent: 16),
-                        tile,
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                8 + MediaQuery.paddingOf(context).bottom,
+              ),
+              sliver: SliverList.list(
+                children: [
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        for (final (i, tile) in <Widget>[
+                          _tile(
+                            Icons.account_circle_outlined,
+                            'Personal Data',
+                            null,
+                            () => _open(const PersonalDataPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.palette_outlined,
+                            'Theme',
+                            null,
+                            () => _open(const ThemeSettingsPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.file_download_outlined,
+                            'Export Data',
+                            null,
+                            () => _open(const ExportPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.radar,
+                            'ADS-B Providers',
+                            null,
+                            () => _open(const AdsbSettingsPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.photo_library_outlined,
+                            'Photo Providers',
+                            null,
+                            () => _open(const PhotoSettingsPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.map_outlined,
+                            'Map',
+                            null,
+                            () => _open(const MapSettingsPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.people_outline,
+                            'People',
+                            null,
+                            () => _open(const PeoplePage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.backup_outlined,
+                            'Backup Settings',
+                            null,
+                            () => _open(const BackupSettingsPage()),
+                            null,
+                          ),
+                          _tile(
+                            currencySettings.notificationsEnabled
+                                ? Icons.notifications_active_outlined
+                                : Icons.notifications_off_outlined,
+                            'Expiry Reminders',
+                            null,
+                            () => _open(const CurrencySettingsPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.update,
+                            'Updates',
+                            null,
+                            () => _open(const UpdatesPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.airplanemode_active,
+                            'Aircraft Types',
+                            null,
+                            () => _open(const AircraftTypesPage()),
+                            null,
+                          ),
+                          _tile(
+                            Icons.delete_forever,
+                            'Delete All Flights',
+                            null,
+                            _clearAllFlights,
+                            theme.colorScheme.error,
+                          ),
+                        ].indexed) ...[
+                          if (i > 0) const Divider(height: 1, indent: 16),
+                          tile,
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                Center(
-                  child: Text(
-                    'Zenith v$appBuildName',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-                const SizedBox(height: 80),
-              ],
+                  const SizedBox(height: 32),
+                  Center(
+                    child: Text(
+                      'Zenith v$appBuildName',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 80),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

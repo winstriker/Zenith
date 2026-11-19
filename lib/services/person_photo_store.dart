@@ -62,10 +62,10 @@ class AircraftPhotoStore extends PhotoStore {
     : super(root, 'aircraft_photos');
 }
 
-/// The picture behind the home page header, in `<app support>/home_header/`.
-class HomeHeaderImageStore extends PhotoStore {
-  HomeHeaderImageStore(Future<Directory> Function() root)
-    : super(root, 'home_header');
+/// The pictures behind the tabs' headers, in `<app support>/header_images/`.
+class HeaderImageStore extends PhotoStore {
+  HeaderImageStore(Future<Directory> Function() root)
+    : super(root, 'header_images');
 }
 
 final personPhotoStoreProvider = Provider<PersonPhotoStore>((ref) {
@@ -96,6 +96,6 @@ final signatureDirectoryProvider = FutureProvider<Directory>((ref) {
   return ref.watch(signatureStoreProvider).directory;
 });
 
-final homeHeaderImageStoreProvider = Provider<HomeHeaderImageStore>((ref) {
-  return HomeHeaderImageStore(getApplicationSupportDirectory);
+final headerImageStoreProvider = Provider<HeaderImageStore>((ref) {
+  return HeaderImageStore(getApplicationSupportDirectory);
 });

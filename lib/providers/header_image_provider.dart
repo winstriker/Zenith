@@ -4,13 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/person_photo_store.dart';
+import 'navigation_provider.dart';
 
-/// The picture the user put behind the home page header; null for the
-/// default gradient. Only its file name is kept in the preferences.
-class HomeHeaderImageNotifier extends Notifier<File?> {
-  static const _key = 'home_header_image';
+/// The picture the user put behind a tab's header; null for the default
+/// gradient. Only its file name is kept in the preferences.
+class HeaderImageNotifier extends Notifier<File?> {
+  HeaderImageNotifier(this.tab);
+  final MainTab tab;
 
-  HomeHeaderImageStore get _store => ref.read(homeHeaderImageStoreProvider);
+  String get _key => 'header_image_${tab.name}';
+
+  HeaderImageStore get _store => ref.read(headerImageStoreProvider);
 
   @override
   File? build() {
@@ -46,7 +50,7 @@ class HomeHeaderImageNotifier extends Notifier<File?> {
   }
 }
 
-final homeHeaderImageProvider =
-    NotifierProvider<HomeHeaderImageNotifier, File?>(
-      HomeHeaderImageNotifier.new,
+final headerImageProvider =
+    NotifierProvider.family<HeaderImageNotifier, File?, MainTab>(
+      HeaderImageNotifier.new,
     );

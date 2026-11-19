@@ -5,6 +5,7 @@ import '../core/app_page_route.dart';
 import '../models/currency.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/licence_providers.dart';
+import '../providers/navigation_provider.dart';
 import '../services/database.dart';
 import '../widgets/currency_widgets.dart';
 import '../widgets/empty_state.dart';
@@ -31,52 +32,56 @@ class LicencesPage extends ConsumerWidget {
 
     return Scaffold(
       floatingActionButton: const _LicencesFabs(),
-      body: CustomScrollView(
-        slivers: [
-          PageHeader(
-            'Licences',
-            trailing: IconButton(
-              tooltip: 'Reminders',
-              icon: const Icon(Icons.notifications_outlined),
-              onPressed: () => Navigator.push(
-                context,
-                AppPageRoute<void>(
-                  builder: (_) => const CurrencySettingsPage(),
+      body: StatusBarScrim(
+        child: CustomScrollView(
+          slivers: [
+            PageHeader(
+              'Licences',
+              tab: MainTab.licences,
+              motif: iconMotif(Icons.badge),
+              trailing: IconButton(
+                tooltip: 'Reminders',
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () => Navigator.push(
+                  context,
+                  AppPageRoute<void>(
+                    builder: (_) => const CurrencySettingsPage(),
+                  ),
                 ),
               ),
             ),
-          ),
-          switch ((licences, medicals, items)) {
-            (AsyncError(:final error), _, _) ||
-            (_, AsyncError(:final error), _) ||
-            (_, _, AsyncError(:final error)) => SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(child: Text('Error: $error')),
-            ),
-            (AsyncData(value: final l), AsyncData(value: final m), _)
-                when l.isEmpty && m.isEmpty =>
-              const SliverFillRemaining(
+            switch ((licences, medicals, items)) {
+              (AsyncError(:final error), _, _) ||
+              (_, AsyncError(:final error), _) ||
+              (_, _, AsyncError(:final error)) => SliverFillRemaining(
                 hasScrollBody: false,
-                child: EmptyState(
-                  icon: Icons.badge_outlined,
-                  title: 'No licences yet',
-                  subtitle:
-                      'Add your licences, ratings and medical to see when '
-                      'they expire and whether you are current.',
-                ),
+                child: Center(child: Text('Error: $error')),
               ),
-            (
-              AsyncData(value: final l),
-              AsyncData(value: final m),
-              AsyncData(value: final i),
-            ) =>
-              _LicencesList(licences: l, medicals: m, items: i),
-            _ => const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          },
-        ],
+              (AsyncData(value: final l), AsyncData(value: final m), _)
+                  when l.isEmpty && m.isEmpty =>
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: EmptyState(
+                    icon: Icons.badge_outlined,
+                    title: 'No licences yet',
+                    subtitle:
+                        'Add your licences, ratings and medical to see when '
+                        'they expire and whether you are current.',
+                  ),
+                ),
+              (
+                AsyncData(value: final l),
+                AsyncData(value: final m),
+                AsyncData(value: final i),
+              ) =>
+                _LicencesList(licences: l, medicals: m, items: i),
+              _ => const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            },
+          ],
+        ),
       ),
     );
   }

@@ -223,219 +223,223 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
           onPressed: _addAirport,
         ),
       ),
-      body: HideChromeOnScroll(
-        child: LoadMoreScrollView(
-          controller: _scroll,
-          hasMore: hasMore,
-          loading: loading,
-          onLoadMore: () => setState(() => _limit += loadMorePageSize),
-          builder: (context, controller) => CustomScrollView(
-            controller: controller,
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            slivers: [
-              PageHeader(
-                'Airports',
-                trailing: IconButton(
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Download airport data again',
-                  onPressed: sync.isRunning ? null : _refreshData,
+      body: StatusBarScrim(
+        child: HideChromeOnScroll(
+          child: LoadMoreScrollView(
+            controller: _scroll,
+            hasMore: hasMore,
+            loading: loading,
+            onLoadMore: () => setState(() => _limit += loadMorePageSize),
+            builder: (context, controller) => CustomScrollView(
+              controller: controller,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                PageHeader(
+                  'Airports',
+                  tab: MainTab.airports,
+                  motif: iconMotif(Icons.local_airport),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Download airport data again',
+                    onPressed: sync.isRunning ? null : _refreshData,
+                  ),
                 ),
-              ),
-              if (sync.isRunning || sync.phase == SyncPhase.error)
+                if (sync.isRunning || sync.phase == SyncPhase.error)
+                  SliverToBoxAdapter(
+                    child: SyncBanner(
+                      progress: sync,
+                      onRetry: () =>
+                          ref.read(airportLoadProvider.notifier).refresh(),
+                    ),
+                  ),
                 SliverToBoxAdapter(
-                  child: SyncBanner(
-                    progress: sync,
-                    onRetry: () =>
-                        ref.read(airportLoadProvider.notifier).refresh(),
-                  ),
-                ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: TextField(
-                    controller: _searchController,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: 'Search name, code or city...',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              tooltip: 'Clear',
-                              onPressed: () {
-                                _searchController.clear();
-                                _search('');
-                              },
-                            ),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onChanged: (v) => _search(v.trim()),
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    spacing: 8,
-                    children: [
-                      FilterChip(
-                        avatar: _customOnly
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: TextField(
+                      controller: _searchController,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: 'Search name, code or city...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        suffixIcon: _query.isEmpty
                             ? null
-                            : const Icon(Icons.edit_location_alt_outlined),
-                        label: const Text('My airports'),
-                        selected: _customOnly,
-                        onSelected: (v) => _filter(() => _customOnly = v),
-                      ),
-                      _FilterChoiceChip(
-                        icon: Icons.public,
-                        label: countryName ?? 'Country',
-                        selected: _country != null,
-                        onPressed: countries.isEmpty
-                            ? null
-                            : () => _pickCountry(countries),
-                        onCleared: () => _filter(() => _country = null),
-                      ),
-                      _FilterChoiceChip(
-                        icon: Icons.category_outlined,
-                        label: _type == null
-                            ? 'Type'
-                            : AirportType.getDisplayName(_type!),
-                        selected: _type != null,
-                        onPressed: _pickType,
-                        onCleared: () => _filter(() => _type = null),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (!isFiltering)
-                SliverToBoxAdapter(
-                  child: _NearbyHeader(
-                    nearest: showingNearest,
-                    locating: _nearest && service.isLocating,
-                    onRelocate: _relocate,
-                    onShowNearest: _showNearest,
-                    onShowRecent: () => _filter(() => _nearest = false),
-                  ),
-                )
-              else
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-              ...switch (airports) {
-                null when page.hasError => [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.error_outline,
-                      title: 'Error while loading airports',
-                      action: FilledButton.tonal(
-                        onPressed: () => ref.invalidate(airportsPageProvider),
-                        child: const Text('Retry'),
-                      ),
-                    ),
-                  ),
-                ],
-                null => const [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                ],
-                [] when _customOnly && _query.isEmpty => [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.edit_location_alt_outlined,
-                      title: 'No airports of your own',
-                      subtitle:
-                          'Add an airstrip or a field missing from the '
-                          'airport database, to log flights from it.',
-                      action: FilledButton.tonalIcon(
-                        onPressed: _addAirport,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add airport'),
-                      ),
-                    ),
-                  ),
-                ],
-                [] when isFiltering => [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.search_off,
-                      iconSize: 48,
-                      iconOpacity: 0.4,
-                      title: _query.isEmpty
-                          ? 'No airports match your filters'
-                          : 'No airports match "$_query"',
-                      subtitle: 'Missing one? Add it with "Add airport".',
-                    ),
-                  ),
-                ],
-                [] when !showingNearest => const [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.history,
-                      title: 'No recent airports',
-                      subtitle:
-                          'The airports you fly from and to show up here. '
-                          'Search for one above, or show the nearest.',
-                    ),
-                  ),
-                ],
-                [] => [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.local_airport,
-                      title: 'No airports found',
-                      subtitle: sync.isRunning
-                          ? 'Airport data is still downloading.'
-                          : 'Download the airport data with the refresh '
-                                'button.',
-                    ),
-                  ),
-                ],
-                _ => [
-                  SliverList.builder(
-                    itemCount: airports.length,
-                    itemBuilder: (context, index) {
-                      final item = airports[index];
-                      return AirportCard(
-                        airport: item.airport,
-                        distanceKm: item.distance >= 0 ? item.distance : null,
-                        flightCount: flightCounts[item.airport.id],
-                        onTap: () => Navigator.push(
-                          context,
-                          AppPageRoute<void>(
-                            builder: (_) =>
-                                AirportDetailPage(airportId: item.airport.id),
-                          ),
+                            : IconButton(
+                                icon: const Icon(Icons.clear, size: 20),
+                                tooltip: 'Clear',
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _search('');
+                                },
+                              ),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 12,
                         ),
-                      );
-                    },
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (v) => _search(v.trim()),
+                    ),
                   ),
-                  if (hasMore)
-                    const SliverToBoxAdapter(child: LoadMoreIndicator()),
-                ],
-              },
-              // Clear of the FAB and the navigation bar.
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 88 + MediaQuery.paddingOf(context).bottom,
                 ),
-              ),
-            ],
+                SliverToBoxAdapter(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      spacing: 8,
+                      children: [
+                        FilterChip(
+                          avatar: _customOnly
+                              ? null
+                              : const Icon(Icons.edit_location_alt_outlined),
+                          label: const Text('My airports'),
+                          selected: _customOnly,
+                          onSelected: (v) => _filter(() => _customOnly = v),
+                        ),
+                        _FilterChoiceChip(
+                          icon: Icons.public,
+                          label: countryName ?? 'Country',
+                          selected: _country != null,
+                          onPressed: countries.isEmpty
+                              ? null
+                              : () => _pickCountry(countries),
+                          onCleared: () => _filter(() => _country = null),
+                        ),
+                        _FilterChoiceChip(
+                          icon: Icons.category_outlined,
+                          label: _type == null
+                              ? 'Type'
+                              : AirportType.getDisplayName(_type!),
+                          selected: _type != null,
+                          onPressed: _pickType,
+                          onCleared: () => _filter(() => _type = null),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isFiltering)
+                  SliverToBoxAdapter(
+                    child: _NearbyHeader(
+                      nearest: showingNearest,
+                      locating: _nearest && service.isLocating,
+                      onRelocate: _relocate,
+                      onShowNearest: _showNearest,
+                      onShowRecent: () => _filter(() => _nearest = false),
+                    ),
+                  )
+                else
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                ...switch (airports) {
+                  null when page.hasError => [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.error_outline,
+                        title: 'Error while loading airports',
+                        action: FilledButton.tonal(
+                          onPressed: () => ref.invalidate(airportsPageProvider),
+                          child: const Text('Retry'),
+                        ),
+                      ),
+                    ),
+                  ],
+                  null => const [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ],
+                  [] when _customOnly && _query.isEmpty => [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.edit_location_alt_outlined,
+                        title: 'No airports of your own',
+                        subtitle:
+                            'Add an airstrip or a field missing from the '
+                            'airport database, to log flights from it.',
+                        action: FilledButton.tonalIcon(
+                          onPressed: _addAirport,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add airport'),
+                        ),
+                      ),
+                    ),
+                  ],
+                  [] when isFiltering => [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.search_off,
+                        iconSize: 48,
+                        iconOpacity: 0.4,
+                        title: _query.isEmpty
+                            ? 'No airports match your filters'
+                            : 'No airports match "$_query"',
+                        subtitle: 'Missing one? Add it with "Add airport".',
+                      ),
+                    ),
+                  ],
+                  [] when !showingNearest => const [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.history,
+                        title: 'No recent airports',
+                        subtitle:
+                            'The airports you fly from and to show up here. '
+                            'Search for one above, or show the nearest.',
+                      ),
+                    ),
+                  ],
+                  [] => [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.local_airport,
+                        title: 'No airports found',
+                        subtitle: sync.isRunning
+                            ? 'Airport data is still downloading.'
+                            : 'Download the airport data with the refresh '
+                                  'button.',
+                      ),
+                    ),
+                  ],
+                  _ => [
+                    SliverList.builder(
+                      itemCount: airports.length,
+                      itemBuilder: (context, index) {
+                        final item = airports[index];
+                        return AirportCard(
+                          airport: item.airport,
+                          distanceKm: item.distance >= 0 ? item.distance : null,
+                          flightCount: flightCounts[item.airport.id],
+                          onTap: () => Navigator.push(
+                            context,
+                            AppPageRoute<void>(
+                              builder: (_) =>
+                                  AirportDetailPage(airportId: item.airport.id),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    if (hasMore)
+                      const SliverToBoxAdapter(child: LoadMoreIndicator()),
+                  ],
+                },
+                // Clear of the FAB and the navigation bar.
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 88 + MediaQuery.paddingOf(context).bottom,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
