@@ -39,7 +39,7 @@ class FloatingNavBar extends StatelessWidget {
   static const _height = 64.0;
 
   /// Gap between the pill and its slot's edges.
-  static const _pillInset = EdgeInsets.symmetric(horizontal: 10, vertical: 6);
+  static const _pillInset = EdgeInsets.symmetric(horizontal: 2, vertical: 6);
 
   static const _slideDuration = Duration(milliseconds: 380);
   static const _slideCurve = Curves.easeOutCubic;
