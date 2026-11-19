@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' show sin, cos, atan2;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +16,7 @@ import '../utils/duration_formatter.dart';
 import '../widgets/base_map_layer.dart';
 import '../widgets/flight_route_layer.dart';
 import '../widgets/map_attribution.dart';
+import '../widgets/map_overlay.dart';
 import '../widgets/picker_sheet.dart';
 
 class ReplayPage extends ConsumerStatefulWidget {
@@ -65,16 +65,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   /// The bars over the map, hidden while the user moves the map.
   bool _overlayVisible = true;
   Timer? _overlayTimer;
-
-  /// Map moves made by the user, as opposed to the replay's own.
-  static const _userMoves = {
-    MapEventSource.onDrag,
-    MapEventSource.onMultiFinger,
-    MapEventSource.flingAnimationController,
-    MapEventSource.doubleTapZoomAnimationController,
-    MapEventSource.doubleTapHold,
-    MapEventSource.scrollWheel,
-  };
 
   /// Without a faster choice, a replay would last as long as the flight.
   static const _speeds = [1.0, 30.0, 100.0, 300.0];
@@ -275,7 +265,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   /// Hides the bars while the map moves under the user's fingers, and shows
   /// them again once it has been still for a moment.
   void _onMapEvent(MapEvent event) {
-    if (!_userMoves.contains(event.source)) return;
+    if (!mapUserMoves.contains(event.source)) return;
     _overlayTimer?.cancel();
     _overlayTimer = Timer(const Duration(milliseconds: 600), () {
       if (mounted) setState(() => _overlayVisible = true);
@@ -336,14 +326,8 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   }
 
   /// [child] faded out and untouchable while the map is being moved.
-  Widget _overlay(Widget child) => IgnorePointer(
-    ignoring: !_overlayVisible,
-    child: AnimatedOpacity(
-      opacity: _overlayVisible ? 1 : 0,
-      duration: const Duration(milliseconds: 200),
-      child: child,
-    ),
-  );
+  Widget _overlay(Widget child) =>
+      FadingOverlay(visible: _overlayVisible, child: child);
 
   void _onMapReady() {
     _mapReady = true;
@@ -466,7 +450,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             right: 0,
             height: 140 + padding.top,
             child: _overlay(
-              _ScrimGradient(
+              MapScrim(
                 colors: [
                   overlay.withValues(alpha: 0.7),
                   overlay.withValues(alpha: 0.3),
@@ -482,9 +466,9 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             left: 4,
             right: 4,
             child: _overlay(
-              _ReplayTopBar(
+              MapTopBar(
                 title: widget.flight.flight.title,
-                pointsCount: _points.length,
+                subtitle: '${_points.length} data points',
               ),
             ),
           ),
@@ -498,7 +482,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
               right: 0,
               height: 260 + padding.bottom,
               child: _overlay(
-                _ScrimGradient(
+                MapScrim(
                   colors: [
                     overlay.withValues(alpha: 0),
                     overlay.withValues(alpha: 0.5),
@@ -565,80 +549,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
           // Empty state for insufficient data
           if (_extent.isEmpty)
             const _ReplayEmptyState(message: 'No flight data available'),
-        ],
-      ),
-    );
-  }
-}
-
-class _ScrimGradient extends StatelessWidget {
-  const _ScrimGradient({required this.colors});
-  final List<Color> colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: colors,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReplayTopBar extends StatelessWidget {
-  const _ReplayTopBar({required this.title, required this.pointsCount});
-
-  final String title;
-  final int pointsCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = context.appColors;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: colors.onOverlay),
-            onPressed: () => Navigator.pop(context),
-            style: IconButton.styleFrom(
-              backgroundColor: colors.overlay.withValues(alpha: 0.26),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: colors.onOverlay,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$pointsCount data points',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onOverlay.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -744,105 +654,92 @@ class _ReplayControlPanel extends StatelessWidget {
       color: colors.onOverlay.withValues(alpha: 0.1),
     );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          decoration: BoxDecoration(
-            color: colors.overlay.withValues(alpha: 0.55),
-            border: Border.all(color: colors.onOverlay.withValues(alpha: 0.08)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return GlassPanel(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  _TimeLabel(duration: elapsed),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderThemeData(
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 7,
-                        ),
-                        activeTrackColor: cs.primary,
-                        inactiveTrackColor: colors.onOverlay.withValues(
-                          alpha: 0.15,
-                        ),
-                        thumbColor: colors.onOverlay,
-                        overlayColor: cs.primary.withValues(alpha: 0.15),
-                      ),
-                      child: Slider(value: progress, onChanged: onSeek),
+              _TimeLabel(duration: elapsed),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 7,
                     ),
+                    activeTrackColor: cs.primary,
+                    inactiveTrackColor: colors.onOverlay.withValues(
+                      alpha: 0.15,
+                    ),
+                    thumbColor: colors.onOverlay,
+                    overlayColor: cs.primary.withValues(alpha: 0.15),
                   ),
-                  _TimeLabel(duration: remaining),
-                ],
+                  child: Slider(value: progress, onChanged: onSeek),
+                ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _StatTile(label: 'ALT', value: altitude, icon: Icons.height),
-                  divider,
-                  _StatTile(label: 'SPEED', value: speed, icon: Icons.speed),
-                  divider,
-                  _StatTile(
-                    label: 'TIME',
-                    value: DurationFormatter.hms(elapsed),
-                    icon: Icons.timer_outlined,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  // Both halves alike, so the two selectors are as wide.
-                  Expanded(
-                    child: _OverlaySelect(
-                      tooltip: 'Replay speed',
-                      icon: Icons.fast_forward_rounded,
-                      label: '${playbackSpeed.toInt()}x',
-                      onTap: onPickSpeed,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: onTogglePlayback,
-                      style: FilledButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Icon(
-                        isPlaying
-                            ? Icons.pause
-                            : (progress >= 1.0
-                                  ? Icons.replay
-                                  : Icons.play_arrow),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _OverlaySelect(
-                      tooltip: 'Units',
-                      icon: Icons.straighten_rounded,
-                      label: units,
-                      onTap: onPickUnits,
-                    ),
-                  ),
-                ],
+              _TimeLabel(duration: remaining),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _StatTile(label: 'ALT', value: altitude, icon: Icons.height),
+              divider,
+              _StatTile(label: 'SPEED', value: speed, icon: Icons.speed),
+              divider,
+              _StatTile(
+                label: 'TIME',
+                value: DurationFormatter.hms(elapsed),
+                icon: Icons.timer_outlined,
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Both halves alike, so the two selectors are as wide.
+              Expanded(
+                child: _OverlaySelect(
+                  tooltip: 'Replay speed',
+                  icon: Icons.fast_forward_rounded,
+                  label: '${playbackSpeed.toInt()}x',
+                  onTap: onPickSpeed,
+                ),
+              ),
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: FilledButton(
+                  onPressed: onTogglePlayback,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Icon(
+                    isPlaying
+                        ? Icons.pause
+                        : (progress >= 1.0 ? Icons.replay : Icons.play_arrow),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _OverlaySelect(
+                  tooltip: 'Units',
+                  icon: Icons.straighten_rounded,
+                  label: units,
+                  onTap: onPickUnits,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -11754,6 +11754,10 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $AircraftWithIcaosView aircraftWithIcaos = $AircraftWithIcaosView(
     this,
   );
+  late final Index airportsLatLonIdx = Index(
+    'airports_lat_lon_idx',
+    'CREATE INDEX airports_lat_lon_idx ON airports (latitude_deg, longitude_deg)',
+  );
   late final Index flightsSimulatorIdIdx = Index(
     'flights_simulator_id_idx',
     'CREATE INDEX flights_simulator_id_idx ON flights (simulator_id)',
@@ -11786,6 +11790,7 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     aircraftWithStatss,
     flightStats,
     aircraftWithIcaos,
+    airportsLatLonIdx,
     flightsSimulatorIdIdx,
     flightDataPointsFlightTimestampIdx,
   ];

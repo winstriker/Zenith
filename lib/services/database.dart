@@ -56,6 +56,12 @@ class Regions extends Table {
   Set<Column<Object>>? get primaryKey => {id};
 }
 
+/// The map looks airports up by position. (The `indexes` getter below isn't
+/// read by drift: only annotations create indexes.)
+@TableIndex(
+  name: 'airports_lat_lon_idx',
+  columns: {#latitudeDeg, #longitudeDeg},
+)
 class Airports extends Table {
   IntColumn get id => integer()();
   TextColumn get ident => text().unique().nullable()();
@@ -84,10 +90,6 @@ class Airports extends Table {
 
   List<TableIndex> get indexes => [
     TableIndex(name: 'airports_iso_country_idx', columns: {isoCountry}),
-    TableIndex(
-      name: 'airports_lat_lon_idx',
-      columns: {latitudeDeg, longitudeDeg},
-    ),
     TableIndex(name: 'airports_ident_idx', columns: {ident}),
     TableIndex(name: 'airports_icao_idx', columns: {icaoCode}),
     TableIndex(name: 'airports_iata_idx', columns: {iataCode}),
@@ -890,7 +892,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1076,6 +1078,12 @@ class LogbookDatabase extends _$LogbookDatabase {
         }
         // The aircraft views list the new columns.
         await m.recreateAllViews();
+      }
+      if (from < 15) {
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS airports_lat_lon_idx '
+          'ON airports (latitude_deg, longitude_deg)',
+        );
       }
     },
   );

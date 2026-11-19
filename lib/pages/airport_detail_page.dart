@@ -351,13 +351,7 @@ class _MapCard extends StatelessWidget {
 
     void openMap() => Navigator.push(
       context,
-      AppPageRoute<void>(
-        builder: (_) => AirportMapPage(
-          latitude: lat,
-          longitude: lng,
-          airportName: airport.name ?? '',
-        ),
-      ),
+      AppPageRoute<void>(builder: (_) => AirportMapPage(airport: airport)),
     );
 
     return Card(

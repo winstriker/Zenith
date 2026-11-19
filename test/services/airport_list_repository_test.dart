@@ -123,6 +123,65 @@ void main() {
     });
   });
 
+  test('map airports: filters, bounds, biggest first', () async {
+    Future<int> add(String ident, AirportType type, double lat, String icao) =>
+        db
+            .into(db.airports)
+            .insert(
+              AirportsCompanion.insert(
+                ident: Value(ident),
+                name: Value('$ident field'),
+                type: type,
+                latitudeDeg: Value(lat),
+                longitudeDeg: const Value(9),
+                continent: 'EU',
+                isoCountry: 'IT',
+                isoRegion: 'IT-25',
+                icaoCode: Value(icao),
+              ),
+            );
+    await add('SMAL', AirportType.smallAirport, 45, '');
+    await add('HELI', AirportType.heliport, 45, '');
+    final large = await add('LARG', AirportType.largeAirport, 45, 'LARG');
+    await add('AWAY', AirportType.largeAirport, 50, 'AWAY');
+    await db
+        .into(db.flights)
+        .insert(
+          FlightsCompanion.insert(
+            title: 'f',
+            departureTime: DateTime(2026),
+            isRecording: false,
+            arrival: Value(large),
+          ),
+        );
+
+    Future<List<String?>> map({
+      bool bounded = true,
+      String query = '',
+      AirportType? type,
+      bool usedOnly = false,
+      bool icaoOnly = false,
+      int limit = 10,
+    }) async => [
+      for (final a in await repo.getMapAirports(
+        bounds: bounded ? (south: 44, west: 8, north: 46, east: 10) : null,
+        query: query,
+        type: type,
+        usedOnly: usedOnly,
+        icaoOnly: icaoOnly,
+        limit: limit,
+      ))
+        a.ident,
+    ];
+
+    expect(await map(), ['LARG', 'SMAL', 'HELI']);
+    expect(await map(limit: 1), ['LARG']);
+    expect(await map(bounded: false, icaoOnly: true), ['LARG', 'AWAY']);
+    expect(await map(usedOnly: true), ['LARG']);
+    expect(await map(type: AirportType.heliport), ['HELI']);
+    expect(await map(bounded: false, query: 'away'), ['AWAY']);
+  });
+
   group('custom airports', () {
     AirportsCompanion custom(String ident) => AirportsCompanion.insert(
       ident: Value(ident),

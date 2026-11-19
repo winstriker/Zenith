@@ -114,6 +114,71 @@ class AirportRepository {
         .watch();
   }
 
+  /// The first [limit] airports with a position that match every filter,
+  /// inside [bounds] when given, the biggest airports first. [usedOnly]
+  /// keeps those a flight used, [customOnly] the user's own, and [icaoOnly]
+  /// those with an ICAO code.
+  Future<List<Airport>> getMapAirports({
+    ({double south, double west, double north, double east})? bounds,
+    String query = '',
+    AirportType? type,
+    bool usedOnly = false,
+    bool customOnly = false,
+    bool icaoOnly = false,
+    required int limit,
+  }) {
+    final db = _database;
+    final statement = db.select(db.airports)
+      ..where((a) => a.latitudeDeg.isNotNull() & a.longitudeDeg.isNotNull())
+      ..orderBy([
+        // Large, medium, small, then the rest (seaplane bases ... closed).
+        (a) => OrderingTerm.desc(
+          a.type.isIn([
+            AirportType.largeAirport.index,
+            AirportType.mediumAirport.index,
+            AirportType.smallAirport.index,
+          ]),
+        ),
+        (a) => OrderingTerm.desc(a.type),
+        (a) => OrderingTerm.asc(a.id),
+      ])
+      ..limit(limit);
+
+    if (bounds != null) {
+      // Served by airports_lat_lon_idx.
+      statement.where(
+        (a) =>
+            a.latitudeDeg.isBetweenValues(bounds.south, bounds.north) &
+            a.longitudeDeg.isBetweenValues(bounds.west, bounds.east),
+      );
+    }
+    final tokens = searchTokens(query);
+    if (tokens.isNotEmpty) {
+      statement.where(
+        (a) => sqlMatchesAllTokens(tokens, [
+          a.name,
+          a.ident,
+          a.icaoCode,
+          a.iataCode,
+          a.municipality,
+        ]),
+      );
+    }
+    if (type != null) statement.where((a) => a.type.equals(type.index));
+    if (customOnly) statement.where((a) => a.id.isSmallerThanValue(0));
+    // The sync stores a missing code as '': NULL and '' both fail this.
+    if (icaoOnly) statement.where((a) => a.icaoCode.isNotValue(''));
+    if (usedOnly) {
+      final f = db.flights;
+      statement.where(
+        (a) =>
+            a.id.isInQuery(db.selectOnly(f)..addColumns([f.departure])) |
+            a.id.isInQuery(db.selectOnly(f)..addColumns([f.arrival])),
+      );
+    }
+    return statement.get();
+  }
+
   /// Stream of countries, by name
   Stream<List<Country>> watchCountries() {
     return (_database.select(
@@ -164,15 +229,6 @@ class AirportRepository {
   /// Airports most recently used in flights.
   Future<List<Airport>> getRecentAirports({int limit = 5}) {
     return _database.getRecentAirports(limit: limit);
-  }
-
-  /// Airports inside a lat/lon square centered on the given point.
-  Future<List<Airport>?> getAirportsWithinSquare(
-    double latitude,
-    double longitude, {
-    required double delta,
-  }) {
-    return _database.getAirportsWithinSquare(latitude, longitude, delta: delta);
   }
 
   /// Stream of the regions of a country, by name.
