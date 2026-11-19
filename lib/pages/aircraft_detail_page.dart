@@ -8,6 +8,7 @@ import '../services/database.dart';
 import '../widgets/aircraft_details_card.dart';
 import '../widgets/aircraft_photo_view.dart';
 import '../widgets/flight_card.dart';
+import '../widgets/full_screen_image.dart';
 import '../widgets/speed_dial_fab.dart';
 import 'aircraft_form_page.dart';
 import 'aircraft_logbook_page.dart';
@@ -78,12 +79,30 @@ class AircraftDetailPage extends ConsumerWidget {
                       final cardTop = photoHeight - cardOverlap;
                       return Stack(
                         children: [
-                          SizedBox(
-                            height: photoHeight,
-                            width: double.infinity,
-                            child: AircraftPhotoView(
-                              photo: photo,
-                              placeholder: const AircraftHeaderGradient(),
+                          GestureDetector(
+                            onTap: photo == null
+                                ? null
+                                : () => showFullScreenImage(
+                                    context,
+                                    title: aircraft.tailNumber,
+                                    caption: photo.isOnline
+                                        ? AircraftPhotoCredit(photo: photo)
+                                        : null,
+                                    SizedBox.expand(
+                                      child: AircraftPhotoView(
+                                        photo: photo,
+                                        fit: BoxFit.contain,
+                                        placeholder: const SizedBox.shrink(),
+                                      ),
+                                    ),
+                                  ),
+                            child: SizedBox(
+                              height: photoHeight,
+                              width: double.infinity,
+                              child: AircraftPhotoView(
+                                photo: photo,
+                                placeholder: const AircraftHeaderGradient(),
+                              ),
                             ),
                           ),
                           // Above the part of the photo the details card

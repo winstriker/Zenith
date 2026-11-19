@@ -26,6 +26,7 @@ class AircraftPhotoView extends ConsumerWidget {
     required this.placeholder,
     this.pickedFile,
     this.thumbnail = false,
+    this.fit = BoxFit.cover,
   });
 
   final AircraftPhoto? photo;
@@ -38,6 +39,7 @@ class AircraftPhotoView extends ConsumerWidget {
   /// size. For lists.
   final bool thumbnail;
   final Widget placeholder;
+  final BoxFit fit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,7 +55,7 @@ class AircraftPhotoView extends ConsumerWidget {
     if (file != null) {
       return Image.file(
         file,
-        fit: BoxFit.cover,
+        fit: fit,
         cacheWidth: cacheWidth,
         errorBuilder: (_, _, _) => placeholder,
       );
@@ -67,7 +69,7 @@ class AircraftPhotoView extends ConsumerWidget {
         null,
         CachedAircraftImage(url, ref.watch(aircraftImageCacheProvider)),
       ),
-      fit: BoxFit.cover,
+      fit: fit,
       errorBuilder: (_, _, _) => placeholder,
       // The placeholder stays until the picture has arrived, then fades out.
       frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
