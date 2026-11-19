@@ -6,7 +6,20 @@ class TimeInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final digits = newValue.text.replaceAll(':', '');
+    var text = newValue.text;
+    var cursor = newValue.selection.isValid
+        ? newValue.selection.extentOffset
+        : text.length;
+    // Backspace over the colon deletes the digit before it, as it looks.
+    if (oldValue.text.length - text.length == 1 &&
+        text.replaceAll(':', '') == oldValue.text.replaceAll(':', '') &&
+        cursor > 0) {
+      text = text.substring(0, cursor - 1) + text.substring(cursor);
+      cursor--;
+    }
+    // Digits left of the cursor, so an edit in the middle keeps its place.
+    final before = text.substring(0, cursor).replaceAll(':', '').length;
+    final digits = text.replaceAll(':', '');
     if (digits.length > 4) {
       return oldValue;
     }
@@ -18,7 +31,9 @@ class TimeInputFormatter extends TextInputFormatter {
     }
     return TextEditingValue(
       text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      selection: TextSelection.collapsed(
+        offset: before >= 2 && formatted.length > 2 ? before + 1 : before,
+      ),
     );
   }
 }
