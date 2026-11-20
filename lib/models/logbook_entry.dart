@@ -106,6 +106,7 @@ class LogbookEntry {
         LogbookTimeField.pic: logbook.function == PilotFunction.instructor
             ? total
             : function(PilotFunction.pic),
+        LogbookTimeField.picus: Duration.zero,
         LogbookTimeField.coPilot: function(PilotFunction.coPilot),
         LogbookTimeField.dual: function(PilotFunction.dual),
         LogbookTimeField.instructor: function(PilotFunction.instructor),

@@ -14,7 +14,9 @@ import '../widgets/info_row.dart';
 import '../widgets/load_more.dart';
 import '../widgets/map_attribution.dart';
 import '../widgets/page_title.dart';
+import '../widgets/speed_dial_fab.dart';
 import 'airport_form_page.dart';
+import 'airport_logbook_page.dart';
 import 'airport_map_page.dart';
 import 'flight_detail_page.dart';
 
@@ -58,25 +60,38 @@ class _AirportDetailPageState extends ConsumerState<AirportDetailPage> {
         child: const Icon(Icons.close),
       ),
       body: Scaffold(
-        floatingActionButton: airport == null || !airport.isCustom
-            ? null
-            : FloatingActionButton.extended(
-                heroTag: primaryFabHeroTag,
-                label: const Text('Edit'),
-                icon: const Icon(Icons.edit),
-                onPressed: () async {
-                  final deleted = await Navigator.push<Object?>(
-                    context,
-                    AppPageRoute(
-                      builder: (_) => AirportFormPage(airport: airport),
-                    ),
-                  );
-                  // Nothing left to show once the airport is gone.
-                  if (deleted == true && context.mounted) {
-                    Navigator.pop(context);
-                  }
-                },
+        floatingActionButton: switch (airport) {
+          null => null,
+          // Only the user's own airports can be edited.
+          Airport(isCustom: false) => FloatingActionButton.extended(
+            heroTag: primaryFabHeroTag,
+            label: const Text('Logbook overrides'),
+            icon: const Icon(Icons.edit_note),
+            onPressed: () => _editLogbook(airport),
+          ),
+          _ => SpeedDialFab(
+            actions: [
+              SpeedDialAction(
+                heroTag: 'airportLogbookOverridesFab',
+                icon: Icons.edit_note,
+                label: 'Logbook overrides',
+                onPressed: () => _editLogbook(airport),
               ),
+            ],
+            primaryIcon: Icons.edit,
+            primaryLabel: 'Edit',
+            onPrimaryPressed: () async {
+              final deleted = await Navigator.push<Object?>(
+                context,
+                AppPageRoute(builder: (_) => AirportFormPage(airport: airport)),
+              );
+              // Nothing left to show once the airport is gone.
+              if (deleted == true && context.mounted) {
+                Navigator.pop(context);
+              }
+            },
+          ),
+        },
         body: switch (details) {
           AsyncValue(hasValue: false, hasError: true) => EmptyState(
             icon: Icons.error_outline,
@@ -149,6 +164,15 @@ class _AirportDetailPageState extends ConsumerState<AirportDetailPage> {
         },
       ),
     );
+  }
+
+  Future<void> _editLogbook(Airport airport) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      AppPageRoute(builder: (_) => AirportLogbookPage(airport: airport)),
+    );
+    // The details are read once: read them again to show the change.
+    if (saved == true) ref.invalidate(airportDetailsProvider(airport.id));
   }
 
   List<Widget> _flightSlivers(

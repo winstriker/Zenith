@@ -91,3 +91,22 @@ class PicNameModeNotifier extends Notifier<PicNameMode> {
 final picNameModeProvider = NotifierProvider<PicNameModeNotifier, PicNameMode>(
   PicNameModeNotifier.new,
 );
+
+/// Whether the exported logbook has a PICUS column, PICUS time going there
+/// instead of in the PIC one.
+class PicusColumnNotifier extends Notifier<bool> {
+  static const prefsKey = 'pdf_picus_column';
+
+  @override
+  bool build() =>
+      ref.read(sharedPreferencesProvider).getBool(prefsKey) ?? false;
+
+  Future<void> set(bool value) async {
+    state = value;
+    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+  }
+}
+
+final picusColumnProvider = NotifierProvider<PicusColumnNotifier, bool>(
+  PicusColumnNotifier.new,
+);

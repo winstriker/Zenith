@@ -1166,6 +1166,42 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _logbookIdentMeta = const VerificationMeta(
+    'logbookIdent',
+  );
+  @override
+  late final GeneratedColumn<String> logbookIdent = GeneratedColumn<String>(
+    'logbook_ident',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _logbookAnnotateMeta = const VerificationMeta(
+    'logbookAnnotate',
+  );
+  @override
+  late final GeneratedColumn<bool> logbookAnnotate = GeneratedColumn<bool>(
+    'logbook_annotate',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("logbook_annotate" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _logbookNoteMeta = const VerificationMeta(
+    'logbookNote',
+  );
+  @override
+  late final GeneratedColumn<String> logbookNote = GeneratedColumn<String>(
+    'logbook_note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1187,6 +1223,9 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
     homeLink,
     wikipediaLink,
     keywords,
+    logbookIdent,
+    logbookAnnotate,
+    logbookNote,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1329,6 +1368,33 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
         keywords.isAcceptableOrUnknown(data['keywords']!, _keywordsMeta),
       );
     }
+    if (data.containsKey('logbook_ident')) {
+      context.handle(
+        _logbookIdentMeta,
+        logbookIdent.isAcceptableOrUnknown(
+          data['logbook_ident']!,
+          _logbookIdentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('logbook_annotate')) {
+      context.handle(
+        _logbookAnnotateMeta,
+        logbookAnnotate.isAcceptableOrUnknown(
+          data['logbook_annotate']!,
+          _logbookAnnotateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('logbook_note')) {
+      context.handle(
+        _logbookNoteMeta,
+        logbookNote.isAcceptableOrUnknown(
+          data['logbook_note']!,
+          _logbookNoteMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1416,6 +1482,18 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
         DriftSqlType.string,
         data['${effectivePrefix}keywords'],
       ),
+      logbookIdent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_ident'],
+      ),
+      logbookAnnotate: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}logbook_annotate'],
+      ),
+      logbookNote: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}logbook_note'],
+      ),
     );
   }
 
@@ -1448,6 +1526,18 @@ class Airport extends DataClass implements Insertable<Airport> {
   final String? homeLink;
   final String? wikipediaLink;
   final String? keywords;
+
+  /// The pilot's own ident for the PLACE columns of the exported logbook.
+  /// Null: the airport's ident. Kept by the airport data sync.
+  final String? logbookIdent;
+
+  /// Whether pages using the airport describe it under the table. Null: only
+  /// when it has no ICAO code (see [AirportLogbook.needsLogbookNote]).
+  final bool? logbookAnnotate;
+
+  /// The pilot's own description under the table. Null: worked out from the
+  /// airport's data.
+  final String? logbookNote;
   const Airport({
     required this.id,
     this.ident,
@@ -1468,6 +1558,9 @@ class Airport extends DataClass implements Insertable<Airport> {
     this.homeLink,
     this.wikipediaLink,
     this.keywords,
+    this.logbookIdent,
+    this.logbookAnnotate,
+    this.logbookNote,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1521,6 +1614,15 @@ class Airport extends DataClass implements Insertable<Airport> {
     if (!nullToAbsent || keywords != null) {
       map['keywords'] = Variable<String>(keywords);
     }
+    if (!nullToAbsent || logbookIdent != null) {
+      map['logbook_ident'] = Variable<String>(logbookIdent);
+    }
+    if (!nullToAbsent || logbookAnnotate != null) {
+      map['logbook_annotate'] = Variable<bool>(logbookAnnotate);
+    }
+    if (!nullToAbsent || logbookNote != null) {
+      map['logbook_note'] = Variable<String>(logbookNote);
+    }
     return map;
   }
 
@@ -1571,6 +1673,15 @@ class Airport extends DataClass implements Insertable<Airport> {
       keywords: keywords == null && nullToAbsent
           ? const Value.absent()
           : Value(keywords),
+      logbookIdent: logbookIdent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logbookIdent),
+      logbookAnnotate: logbookAnnotate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logbookAnnotate),
+      logbookNote: logbookNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(logbookNote),
     );
   }
 
@@ -1601,6 +1712,9 @@ class Airport extends DataClass implements Insertable<Airport> {
       homeLink: serializer.fromJson<String?>(json['homeLink']),
       wikipediaLink: serializer.fromJson<String?>(json['wikipediaLink']),
       keywords: serializer.fromJson<String?>(json['keywords']),
+      logbookIdent: serializer.fromJson<String?>(json['logbookIdent']),
+      logbookAnnotate: serializer.fromJson<bool?>(json['logbookAnnotate']),
+      logbookNote: serializer.fromJson<String?>(json['logbookNote']),
     );
   }
   @override
@@ -1628,6 +1742,9 @@ class Airport extends DataClass implements Insertable<Airport> {
       'homeLink': serializer.toJson<String?>(homeLink),
       'wikipediaLink': serializer.toJson<String?>(wikipediaLink),
       'keywords': serializer.toJson<String?>(keywords),
+      'logbookIdent': serializer.toJson<String?>(logbookIdent),
+      'logbookAnnotate': serializer.toJson<bool?>(logbookAnnotate),
+      'logbookNote': serializer.toJson<String?>(logbookNote),
     };
   }
 
@@ -1651,6 +1768,9 @@ class Airport extends DataClass implements Insertable<Airport> {
     Value<String?> homeLink = const Value.absent(),
     Value<String?> wikipediaLink = const Value.absent(),
     Value<String?> keywords = const Value.absent(),
+    Value<String?> logbookIdent = const Value.absent(),
+    Value<bool?> logbookAnnotate = const Value.absent(),
+    Value<String?> logbookNote = const Value.absent(),
   }) => Airport(
     id: id ?? this.id,
     ident: ident.present ? ident.value : this.ident,
@@ -1675,6 +1795,11 @@ class Airport extends DataClass implements Insertable<Airport> {
         ? wikipediaLink.value
         : this.wikipediaLink,
     keywords: keywords.present ? keywords.value : this.keywords,
+    logbookIdent: logbookIdent.present ? logbookIdent.value : this.logbookIdent,
+    logbookAnnotate: logbookAnnotate.present
+        ? logbookAnnotate.value
+        : this.logbookAnnotate,
+    logbookNote: logbookNote.present ? logbookNote.value : this.logbookNote,
   );
   Airport copyWithCompanion(AirportsCompanion data) {
     return Airport(
@@ -1711,6 +1836,15 @@ class Airport extends DataClass implements Insertable<Airport> {
           ? data.wikipediaLink.value
           : this.wikipediaLink,
       keywords: data.keywords.present ? data.keywords.value : this.keywords,
+      logbookIdent: data.logbookIdent.present
+          ? data.logbookIdent.value
+          : this.logbookIdent,
+      logbookAnnotate: data.logbookAnnotate.present
+          ? data.logbookAnnotate.value
+          : this.logbookAnnotate,
+      logbookNote: data.logbookNote.present
+          ? data.logbookNote.value
+          : this.logbookNote,
     );
   }
 
@@ -1735,13 +1869,16 @@ class Airport extends DataClass implements Insertable<Airport> {
           ..write('localCode: $localCode, ')
           ..write('homeLink: $homeLink, ')
           ..write('wikipediaLink: $wikipediaLink, ')
-          ..write('keywords: $keywords')
+          ..write('keywords: $keywords, ')
+          ..write('logbookIdent: $logbookIdent, ')
+          ..write('logbookAnnotate: $logbookAnnotate, ')
+          ..write('logbookNote: $logbookNote')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     ident,
     type,
@@ -1761,7 +1898,10 @@ class Airport extends DataClass implements Insertable<Airport> {
     homeLink,
     wikipediaLink,
     keywords,
-  );
+    logbookIdent,
+    logbookAnnotate,
+    logbookNote,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1784,7 +1924,10 @@ class Airport extends DataClass implements Insertable<Airport> {
           other.localCode == this.localCode &&
           other.homeLink == this.homeLink &&
           other.wikipediaLink == this.wikipediaLink &&
-          other.keywords == this.keywords);
+          other.keywords == this.keywords &&
+          other.logbookIdent == this.logbookIdent &&
+          other.logbookAnnotate == this.logbookAnnotate &&
+          other.logbookNote == this.logbookNote);
 }
 
 class AirportsCompanion extends UpdateCompanion<Airport> {
@@ -1807,6 +1950,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
   final Value<String?> homeLink;
   final Value<String?> wikipediaLink;
   final Value<String?> keywords;
+  final Value<String?> logbookIdent;
+  final Value<bool?> logbookAnnotate;
+  final Value<String?> logbookNote;
   const AirportsCompanion({
     this.id = const Value.absent(),
     this.ident = const Value.absent(),
@@ -1827,6 +1973,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     this.homeLink = const Value.absent(),
     this.wikipediaLink = const Value.absent(),
     this.keywords = const Value.absent(),
+    this.logbookIdent = const Value.absent(),
+    this.logbookAnnotate = const Value.absent(),
+    this.logbookNote = const Value.absent(),
   });
   AirportsCompanion.insert({
     this.id = const Value.absent(),
@@ -1848,6 +1997,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     this.homeLink = const Value.absent(),
     this.wikipediaLink = const Value.absent(),
     this.keywords = const Value.absent(),
+    this.logbookIdent = const Value.absent(),
+    this.logbookAnnotate = const Value.absent(),
+    this.logbookNote = const Value.absent(),
   }) : type = Value(type),
        continent = Value(continent),
        isoCountry = Value(isoCountry),
@@ -1872,6 +2024,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     Expression<String>? homeLink,
     Expression<String>? wikipediaLink,
     Expression<String>? keywords,
+    Expression<String>? logbookIdent,
+    Expression<bool>? logbookAnnotate,
+    Expression<String>? logbookNote,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1893,6 +2048,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
       if (homeLink != null) 'home_link': homeLink,
       if (wikipediaLink != null) 'wikipedia_link': wikipediaLink,
       if (keywords != null) 'keywords': keywords,
+      if (logbookIdent != null) 'logbook_ident': logbookIdent,
+      if (logbookAnnotate != null) 'logbook_annotate': logbookAnnotate,
+      if (logbookNote != null) 'logbook_note': logbookNote,
     });
   }
 
@@ -1916,6 +2074,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     Value<String?>? homeLink,
     Value<String?>? wikipediaLink,
     Value<String?>? keywords,
+    Value<String?>? logbookIdent,
+    Value<bool?>? logbookAnnotate,
+    Value<String?>? logbookNote,
   }) {
     return AirportsCompanion(
       id: id ?? this.id,
@@ -1937,6 +2098,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
       homeLink: homeLink ?? this.homeLink,
       wikipediaLink: wikipediaLink ?? this.wikipediaLink,
       keywords: keywords ?? this.keywords,
+      logbookIdent: logbookIdent ?? this.logbookIdent,
+      logbookAnnotate: logbookAnnotate ?? this.logbookAnnotate,
+      logbookNote: logbookNote ?? this.logbookNote,
     );
   }
 
@@ -2002,6 +2166,15 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     if (keywords.present) {
       map['keywords'] = Variable<String>(keywords.value);
     }
+    if (logbookIdent.present) {
+      map['logbook_ident'] = Variable<String>(logbookIdent.value);
+    }
+    if (logbookAnnotate.present) {
+      map['logbook_annotate'] = Variable<bool>(logbookAnnotate.value);
+    }
+    if (logbookNote.present) {
+      map['logbook_note'] = Variable<String>(logbookNote.value);
+    }
     return map;
   }
 
@@ -2026,7 +2199,10 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
           ..write('localCode: $localCode, ')
           ..write('homeLink: $homeLink, ')
           ..write('wikipediaLink: $wikipediaLink, ')
-          ..write('keywords: $keywords')
+          ..write('keywords: $keywords, ')
+          ..write('logbookIdent: $logbookIdent, ')
+          ..write('logbookAnnotate: $logbookAnnotate, ')
+          ..write('logbookNote: $logbookNote')
           ..write(')'))
         .toString();
   }
@@ -6296,6 +6472,10 @@ class Flight extends DataClass implements Insertable<Flight> {
   final DateTime? arrivalTime;
   final String? departureIanaLocation;
   final String? arrivalIanaLocation;
+
+  /// Set for a flight recorded by the app that hasn't been completed in the
+  /// flight form yet: it isn't in the logbook. Without an [arrivalTime] it is
+  /// still being recorded; with one, it is a temporary flight.
   final bool isRecording;
   final int? aircraftId;
 
@@ -12674,6 +12854,9 @@ typedef $$AirportsTableCreateCompanionBuilder =
       Value<String?> homeLink,
       Value<String?> wikipediaLink,
       Value<String?> keywords,
+      Value<String?> logbookIdent,
+      Value<bool?> logbookAnnotate,
+      Value<String?> logbookNote,
     });
 typedef $$AirportsTableUpdateCompanionBuilder =
     AirportsCompanion Function({
@@ -12696,6 +12879,9 @@ typedef $$AirportsTableUpdateCompanionBuilder =
       Value<String?> homeLink,
       Value<String?> wikipediaLink,
       Value<String?> keywords,
+      Value<String?> logbookIdent,
+      Value<bool?> logbookAnnotate,
+      Value<String?> logbookNote,
     });
 
 final class $$AirportsTableReferences
@@ -12908,6 +13094,21 @@ class $$AirportsTableFilterComposer
 
   ColumnFilters<String> get keywords => $composableBuilder(
     column: $table.keywords,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logbookIdent => $composableBuilder(
+    column: $table.logbookIdent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get logbookAnnotate => $composableBuilder(
+    column: $table.logbookAnnotate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get logbookNote => $composableBuilder(
+    column: $table.logbookNote,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13152,6 +13353,21 @@ class $$AirportsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get logbookIdent => $composableBuilder(
+    column: $table.logbookIdent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get logbookAnnotate => $composableBuilder(
+    column: $table.logbookAnnotate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get logbookNote => $composableBuilder(
+    column: $table.logbookNote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CountriesTableOrderingComposer get isoCountry {
     final $$CountriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13270,6 +13486,21 @@ class $$AirportsTableAnnotationComposer
 
   GeneratedColumn<String> get keywords =>
       $composableBuilder(column: $table.keywords, builder: (column) => column);
+
+  GeneratedColumn<String> get logbookIdent => $composableBuilder(
+    column: $table.logbookIdent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get logbookAnnotate => $composableBuilder(
+    column: $table.logbookAnnotate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get logbookNote => $composableBuilder(
+    column: $table.logbookNote,
+    builder: (column) => column,
+  );
 
   $$CountriesTableAnnotationComposer get isoCountry {
     final $$CountriesTableAnnotationComposer composer = $composerBuilder(
@@ -13472,6 +13703,9 @@ class $$AirportsTableTableManager
                 Value<String?> homeLink = const Value.absent(),
                 Value<String?> wikipediaLink = const Value.absent(),
                 Value<String?> keywords = const Value.absent(),
+                Value<String?> logbookIdent = const Value.absent(),
+                Value<bool?> logbookAnnotate = const Value.absent(),
+                Value<String?> logbookNote = const Value.absent(),
               }) => AirportsCompanion(
                 id: id,
                 ident: ident,
@@ -13492,6 +13726,9 @@ class $$AirportsTableTableManager
                 homeLink: homeLink,
                 wikipediaLink: wikipediaLink,
                 keywords: keywords,
+                logbookIdent: logbookIdent,
+                logbookAnnotate: logbookAnnotate,
+                logbookNote: logbookNote,
               ),
           createCompanionCallback:
               ({
@@ -13514,6 +13751,9 @@ class $$AirportsTableTableManager
                 Value<String?> homeLink = const Value.absent(),
                 Value<String?> wikipediaLink = const Value.absent(),
                 Value<String?> keywords = const Value.absent(),
+                Value<String?> logbookIdent = const Value.absent(),
+                Value<bool?> logbookAnnotate = const Value.absent(),
+                Value<String?> logbookNote = const Value.absent(),
               }) => AirportsCompanion.insert(
                 id: id,
                 ident: ident,
@@ -13534,6 +13774,9 @@ class $$AirportsTableTableManager
                 homeLink: homeLink,
                 wikipediaLink: wikipediaLink,
                 keywords: keywords,
+                logbookIdent: logbookIdent,
+                logbookAnnotate: logbookAnnotate,
+                logbookNote: logbookNote,
               ),
           withReferenceMapper: (p0) => p0
               .map(

@@ -33,6 +33,7 @@ class AppSettingsBackup {
     UserNicknameNotifier.prefsKey: _Kind.string,
     UserSignatureNameNotifier.prefsKey: _Kind.string,
     PicNameModeNotifier.prefsKey: _Kind.string,
+    PicusColumnNotifier.prefsKey: _Kind.bool,
     // Preferences.
     ThemeNotifier.prefsKey: _Kind.int,
     UnitNotifier.prefsKey: _Kind.int,
@@ -112,6 +113,7 @@ class AppSettingsBackup {
       ..invalidate(userNicknameProvider)
       ..invalidate(userSignatureNameProvider)
       ..invalidate(picNameModeProvider)
+      ..invalidate(picusColumnProvider)
       ..invalidate(themeProvider)
       ..invalidate(unitProvider)
       ..invalidate(mapSourceProvider)

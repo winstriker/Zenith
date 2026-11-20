@@ -202,4 +202,124 @@ void main() {
       hasLength(20),
     );
   });
+
+  test('the PICUS column takes PICUS time out of the PIC one', () {
+    final picus = FlightWithStats(
+      flight: _flight(2).flight.copyWith(pilotRole: const Value('picus')),
+      dataPoints: const [],
+    );
+    // Landings, night, IFR, PIC, then PICUS (with the column) and COP.
+    List<String> functions(String html) =>
+        _totalsRows(html, 'TOTAL THIS PAGE').single.sublist(5, 12);
+
+    final without = PdfExportService.buildLogbookHtml([_flight(1), picus]);
+    expect(without, isNot(contains('<th>PICUS</th>')));
+    expect(functions(without).sublist(4, 6), ['03:00', '']);
+
+    final html = PdfExportService.buildLogbookHtml([
+      _flight(1),
+      picus,
+    ], picusColumn: true);
+    expect(html, contains('<th>PIC</th><th>PICUS</th><th>COP</th>'));
+    expect(functions(html), ['2', '', '', '', '01:30', '01:30', '']);
+  });
+
+  Airport airport(int id, {String? icao}) => Airport(
+    id: id,
+    ident: icao ?? 'IT-0042',
+    type: AirportType.smallAirport,
+    name: 'Aviosuperficie Rossi',
+    latitudeDeg: 45.5,
+    longitudeDeg: -9.27666,
+    elevationFt: 400,
+    continent: 'EU',
+    isoCountry: 'IT',
+    isoRegion: 'IT-25',
+    icaoCode: icao,
+  );
+
+  FlightWithStats between(Airport dep, Airport arr) => FlightWithStats(
+    flight: _flight(1).flight,
+    dataPoints: const [],
+    departure: dep,
+    arrival: arr,
+  );
+
+  test('a non-ICAO airport is described under the page', () {
+    final html = PdfExportService.buildLogbookHtml([
+      between(airport(1, icao: 'LIML'), airport(2)),
+    ]);
+    expect(
+      html,
+      contains(
+        '<div class="airport-notes"><div>IT-0042 – Aviosuperficie Rossi, IT'
+        " – 45°30.00'N 009°16.60'W – elev. 400 ft</div></div>",
+      ),
+    );
+    expect(html, isNot(contains('LIML –')));
+  });
+
+  test("an airport's logbook override changes its ident and note", () {
+    final html = PdfExportService.buildLogbookHtml([
+      between(
+        airport(1, icao: 'LIML').copyWith(logbookAnnotate: const Value(true)),
+        airport(2).copyWith(
+          logbookIdent: const Value('ROSSI'),
+          logbookNote: const Value('Strip by the river'),
+        ),
+      ),
+    ]);
+    expect(html, contains('>ROSSI</td>'));
+    expect(html, contains('<div>LIML – Aviosuperficie Rossi'));
+    expect(html, contains('<div>Strip by the river</div>'));
+
+    final off = PdfExportService.buildLogbookHtml([
+      between(
+        airport(1, icao: 'LIML'),
+        airport(2).copyWith(logbookAnnotate: const Value(false)),
+      ),
+    ]);
+    expect(off, isNot(contains('<div class="airport-notes">')));
+  });
+
+  test('an airport used by several flights of a page is noted once', () {
+    final html = PdfExportService.buildLogbookHtml([
+      between(airport(2), airport(2)),
+      between(airport(1, icao: 'LIML'), airport(2)),
+    ]);
+    expect(RegExp('<div>IT-0042 – ').allMatches(html), hasLength(1));
+  });
+
+  test('a page holds the notes of at most 10 airports', () {
+    final html = PdfExportService.buildLogbookHtml([
+      for (var i = 1; i <= 6; i++) between(airport(i * 2), airport(i * 2 + 1)),
+    ]);
+    expect(_totalsRows(html, 'TOTAL THIS PAGE'), hasLength(2));
+  });
+
+  test('previous PICUS time has its column, or is PIC time without it', () {
+    final totals = const PreviousTotals()
+        .withTime(LogbookTimeField.pic, const Duration(hours: 100))
+        .withTime(LogbookTimeField.picus, const Duration(hours: 20));
+    // PIC, then PICUS (with the column) and COP.
+    List<String> functions(String html) =>
+        _totalsRows(html, 'TOTAL FROM PREVIOUS PAGES').single.sublist(9, 11);
+
+    expect(
+      functions(
+        PdfExportService.buildLogbookHtml([_flight(1)], previousTotals: totals),
+      ),
+      ['120:00', ''],
+    );
+    expect(
+      functions(
+        PdfExportService.buildLogbookHtml(
+          [_flight(1)],
+          previousTotals: totals,
+          picusColumn: true,
+        ),
+      ),
+      ['100:00', '20:00'],
+    );
+  });
 }

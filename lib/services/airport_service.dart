@@ -477,10 +477,15 @@ class AirportsService {
       }
       final incoming = [
         for (final a in data.airports)
-          if (customIdents.contains(a.ident))
-            a.copyWith(ident: const Value(null))
-          else
-            a,
+          // The pilot's logbook overrides aren't OurAirports data: kept.
+          (customIdents.contains(a.ident)
+                  ? a.copyWith(ident: const Value(null))
+                  : a)
+              .copyWith(
+                logbookIdent: Value(existing[a.id]?.logbookIdent),
+                logbookAnnotate: Value(existing[a.id]?.logbookAnnotate),
+                logbookNote: Value(existing[a.id]?.logbookNote),
+              ),
       ];
       final newIds = <int>{for (final a in incoming) a.id};
       final newIdents = <String>{

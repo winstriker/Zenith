@@ -124,6 +124,32 @@ void main() {
     expect(summary.updated, 1);
   });
 
+  test("the pilot's logbook overrides survive the sync", () async {
+    await AirportsService.syncAirportData(
+      db,
+      _parse(_airport(1, 'LIMC', 'Malpensa')),
+    );
+    await (db.update(db.airports)..where((a) => a.id.equals(1))).write(
+      const AirportsCompanion(
+        logbookIdent: Value('MXP'),
+        logbookAnnotate: Value(true),
+        logbookNote: Value('Big one'),
+      ),
+    );
+
+    await AirportsService.syncAirportData(
+      db,
+      _parse(_airport(1, 'LIMC', 'Milano Malpensa')),
+    );
+
+    final a = (await airports())[1]!;
+    expect(a.name, 'Milano Malpensa');
+    expect(
+      (a.logbookIdent, a.logbookAnnotate, a.logbookNote),
+      ('MXP', true, 'Big one'),
+    );
+  });
+
   test('ident moving between airports does not violate UNIQUE', () async {
     await AirportsService.syncAirportData(
       db,

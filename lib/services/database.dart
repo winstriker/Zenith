@@ -85,6 +85,18 @@ class Airports extends Table {
   TextColumn get wikipediaLink => text().nullable()();
   TextColumn get keywords => text().nullable()();
 
+  /// The pilot's own ident for the PLACE columns of the exported logbook.
+  /// Null: the airport's ident. Kept by the airport data sync.
+  TextColumn get logbookIdent => text().nullable()();
+
+  /// Whether pages using the airport describe it under the table. Null: only
+  /// when it has no ICAO code (see [AirportLogbook.needsLogbookNote]).
+  BoolColumn get logbookAnnotate => boolean().nullable()();
+
+  /// The pilot's own description under the table. Null: worked out from the
+  /// airport's data.
+  TextColumn get logbookNote => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 
@@ -512,6 +524,55 @@ extension CustomAirport on Airport {
   bool get isCustom => id < 0;
 }
 
+/// AMC1 FCL.050(i)(3): places are ICAO identifiers. Anything else gets
+/// described under the logbook page.
+extension AirportLogbook on Airport {
+  bool get needsLogbookNote => isCustom || (icaoCode?.trim().isEmpty ?? true);
+
+  /// What the PLACE columns of the exported logbook say: the pilot's
+  /// override, or the airport's ident.
+  String get logbookPlace {
+    final custom = logbookIdent?.trim() ?? '';
+    return custom.isEmpty ? ident ?? '' : custom;
+  }
+
+  /// The line describing the airport under the logbook page, if any.
+  String? get logbookNoteLine {
+    if (!(logbookAnnotate ?? needsLogbookNote)) return null;
+    final custom = logbookNote?.trim() ?? '';
+    return custom.isEmpty ? defaultLogbookNote(logbookPlace) : custom;
+  }
+
+  /// Whether the logbook entry is overridden at all.
+  bool get hasLogbookOverride =>
+      (logbookIdent?.trim() ?? '').isNotEmpty ||
+      logbookAnnotate != null ||
+      (logbookNote?.trim() ?? '').isNotEmpty;
+
+  /// [ident] as written in the logbook, then name, place and position.
+  String defaultLogbookNote(String ident) {
+    String dm(double v, String pos, String neg, int degDigits) {
+      // In hundredths of a minute, so 59.996' can't print as 60.00'.
+      final h = (v.abs() * 6000).round();
+      final min = ((h % 6000) / 100).toStringAsFixed(2).padLeft(5, '0');
+      return "${'${h ~/ 6000}'.padLeft(degDigits, '0')}°$min'${v < 0 ? neg : pos}";
+    }
+
+    final lat = latitudeDeg, lon = longitudeDeg;
+    return [
+      ident,
+      [
+        ?name,
+        ?municipality,
+        isoCountry,
+      ].where((s) => s.trim().isNotEmpty).join(', '),
+      if (lat != null && lon != null)
+        '${dm(lat, 'N', 'S', 2)} ${dm(lon, 'E', 'W', 3)}',
+      if (elevationFt != null) 'elev. $elevationFt ft',
+    ].where((s) => s.isNotEmpty).join(' – ');
+  }
+}
+
 class AirportWithEverything {
   AirportWithEverything({
     required this.airport,
@@ -896,7 +957,7 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1088,6 +1149,25 @@ class LogbookDatabase extends _$LogbookDatabase {
           'CREATE INDEX IF NOT EXISTS airports_lat_lon_idx '
           'ON airports (latitude_deg, longitude_deg)',
         );
+      }
+      if (from < 17) {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(airports)',
+          ).get())
+            row.read<String>('name'),
+        };
+        for (final column in [
+          airports.logbookIdent,
+          airports.logbookAnnotate,
+          airports.logbookNote,
+        ]) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(airports, column);
+          }
+        }
+        // Schema 16 kept them in a table of their own (development only).
+        await customStatement('DROP TABLE IF EXISTS airport_logbook_overrides');
       }
     },
   );

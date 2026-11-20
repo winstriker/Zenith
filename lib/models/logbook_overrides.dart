@@ -13,6 +13,10 @@ enum LogbookTimeField {
   night('Night'),
   ifr('IFR'),
   pic('PIC'),
+
+  /// Only in previous totals: flights log PICUS time as PIC, and the
+  /// exported logbook moves it to its own column when asked to.
+  picus('PICUS'),
   coPilot('Co-pilot'),
   dual('Dual'),
   instructor('Instructor'),

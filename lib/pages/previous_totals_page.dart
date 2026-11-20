@@ -46,6 +46,7 @@ class _PreviousTotalsPageState extends ConsumerState<PreviousTotalsPage> {
       'PILOT FUNCTION',
       [
         LogbookTimeField.pic,
+        LogbookTimeField.picus,
         LogbookTimeField.coPilot,
         LogbookTimeField.dual,
         LogbookTimeField.instructor,

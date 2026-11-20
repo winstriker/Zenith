@@ -28,26 +28,32 @@ class _Totals {
   Duration night = Duration.zero;
   Duration ifr = Duration.zero;
   Duration pic = Duration.zero;
+  Duration picus = Duration.zero;
   Duration coPilot = Duration.zero;
   Duration dual = Duration.zero;
   Duration instructor = Duration.zero;
   Duration fstd = Duration.zero;
 
   /// What was logged before the app, carried forward into the first page.
-  static _Totals previous(PreviousTotals p) => _Totals()
-    ..se = p.time(LogbookTimeField.singlePilotSe)
-    ..me = p.time(LogbookTimeField.singlePilotMe)
-    ..multiPilot = p.time(LogbookTimeField.multiPilot)
-    ..total = p.time(LogbookTimeField.total)
-    ..dayLandings = p.dayLandings
-    ..nightLandings = p.nightLandings
-    ..night = p.time(LogbookTimeField.night)
-    ..ifr = p.time(LogbookTimeField.ifr)
-    ..pic = p.time(LogbookTimeField.pic)
-    ..coPilot = p.time(LogbookTimeField.coPilot)
-    ..dual = p.time(LogbookTimeField.dual)
-    ..instructor = p.time(LogbookTimeField.instructor)
-    ..fstd = p.time(LogbookTimeField.fstd);
+  /// Without a PICUS column, PICUS time is PIC time (AMC1 FCL.050(h)).
+  static _Totals previous(PreviousTotals p, {required bool picusColumn}) =>
+      _Totals()
+        ..se = p.time(LogbookTimeField.singlePilotSe)
+        ..me = p.time(LogbookTimeField.singlePilotMe)
+        ..multiPilot = p.time(LogbookTimeField.multiPilot)
+        ..total = p.time(LogbookTimeField.total)
+        ..dayLandings = p.dayLandings
+        ..nightLandings = p.nightLandings
+        ..night = p.time(LogbookTimeField.night)
+        ..ifr = p.time(LogbookTimeField.ifr)
+        ..pic =
+            p.time(LogbookTimeField.pic) +
+            (picusColumn ? Duration.zero : p.time(LogbookTimeField.picus))
+        ..picus = picusColumn ? p.time(LogbookTimeField.picus) : Duration.zero
+        ..coPilot = p.time(LogbookTimeField.coPilot)
+        ..dual = p.time(LogbookTimeField.dual)
+        ..instructor = p.time(LogbookTimeField.instructor)
+        ..fstd = p.time(LogbookTimeField.fstd);
 
   _Totals operator +(_Totals other) {
     return _Totals()
@@ -60,6 +66,7 @@ class _Totals {
       ..night = night + other.night
       ..ifr = ifr + other.ifr
       ..pic = pic + other.pic
+      ..picus = picus + other.picus
       ..coPilot = coPilot + other.coPilot
       ..dual = dual + other.dual
       ..instructor = instructor + other.instructor
@@ -68,7 +75,15 @@ class _Totals {
 }
 
 /// A flight's line of the logbook: its cells, and the height it takes.
-typedef _Line = ({LogbookEntry entry, String cells, double heightMm});
+/// [picus]: its PIC time is in the PICUS column. [notes]: descriptions of
+/// its airports for under the table, by airport id.
+typedef _Line = ({
+  LogbookEntry entry,
+  bool picus,
+  Map<int, String> notes,
+  String cells,
+  double heightMm,
+});
 
 /// Content of column 12 (remarks) in the three totals rows.
 enum _RemarksCell { certification, signature, coveredBySignature }
@@ -97,9 +112,11 @@ class PdfExportService {
     PicNameMode picNameMode = PicNameMode.self,
     String? address,
     List<String> licences = const [],
+    bool picusColumn = false,
   }) async {
     final html = buildLogbookHtml(
       flights,
+      picusColumn: picusColumn,
       crewByFlight: crewByFlight,
       signatures: signatures,
       pilotSignature: pilotSignature,
@@ -158,6 +175,18 @@ class PdfExportService {
     3, 3, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 5, 2.5, 11,
   ];
 
+  /// With a PICUS column after the PIC one, taken from PIC NAME, FSTD type
+  /// and remarks.
+  static const _picusColumnWidths = <double>[
+    5, 4, 3.5, 4, 3.5, 6.5, 4.5, 4, 4, 5, 4, 5.5, //
+    3, 3, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 4.5, 2.5, 8.5,
+  ];
+
+  /// Airports described under a page's table, at most: the room left there.
+  // shortcut: counts notes, not their lines; a long custom note may wrap
+  // and push the page; measure with LogbookTextFit if that shows up.
+  static const _maxNotesPerPage = 10;
+
   /// Width of the table: an A4 landscape page less its margins.
   static const _tableWidthMm = (297 - 2 * 7) * 0.999;
 
@@ -172,9 +201,9 @@ class PdfExportService {
   /// to hold their text.
   static const _pageRowsBudgetMm = _rowsPerPage * _rowHeightMm + 16;
 
-  /// Room for text in [column], with [sideMm] of padding.
-  static double _textWidthMm(int column, {double sideMm = 0.8}) =>
-      _columnWidths[column] * _tableWidthMm / 100 - sideMm;
+  /// Room for text in a column [widthPct] wide, with [sideMm] of padding.
+  static double _textWidthMm(double widthPct, {double sideMm = 0.8}) =>
+      widthPct * _tableWidthMm / 100 - sideMm;
 
   static String _points(double pt) =>
       pt == pt.roundToDouble() ? '${pt.toInt()}' : pt.toStringAsFixed(2);
@@ -196,12 +225,12 @@ class PdfExportService {
         '${_escape(fit.text)}$extra</$tag>';
   }
 
-  /// A cell of [column] whose text is fitted to it (see [LogbookTextFit]):
+  /// A cell [widthPct] wide whose text is fitted to it (see [LogbookTextFit]):
   /// set smaller, then on more lines, never cut off. Its text height is
   /// what the row needs for it.
   static ({String html, double heightMm}) _fittedCell(
     String text,
-    int column, {
+    double widthPct, {
     double maxPoints = 7,
     double minPoints = LogbookTextFit.minPrintablePoints,
     int maxLines = 1,
@@ -217,7 +246,7 @@ class PdfExportService {
     }
     final fit = LogbookTextFit.fit(
       text.trim(),
-      widthMm: _textWidthMm(column, sideMm: sideMm),
+      widthMm: _textWidthMm(widthPct, sideMm: sideMm),
       maxPoints: maxPoints,
       minPoints: minPoints,
       maxLines: maxLines,
@@ -233,9 +262,10 @@ class PdfExportService {
   /// for the aircraft.
   static ({String html, double heightMm}) _aircraftTypeCell(
     AircraftWithStats? aircraft,
+    double widthPct,
   ) {
     if (aircraft == null) return (html: '<td></td>', heightMm: 0);
-    final width = _textWidthMm(5);
+    final width = _textWidthMm(widthPct);
     final type = LogbookTextFit.fit(aircraft.logbookTypeLine, widthMm: width);
     final subtitleText = aircraft.logbookSubtitleLine;
     final subtitle = subtitleText == null
@@ -299,9 +329,10 @@ class PdfExportService {
   static ({String html, double heightMm}) _remarksCell(
     String remarks,
     Uint8List? signature,
+    double widthPct,
   ) => _fittedCell(
     remarks,
-    22,
+    widthPct,
     maxLines: 2,
     sideMm: 1.4,
     classes: signature == null ? 'text-left' : 'text-left signed',
@@ -311,26 +342,35 @@ class PdfExportService {
   );
 
   /// The cells of [flight]'s logbook line, and the height it needs.
+  /// [widths] has a PICUS column when [picusColumn].
   static _Line _line(
     FlightWithStats f,
     LogbookEntry entry,
     Uint8List? signature,
     String Function(DateTime) date,
-    String Function(DateTime) time,
-  ) {
+    String Function(DateTime) time, {
+    required bool picusColumn,
+    required List<double> widths,
+  }) {
     String duration(LogbookTimeField field) => _fmtDur(entry.time(field));
+    final picus = picusColumn && f.flight.pilotRole == CrewRole.picus.name;
+    // Past the PICUS column, when there is one, columns move one along.
+    final shift = picusColumn ? 1 : 0;
+    final notes = <int, String>{
+      for (final a in [?f.departure, ?f.arrival]) a.id: ?a.logbookNoteLine,
+    };
     // A simulator session only has its date, column 11 and remarks
     // (AMC1 FCL.050(i)(9)).
     final session = f.isSimulatorSession;
     String flown(String Function() value) => session ? '' : value();
     final fitted = [
-      _fittedCell(f.departure?.ident ?? '', 1),
-      _fittedCell(f.arrival?.ident ?? '', 3),
-      _aircraftTypeCell(f.aircraftWithStats),
-      _fittedCell(f.aircraftWithStats?.tailNumber ?? '', 6),
-      _fittedCell(entry.picName, 11),
-      _fittedCell(f.simulator?.logbookType ?? '', 20),
-      _remarksCell(entry.remarks, signature),
+      _fittedCell(f.departure?.logbookPlace ?? '', widths[1]),
+      _fittedCell(f.arrival?.logbookPlace ?? '', widths[3]),
+      _aircraftTypeCell(f.aircraftWithStats, widths[5]),
+      _fittedCell(f.aircraftWithStats?.tailNumber ?? '', widths[6]),
+      _fittedCell(entry.picName, widths[11]),
+      _fittedCell(f.simulator?.logbookType ?? '', widths[20 + shift]),
+      _remarksCell(entry.remarks, signature, widths[22 + shift]),
     ];
     final [dep, arr, type, registration, picName, fstdType, remarks] = fitted;
     final cells = StringBuffer()
@@ -352,7 +392,12 @@ class PdfExportService {
       ..write('<td>${_fmtInt(entry.nightLandings)}</td>')
       ..write('<td>${duration(LogbookTimeField.night)}</td>')
       ..write('<td>${duration(LogbookTimeField.ifr)}</td>')
-      ..write('<td>${duration(LogbookTimeField.pic)}</td>')
+      ..write('<td>${picus ? '' : duration(LogbookTimeField.pic)}</td>')
+      ..write(
+        picusColumn
+            ? '<td>${picus ? duration(LogbookTimeField.pic) : ''}</td>'
+            : '',
+      )
       ..write('<td>${duration(LogbookTimeField.coPilot)}</td>')
       ..write('<td>${duration(LogbookTimeField.dual)}</td>')
       ..write('<td>${duration(LogbookTimeField.instructor)}</td>')
@@ -362,14 +407,17 @@ class PdfExportService {
     final text = fitted.fold(0.0, (h, c) => max(h, c.heightMm));
     return (
       entry: entry,
+      picus: picus,
+      notes: notes,
       cells: cells.toString(),
       heightMm: max(_rowHeightMm, text + _cellPaddingMm),
     );
   }
 
-  static _Totals _calcPageTotals(List<LogbookEntry> page) {
+  static _Totals _calcPageTotals(List<_Line> page) {
     final t = _Totals();
-    for (final e in page) {
+    for (final (:entry, :picus, notes: _, cells: _, heightMm: _) in page) {
+      final e = entry;
       t.se += e.time(LogbookTimeField.singlePilotSe);
       t.me += e.time(LogbookTimeField.singlePilotMe);
       t.multiPilot += e.time(LogbookTimeField.multiPilot);
@@ -378,7 +426,11 @@ class PdfExportService {
       t.nightLandings += e.nightLandings;
       t.night += e.time(LogbookTimeField.night);
       t.ifr += e.time(LogbookTimeField.ifr);
-      t.pic += e.time(LogbookTimeField.pic);
+      if (picus) {
+        t.picus += e.time(LogbookTimeField.pic);
+      } else {
+        t.pic += e.time(LogbookTimeField.pic);
+      }
       t.coPilot += e.time(LogbookTimeField.coPilot);
       t.dual += e.time(LogbookTimeField.dual);
       t.instructor += e.time(LogbookTimeField.instructor);
@@ -392,6 +444,7 @@ class PdfExportService {
     String label,
     _Totals t,
     _RemarksCell remarks, {
+    required bool picusColumn,
     String? pilotSignature,
   }) {
     final buf = StringBuffer();
@@ -407,6 +460,7 @@ class PdfExportService {
     buf.write('<td>${_fmtDur(t.night)}</td>');
     buf.write('<td>${_fmtDur(t.ifr)}</td>');
     buf.write('<td>${_fmtDur(t.pic)}</td>');
+    if (picusColumn) buf.write('<td>${_fmtDur(t.picus)}</td>');
     buf.write('<td>${_fmtDur(t.coPilot)}</td>');
     buf.write('<td>${_fmtDur(t.dual)}</td>');
     buf.write('<td>${_fmtDur(t.instructor)}</td>');
@@ -433,7 +487,8 @@ class PdfExportService {
     return buf.toString();
   }
 
-  static String _tableHeader() {
+  static String _tableHeader({required bool picusColumn}) {
+    final functions = picusColumn ? 5 : 4;
     return '''
 <thead>
   <tr>
@@ -446,7 +501,7 @@ class PdfExportService {
     <th class="bold">7</th>
     <th colspan="2" class="bold">8</th>
     <th colspan="2" class="bold">9</th>
-    <th colspan="4" class="bold">10</th>
+    <th colspan="$functions" class="bold">10</th>
     <th colspan="2" class="bold">11</th>
     <th class="bold">12</th>
   </tr>
@@ -461,7 +516,7 @@ class PdfExportService {
     <th rowspan="2">PIC NAME</th>
     <th colspan="2">LANDINGS</th>
     <th colspan="2">OP. COND. TIME</th>
-    <th colspan="4">PILOT FUNCTION TIME</th>
+    <th colspan="$functions">PILOT FUNCTION TIME</th>
     <th colspan="2">FSTD SESSION</th>
     <th rowspan="2">REMARKS AND<br>ENDORSEMENTS</th>
   </tr>
@@ -472,7 +527,7 @@ class PdfExportService {
     <th>SE</th><th>ME</th>
     <th>DAY</th><th>NIGHT</th>
     <th>NIGHT</th><th>IFR</th>
-    <th>PIC</th><th>COP</th><th>DUAL</th><th>INSTR</th>
+    <th>PIC</th>${picusColumn ? '<th>PICUS</th>' : ''}<th>COP</th><th>DUAL</th><th>INSTR</th>
     <th>TYPE</th><th>TIME</th>
   </tr>
 </thead>''';
@@ -490,7 +545,9 @@ class PdfExportService {
     PicNameMode picNameMode = PicNameMode.self,
     String? address,
     List<String> licences = const [],
+    bool picusColumn = false,
   }) {
+    final widths = picusColumn ? _picusColumnWidths : _columnWidths;
     // Encoded once: the same picture signs every page.
     final pilotSignatureUri = pilotSignature == null
         ? null
@@ -522,21 +579,35 @@ class PdfExportService {
     ];
     final lines = [
       for (final (:flight, :entry) in entries)
-        _line(flight, entry, signatures[flight.flight.id], date, time),
+        _line(
+          flight,
+          entry,
+          signatures[flight.flight.id],
+          date,
+          time,
+          picusColumn: picusColumn,
+          widths: widths,
+        ),
     ];
     // At most 20 lines a page, fewer when some grew taller to hold their
-    // text: the table never runs off the page.
+    // text, or their airports' notes would not fit under the table: the
+    // page never runs over.
     final pages = <List<_Line>>[[]];
     var used = 0.0;
+    var noted = <int>{};
     for (final line in lines) {
       final page = pages.last;
-      if (page.length == _rowsPerPage ||
-          (page.isNotEmpty && used + line.heightMm > _pageRowsBudgetMm)) {
+      if (page.isNotEmpty &&
+          (page.length == _rowsPerPage ||
+              used + line.heightMm > _pageRowsBudgetMm ||
+              {...noted, ...line.notes.keys}.length > _maxNotesPerPage)) {
         pages.add([]);
         used = 0;
+        noted = {};
       }
       pages.last.add(line);
       used += line.heightMm;
+      noted.addAll(line.notes.keys);
     }
 
     final buf = StringBuffer();
@@ -643,6 +714,11 @@ class PdfExportService {
     object-position: center;
   }
   .bg-grey { background-color: #f2f2f2; }
+  .airport-notes {
+    margin-top: 1.5mm;
+    font-size: 6pt;
+    line-height: 1.25;
+  }
   td.type { text-align: center; }
   .cover {
     padding: 30mm 25mm 0 25mm;
@@ -679,13 +755,11 @@ class PdfExportService {
       _coverPage(name: pilotName, address: address, licences: licences),
     );
 
-    var prevTotals = _Totals.previous(previousTotals);
+    var prevTotals = _Totals.previous(previousTotals, picusColumn: picusColumn);
 
     for (int pageIdx = 0; pageIdx < pages.length; pageIdx++) {
       final pageFlights = pages[pageIdx];
-      final pageTotals = _calcPageTotals([
-        for (final line in pageFlights) line.entry,
-      ]);
+      final pageTotals = _calcPageTotals(pageFlights);
       final pageHeight = pageFlights.fold(0.0, (h, l) => h + l.heightMm);
       // Empty lines up to 20, as far as the page has room.
       final emptyLines = min(
@@ -697,11 +771,11 @@ class PdfExportService {
       buf.write('<div class="logbook-page">');
       buf.write('<table>');
       buf.write('<colgroup>');
-      for (final width in _columnWidths) {
+      for (final width in widths) {
         buf.write('<col style="width:$width%">');
       }
       buf.write('</colgroup>');
-      buf.write(_tableHeader());
+      buf.write(_tableHeader(picusColumn: picusColumn));
       buf.write('<tbody>');
 
       for (int i = 0; i < pageFlights.length + emptyLines; i++) {
@@ -710,7 +784,7 @@ class PdfExportService {
         if (i < pageFlights.length) {
           buf.write(pageFlights[i].cells);
         } else {
-          for (int j = 0; j < 23; j++) {
+          for (int j = 0; j < widths.length; j++) {
             buf.write('<td></td>');
           }
         }
@@ -719,21 +793,41 @@ class PdfExportService {
 
       // Totals rows
       buf.write(
-        _totalsRow('TOTAL THIS PAGE', pageTotals, _RemarksCell.certification),
+        _totalsRow(
+          'TOTAL THIS PAGE',
+          pageTotals,
+          _RemarksCell.certification,
+          picusColumn: picusColumn,
+        ),
       );
       buf.write(
         _totalsRow(
           'TOTAL FROM PREVIOUS PAGES',
           prevTotals,
           _RemarksCell.signature,
+          picusColumn: picusColumn,
           pilotSignature: pilotSignatureUri,
         ),
       );
       buf.write(
-        _totalsRow('TOTAL TIME', grandTotals, _RemarksCell.coveredBySignature),
+        _totalsRow(
+          'TOTAL TIME',
+          grandTotals,
+          _RemarksCell.coveredBySignature,
+          picusColumn: picusColumn,
+        ),
       );
 
-      buf.write('</tbody></table></div>');
+      buf.write('</tbody></table>');
+      final notes = {for (final line in pageFlights) ...line.notes};
+      if (notes.isNotEmpty) {
+        buf.write('<div class="airport-notes">');
+        for (final note in notes.values) {
+          buf.write('<div>${_escape(note)}</div>');
+        }
+        buf.write('</div>');
+      }
+      buf.write('</div>');
 
       prevTotals = grandTotals;
     }

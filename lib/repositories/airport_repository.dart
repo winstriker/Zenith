@@ -303,6 +303,29 @@ class AirportRepository {
     });
   }
 
+  /// How the airport is written in the exported logbook: [ident] in the
+  /// PLACE columns instead of its own, whether to [annotate] it under the
+  /// page (null: when it has no ICAO code) and the [note] to write there.
+  /// Blank clears the texts.
+  Future<void> setLogbookEntry(
+    int id, {
+    String? ident,
+    bool? annotate,
+    String? note,
+  }) {
+    String? orNull(String? text) =>
+        text == null || text.trim().isEmpty ? null : text.trim();
+    return (_database.update(
+      _database.airports,
+    )..where((a) => a.id.equals(id))).write(
+      AirportsCompanion(
+        logbookIdent: Value(orNull(ident)),
+        logbookAnnotate: Value(annotate),
+        logbookNote: Value(orNull(note)),
+      ),
+    );
+  }
+
   /// Updates an airport of the user's own. OurAirports airports aren't
   /// touched: the next sync would undo the change anyway.
   Future<void> updateCustomAirport(int id, AirportsCompanion airport) async {

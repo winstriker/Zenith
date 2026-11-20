@@ -80,6 +80,7 @@ class _PdfExportSettingsPageState extends ConsumerState<PdfExportSettingsPage> {
       previousTotals: profile?.previousTotals ?? PreviousTotals.empty,
       pilotName: ref.read(userSignatureNameProvider),
       picNameMode: ref.read(picNameModeProvider),
+      picusColumn: ref.read(picusColumnProvider),
       address: profile?.address,
       licences: [
         for (final l in licences)
@@ -188,6 +189,20 @@ class _PdfExportSettingsPageState extends ConsumerState<PdfExportSettingsPage> {
                   ),
                 ],
               ),
+            ),
+          ),
+          Card(
+            child: SwitchListTile(
+              secondary: Icon(
+                Icons.supervisor_account_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: const Text('PICUS column'),
+              subtitle: const Text(
+                'Log PIC under supervision time in its own column',
+              ),
+              value: ref.watch(picusColumnProvider),
+              onChanged: ref.read(picusColumnProvider.notifier).set,
             ),
           ),
           const SizedBox(height: 24),
