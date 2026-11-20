@@ -68,6 +68,38 @@ class OledNotifier extends Notifier<bool> {
 
 final oledProvider = NotifierProvider<OledNotifier, bool>(OledNotifier.new);
 
+/// Hides the status and navigation bars; a swipe from an edge shows them
+/// for a moment.
+class FullScreenNotifier extends Notifier<bool> {
+  static const prefsKey = 'theme_full_screen';
+
+  @override
+  bool build() {
+    final value =
+        ref.read(sharedPreferencesProvider).getBool(prefsKey) ?? false;
+    _apply(value);
+    return value;
+  }
+
+  Future<void> set(bool value) async {
+    state = value;
+    _apply(value);
+    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+  }
+
+  // Off is Flutter's default: both bars shown.
+  static void _apply(bool value) => value
+      ? SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky)
+      : SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: SystemUiOverlay.values,
+        );
+}
+
+final fullScreenProvider = NotifierProvider<FullScreenNotifier, bool>(
+  FullScreenNotifier.new,
+);
+
 /// Whether the theme follows Android's wallpaper colors (see
 /// [systemAccentProvider]) instead of the chosen palette.
 class SystemColorsNotifier extends Notifier<bool> {

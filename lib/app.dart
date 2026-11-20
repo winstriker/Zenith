@@ -121,6 +121,8 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     // the lists read the table through streams, so the whole app (and any
     // animation on screen) doesn't need to rebuild when the load finishes.
     ref.listen(aircraftTypesLoadProvider, (_, _) {});
+    // Applies the full screen setting from startup on.
+    ref.listen(fullScreenProvider, (_, _) {});
     // Keeps licence & currency reminders scheduled, once there is a pilot.
     if (!needsIntro) ref.listen(currencyReminderSyncProvider, (_, _) {});
 

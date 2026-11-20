@@ -120,6 +120,16 @@ class ThemeSettingsPage extends ConsumerWidget {
                       ? null
                       : ref.read(oledProvider.notifier).set,
                 ),
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.fullscreen,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: const Text('Full screen'),
+                  subtitle: const Text('Hide the status and navigation bars'),
+                  value: ref.watch(fullScreenProvider),
+                  onChanged: ref.read(fullScreenProvider.notifier).set,
+                ),
               ],
             ),
           ),

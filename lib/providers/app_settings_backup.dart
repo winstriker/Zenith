@@ -39,6 +39,7 @@ class AppSettingsBackup {
     PaletteNotifier.prefsKey: _Kind.string,
     OledNotifier.prefsKey: _Kind.bool,
     SystemColorsNotifier.prefsKey: _Kind.bool,
+    FullScreenNotifier.prefsKey: _Kind.bool,
     UnitNotifier.prefsKey: _Kind.int,
     MapSourceNotifier.prefsKey: _Kind.string,
     CustomReplaySpeedNotifier.prefsKey: _Kind.int,
@@ -121,6 +122,7 @@ class AppSettingsBackup {
       ..invalidate(paletteProvider)
       ..invalidate(oledProvider)
       ..invalidate(systemColorsProvider)
+      ..invalidate(fullScreenProvider)
       ..invalidate(unitProvider)
       ..invalidate(mapSourceProvider)
       ..invalidate(customReplaySpeedProvider)
