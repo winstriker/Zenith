@@ -44,7 +44,12 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     super.initState();
     // Automatic backups run shortly after launch and whenever the app comes
     // back to the foreground; the controller skips them if none is due.
-    _lifecycle = AppLifecycleListener(onResume: _runAutomaticBackups);
+    _lifecycle = AppLifecycleListener(
+      onResume: () {
+        _runAutomaticBackups();
+        unawaited(ref.read(systemAccentProvider.notifier).load());
+      },
+    );
     Future.delayed(const Duration(seconds: 5), _runAutomaticBackups);
     Future.delayed(const Duration(seconds: 5), _checkForUpdates);
     WidgetsBinding.instance.addPostFrameCallback((_) => _resumeRecording());
@@ -100,6 +105,10 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
+    final palette = ref.watch(paletteProvider);
+    final systemAccent = ref.watch(systemColorsProvider)
+        ? ref.watch(systemAccentProvider)
+        : null;
     final nickname = ref.watch(userNicknameProvider);
     final signatureName = ref.watch(userSignatureNameProvider);
     final onboardingComplete = ref.watch(onboardingCompleteProvider);
@@ -120,8 +129,17 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: AppTheme.build(
+        Brightness.light,
+        palette: palette,
+        systemAccent: systemAccent,
+      ),
+      darkTheme: AppTheme.build(
+        Brightness.dark,
+        palette: palette,
+        oled: ref.watch(oledProvider),
+        systemAccent: systemAccent,
+      ),
       themeMode: themeMode,
       // Keyed so the home subtree (not the whole app/navigator) is rebuilt
       // once location permission is granted.

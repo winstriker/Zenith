@@ -36,6 +36,9 @@ class AppSettingsBackup {
     PicusColumnNotifier.prefsKey: _Kind.bool,
     // Preferences.
     ThemeNotifier.prefsKey: _Kind.int,
+    PaletteNotifier.prefsKey: _Kind.string,
+    OledNotifier.prefsKey: _Kind.bool,
+    SystemColorsNotifier.prefsKey: _Kind.bool,
     UnitNotifier.prefsKey: _Kind.int,
     MapSourceNotifier.prefsKey: _Kind.string,
     CustomReplaySpeedNotifier.prefsKey: _Kind.int,
@@ -115,6 +118,9 @@ class AppSettingsBackup {
       ..invalidate(picNameModeProvider)
       ..invalidate(picusColumnProvider)
       ..invalidate(themeProvider)
+      ..invalidate(paletteProvider)
+      ..invalidate(oledProvider)
+      ..invalidate(systemColorsProvider)
       ..invalidate(unitProvider)
       ..invalidate(mapSourceProvider)
       ..invalidate(customReplaySpeedProvider)

@@ -10,6 +10,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'app.dart';
 import 'providers/backup_providers.dart';
 import 'providers/shared_preferences_provider.dart';
+import 'providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,9 @@ Future<void> main() async {
   final container = ProviderContainer(
     overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
   );
+
+  // Before the first frame, so a Material You theme doesn't flash in.
+  await container.read(systemAccentProvider.notifier).load();
 
   // Not awaited: OAuth callbacks can be handled once the app is up.
   unawaited(container.read(callbackServiceProvider).initialize());

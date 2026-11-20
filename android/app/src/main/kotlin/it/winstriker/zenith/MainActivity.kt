@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -22,6 +23,20 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Material You accent from the wallpaper, Android 12+ only.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "zenith/system_colors")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "accent" -> result.success(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            getColor(android.R.color.system_accent1_500)
+                        } else {
+                            null
+                        },
+                    )
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "zenith/file_opener")
             .setMethodCallHandler { call, result ->
                 when (call.method) {

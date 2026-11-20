@@ -14,7 +14,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.build(Brightness.light),
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) => SingleChildScrollView(
@@ -58,7 +58,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.build(Brightness.light),
         home: Scaffold(
           body: CrewCard.readOnly(
             pilotRole: CrewRole.dual,
