@@ -80,6 +80,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   /// only read their value when created.
   int _loaded = 0;
 
+  /// Whether the airport dialogs search every airport, ignoring the search
+  /// settings; only for this form, never saved.
+  final _searchAll = ValueNotifier(false);
+
   /// The signature the flight was saved with, unless removed here.
   String? get _storedSignature =>
       _signatureRemoved ? null : widget.flightToEdit?.flight.signatureFile;
@@ -116,6 +120,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     // Always clear the shared form state, otherwise an abandoned edit leaks
     // into the next form (and crew gets re-added on top of the old one).
     Future.microtask(() => _formNotifier.reset());
+    _searchAll.dispose();
     super.dispose();
   }
 
@@ -629,6 +634,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       context: context,
       builder: (_) => AirportSearchDialog(
         title: isDeparture ? 'Select Departure' : 'Select Arrival',
+        searchAll: _searchAll,
       ),
     );
     if (airport != null) {

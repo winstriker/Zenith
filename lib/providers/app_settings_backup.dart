@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/aircraft_image_cache.dart';
+import 'airport_providers.dart';
 import 'backup_providers.dart';
 import 'currency_settings_provider.dart';
 import 'map_provider.dart';
@@ -38,6 +39,8 @@ class AppSettingsBackup {
     MapSourceNotifier.prefsKey: _Kind.string,
     CustomReplaySpeedNotifier.prefsKey: _Kind.int,
     LastReplaySpeed.prefsKey: _Kind.int,
+    IcaoOnlyNotifier.prefsKey: _Kind.bool,
+    excludedAirportTypesKey: _Kind.stringList,
     // Licence reminders.
     CurrencySettingsNotifier.enabledKey: _Kind.bool,
     CurrencySettingsNotifier.leadsKey: _Kind.stringList,
@@ -113,6 +116,8 @@ class AppSettingsBackup {
       ..invalidate(unitProvider)
       ..invalidate(mapSourceProvider)
       ..invalidate(customReplaySpeedProvider)
+      ..invalidate(icaoOnlyProvider)
+      ..invalidate(excludedAirportTypeNamesProvider)
       ..invalidate(currencySettingsProvider)
       ..invalidate(disabledTrackProvidersProvider)
       ..invalidate(disabledHexSourcesProvider)

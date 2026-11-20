@@ -5,12 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_page_route.dart';
 import '../pages/airport_form_page.dart';
+import '../providers/airport_providers.dart';
 import '../repositories/airport_repository.dart';
 import '../services/database.dart';
 
 class AirportSearchDialog extends ConsumerStatefulWidget {
-  const AirportSearchDialog({super.key, required this.title});
+  const AirportSearchDialog({super.key, required this.title, this.searchAll});
   final String title;
+
+  /// Whether to search every airport, ignoring the search settings. Pass
+  /// one to keep the choice across dialogs.
+  final ValueNotifier<bool>? searchAll;
 
   @override
   ConsumerState<AirportSearchDialog> createState() =>
@@ -24,6 +29,7 @@ class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
   List<Airport> _recent = [];
   List<Airport> _results = [];
   bool _loadingRecent = true;
+  late final _searchAll = widget.searchAll ?? ValueNotifier(false);
 
   @override
   void initState() {
@@ -36,6 +42,7 @@ class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
     _controller.dispose();
     _focusNode.dispose();
     _debounce?.cancel();
+    if (widget.searchAll == null) _searchAll.dispose();
     super.dispose();
   }
 
@@ -57,10 +64,18 @@ class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
       setState(() => _results = []);
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
+    // The search takes under 50 ms on a phone (full scan of ~86k airports):
+    // the debounce only has to skip keystrokes typed in a burst.
+    _debounce = Timer(const Duration(milliseconds: 150), () async {
       final results = await ref
           .read(airportRepositoryProvider)
-          .findAirports(query.trim());
+          .findAirports(
+            query.trim(),
+            icaoOnly: !_searchAll.value && ref.read(icaoOnlyProvider),
+            excludedTypes: _searchAll.value
+                ? const {}
+                : ref.read(excludedAirportTypesProvider),
+          );
       if (mounted) setState(() => _results = results);
     });
   }
@@ -126,6 +141,18 @@ class _AirportSearchDialogState extends ConsumerState<AirportSearchDialog> {
                 },
               ),
             ),
+            // Only when the search settings leave some airports out.
+            if (ref.watch(icaoOnlyProvider) ||
+                ref.watch(excludedAirportTypesProvider).isNotEmpty)
+              SwitchListTile(
+                dense: true,
+                title: const Text('Search all airports'),
+                value: _searchAll.value,
+                onChanged: (v) {
+                  setState(() => _searchAll.value = v);
+                  _search(_controller.text);
+                },
+              ),
             const Divider(height: 1),
             Flexible(
               child: showRecent

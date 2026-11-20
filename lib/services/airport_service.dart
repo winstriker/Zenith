@@ -638,6 +638,8 @@ class AirportsService {
   /// recently used in flights instead (see [position]).
   Stream<List<AirportWithDistance>> watchNearAirportsWithFallback({
     int limit = 20,
+    bool icaoOnly = false,
+    Set<AirportType> excludedTypes = const {},
   }) async* {
     if (position == null) {
       isLocating = true;
@@ -659,7 +661,13 @@ class AirportsService {
       return;
     }
     yield* repository
-        .watchAirportsNear(here.latitude, here.longitude, limit: limit)
+        .watchAirportsNear(
+          here.latitude,
+          here.longitude,
+          limit: limit,
+          icaoOnly: icaoOnly,
+          excludedTypes: excludedTypes,
+        )
         .map(
           (list) => [
             for (final a in list)

@@ -17,6 +17,7 @@ import '../widgets/picker_sheet.dart';
 import '../widgets/sync_progress_indicator.dart';
 import 'airport_detail_page.dart';
 import 'airport_form_page.dart';
+import 'airport_search_settings_page.dart';
 
 /// Top-level tab: the airports nearest to the user, or those matching a
 /// search and filters, and an "Add airport" FAB for airports missing from
@@ -254,33 +255,49 @@ class _AirportsPageState extends ConsumerState<AirportsPage> {
                   ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: TextField(
-                      controller: _searchController,
-                      textInputAction: TextInputAction.search,
-                      decoration: InputDecoration(
-                        hintText: 'Search name, code or city...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        suffixIcon: _query.isEmpty
-                            ? null
-                            : IconButton(
-                                icon: const Icon(Icons.clear, size: 20),
-                                tooltip: 'Clear',
-                                onPressed: () {
-                                  _searchController.clear();
-                                  _search('');
-                                },
+                    padding: const EdgeInsets.fromLTRB(16, 0, 4, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            textInputAction: TextInputAction.search,
+                            decoration: InputDecoration(
+                              hintText: 'Search name, code or city...',
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              suffixIcon: _query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      icon: const Icon(Icons.clear, size: 20),
+                                      tooltip: 'Clear',
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        _search('');
+                                      },
+                                    ),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 12,
                               ),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 12,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onChanged: (v) => _search(v.trim()),
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                        IconButton(
+                          icon: const Icon(Icons.tune),
+                          tooltip: 'Search settings',
+                          onPressed: () => Navigator.push(
+                            context,
+                            AppPageRoute<void>(
+                              builder: (_) => const AirportSearchSettingsPage(),
+                            ),
+                          ),
                         ),
-                      ),
-                      onChanged: (v) => _search(v.trim()),
+                      ],
                     ),
                   ),
                 ),

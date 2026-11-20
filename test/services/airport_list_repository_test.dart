@@ -161,6 +161,7 @@ void main() {
       AirportType? type,
       bool usedOnly = false,
       bool icaoOnly = false,
+      Set<AirportType> excludedTypes = const {},
       int limit = 10,
     }) async => [
       for (final a in await repo.getMapAirports(
@@ -169,6 +170,7 @@ void main() {
         type: type,
         usedOnly: usedOnly,
         icaoOnly: icaoOnly,
+        excludedTypes: excludedTypes,
         limit: limit,
       ))
         a.ident,
@@ -179,6 +181,12 @@ void main() {
     expect(await map(bounded: false, icaoOnly: true), ['LARG', 'AWAY']);
     expect(await map(usedOnly: true), ['LARG']);
     expect(await map(type: AirportType.heliport), ['HELI']);
+    const noHeli = {AirportType.heliport};
+    expect(await map(excludedTypes: noHeli), ['LARG', 'SMAL']);
+    // Asking for the type finds it anyway.
+    expect(await map(type: AirportType.heliport, excludedTypes: noHeli), [
+      'HELI',
+    ]);
     expect(await map(bounded: false, query: 'away'), ['AWAY']);
   });
 
@@ -252,6 +260,15 @@ void main() {
       await repo.addCustomAirport(custom('XA02'));
       final found = await repo.searchAirports(customOnly: true).first;
       expect(found.map((a) => a.ident), ['XA02', 'XA01']);
+    });
+
+    test('icaoOnly search keeps them, drops other non-ICAO', () async {
+      await repo.addCustomAirport(custom('XA01'));
+      await db
+          .into(db.airports)
+          .insert(custom('IT-0001').copyWith(icaoCode: const Value('')));
+      final found = await repo.findAirports('strip', icaoOnly: true);
+      expect(found.map((a) => a.ident), ['XA01']);
     });
   });
 }

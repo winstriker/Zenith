@@ -1265,37 +1265,6 @@ class LogbookDatabase extends _$LogbookDatabase {
     );
   }
 
-  Future<List<Airport>> searchAirports({
-    String query = '',
-    String? countryCode,
-    AirportType? type,
-    int limit = 100,
-  }) async {
-    final statement = select(airports)..limit(limit);
-
-    if (query.isNotEmpty) {
-      final term = '%$query%';
-      statement.where(
-        (a) =>
-            a.name.like(term) |
-            a.ident.like(term) |
-            a.icaoCode.like(term) |
-            a.iataCode.like(term) |
-            a.municipality.like(term),
-      );
-    }
-
-    if (countryCode != null) {
-      statement.where((a) => a.isoCountry.equals(countryCode));
-    }
-
-    if (type != null) {
-      statement.where((a) => a.type.equals(type.index));
-    }
-
-    return statement.get();
-  }
-
   /// The airport known by the ICAO-style [code] ("LIMC"): its ident first,
   /// then its ICAO or GPS code. Null when none is.
   Future<Airport?> findAirportByCode(String code) async {

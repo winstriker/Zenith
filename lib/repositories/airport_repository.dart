@@ -12,13 +12,28 @@ class AirportRepository {
   AirportRepository(this._database);
   final LogbookDatabase _database;
 
+  /// Airports with an ICAO code, or of the user's own.
+  // The sync stores a missing code as '': NULL and '' both fail this.
+  static Expression<bool> _icaoOrCustom($AirportsTable a) =>
+      a.icaoCode.isNotValue('') | a.id.isSmallerThanValue(0);
+
+  /// Airports whose type isn't one of [types].
+  static Expression<bool> Function($AirportsTable) _notOfTypes(
+    Set<AirportType> types,
+  ) =>
+      (a) => a.type.isNotIn([for (final t in types) t.index]);
+
   /// Stream of airports matching a search query. [customOnly] keeps the
-  /// user's own airports, newest first.
+  /// user's own airports, newest first; [icaoOnly] those with an ICAO code
+  /// or of the user's own. [excludedTypes] are left out unless [type] asks
+  /// for one.
   Stream<List<Airport>> searchAirports({
     String query = '',
     String? countryCode,
     AirportType? type,
     bool customOnly = false,
+    bool icaoOnly = false,
+    Set<AirportType> excludedTypes = const {},
     int limit = 100,
   }) {
     final statement = _database.select(_database.airports)..limit(limit);
@@ -48,7 +63,11 @@ class AirportRepository {
 
     if (type != null) {
       statement.where((a) => a.type.equals(type.index));
+    } else if (excludedTypes.isNotEmpty) {
+      statement.where(_notOfTypes(excludedTypes));
     }
+
+    if (icaoOnly) statement.where(_icaoOrCustom);
 
     return statement.watch();
   }
@@ -87,6 +106,8 @@ class AirportRepository {
     double longitude, {
     double delta = 2.0,
     int limit = 20,
+    bool icaoOnly = false,
+    Set<AirportType> excludedTypes = const {},
   }) {
     // Flat-earth distance: plenty to rank airports a couple of degrees away.
     final lonScale = cos(latitude * pi / 180);
@@ -96,7 +117,10 @@ class AirportRepository {
       return dLat * dLat + dLon * dLon;
     }
 
-    return (_database.select(_database.airports)
+    final statement = _database.select(_database.airports);
+    if (icaoOnly) statement.where(_icaoOrCustom);
+    if (excludedTypes.isNotEmpty) statement.where(_notOfTypes(excludedTypes));
+    return (statement
           ..where(
             (a) => a.latitudeDeg.isBetweenValues(
               latitude - delta,
@@ -117,7 +141,8 @@ class AirportRepository {
   /// The first [limit] airports with a position that match every filter,
   /// inside [bounds] when given, the biggest airports first. [usedOnly]
   /// keeps those a flight used, [customOnly] the user's own, and [icaoOnly]
-  /// those with an ICAO code.
+  /// those with an ICAO code or of the user's own. [excludedTypes] are left
+  /// out unless [type] asks for one.
   Future<List<Airport>> getMapAirports({
     ({double south, double west, double north, double east})? bounds,
     String query = '',
@@ -125,6 +150,7 @@ class AirportRepository {
     bool usedOnly = false,
     bool customOnly = false,
     bool icaoOnly = false,
+    Set<AirportType> excludedTypes = const {},
     required int limit,
   }) {
     final db = _database;
@@ -164,10 +190,13 @@ class AirportRepository {
         ]),
       );
     }
-    if (type != null) statement.where((a) => a.type.equals(type.index));
+    if (type != null) {
+      statement.where((a) => a.type.equals(type.index));
+    } else if (excludedTypes.isNotEmpty) {
+      statement.where(_notOfTypes(excludedTypes));
+    }
     if (customOnly) statement.where((a) => a.id.isSmallerThanValue(0));
-    // The sync stores a missing code as '': NULL and '' both fail this.
-    if (icaoOnly) statement.where((a) => a.icaoCode.isNotValue(''));
+    if (icaoOnly) statement.where(_icaoOrCustom);
     if (usedOnly) {
       final f = db.flights;
       statement.where(
@@ -222,8 +251,18 @@ class AirportRepository {
   }
 
   /// One-off search (no stream), e.g. for type-ahead lookups.
-  Future<List<Airport>> findAirports(String query, {int limit = 15}) {
-    return _database.searchAirports(query: query, limit: limit);
+  Future<List<Airport>> findAirports(
+    String query, {
+    bool icaoOnly = false,
+    Set<AirportType> excludedTypes = const {},
+    int limit = 15,
+  }) {
+    return searchAirports(
+      query: query,
+      icaoOnly: icaoOnly,
+      excludedTypes: excludedTypes,
+      limit: limit,
+    ).first;
   }
 
   /// Airports most recently used in flights.

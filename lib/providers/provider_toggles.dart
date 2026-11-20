@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The ids of the online services of one kind that the user switched off
-/// in the settings.
+/// The ids of the things of one kind (online services, airport types) that
+/// the user switched off in the settings.
 ///
-/// What is *off* is what gets saved, so that a service added by a later
-/// version starts switched on like the others did.
+/// What is *off* is what gets saved, so that one added by a later version
+/// starts switched on like the others did.
 class DisabledIdsNotifier extends Notifier<Set<String>> {
   DisabledIdsNotifier(this._key);
   final String _key;

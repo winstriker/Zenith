@@ -1,12 +1,50 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../repositories/airport_repository.dart';
 import '../repositories/flight_repository.dart';
 import '../services/airport_service.dart';
 import '../services/database.dart';
 import 'database_provider.dart';
+import 'provider_toggles.dart';
+import 'shared_preferences_provider.dart';
+
+/// Whether airport searches leave out airports without an ICAO code (the
+/// user's own airports are always kept). On by default.
+class IcaoOnlyNotifier extends Notifier<bool> {
+  static const prefsKey = 'airports_icao_only';
+
+  @override
+  bool build() => ref.read(sharedPreferencesProvider).getBool(prefsKey) ?? true;
+
+  Future<void> set(bool value) async {
+    state = value;
+    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+  }
+}
+
+final icaoOnlyProvider = NotifierProvider<IcaoOnlyNotifier, bool>(
+  IcaoOnlyNotifier.new,
+);
+
+const excludedAirportTypesKey = 'airports_excluded_types';
+
+/// Airport types (`AirportType.name`) that searches leave out.
+final excludedAirportTypeNamesProvider =
+    NotifierProvider<DisabledIdsNotifier, Set<String>>(
+      () => DisabledIdsNotifier(excludedAirportTypesKey),
+    );
+
+/// Airport types that searches leave out, unless one is asked for.
+final excludedAirportTypesProvider = Provider<Set<AirportType>>((ref) {
+  final names = ref.watch(excludedAirportTypeNamesProvider);
+  return {
+    for (final t in AirportType.values)
+      if (names.contains(t.name)) t,
+  };
+});
 
 // Airport Repository Provider
 // Provided by airport_repository.dart
@@ -68,10 +106,16 @@ final airportsPageProvider = StreamProvider.autoDispose
           key.country != null ||
           key.type != null ||
           key.customOnly;
+      final icaoOnly = ref.watch(icaoOnlyProvider);
+      final excludedTypes = ref.watch(excludedAirportTypesProvider);
       if (!filtering) {
         final service = ref.watch(airportServiceProvider);
         return key.nearest
-            ? service.watchNearAirportsWithFallback(limit: key.limit)
+            ? service.watchNearAirportsWithFallback(
+                limit: key.limit,
+                icaoOnly: icaoOnly,
+                excludedTypes: excludedTypes,
+              )
             : service.watchRecentAirports(limit: key.limit);
       }
       return ref
@@ -81,6 +125,8 @@ final airportsPageProvider = StreamProvider.autoDispose
             countryCode: key.country,
             type: key.type,
             customOnly: key.customOnly,
+            icaoOnly: icaoOnly,
+            excludedTypes: excludedTypes,
             limit: key.limit,
           )
           .map((list) => [for (final a in list) AirportWithDistance(a, -1)]);

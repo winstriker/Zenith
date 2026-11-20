@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../core/app_page_route.dart';
 import '../core/theme.dart';
+import '../providers/airport_providers.dart';
 import '../repositories/airport_repository.dart';
 import '../services/database.dart';
 import '../widgets/base_map_layer.dart';
@@ -48,7 +49,7 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
   AirportType? _type;
   bool _usedOnly = false;
   bool _customOnly = false;
-  bool _icaoOnly = true;
+  late bool _icaoOnly = ref.read(icaoOnlyProvider);
 
   bool _overlayVisible = true;
   Timer? _overlayTimer;
@@ -75,6 +76,7 @@ class _AirportMapPageState extends ConsumerState<AirportMapPage> {
           usedOnly: _usedOnly,
           customOnly: _customOnly,
           icaoOnly: _icaoOnly,
+          excludedTypes: ref.read(excludedAirportTypesProvider),
           limit: _maxMarkers + 1,
         );
   }
