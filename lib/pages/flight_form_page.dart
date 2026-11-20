@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
+import '../providers/airport_providers.dart';
 import '../providers/database_provider.dart';
 import '../providers/flight_form_provider.dart';
 import '../providers/flight_providers.dart';
@@ -155,6 +156,23 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     }
     final crew = await ref.read(databaseProvider).getFlightCrew(f.id);
     final track = await ref.read(flightRepositoryProvider).getTrack(f.id);
+    // A temporary flight has no airports yet: guess them from where the
+    // track starts and ends, as an ADS-B import does.
+    Future<Airport?> nearest(FlightDataPoint p) async =>
+        AdsbFlightImporter.pickNearest(
+          await ref
+              .read(airportServiceProvider)
+              .getAirportsNearCoordinates(p.latitude, p.longitude, limit: 50),
+        )?.airport;
+    final guess = f.isRecording && track.isNotEmpty;
+    final (depGuess, arrGuess) = await (
+      guess && depAirport == null
+          ? nearest(track.first)
+          : Future<Airport?>.value(),
+      guess && arrAirport == null
+          ? nearest(track.last)
+          : Future<Airport?>.value(),
+    ).wait;
     if (!mounted) return;
     notifier.setTrack([for (final p in track) p.timedPosition]);
     for (final member in crew) {
@@ -180,6 +198,34 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     } else if (f.arrivalIanaLocation != null) {
       notifier.setArrivalCode(f.arrivalIanaLocation!);
       notifier.setArrIanaLocation(f.arrivalIanaLocation);
+    }
+    // The times were shown in the device's zone: show them in the guessed
+    // airports' instead.
+    tz.TZDateTime inZone(DateTime time, String? iana) => tz.TZDateTime.from(
+      time,
+      iana == null ? tz.local : tz.getLocation(iana),
+    );
+    if (depGuess != null) {
+      notifier.setSelectedDeparture(depGuess);
+      final t = inZone(
+        f.departureTime,
+        ref.read(flightFormProvider).depIanaLocation,
+      );
+      notifier.setDepartureDate(DateTime(t.year, t.month, t.day));
+      notifier.setDepTime(
+        TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(t)),
+      );
+    }
+    if (arrGuess != null && f.arrivalTime != null) {
+      notifier.setSelectedArrival(arrGuess);
+      final t = inZone(
+        f.arrivalTime!,
+        ref.read(flightFormProvider).arrIanaLocation,
+      );
+      notifier.setArrivalDate(DateTime(t.year, t.month, t.day));
+      notifier.setArrTime(
+        TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(t)),
+      );
     }
     if (flight.aircraftWithStats != null) {
       notifier.setSelectedAircraft(flight.aircraftWithStats);
