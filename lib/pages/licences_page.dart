@@ -206,6 +206,9 @@ class _LicencesList extends ConsumerWidget {
             ),
           ],
           if (licences.isNotEmpty) ...[
+            // Without it the licence cards read as part of Currency.
+            if (anyRecencyExpired)
+              const SectionHeader(title: 'Licences', uppercase: true),
             for (final l in licences)
               _LicenceCard(
                 licence: l,
