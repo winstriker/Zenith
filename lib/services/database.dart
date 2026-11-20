@@ -230,6 +230,10 @@ class Flights extends Table {
   DateTimeColumn get arrivalTime => dateTime().nullable()();
   TextColumn get departureIanaLocation => text().nullable()();
   TextColumn get arrivalIanaLocation => text().nullable()();
+
+  /// Set for a flight recorded by the app that hasn't been completed in the
+  /// flight form yet: it isn't in the logbook. Without an [arrivalTime] it is
+  /// still being recorded; with one, it is a temporary flight.
   BoolColumn get isRecording => boolean()();
   IntColumn get aircraftId => integer().nullable().references(Aircrafts, #id)();
 

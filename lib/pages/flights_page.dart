@@ -10,6 +10,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/flight_card.dart';
 import '../widgets/load_more.dart';
 import '../widgets/page_title.dart';
+import '../widgets/temporary_flights.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
 
@@ -217,6 +218,8 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
                     ),
                   ),
                 ),
+              if (_query.isEmpty && selectedDate == null)
+                const TemporaryFlightsSliver(),
               ...switch (flights) {
                 null when page.hasError => [
                   SliverFillRemaining(

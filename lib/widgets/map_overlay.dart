@@ -144,3 +144,47 @@ class GlassPanel extends StatelessWidget {
     );
   }
 }
+
+/// A labelled value on a panel drawn over a map.
+class MapStatTile extends StatelessWidget {
+  const MapStatTile({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final onOverlay = context.appColors.onOverlay;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: onOverlay.withValues(alpha: 0.54)),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: onOverlay.withValues(alpha: 0.38),
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: TextStyle(
+            color: onOverlay,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}

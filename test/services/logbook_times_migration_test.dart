@@ -157,7 +157,7 @@ void main() {
     );
 
     test('a recorded flight without airports gets it from its track', () async {
-      final id = await repo.startSession(title: 'Recording');
+      final id = await repo.startSession();
       for (final p in eastTrack()) {
         await repo.addDataPoint(
           flightId: id,

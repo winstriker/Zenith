@@ -159,3 +159,39 @@ class RouteMarker extends StatelessWidget {
     );
   }
 }
+
+/// The aircraft on a map, pointing where it is heading.
+class PlaneMarker extends StatelessWidget {
+  const PlaneMarker({super.key, required this.headingDeg});
+  final double headingDeg;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: cs.primary,
+        boxShadow: [
+          BoxShadow(
+            color: cs.primary.withValues(alpha: 0.6),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Transform.rotate(
+        angle: headingDeg * pi / 180,
+        child: Icon(Icons.flight, color: cs.onPrimary, size: 28),
+      ),
+    );
+  }
+}

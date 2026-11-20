@@ -86,12 +86,23 @@ class FlightRepository {
     return query.map((row) => row.read(count) ?? 0).watchSingle();
   }
 
-  /// Stream of active recording session
-  Stream<FlightWithStats?> watchActiveFlight() {
+  /// The flight being recorded, if any: recording and with no end yet.
+  Future<Flight?> activeRecording() {
+    return (_database.select(_database.flights)
+          ..where((f) => f.isRecording.equals(true) & f.arrivalTime.isNull())
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Temporary flights: recorded, but not yet completed in the flight form,
+  /// so not in the logbook. Newest first.
+  Stream<List<FlightWithStats>> watchTemporaryFlights() {
     return _watchFlights(
-      where: _database.flights.isRecording.equals(true),
-      limit: 1,
-    ).map((list) => list.isEmpty ? null : list.first);
+      where:
+          _database.flights.isRecording.equals(true) &
+          _database.flights.arrivalTime.isNotNull(),
+      limit: null,
+    );
   }
 
   /// Stream of a specific flight by ID
@@ -161,7 +172,7 @@ class FlightRepository {
         .customSelect(
           'SELECT COALESCE(SUM(CAST((arrival_time - departure_time) / 60 '
           'AS INTEGER)), 0) AS total_flight_time FROM flights '
-          'WHERE simulator_id IS NULL',
+          'WHERE simulator_id IS NULL AND is_recording = 0',
           readsFrom: {_database.flights},
         )
         .watch()
@@ -341,24 +352,17 @@ class FlightRepository {
   }
 
   // Mutating operations (non-reactive)
-  Future<int> startSession({
-    required String title,
-    int? aircraftId,
-    int? departureId,
-    int? arrivalId,
-  }) async {
-    final now = DateTime.now();
+
+  /// Starts recording a flight: recording, with no arrival time until
+  /// [endSession]. Returns its id.
+  Future<int> startSession() {
     return _database
         .into(_database.flights)
         .insert(
           FlightsCompanion.insert(
-            title: title,
-            departure: Value(departureId),
-            arrival: Value(arrivalId),
-            departureTime: now,
-            arrivalTime: Value(now),
+            title: 'Recorded flight',
+            departureTime: DateTime.now(),
             isRecording: true,
-            aircraftId: Value(aircraftId),
           ),
         );
   }
@@ -387,17 +391,27 @@ class FlightRepository {
         );
   }
 
-  Future<void> endSession(int flightId) async {
-    final now = DateTime.now();
-    await (_database.update(
-      _database.flights,
-    )..where((f) => f.id.equals(flightId))).write(
-      FlightsCompanion(
-        isRecording: const Value(false),
-        arrivalTime: Value(now),
-      ),
-    );
-    await _database.updateNightTime(flightId);
+  /// Ends the recording of [flightId], which stays a temporary flight
+  /// spanning its first and last positions. A flight without any position
+  /// is deleted. Returns whether the flight was kept.
+  Future<bool> endSession(int flightId) {
+    return _database.transaction(() async {
+      final track = await getTrack(flightId);
+      if (track.isEmpty) {
+        await deleteSession(flightId);
+        return false;
+      }
+      await (_database.update(
+        _database.flights,
+      )..where((f) => f.id.equals(flightId))).write(
+        FlightsCompanion(
+          departureTime: Value(track.first.timestamp),
+          arrivalTime: Value(track.last.timestamp),
+        ),
+      );
+      await _database.updateNightTime(flightId);
+      return true;
+    });
   }
 
   /// Replaces the logbook overrides of [flightId]; empty ones are removed.

@@ -107,7 +107,7 @@ void main() {
   test(
     "a track recorded by the app has no source, and is read the same way",
     () async {
-      final id = await repo.startSession(title: 'Recording');
+      final id = await repo.startSession();
       for (final second in [0, 2, 1]) {
         await repo.addDataPoint(
           flightId: id,
@@ -237,4 +237,52 @@ void main() {
       );
     },
   );
+
+  test('a recording becomes a temporary flight, out of the logbook until '
+      'completed', () async {
+    final id = await repo.startSession();
+    expect((await repo.activeRecording())?.id, id);
+    for (final second in [0, 600]) {
+      await repo.addDataPoint(
+        flightId: id,
+        latitude: 45,
+        longitude: 9,
+        altitude: 100,
+        timestamp: _start.add(Duration(seconds: second)),
+      );
+    }
+
+    expect(await repo.endSession(id), isTrue);
+    expect(await repo.activeRecording(), isNull);
+    final temporary = await repo.watchTemporaryFlights().first;
+    expect(temporary.map((f) => f.flight.id), [id]);
+    // Spans its first and last positions.
+    expect(temporary.single.flight.departureTime.toUtc(), _start);
+    expect(
+      temporary.single.flight.arrivalTime?.toUtc(),
+      _start.add(const Duration(minutes: 10)),
+    );
+    expect(await repo.allRecordedFlights(), isEmpty);
+    expect(await repo.watchTotalFlightTime().first, 0);
+
+    // Saving it from the flight form completes it.
+    await FlightService(db).updateFlight(
+      flightId: id,
+      departureId: null,
+      arrivalId: null,
+      title: 'A → B',
+      departureTime: _start,
+      arrivalTime: _start.add(const Duration(minutes: 10)),
+    );
+    expect(await repo.watchTemporaryFlights().first, isEmpty);
+    expect((await repo.allRecordedFlights()).map((f) => f.flight.id), [id]);
+    expect(await repo.getTrack(id), hasLength(2));
+    expect(await repo.watchTotalFlightTime().first, 10);
+  });
+
+  test('a recording without any position is not kept', () async {
+    final id = await repo.startSession();
+    expect(await repo.endSession(id), isFalse);
+    expect(await db.select(db.flights).get(), isEmpty);
+  });
 }

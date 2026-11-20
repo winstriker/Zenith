@@ -5,7 +5,7 @@ import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
 import '../providers/flight_providers.dart';
-import '../providers/gps_tracking_provider.dart';
+import '../providers/flight_recorder_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/user_provider.dart';
 import '../repositories/pilot_profile_repository.dart';
@@ -19,6 +19,7 @@ import '../widgets/page_header.dart';
 import '../widgets/pulsing_dot.dart';
 import '../widgets/simulator_card.dart';
 import '../widgets/speed_dial_fab.dart';
+import '../widgets/temporary_flights.dart';
 import 'adsb_track_page.dart';
 import 'aircrafts_page.dart';
 import 'flight_detail_page.dart';
@@ -62,7 +63,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final flights = _flights;
     final hasMore = flights != null && flights.length >= _limit;
     final flightCount = ref.watch(recordedFlightCountProvider);
-    final gpsController = ref.watch(gpsTrackingControllerProvider.notifier);
     final aircraftList = ref.watch(aircraftListStreamProvider);
     final nickname = ref.watch(userNicknameProvider);
     final totalFlightTime = ref.watch(totalFlightTimeProvider);
@@ -71,7 +71,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         .watch(previousTotalsProvider)
         .time(LogbookTimeField.total)
         .inMinutes;
-    final isRecording = gpsController.isTracking();
+    final isRecording = ref.watch(flightRecorderProvider) != null;
 
     return Scaffold(
       floatingActionButton: const HidingFabs(child: _HomeFabs()),
@@ -117,6 +117,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
                 ),
+                const TemporaryFlightsSliver(),
                 _SectionHeader(
                   title: 'Recent Flights',
                   icon: Icons.flight,
@@ -210,7 +211,7 @@ void _openRecording(BuildContext context) {
 /// "Add Flight" FAB with a small "more" FAB above it that pops up the less
 /// common ways to log a flight (simulator session, recording, ADS-B
 /// import).
-class _HomeFabs extends StatelessWidget {
+class _HomeFabs extends ConsumerWidget {
   const _HomeFabs();
 
   Future<void> _importAdsb(BuildContext context) async {
@@ -227,7 +228,7 @@ class _HomeFabs extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     return SpeedDialFab(
       actions: [
@@ -254,7 +255,7 @@ class _HomeFabs extends StatelessWidget {
           label: 'Record',
           backgroundColor: cs.error,
           foregroundColor: cs.onError,
-          onPressed: () => _openRecording(context),
+          onPressed: () => openRecording(context, ref),
         ),
       ],
       primaryIcon: Icons.add,

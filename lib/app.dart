@@ -10,10 +10,12 @@ import 'pages/airports_page.dart';
 import 'pages/home_page.dart';
 import 'pages/intro_page.dart';
 import 'pages/licences_page.dart';
+import 'pages/recording_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/updates_page.dart';
 import 'providers/aircraft_providers.dart';
 import 'providers/backup_providers.dart';
+import 'providers/flight_recorder_provider.dart';
 import 'providers/licence_providers.dart';
 import 'providers/map_provider.dart';
 import 'providers/navigation_provider.dart';
@@ -45,6 +47,17 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     _lifecycle = AppLifecycleListener(onResume: _runAutomaticBackups);
     Future.delayed(const Duration(seconds: 5), _runAutomaticBackups);
     Future.delayed(const Duration(seconds: 5), _checkForUpdates);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resumeRecording());
+  }
+
+  /// Picks up a recording the app was killed during, and shows it.
+  Future<void> _resumeRecording() async {
+    if (!await ref.read(flightRecorderProvider.notifier).resume()) return;
+    unawaited(
+      _navigatorKey.currentState?.push(
+        AppPageRoute<void>(builder: (_) => const RecordingPage()),
+      ),
+    );
   }
 
   @override

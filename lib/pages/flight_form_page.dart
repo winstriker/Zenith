@@ -307,6 +307,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
               PageTitle(
                 switch ((widget.isEditing, _simulator)) {
                   (true, true) => 'Edit Session',
+                  // A recorded flight is saved into the logbook from here.
+                  (true, false) when widget.flightToEdit!.flight.isRecording =>
+                    'Complete Flight',
                   (true, false) => 'Edit Flight',
                   (false, true) => 'Log Session',
                   (false, false) => 'Log Flight',

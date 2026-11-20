@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/flight_repository.dart';
 import '../services/database.dart';
 import '../services/flight_service.dart';
-import '../services/location_service.dart';
 import '../services/person_photo_store.dart';
 import 'database_provider.dart';
 
@@ -32,10 +31,9 @@ final recordedFlightCountProvider = StreamProvider<int>((ref) {
   return ref.watch(flightRepositoryProvider).watchRecordedFlightCount();
 });
 
-/// Stream of active recording session
-final activeFlightStreamProvider = StreamProvider<FlightWithStats?>((ref) {
-  final repository = ref.watch(flightRepositoryProvider);
-  return repository.watchActiveFlight();
+/// Recorded flights still to be completed, newest first.
+final temporaryFlightsProvider = StreamProvider<List<FlightWithStats>>((ref) {
+  return ref.watch(flightRepositoryProvider).watchTemporaryFlights();
 });
 
 /// Stream of a specific flight by ID
@@ -57,13 +55,6 @@ final flightsForAircraftStreamProvider =
 final totalFlightTimeProvider = StreamProvider<int>((ref) {
   final repository = ref.watch(flightRepositoryProvider);
   return repository.watchTotalFlightTime();
-});
-
-/// Location service provider (singleton with proper disposal)
-final locationServiceProvider = Provider<LocationService>((ref) {
-  final service = LocationService();
-  ref.onDispose(service.dispose);
-  return service;
 });
 
 // Legacy flight service provider (for mutation operations)

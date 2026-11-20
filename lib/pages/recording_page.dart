@@ -1,24 +1,73 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../core/app_page_route.dart';
 import '../core/theme.dart';
-import '../providers/aircraft_providers.dart';
-import '../providers/flight_providers.dart';
-import '../providers/gps_tracking_provider.dart';
+import '../providers/flight_recorder_provider.dart';
 import '../providers/unit_provider.dart';
-import '../repositories/flight_repository.dart';
-import '../services/database.dart';
 import '../utils/duration_formatter.dart';
-import '../widgets/info_chip.dart';
-import '../widgets/info_row.dart';
-import '../widgets/picker_sheet.dart';
+import '../widgets/base_map_layer.dart';
+import '../widgets/flight_route_layer.dart';
+import '../widgets/map_attribution.dart';
+import '../widgets/map_overlay.dart';
 import '../widgets/pulsing_dot.dart';
-import 'aircraft_form_page.dart';
 
+/// Opens the recording page. When nothing is being recorded, asks first and
+/// starts a recording.
+Future<void> openRecording(BuildContext context, WidgetRef ref) async {
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  if (ref.read(flightRecorderProvider) == null) {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.fiber_manual_record),
+        title: const Text('Start recording?'),
+        content: const Text(
+          'Zenith will record your track with the GPS, also while the app '
+          'is in the background, until you stop it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Start'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(flightRecorderProvider.notifier).start();
+    } on RecordingException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          action: const SnackBarAction(
+            label: 'Settings',
+            onPressed: Geolocator.openAppSettings,
+          ),
+        ),
+      );
+      return;
+    }
+  }
+  unawaited(
+    navigator.push(AppPageRoute<void>(builder: (_) => const RecordingPage())),
+  );
+}
+
+/// The flight being recorded on a full-screen map, with the live readings
+/// and the button that stops it. Leaving the page doesn't stop recording.
 class RecordingPage extends ConsumerStatefulWidget {
   const RecordingPage({super.key});
 
@@ -27,588 +76,313 @@ class RecordingPage extends ConsumerStatefulWidget {
 }
 
 class _RecordingPageState extends ConsumerState<RecordingPage> {
-  final _titleController = TextEditingController();
-  final _departureController = TextEditingController();
-  final _arrivalController = TextEditingController();
-  AircraftWithStats? _selectedAircraft;
+  static final _timeFormat = DateFormat('HH:mm');
 
-  Timer? _timer;
-  DateTime? _startTime;
-  Duration _elapsed = Duration.zero;
+  final _mapController = MapController();
+  bool _mapReady = false;
 
-  bool get _isRecording => _startTime != null;
+  /// Whether the map keeps the aircraft in view. Moving the map stops it.
+  bool _follow = true;
+
+  /// The bars over the map, hidden while the user moves the map.
+  bool _overlayVisible = true;
+  Timer? _overlayTimer;
+
+  /// Ticks the elapsed time.
+  late final Timer _clock;
+
+  /// Kept to draw the last frames while the page closes after stopping.
+  Recording? _recording;
 
   @override
   void initState() {
     super.initState();
-    final today = DateTime.now();
-    _titleController.text =
-        'Flight ${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _resumeExistingRecording();
-    });
-  }
-
-  Future<void> _resumeExistingRecording() async {
-    final repository = ref.read(flightRepositoryProvider);
-    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
-
-    // Check for active session via repository stream
-    final activeFlights = await repository.watchActiveFlight().first;
-    final activeSession = activeFlights;
-
-    if (activeSession == null) return;
-
-    setState(() {
-      _startTime = activeSession.flight.departureTime;
-      _elapsed = DateTime.now().difference(_startTime!);
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          _elapsed = DateTime.now().difference(_startTime!);
-        });
-      }
-    });
-
-    await gpsController.startTracking(activeSession.flight.id, repository);
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _departureController.dispose();
-    _arrivalController.dispose();
-    _timer?.cancel();
+    _clock.cancel();
+    _overlayTimer?.cancel();
+    _mapController.dispose();
     super.dispose();
   }
 
-  Future<void> _startRecording() async {
-    final repository = ref.read(flightRepositoryProvider);
-    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
-
-    if (mounted) {
-      await _ensureBackgroundPermission();
-    }
-
-    final flightId = await repository.startSession(
-      title: _titleController.text.trim().isEmpty
-          ? 'Flight ${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}'
-          : _titleController.text.trim(),
-      aircraftId: _selectedAircraft?.id,
-      departureId: _departureController.text.trim().isEmpty
-          ? null
-          : int.tryParse(_departureController.text.trim()),
-      arrivalId: _arrivalController.text.trim().isEmpty
-          ? null
-          : int.tryParse(_arrivalController.text.trim()),
-    );
-
+  void _onMapEvent(MapEvent event) {
+    if (!mapUserMoves.contains(event.source)) return;
+    _overlayTimer?.cancel();
+    _overlayTimer = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) setState(() => _overlayVisible = true);
+    });
     setState(() {
-      _startTime = DateTime.now();
-      _elapsed = Duration.zero;
+      _follow = false;
+      _overlayVisible = false;
     });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          _elapsed = DateTime.now().difference(_startTime!);
-        });
-      }
-    });
-
-    await gpsController.startTracking(flightId, repository);
   }
 
-  Future<void> _ensureBackgroundPermission() async {
-    final permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.always) return;
+  void _recenter() {
+    setState(() => _follow = true);
+    final last = _recording?.path.lastOrNull;
+    if (_mapReady && last != null) {
+      _mapController.move(last, _mapController.camera.zoom);
+    }
+  }
 
-    if (!mounted) return;
-    final action = await showDialog<String>(
+  void _onRecordingChanged(Recording? previous, Recording? next) {
+    final last = next?.path.lastOrNull;
+    if (!_follow || !_mapReady || last == null) return;
+    // The first fix zooms in from wherever the map was waiting.
+    final zoom = (previous?.path.isEmpty ?? true)
+        ? 15.0
+        : _mapController.camera.zoom;
+    _mapController.move(last, zoom);
+  }
+
+  Future<void> _stop() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Background Location'),
+        title: const Text('Stop recording?'),
         content: const Text(
-          'To record flights when your screen is off, '
-          'enable "Allow all the time" location access in system settings.',
+          'The flight is saved as a temporary flight. Complete it from the '
+          'flight list to add it to your logbook.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Skip'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep recording'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(ctx, 'settings'),
-            child: const Text('Open Settings'),
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('Stop'),
           ),
         ],
       ),
     );
-    if (action == 'settings') {
-      await Geolocator.openAppSettings();
-    }
-  }
-
-  Future<void> _stopRecording() async {
-    _timer?.cancel();
-    _timer = null;
-
-    final gpsController = ref.read(gpsTrackingControllerProvider.notifier);
-    await gpsController.stopTracking();
-
-    final repository = ref.read(flightRepositoryProvider);
-    final activeFlight = await repository.watchActiveFlight().first;
-    if (activeFlight != null) {
-      await repository.endSession(activeFlight.flight.id);
-    }
-
-    if (mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-  }
-
-  Future<void> _addNewAircraft() async {
-    await Navigator.push(
-      context,
-      AppPageRoute<void>(builder: (_) => const AircraftFormPage()),
+    if (confirmed != true || !mounted) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final kept = await ref.read(flightRecorderProvider.notifier).stop();
+    navigator.pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          kept
+              ? 'Saved as a temporary flight: tap it in the flight list to '
+                    'complete it'
+              : 'No position was recorded: nothing saved',
+        ),
+      ),
     );
-    // Stream provider automatically updates, no manual refresh needed
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<Recording?>(flightRecorderProvider, _onRecordingChanged);
+    final recording = _recording =
+        ref.watch(flightRecorderProvider) ?? _recording;
+    if (recording == null) return const Scaffold();
+
+    final cs = Theme.of(context).colorScheme;
+    final overlay = context.appColors.overlay;
+    final padding = MediaQuery.paddingOf(context);
+    final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
+    final path = recording.path;
+    final position = recording.position;
+    final current = path.lastOrNull;
+    final elapsed = DateTime.now().difference(recording.startedAt);
+    final speed = position == null || position.speed < 0
+        ? '--'
+        : isMetric
+        ? '${(position.speed * 3.6).round()} km/h'
+        : '${(position.speed * 1.943844).round()} kts';
+    final altitude = position == null
+        ? '--'
+        : isMetric
+        ? '${position.altitude.round()} m'
+        : '${(position.altitude * 3.28084).round()} ft';
+
+    Widget fading(Widget child) =>
+        FadingOverlay(visible: _overlayVisible, child: child);
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isRecording ? 'Recording' : 'New Flight'),
-        centerTitle: true,
-      ),
-      body: _isRecording
-          ? _RecordingView(elapsed: _elapsed, onStop: _stopRecording)
-          : _RecordingSetupForm(
-              titleController: _titleController,
-              departureController: _departureController,
-              arrivalController: _arrivalController,
-              selectedAircraft: _selectedAircraft,
-              onAircraftChanged: (value) =>
-                  setState(() => _selectedAircraft = value),
-              onAddAircraft: _addNewAircraft,
-              onStart: _startRecording,
+      backgroundColor: overlay,
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: current ?? const LatLng(0, 0),
+              initialZoom: current == null ? 2 : 15,
+              onMapReady: () => _mapReady = true,
+              onMapEvent: _onMapEvent,
             ),
-    );
-  }
-}
-
-class _RecordingSetupForm extends ConsumerWidget {
-  const _RecordingSetupForm({
-    required this.titleController,
-    required this.departureController,
-    required this.arrivalController,
-    required this.selectedAircraft,
-    required this.onAircraftChanged,
-    required this.onAddAircraft,
-    required this.onStart,
-  });
-
-  final TextEditingController titleController;
-  final TextEditingController departureController;
-  final TextEditingController arrivalController;
-  final AircraftWithStats? selectedAircraft;
-  final ValueChanged<AircraftWithStats?> onAircraftChanged;
-  final VoidCallback onAddAircraft;
-  final VoidCallback onStart;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final aircraftListAsync = ref.watch(aircraftListStreamProvider);
-
-    return aircraftListAsync.when(
-      data: (aircraftList) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.flight,
-                size: 64,
-                color: theme.colorScheme.primary.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Configure Flight',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              const BaseMapLayer(),
+              if (path.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(points: path, strokeWidth: 4, color: cs.primary),
+                  ],
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Set up your flight details before starting the recording.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (current != null)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: current,
+                      width: 48,
+                      height: 48,
+                      child: PlaneMarker(headingDeg: position?.heading ?? 0),
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Flight Title',
-                  prefixIcon: Icon(Icons.label_outline),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: SelectField<AircraftWithStats>(
-                      label: 'Aircraft (optional)',
-                      icon: Icons.airplanemode_active,
-                      value: selectedAircraft,
-                      items: aircraftList,
-                      itemLabel: (aws) => aws.modelFullName,
-                      onChanged: onAircraftChanged,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: IconButton.filled(
-                      onPressed: onAddAircraft,
-                      icon: const Icon(Icons.add, size: 20),
-                      tooltip: 'Add new aircraft',
-                      style: IconButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primaryContainer,
-                        foregroundColor: theme.colorScheme.onPrimaryContainer,
-                        minimumSize: const Size(48, 48),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: departureController,
-                      decoration: const InputDecoration(
-                        labelText: 'Departure (optional)',
-                        prefixIcon: Icon(Icons.flight_takeoff),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: arrivalController,
-                      decoration: const InputDecoration(
-                        labelText: 'Arrival (optional)',
-                        prefixIcon: Icon(Icons.flight_land),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              FilledButton.icon(
-                onPressed: onStart,
-                icon: const Icon(Icons.fiber_manual_record, size: 22),
-                label: const Text('Start Recording'),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
             ],
           ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 140 + padding.top,
+            child: fading(
+              MapScrim(
+                colors: [
+                  overlay.withValues(alpha: 0.7),
+                  overlay.withValues(alpha: 0.3),
+                  overlay.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: padding.top + 4,
+            left: 4,
+            right: 4,
+            child: fading(
+              MapTopBar(
+                title: 'Recording',
+                subtitle:
+                    recording.error ??
+                    (position == null
+                        ? 'Waiting for GPS…'
+                        : 'Since ${_timeFormat.format(recording.startedAt)} · '
+                              '${path.length} positions'),
+                trailing: _follow
+                    ? null
+                    : IconButton(
+                        icon: Icon(
+                          Icons.my_location,
+                          color: context.appColors.onOverlay,
+                        ),
+                        tooltip: 'Follow aircraft',
+                        onPressed: _recenter,
+                      ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 260 + padding.bottom,
+            child: fading(
+              MapScrim(
+                colors: [
+                  overlay.withValues(alpha: 0),
+                  overlay.withValues(alpha: 0.5),
+                  overlay.withValues(alpha: 0.8),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: padding.bottom + 4,
+            left: 16,
+            right: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                fading(
+                  _RecordingPanel(
+                    altitude: altitude,
+                    speed: speed,
+                    elapsed: elapsed,
+                    onStop: _stop,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const MapAttributionLabel(),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _RecordingView extends ConsumerWidget {
-  const _RecordingView({required this.elapsed, required this.onStop});
+class _RecordingPanel extends StatelessWidget {
+  const _RecordingPanel({
+    required this.altitude,
+    required this.speed,
+    required this.elapsed,
+    required this.onStop,
+  });
 
+  final String altitude;
+  final String speed;
   final Duration elapsed;
   final VoidCallback onStop;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final sessionAsync = ref.watch(activeFlightStreamProvider);
-
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          color: cs.errorContainer,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final divider = Container(
+      width: 1,
+      height: 32,
+      color: context.appColors.onOverlay.withValues(alpha: 0.1),
+    );
+    return GlassPanel(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              const PulsingDot(),
-              const SizedBox(width: 10),
-              Text(
-                'RECORDING',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: cs.onErrorContainer,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
+              MapStatTile(label: 'ALT', value: altitude, icon: Icons.height),
+              divider,
+              MapStatTile(label: 'SPEED', value: speed, icon: Icons.speed),
+              divider,
+              MapStatTile(
+                label: 'TIME',
+                value: DurationFormatter.hms(elapsed),
+                icon: Icons.timer_outlined,
               ),
             ],
           ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                Text(
-                  DurationFormatter.hms(elapsed),
-                  style: theme.textTheme.displayLarge?.copyWith(
-                    fontWeight: FontWeight.w200,
-                    fontFamily: 'monospace',
-                    color: cs.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'elapsed time',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                sessionAsync.when(
-                  data: (session) => session == null
-                      ? const SizedBox.shrink()
-                      : _SessionSummaryCard(session: session),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                ),
-                const SizedBox(height: 24),
-                _GpsCard(refreshTick: elapsed),
-              ],
-            ),
-          ),
-        ),
-        SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
             child: FilledButton.icon(
               onPressed: onStop,
-              icon: const Icon(Icons.stop, size: 22),
-              label: const Text('Stop Recording'),
+              icon: PulsingDot(size: 10, color: cs.onError),
+              label: const Text('Stop recording'),
               style: FilledButton.styleFrom(
                 backgroundColor: cs.error,
                 foregroundColor: cs.onError,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SessionSummaryCard extends StatelessWidget {
-  const _SessionSummaryCard({required this.session});
-  final FlightWithStats session;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final departure = session.departure?.ident;
-    final arrival = session.arrival?.ident;
-    final aircraft = session.aircraftWithStats;
-    final hasRoute = departure != null || arrival != null;
-
-    if (aircraft == null && !hasRoute) return const SizedBox.shrink();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            if (aircraft != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.airplanemode_active,
-                      size: 18,
-                      color: cs.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      aircraft.modelFullName,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (hasRoute)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (departure != null)
-                    InfoChip(
-                      label: departure,
-                      icon: Icons.flight_takeoff,
-                      backgroundColor: cs.tertiaryContainer,
-                      textColor: cs.onTertiaryContainer,
-                    ),
-                  if (departure != null && arrival != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Icon(
-                        Icons.arrow_forward,
-                        size: 16,
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  if (arrival != null)
-                    InfoChip(
-                      label: arrival,
-                      icon: Icons.flight_land,
-                      backgroundColor: cs.tertiaryContainer,
-                      textColor: cs.onTertiaryContainer,
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GpsCard extends ConsumerWidget {
-  const _GpsCard({required this.refreshTick});
-
-  /// The latest location isn't reactive, so the parent passes its 1s ticker
-  /// to force a rebuild with fresh data.
-  final Duration refreshTick;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final gpsState = ref.watch(gpsTrackingControllerProvider);
-    final isMetric = ref.watch(unitProvider) == MeasurementUnit.metric;
-
-    // Latest (non-debounced) fix, see [refreshTick].
-    final latestLocation = ref
-        .read(gpsTrackingControllerProvider.notifier)
-        .latestLocation;
-
-    final lat = latestLocation?['latitude'] ?? 0.0;
-    final lon = latestLocation?['longitude'] ?? 0.0;
-    final alt = latestLocation?['altitude'] ?? 0.0;
-    final speed = latestLocation?['speed'] ?? 0.0;
-    final heading = latestLocation?['heading'] ?? 0.0;
-
-    final altValue = isMetric ? alt : alt * 3.28084;
-    final altUnit = isMetric ? 'm' : 'ft';
-
-    final speedValue = isMetric ? speed : speed * 0.539957;
-    final speedUnit = isMetric ? 'km/h' : 'kts';
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.satellite_alt,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Live GPS Data',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                if (gpsState.isLoading)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else if (gpsState.hasError)
-                  Icon(Icons.gps_off, color: theme.colorScheme.error, size: 20)
-                else
-                  Icon(
-                    Icons.gps_fixed,
-                    color: context.appColors.success,
-                    size: 20,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            InfoRow(
-              label: 'Latitude',
-              value: lat.toStringAsFixed(6),
-              labelWidth: 90,
-              isMonospace: true,
-            ),
-            InfoRow(
-              label: 'Longitude',
-              value: lon.toStringAsFixed(6),
-              labelWidth: 90,
-              isMonospace: true,
-            ),
-            InfoRow(
-              label: 'Altitude',
-              value: '${altValue.toStringAsFixed(1)} $altUnit',
-              labelWidth: 90,
-              isMonospace: true,
-            ),
-            InfoRow(
-              label: 'Speed',
-              value: '${speedValue.toStringAsFixed(1)} $speedUnit',
-              labelWidth: 90,
-              isMonospace: true,
-            ),
-            InfoRow(
-              label: 'Heading',
-              value: '${heading.toStringAsFixed(1)}\u00B0',
-              labelWidth: 90,
-              isMonospace: true,
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

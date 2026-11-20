@@ -304,7 +304,10 @@ class BackupService {
     }
 
     final recording = await _db
-        .customSelect('SELECT 1 FROM flights WHERE is_recording = 1 LIMIT 1')
+        .customSelect(
+          'SELECT 1 FROM flights '
+          'WHERE is_recording = 1 AND arrival_time IS NULL LIMIT 1',
+        )
         .get();
     if (recording.isNotEmpty) {
       throw const BackupException(

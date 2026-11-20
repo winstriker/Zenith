@@ -430,7 +430,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                             width: 48,
                             height: 48,
                             alignment: Alignment.center,
-                            child: _PlaneMarker(
+                            child: PlaneMarker(
                               headingDeg: _currentHeading ?? 0,
                             ),
                           ),
@@ -580,41 +580,6 @@ class _ReplayEmptyState extends StatelessWidget {
   }
 }
 
-class _PlaneMarker extends StatelessWidget {
-  const _PlaneMarker({required this.headingDeg});
-  final double headingDeg;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: cs.primary,
-        boxShadow: [
-          BoxShadow(
-            color: cs.primary.withValues(alpha: 0.6),
-            blurRadius: 12,
-            spreadRadius: 2,
-          ),
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: Transform.rotate(
-        angle: headingDeg * pi / 180,
-        child: Icon(Icons.flight, color: cs.onPrimary, size: 28),
-      ),
-    );
-  }
-}
-
 class _ReplayControlPanel extends StatelessWidget {
   const _ReplayControlPanel({
     required this.progress,
@@ -686,11 +651,11 @@ class _ReplayControlPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _StatTile(label: 'ALT', value: altitude, icon: Icons.height),
+              MapStatTile(label: 'ALT', value: altitude, icon: Icons.height),
               divider,
-              _StatTile(label: 'SPEED', value: speed, icon: Icons.speed),
+              MapStatTile(label: 'SPEED', value: speed, icon: Icons.speed),
               divider,
-              _StatTile(
+              MapStatTile(
                 label: 'TIME',
                 value: DurationFormatter.hms(elapsed),
                 icon: Icons.timer_outlined,
@@ -768,48 +733,6 @@ class _TimeLabel extends StatelessWidget {
         ),
         textAlign: TextAlign.center,
       ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final onOverlay = context.appColors.onOverlay;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: onOverlay.withValues(alpha: 0.54)),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: onOverlay.withValues(alpha: 0.38),
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            color: onOverlay,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
     );
   }
 }
