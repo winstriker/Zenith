@@ -127,33 +127,40 @@ class _SpeedDialFabState extends State<SpeedDialFab>
             ),
           ),
         ),
-        FloatingActionButton.small(
-          heroTag: moreFabHeroTag,
-          tooltip: _open ? 'Close' : 'More',
-          onPressed: _toggle,
-          // Cross-fades "more" into "close" while turning a quarter.
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              FadeTransition(
-                opacity: _controller.drive(Tween(begin: 1.0, end: 0.0)),
-                child: RotationTransition(
-                  turns: _controller
-                      .drive(CurveTween(curve: Curves.easeOutCubic))
-                      .drive(Tween(begin: 0.0, end: 0.25)),
-                  child: const Icon(Icons.more_horiz),
+        // Own Hero: the flight pins the shuttle to the 48px tap-target box,
+        // which stretches the 40px button; Center lets it keep its size.
+        Hero(
+          tag: moreFabHeroTag,
+          flightShuttleBuilder: (_, _, _, _, toContext) =>
+              Center(child: (toContext.widget as Hero).child),
+          child: FloatingActionButton.small(
+            heroTag: null,
+            tooltip: _open ? 'Close' : 'More',
+            onPressed: _toggle,
+            // Cross-fades "more" into "close" while turning a quarter.
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                FadeTransition(
+                  opacity: _controller.drive(Tween(begin: 1.0, end: 0.0)),
+                  child: RotationTransition(
+                    turns: _controller
+                        .drive(CurveTween(curve: Curves.easeOutCubic))
+                        .drive(Tween(begin: 0.0, end: 0.25)),
+                    child: const Icon(Icons.more_horiz),
+                  ),
                 ),
-              ),
-              FadeTransition(
-                opacity: _controller,
-                child: RotationTransition(
-                  turns: _controller
-                      .drive(CurveTween(curve: Curves.easeOutCubic))
-                      .drive(Tween(begin: -0.25, end: 0.0)),
-                  child: const Icon(Icons.close),
+                FadeTransition(
+                  opacity: _controller,
+                  child: RotationTransition(
+                    turns: _controller
+                        .drive(CurveTween(curve: Curves.easeOutCubic))
+                        .drive(Tween(begin: -0.25, end: 0.0)),
+                    child: const Icon(Icons.close),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 12),
