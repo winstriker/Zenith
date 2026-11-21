@@ -799,7 +799,13 @@ Future<Position?> _locate() async {
     return null;
   }
   final pos = await Geolocator.getCurrentPosition(
-    locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+    // Without Play Services there's usually no network location, and Android
+    // answers low accuracy from network only: ask for GPS instead.
+    locationSettings: const LocationSettings(
+      accuracy: bool.fromEnvironment('DISABLE_GOOGLE_PLAY_SERVICES')
+          ? LocationAccuracy.high
+          : LocationAccuracy.low,
+    ),
   );
   return pos;
 }

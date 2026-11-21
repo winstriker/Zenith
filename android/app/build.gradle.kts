@@ -1,4 +1,5 @@
 import java.io.FileInputStream
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -70,5 +71,16 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    implementation("com.google.android.gms:play-services-location:21.0.1")
+}
+
+// --dart-define=DISABLE_GOOGLE_PLAY_SERVICES=true builds without Google Play
+// Services (fully free build). Geolocator then falls back to Android's
+// LocationManager. Flutter hands dart-defines to Gradle base64-encoded.
+val disableGooglePlayServices = (project.findProperty("dart-defines") as String?)
+    ?.split(",")
+    ?.any { String(Base64.getDecoder().decode(it)) == "DISABLE_GOOGLE_PLAY_SERVICES=true" }
+    ?: false
+
+if (disableGooglePlayServices) {
+    configurations.all { exclude(group = "com.google.android.gms") }
 }
