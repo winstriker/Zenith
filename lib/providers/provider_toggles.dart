@@ -1,14 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/adsb_track_source.dart';
+
 /// The ids of the things of one kind (online services, airport types) that
 /// the user switched off in the settings.
 ///
 /// What is *off* is what gets saved, so that one added by a later version
-/// starts switched on like the others did.
+/// starts switched on like the others did, unless it is in [_defaultOff].
 class DisabledIdsNotifier extends Notifier<Set<String>> {
-  DisabledIdsNotifier(this._key);
+  DisabledIdsNotifier(this._key, [this._defaultOff = const {}]);
   final String _key;
+
+  /// Switched off until the user makes a choice.
+  final Set<String> _defaultOff;
 
   /// Completes once the saved choice has been read.
   late Future<void> loaded;
@@ -16,7 +21,7 @@ class DisabledIdsNotifier extends Notifier<Set<String>> {
   @override
   Set<String> build() {
     loaded = _load();
-    return const {};
+    return _defaultOff;
   }
 
   Future<void> _load() async {
@@ -24,7 +29,7 @@ class DisabledIdsNotifier extends Notifier<Set<String>> {
       final saved = (await SharedPreferences.getInstance()).getStringList(_key);
       if (saved != null && ref.mounted) state = saved.toSet();
     } catch (_) {
-      // No preferences (tests, for instance): everything stays on.
+      // No preferences (tests, for instance): the defaults stay.
     }
   }
 
@@ -44,9 +49,12 @@ const disabledHexSourcesKey = 'adsb_disabled_hex_sources';
 const disabledPhotoSourcesKey = 'photo_disabled_sources';
 
 /// ADS-B track providers (`AdsbProvider.id`) not to fetch tracks from.
+/// All off by default: each needs an API key.
 final disabledTrackProvidersProvider =
     NotifierProvider<DisabledIdsNotifier, Set<String>>(
-      () => DisabledIdsNotifier(disabledTrackProvidersKey),
+      () => DisabledIdsNotifier(disabledTrackProvidersKey, {
+        for (final provider in AdsbProvider.values) provider.id,
+      }),
     );
 
 /// Sources (`HexSource.id`) not to ask which ICAO address a registration

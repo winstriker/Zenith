@@ -215,7 +215,7 @@ final adsbTrackSourcesProvider = FutureProvider<List<AdsbTrackSource>>((
   ref,
 ) async {
   final credentials = await ref.watch(adsbCredentialsProvider.future);
-  // Until the saved choice is read, everything looks switched on.
+  // Until the saved choice is read, only the defaults apply.
   await ref.read(disabledTrackProvidersProvider.notifier).loaded;
   final off = ref.watch(disabledTrackProvidersProvider);
   return [
