@@ -31,8 +31,35 @@ class BaseMapLayer extends ConsumerWidget {
       OsmMapTiles() => TileLayer(
         urlTemplate: _osmUrlTemplate,
         userAgentPackageName: _userAgentPackageName,
+        tileUpdateTransformer: _currentCameraOnResize(
+          MapController.of(context),
+        ),
       ),
       null => const Center(child: CircularProgressIndicator()),
     };
   }
 }
+
+/// flutter_map emits its first resize event a frame late, carrying the camera
+/// from before any move made in `onMapReady` (e.g. fitting a route). The
+/// TileLayer then loads and prunes tiles for a view no longer shown, leaving
+/// the map grey until the next gesture. Use the camera as it is now instead.
+TileUpdateTransformer _currentCameraOnResize(MapController controller) =>
+    TileUpdateTransformer.fromHandlers(
+      handleData: (event, sink) {
+        final e = event.mapEvent;
+        if (e is MapEventNonRotatedSizeChange) {
+          sink.add(
+            TileUpdateEvent(
+              mapEvent: MapEventNonRotatedSizeChange(
+                source: e.source,
+                oldCamera: e.oldCamera,
+                camera: controller.camera,
+              ),
+            ),
+          );
+        } else if (!event.wasTriggeredByTap()) {
+          sink.add(event);
+        }
+      },
+    );
