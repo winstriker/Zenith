@@ -8,6 +8,7 @@ import '../providers/flight_providers.dart';
 import '../providers/navigation_provider.dart';
 import '../repositories/flight_repository.dart';
 import '../widgets/page_header.dart';
+import 'about_page.dart';
 import 'adsb_settings_page.dart';
 import 'aircraft_types_page.dart';
 import 'backup_settings_page.dart';
@@ -18,7 +19,6 @@ import 'people_page.dart';
 import 'personal_data_page.dart';
 import 'photo_settings_page.dart';
 import 'theme_settings_page.dart';
-import 'updates_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -181,10 +181,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             null,
                           ),
                           _tile(
-                            Icons.update,
-                            'Updates',
+                            Icons.info_outline,
+                            'About',
                             null,
-                            () => _open(const UpdatesPage()),
+                            () => _open(const AboutPage()),
                             null,
                           ),
                           _tile(

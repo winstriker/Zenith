@@ -6,13 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_page_route.dart';
 import 'core/theme.dart';
+import 'pages/about_page.dart';
 import 'pages/airports_page.dart';
 import 'pages/home_page.dart';
 import 'pages/intro_page.dart';
 import 'pages/licences_page.dart';
 import 'pages/recording_page.dart';
 import 'pages/settings_page.dart';
-import 'pages/updates_page.dart';
 import 'providers/aircraft_providers.dart';
 import 'providers/backup_providers.dart';
 import 'providers/flight_recorder_provider.dart';
@@ -91,7 +91,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
         action: SnackBarAction(
           label: 'View',
           onPressed: () => _navigatorKey.currentState?.push(
-            AppPageRoute<void>(builder: (_) => const UpdatesPage()),
+            AppPageRoute<void>(builder: (_) => const AboutPage()),
           ),
         ),
       ),
@@ -127,7 +127,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     if (!needsIntro) ref.listen(currencyReminderSyncProvider, (_, _) {});
 
     return MaterialApp(
-      title: 'Logbook',
+      title: 'Zenith',
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,

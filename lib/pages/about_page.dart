@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../models/sync_progress.dart';
 import '../providers/backup_providers.dart';
@@ -10,8 +11,8 @@ import '../services/backup_service.dart';
 import '../widgets/page_title.dart';
 import '../widgets/sync_progress_indicator.dart';
 
-class UpdatesPage extends ConsumerWidget {
-  const UpdatesPage({super.key});
+class AboutPage extends ConsumerWidget {
+  const AboutPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +35,7 @@ class UpdatesPage extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         children: [
           const PageTitle(
-            'Updates',
+            'About',
             belowCloseButton: true,
             horizontalPadding: 0,
           ),
@@ -142,6 +143,20 @@ class UpdatesPage extends ConsumerWidget {
                   title: const Text('Check at startup'),
                   value: ref.watch(autoUpdateCheckProvider),
                   onChanged: ref.read(autoUpdateCheckProvider.notifier).set,
+                ),
+                const Divider(height: 1, indent: 16),
+                ListTile(
+                  leading: Icon(Icons.description_outlined, color: primary),
+                  title: const Text('Open Source Licenses'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    AppPageRoute<void>(
+                      builder: (_) => const LicensePage(
+                        applicationVersion: 'v$appBuildName',
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
