@@ -8,6 +8,7 @@ import '../models/sync_progress.dart';
 import '../providers/backup_providers.dart';
 import '../providers/update_providers.dart';
 import '../services/backup_service.dart';
+import '../services/update_service.dart';
 import '../widgets/page_title.dart';
 import '../widgets/sync_progress_indicator.dart';
 
@@ -46,7 +47,7 @@ class AboutPage extends ConsumerWidget {
                 // Plain Row, not ListTile: ListTile shrinks a large leading
                 // and pins text to baselines instead of centering it.
                 InkWell(
-                  onTap: busy ? null : updates.check,
+                  onTap: busy || !canSelfUpdate ? null : updates.check,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
                     child: Row(
@@ -80,17 +81,18 @@ class AboutPage extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        status.release != null && !busy
-                            ? FilledButton.tonal(
-                                onPressed: () =>
-                                    _backUpAndInstall(context, ref),
-                                child: const Text('Install'),
-                              )
-                            : IconButton(
-                                icon: const Icon(Icons.refresh),
-                                tooltip: 'Check for updates',
-                                onPressed: busy ? null : updates.check,
-                              ),
+                        if (canSelfUpdate)
+                          status.release != null && !busy
+                              ? FilledButton.tonal(
+                                  onPressed: () =>
+                                      _backUpAndInstall(context, ref),
+                                  child: const Text('Install'),
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.refresh),
+                                  tooltip: 'Check for updates',
+                                  onPressed: busy ? null : updates.check,
+                                ),
                       ],
                     ),
                   ),
@@ -137,13 +139,15 @@ class AboutPage extends ConsumerWidget {
                       ],
                     ),
                   ),
-                const Divider(height: 1, indent: 16),
-                SwitchListTile(
-                  secondary: Icon(Icons.update, color: primary),
-                  title: const Text('Check at startup'),
-                  value: ref.watch(autoUpdateCheckProvider),
-                  onChanged: ref.read(autoUpdateCheckProvider.notifier).set,
-                ),
+                if (canSelfUpdate) ...[
+                  const Divider(height: 1, indent: 16),
+                  SwitchListTile(
+                    secondary: Icon(Icons.update, color: primary),
+                    title: const Text('Check at startup'),
+                    value: ref.watch(autoUpdateCheckProvider),
+                    onChanged: ref.read(autoUpdateCheckProvider.notifier).set,
+                  ),
+                ],
                 const Divider(height: 1, indent: 16),
                 ListTile(
                   leading: Icon(Icons.description_outlined, color: primary),

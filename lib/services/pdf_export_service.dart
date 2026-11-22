@@ -3,7 +3,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, visibleForTesting;
 import 'package:flutter_native_html_to_pdf/flutter_native_html_to_pdf.dart';
 import 'package:intl/intl.dart';
 import 'package:logging/logging.dart';
@@ -610,6 +611,11 @@ class PdfExportService {
       noted.addAll(line.notes.keys);
     }
 
+    // iOS's WebKit prints without the @page margins, so each page gets them
+    // as padding, and drops collapsed table borders under 0.75px.
+    final ios = defaultTargetPlatform == TargetPlatform.iOS;
+    final pageMargin = ios ? '7mm 7mm 0' : '0';
+    final cellBorder = ios ? '0.75px' : '0.2px';
     final buf = StringBuffer();
     buf.write('''<!DOCTYPE html>
 <html lang="en">
@@ -636,6 +642,7 @@ class PdfExportService {
   }
   .logbook-page {
     page-break-after: always;
+    padding: $pageMargin;
   }
   .logbook-page:last-child {
     page-break-after: avoid;
@@ -647,7 +654,7 @@ class PdfExportService {
     border: 1.5px solid black;
   }
   th, td {
-    border: 0.2px solid black;
+    border: $cellBorder solid black;
     text-align: center;
     vertical-align: middle;
     padding: 1px 1px;

@@ -13,6 +13,9 @@ Log flights, track currency, manage licences and aircraft, and export an EASA Pa
 ![EASA](https://img.shields.io/badge/EASA-Part--FCL-1f3b73)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.md)
 
+[![The iOS issue](https://img.shields.io/badge/The_iOS_issue-000000?style=for-the-badge&logo=apple&logoColor=white)](iOS.md)
+[![Support me on Ko-fi](https://img.shields.io/badge/Support_zenith_on_Ko--fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/winstriker)
+
 <br />
 
 <img src="docs/screenshots/home.png" width="24%" alt="Home" />

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show appBuildNumber;
 import 'package:http/http.dart' as http;
 
@@ -9,6 +10,9 @@ import 'file_opener.dart';
 /// The GitHub repository releases are published to, such as
 /// `https://github.com/winstriker/Zenith`. Empty: this build can't update.
 const updatesRepoUrl = String.fromEnvironment('UPDATES_REPO_URL');
+
+/// Releases ship as APKs; elsewhere (iOS) the store delivers updates.
+bool get canSelfUpdate => defaultTargetPlatform == TargetPlatform.android;
 
 /// A published release: its tag (`v1.2.0+42`), what changed since the
 /// previous one (empty for the first) and the APK to install.

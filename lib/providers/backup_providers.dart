@@ -183,7 +183,8 @@ final localBackupStoreProvider = Provider<LocalBackupStore>((ref) {
 
 /// Google allows Android OAuth clients a custom-scheme redirect on the
 /// package name (with "Custom URI scheme" enabled in the client's advanced
-/// settings). Registered in AndroidManifest.xml.
+/// settings), and iOS clients one on the bundle ID. Registered in
+/// AndroidManifest.xml and Info.plist; iOS builds need an iOS client's ID.
 const googleRedirectUri = 'it.winstriker.zenith:/oauth2redirect';
 
 /// The dart-define holding each cloud provider's OAuth client ID.

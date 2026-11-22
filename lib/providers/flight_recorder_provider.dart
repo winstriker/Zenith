@@ -188,6 +188,14 @@ class FlightRecorder extends Notifier<Recording?> {
             enableWakeLock: true,
           ),
         )
+      : defaultTargetPlatform == TargetPlatform.iOS
+      ? AppleSettings(
+          // Auto-pause stays off (the default): it would cut a track
+          // that looks stationary, e.g. while holding.
+          activityType: ActivityType.airborne,
+          // The blue pill tells the pilot recording is still running.
+          showBackgroundLocationIndicator: true,
+        )
       : const LocationSettings();
 }
 

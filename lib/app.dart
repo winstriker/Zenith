@@ -78,6 +78,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
 
   Future<void> _checkForUpdates() async {
     if (!mounted ||
+        !canSelfUpdate ||
         updatesRepoUrl.isEmpty ||
         !ref.read(onboardingCompleteProvider) ||
         !await AutoUpdateCheckNotifier.read()) {

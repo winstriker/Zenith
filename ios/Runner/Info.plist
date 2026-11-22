@@ -26,6 +26,31 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<!-- Dropbox OAuth redirect (zenithlogbook://dropbox). -->
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>it.winstriker.zenith.dropbox</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>zenithlogbook</string>
+			</array>
+		</dict>
+		<!-- Google Drive OAuth redirect (it.winstriker.zenith:/oauth2redirect). -->
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>it.winstriker.zenith.google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>it.winstriker.zenith</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Zenith uses the camera to photograph aircraft, people and signatures for your logbook.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Zenith lets you add photos of aircraft, people and signatures from your library.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Zenith uses GPS to record flight paths, altitude, speed, and heading during your flights, even when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

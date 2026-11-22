@@ -90,7 +90,7 @@ List<PlannedReminder> planReminders(
   return planned.take(maxPlannedReminders).toList();
 }
 
-/// Schedules the licence & currency reminders as Android notifications.
+/// Schedules the licence & currency reminders as local notifications.
 class CurrencyReminderService {
   CurrencyReminderService({FlutterLocalNotificationsPlugin? plugin})
     : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
@@ -113,6 +113,7 @@ class CurrencyReminderService {
       priority: Priority.high,
       icon: 'ic_notification_licence',
     ),
+    iOS: DarwinNotificationDetails(),
   );
 
   Future<void>? _initialized;
@@ -127,11 +128,16 @@ class CurrencyReminderService {
   /// the tap started the app.
   Future<void> initialize({required VoidCallback onOpen}) {
     return _initialized ??= () async {
-      if (defaultTargetPlatform != TargetPlatform.android) return;
       try {
         await _plugin.initialize(
           settings: const InitializationSettings(
             android: AndroidInitializationSettings('ic_notification_licence'),
+            // Asked for later, when reminders are turned on.
+            iOS: DarwinInitializationSettings(
+              requestAlertPermission: false,
+              requestBadgePermission: false,
+              requestSoundPermission: false,
+            ),
           ),
           onDidReceiveNotificationResponse: (response) {
             if (response.payload == payload) onOpen();
@@ -153,13 +159,23 @@ class CurrencyReminderService {
         AndroidFlutterLocalNotificationsPlugin
       >();
 
+  IOSFlutterLocalNotificationsPlugin? get _ios => _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >();
+
   /// Whether the app may post notifications.
   Future<bool> areEnabled() async =>
-      await _android?.areNotificationsEnabled() ?? false;
+      await _android?.areNotificationsEnabled() ??
+      (await _ios?.checkPermissions())?.isEnabled ??
+      false;
 
-  /// Asks for the notification permission (Android 13+). True when granted.
+  /// Asks for the notification permission (Android 13+, iOS). True when
+  /// granted.
   Future<bool> requestPermission() async =>
-      await _android?.requestNotificationsPermission() ?? false;
+      await _android?.requestNotificationsPermission() ??
+      await _ios?.requestPermissions(alert: true, sound: true) ??
+      false;
 
   /// Replaces the scheduled reminders with [reminders].
   Future<void> schedule(List<PlannedReminder> reminders) {
