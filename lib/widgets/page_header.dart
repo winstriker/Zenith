@@ -200,8 +200,17 @@ class PageHeader extends ConsumerWidget {
               right: 8,
               bottom: 8,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  ?trailing,
+                  if (trailing case final trailing?)
+                    IconButtonTheme(
+                      data: IconButtonThemeData(
+                        style: IconButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                      child: trailing,
+                    ),
                   IconButton(
                     tooltip: hasImage
                         ? 'Change header image'
