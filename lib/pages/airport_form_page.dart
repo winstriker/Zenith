@@ -118,6 +118,33 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
     return null;
   }
 
+  /// Fills country and region from the nearest known airport (within ~2°)
+  Future<void> _fillCountryFromCoordinates() async {
+    final lat = _parseCoordinate(_latitude.text);
+    final lon = _parseCoordinate(_longitude.text);
+    if (lat == null || lon == null || lat.abs() > 90 || lon.abs() > 180) {
+      return;
+    }
+    final near = await ref
+        .read(airportRepositoryProvider)
+        .watchAirportsNear(lat, lon, limit: 2)
+        .first;
+    // Skip the airport being edited, and drop stale answers from earlier keystrokes.
+    final nearest = near.where((a) => a.id != widget.airport?.id).firstOrNull;
+    if (!mounted ||
+        nearest?.isoCountry == null ||
+        _parseCoordinate(_latitude.text) != lat ||
+        _parseCoordinate(_longitude.text) != lon) {
+      return;
+    }
+    final region = nearest!.isoRegion;
+    setState(() {
+      _countryCode = nearest.isoCountry;
+      // "<country>-U-A" is OurAirports' "no region"; save falls back to it.
+      _regionCode = region.endsWith('-U-A') ? null : region;
+    });
+  }
+
   Future<void> _useCurrentLocation() async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _locating = true);
@@ -145,6 +172,7 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
         // Metres above the WGS84 ellipsoid: close enough for an airstrip.
         _elevation.text = (position.altitude * 3.28084).round().toString();
       }
+      await _fillCountryFromCoordinates();
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not get your location: $e')),
@@ -481,6 +509,7 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
                         labelText: 'Latitude *',
                         hintText: '45.630600',
                       ),
+                      onChanged: (_) => _fillCountryFromCoordinates(),
                       validator: (v) => _validateCoordinate(v, limit: 90),
                     ),
                   ),
@@ -496,6 +525,7 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
                         labelText: 'Longitude *',
                         hintText: '8.728110',
                       ),
+                      onChanged: (_) => _fillCountryFromCoordinates(),
                       validator: (v) => _validateCoordinate(v, limit: 180),
                     ),
                   ),
