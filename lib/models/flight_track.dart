@@ -158,19 +158,8 @@ abstract final class TrackTools {
   }
 
   /// Great-circle distance, in kilometres.
-  static double distanceKm(TrackPoint a, TrackPoint b) {
-    const radius = 6371.0;
-    double rad(double deg) => deg * math.pi / 180;
-    final dLat = rad(b.latitude - a.latitude);
-    final dLon = rad(b.longitude - a.longitude);
-    final h =
-        math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(rad(a.latitude)) *
-            math.cos(rad(b.latitude)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    return radius * 2 * math.asin(math.min(1, math.sqrt(h)));
-  }
+  static double distanceKm(TrackPoint a, TrackPoint b) =>
+      greatCircleKm(a.latitude, a.longitude, b.latitude, b.longitude);
 
   /// At most about [maxPoints] of [values], evenly spread, keeping the
   /// lowest and highest of every stretch so that peaks survive. For charts,
@@ -201,4 +190,17 @@ abstract final class TrackTools {
     result.add(values.last);
     return result;
   }
+}
+
+/// Great-circle (haversine) distance between two positions, in kilometres.
+double greatCircleKm(double lat1, double lon1, double lat2, double lon2) {
+  double rad(double deg) => deg * math.pi / 180;
+  final dLat = rad(lat2 - lat1);
+  final dLon = rad(lon2 - lon1);
+  final h =
+      math.pow(math.sin(dLat / 2), 2) +
+      math.cos(rad(lat1)) *
+          math.cos(rad(lat2)) *
+          math.pow(math.sin(dLon / 2), 2);
+  return 6371 * 2 * math.asin(math.min(1, math.sqrt(h)));
 }
