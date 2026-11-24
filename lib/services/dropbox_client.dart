@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 
 import 'backup_service.dart';
 import 'cloud_backup_client.dart';
+import 'network.dart';
 import 'oauth_service.dart';
 
 /// Minimal Dropbox API v2 client for backup files.
@@ -13,7 +14,7 @@ import 'oauth_service.dart';
 /// Every file lives in [folder]. With an "App folder" Dropbox app that is
 /// `Apps/<app name>/Backups`; with full access it is `/Zenith Backups`.
 class DropboxClient implements CloudBackupClient {
-  DropboxClient(this._auth, {this.chunkSize = 4 * 1024 * 1024});
+  DropboxClient(this._auth, {this.chunkSize = 1024 * 1024});
 
   final OAuthService _auth;
   static final _log = Logger('DropboxClient');
@@ -33,7 +34,8 @@ class DropboxClient implements CloudBackupClient {
     );
   }
 
-  /// Size of each request body when uploading.
+  /// Size of each request body when uploading: small enough for the
+  /// progress to move and for [uploadChunkTimeout] to suit slow networks.
   final int chunkSize;
 
   /// Uploads through an upload session rather than a single `files/upload`.
@@ -45,7 +47,11 @@ class DropboxClient implements CloudBackupClient {
   /// so any rejection comes back readable, and the data then goes up in
   /// chunks of [chunkSize], which also lifts the 150 MB single-request limit.
   @override
-  Future<void> upload(String name, Uint8List bytes) async {
+  Future<void> upload(
+    String name,
+    Uint8List bytes, {
+    TransferProgress? onProgress,
+  }) async {
     final start = await _contentCall('files/upload_session/start', {
       'close': false,
     }, Uint8List(0));
@@ -60,6 +66,7 @@ class DropboxClient implements CloudBackupClient {
         'close': false,
       }, Uint8List.sublistView(bytes, offset, offset + chunkSize));
       offset += chunkSize;
+      onProgress?.call(offset / bytes.length);
     }
 
     await _contentCall('files/upload_session/finish', {
@@ -71,6 +78,7 @@ class DropboxClient implements CloudBackupClient {
         'mute': true,
       },
     }, Uint8List.sublistView(bytes, offset));
+    onProgress?.call(1);
   }
 
   /// Backups in [folder], newest first.
@@ -112,14 +120,32 @@ class DropboxClient implements CloudBackupClient {
   }
 
   @override
-  Future<Uint8List> download(String path) async {
-    final res = await _call(
-      Uri.parse('$_content/files/download'),
-      headers: {
-        'Dropbox-API-Arg': _apiArg({'path': path}),
-      },
+  Future<Uint8List> download(
+    String path, {
+    int? size,
+    TransferProgress? onProgress,
+  }) async {
+    final url = Uri.parse('$_content/files/download');
+    final http.StreamedResponse res;
+    try {
+      res = await _auth.stream(
+        'POST',
+        url,
+        headers: {
+          'Dropbox-API-Arg': _apiArg({'path': path}),
+        },
+      );
+    } on OAuthException {
+      throw _sessionExpired;
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      _check(await http.Response.fromStream(res), url);
+    }
+    return readDownload(
+      res.stream,
+      total: res.contentLength ?? size,
+      onProgress: onProgress,
     );
-    return res.bodyBytes;
   }
 
   @override
@@ -155,6 +181,7 @@ class DropboxClient implements CloudBackupClient {
         'Dropbox-API-Arg': _apiArg(args),
       },
       body: body,
+      timeout: uploadChunkTimeout,
     );
   }
 
@@ -167,20 +194,33 @@ class DropboxClient implements CloudBackupClient {
     );
   }
 
+  // The refresh token was rejected; OAuthService already logged out.
+  static const _sessionExpired = CloudReauthRequired(
+    'Your Dropbox session expired. Connect Dropbox again.',
+  );
+
   Future<http.Response> _call(
     Uri url, {
     Map<String, String>? headers,
     Object? body,
+    Duration timeout = networkTimeout,
   }) async {
     final http.Response res;
     try {
-      res = await _auth.post(url, headers: headers, body: body);
-    } on OAuthException {
-      // The refresh token was rejected; OAuthService already logged out.
-      throw const CloudReauthRequired(
-        'Your Dropbox session expired. Connect Dropbox again.',
+      res = await _auth.post(
+        url,
+        headers: headers,
+        body: body,
+        timeout: timeout,
       );
+    } on OAuthException {
+      throw _sessionExpired;
     }
+    return _check(res, url);
+  }
+
+  /// [res], when it is a success; otherwise the error it means.
+  http.Response _check(http.Response res, Uri url) {
     if (res.statusCode >= 200 && res.statusCode < 300) return res;
 
     String summary = '';

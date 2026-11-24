@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 
 import 'backup_service.dart';
 import 'cloud_backup_client.dart';
+import 'network.dart';
 import 'oauth_service.dart';
 
 /// Minimal Google Drive API v3 client for backup files.
@@ -14,7 +15,7 @@ import 'oauth_service.dart';
 /// created itself. Backups go to a [folderName] folder in "My Drive", which
 /// the user can see, move or rename; it is found again by name.
 class GoogleDriveClient implements CloudBackupClient {
-  GoogleDriveClient(this._auth, {this.chunkSize = 4 * 1024 * 1024});
+  GoogleDriveClient(this._auth, {this.chunkSize = 1024 * 1024});
 
   final OAuthService _auth;
   static final _log = Logger('GoogleDriveClient');
@@ -25,8 +26,9 @@ class GoogleDriveClient implements CloudBackupClient {
   static const _uploadApi = 'https://www.googleapis.com/upload/drive/v3';
   static const _folderMime = 'application/vnd.google-apps.folder';
 
-  /// Size of each request body when uploading. Google requires a multiple
-  /// of 256 KiB for every chunk but the last.
+  /// Size of each request body when uploading: small enough for the
+  /// progress to move and for [uploadChunkTimeout] to suit slow networks.
+  /// Google requires a multiple of 256 KiB for every chunk but the last.
   final int chunkSize;
 
   @override
@@ -51,7 +53,11 @@ class GoogleDriveClient implements CloudBackupClient {
   /// halfway through a large body. The data then goes up in chunks of
   /// [chunkSize].
   @override
-  Future<void> upload(String name, Uint8List bytes) async {
+  Future<void> upload(
+    String name,
+    Uint8List bytes, {
+    TransferProgress? onProgress,
+  }) async {
     final folderId = await _folderId(create: true);
     final start = await _call(
       'POST',
@@ -99,7 +105,9 @@ class GoogleDriveClient implements CloudBackupClient {
         },
         body: Uint8List.sublistView(bytes, offset, end),
         accept: const {308},
+        timeout: uploadChunkTimeout,
       );
+      onProgress?.call(end / total);
       if (res.statusCode != 308) return;
       // "Resume incomplete": continue from what Google actually stored.
       final range = RegExp(
@@ -153,9 +161,26 @@ class GoogleDriveClient implements CloudBackupClient {
   }
 
   @override
-  Future<Uint8List> download(String id) async {
-    final res = await _call('GET', _apiUri('files/$id', {'alt': 'media'}));
-    return res.bodyBytes;
+  Future<Uint8List> download(
+    String id, {
+    int? size,
+    TransferProgress? onProgress,
+  }) async {
+    final url = _apiUri('files/$id', {'alt': 'media'});
+    final http.StreamedResponse res;
+    try {
+      res = await _auth.stream('GET', url);
+    } on OAuthException {
+      throw _sessionExpired;
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      _check(await http.Response.fromStream(res), 'GET', url);
+    }
+    return readDownload(
+      res.stream,
+      total: res.contentLength ?? size,
+      onProgress: onProgress,
+    );
   }
 
   @override
@@ -215,16 +240,36 @@ class GoogleDriveClient implements CloudBackupClient {
     Map<String, String>? headers,
     Object? body,
     Set<int> accept = const {},
+    Duration timeout = networkTimeout,
   }) async {
     final http.Response res;
     try {
-      res = await _auth.send(method, url, headers: headers, body: body);
-    } on OAuthException {
-      // The refresh token was rejected; OAuthService already logged out.
-      throw const CloudReauthRequired(
-        'Your Google Drive session expired. Connect Google Drive again.',
+      res = await _auth.send(
+        method,
+        url,
+        headers: headers,
+        body: body,
+        timeout: timeout,
       );
+    } on OAuthException {
+      throw _sessionExpired;
     }
+    return _check(res, method, url, accept: accept);
+  }
+
+  // The refresh token was rejected; OAuthService already logged out.
+  static const _sessionExpired = CloudReauthRequired(
+    'Your Google Drive session expired. Connect Google Drive again.',
+  );
+
+  /// [res], when it is a success or its status is in [accept]; otherwise
+  /// the error it means.
+  http.Response _check(
+    http.Response res,
+    String method,
+    Uri url, {
+    Set<int> accept = const {},
+  }) {
     final ok = res.statusCode >= 200 && res.statusCode < 300;
     if (ok || accept.contains(res.statusCode)) return res;
 

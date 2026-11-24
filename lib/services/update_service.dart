@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show appBuildNumber;
 import 'package:http/http.dart' as http;
 
 import 'file_opener.dart';
+import 'network.dart';
 
 /// The GitHub repository releases are published to, such as
 /// `https://github.com/winstriker/Zenith`. Empty: this build can't update.
@@ -41,10 +42,12 @@ class UpdateService {
       throw const FormatException('Updates are not set up in this build');
     }
     final repo = '${path[0]}/${path[1].replaceFirst(RegExp(r'\.git$'), '')}';
-    final response = await _client.get(
-      Uri.https('api.github.com', '/repos/$repo/releases/latest'),
-      headers: const {'Accept': 'application/vnd.github+json'},
-    );
+    final response = await _client
+        .get(
+          Uri.https('api.github.com', '/repos/$repo/releases/latest'),
+          headers: const {'Accept': 'application/vnd.github+json'},
+        )
+        .withTimeout();
     if (response.statusCode != HttpStatus.ok) {
       throw HttpException('GitHub replied ${response.statusCode}');
     }
@@ -72,7 +75,9 @@ class UpdateService {
   ) async {
     final dir = await FileOpener.exportsDirectory();
     final file = File('${dir.path}/zenith-update.apk');
-    final response = await _client.send(http.Request('GET', release.apkUrl));
+    final response = await _client
+        .send(http.Request('GET', release.apkUrl))
+        .withTimeout();
     if (response.statusCode != HttpStatus.ok) {
       await response.stream.drain<void>();
       throw HttpException('GitHub replied ${response.statusCode}');
@@ -81,7 +86,7 @@ class UpdateService {
     final sink = file.openWrite();
     var received = 0;
     try {
-      await for (final chunk in response.stream) {
+      await for (final chunk in response.stream.withIdleTimeout()) {
         sink.add(chunk);
         received += chunk.length;
         onProgress(total == null || total <= 0 ? null : received / total);

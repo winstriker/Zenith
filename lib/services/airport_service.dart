@@ -10,10 +10,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/flight_track.dart';
 import '../models/sync_progress.dart';
 import '../repositories/airport_repository.dart';
 import '../utils/csv_parser.dart';
 import 'database.dart';
+import 'network.dart';
 
 export '../models/sync_progress.dart';
 
@@ -25,12 +27,14 @@ class AirportsService {
   AirportsService(this.database) {
     isLocating = true;
     _locate()
-        .then((pos) {
-          position = pos;
-        })
-        .whenComplete(() {
-          isLocating = false;
-        });
+        .then(
+          (pos) => position = pos,
+          onError: (Object e) {
+            logger.warning('Location unavailable: $e');
+            return null;
+          },
+        )
+        .whenComplete(() => isLocating = false);
   }
   final logger = Logger("Airports Service");
   final LogbookDatabase database;
@@ -105,7 +109,9 @@ class AirportsService {
     final stopwatch = Stopwatch()..start();
     // autoUncompress off: bytes received then match Content-Length (the
     // compressed size), so the % is accurate. Gunzip happens in the isolate.
-    final client = HttpClient()..autoUncompress = false;
+    final client = HttpClient()
+      ..autoUncompress = false
+      ..connectionTimeout = networkTimeout;
     try {
       final bodies = await _downloadAll(client);
 
@@ -205,7 +211,7 @@ class AirportsService {
     Future<_Download> download(int i) async {
       final request = await client.getUrl(Uri.parse('$_baseUrl/${_files[i]}'));
       request.headers.set(HttpHeaders.acceptEncodingHeader, 'gzip');
-      final response = await request.close();
+      final response = await request.close().withTimeout();
       if (response.statusCode != HttpStatus.ok) {
         await response.drain<void>();
         throw HttpException(
@@ -219,7 +225,7 @@ class AirportsService {
       totals[i] = length > 0 ? length : null;
       headersReceived[i] = true;
       final builder = BytesBuilder(copy: false);
-      await for (final chunk in response) {
+      await for (final chunk in response.withIdleTimeout()) {
         builder.add(chunk);
         received[i] += chunk.length;
         report();
@@ -604,9 +610,8 @@ class AirportsService {
     }
   }
 
-  Future<AirportWithEverything?> getCompleteAirportData(int id) async {
-    return database.getCompleteAirportData(id);
-  }
+  Future<AirportWithEverything?> getCompleteAirportData(int id) =>
+      database.getCompleteAirportData(id);
 
   /// The [limit] airports most recently used in flights, as the data
   /// changes, with their distance when the user's position is already known
@@ -623,7 +628,7 @@ class AirportsService {
             a,
             here == null || a.latitudeDeg == null || a.longitudeDeg == null
                 ? -1
-                : _distance(
+                : greatCircleKm(
                     here.latitude,
                     here.longitude,
                     a.latitudeDeg!,
@@ -678,7 +683,7 @@ class AirportsService {
             for (final a in list)
               AirportWithDistance(
                 a,
-                _distance(
+                greatCircleKm(
                   here.latitude,
                   here.longitude,
                   a.latitudeDeg!,
@@ -698,21 +703,18 @@ class AirportsService {
       latitude,
       longitude,
     );
-    if (candidates == null) {
-      return List<AirportWithDistance>.empty();
-    }
-    final List<AirportWithDistance> sorted = candidates.map((airport) {
-      final d = _distance(
-        latitude,
-        longitude,
-        airport.latitudeDeg!,
-        airport.longitudeDeg!,
-      );
-      return AirportWithDistance(airport, d);
-    }).toList();
-
-    sorted.sort((a, b) => a.distance.compareTo(b.distance));
-
+    final sorted = [
+      for (final airport in candidates)
+        AirportWithDistance(
+          airport,
+          greatCircleKm(
+            latitude,
+            longitude,
+            airport.latitudeDeg!,
+            airport.longitudeDeg!,
+          ),
+        ),
+    ]..sort((a, b) => a.distance.compareTo(b.distance));
     return sorted.take(limit).toList();
   }
 }
@@ -762,18 +764,6 @@ class AirportSyncSummary {
       '$kept kept (used in flights)';
 }
 
-double _distance(double lat1, double lon1, double lat2, double lon2) {
-  const radius = 6371;
-  final dLat = _toRad(lat2 - lat1);
-  final dLon = _toRad(lon2 - lon1);
-  final a =
-      sin(dLat / 2) * sin(dLat / 2) +
-      cos(_toRad(lat1)) * cos(_toRad(lat2)) * sin(dLon / 2) * sin(dLon / 2);
-  return radius * 2 * asin(sqrt(a));
-}
-
-double _toRad(double deg) => deg * pi / 180;
-
 double? _parseDouble(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return null;
@@ -791,6 +781,10 @@ String? _nullIfEmpty(String value) {
   return trimmed.isEmpty ? null : trimmed;
 }
 
+/// How long to wait for a position: without a fix (indoors, location
+/// services half off) Android may never answer.
+const locationTimeout = Duration(seconds: 20);
+
 Future<Position?> _locate() async {
   final perm = await Geolocator.checkPermission();
   if (perm == LocationPermission.denied ||
@@ -805,6 +799,7 @@ Future<Position?> _locate() async {
       accuracy: bool.fromEnvironment('DISABLE_GOOGLE_PLAY_SERVICES')
           ? LocationAccuracy.high
           : LocationAccuracy.low,
+      timeLimit: locationTimeout,
     ),
   );
   return pos;

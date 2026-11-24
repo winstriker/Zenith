@@ -8,12 +8,14 @@ import 'package:share_plus/share_plus.dart';
 
 import '../core/fab_hero_tags.dart';
 import '../core/theme.dart';
+import '../models/sync_progress.dart';
 import '../providers/backup_providers.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_backup_client.dart';
 import '../services/local_backup_store.dart';
 import '../widgets/page_title.dart';
 import '../widgets/section_header.dart';
+import '../widgets/sync_progress_indicator.dart';
 
 final _dateFormat = DateFormat('d MMM yyyy, HH:mm');
 
@@ -128,19 +130,21 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const PopScope(
+        builder: (_) => PopScope(
           canPop: false,
           child: AlertDialog(
-            content: Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-                SizedBox(width: 20),
-                Expanded(child: Text('Restoring backup…')),
-              ],
+            title: const Text('Restoring backup'),
+            content: Consumer(
+              builder: (context, ref, _) => SyncProgressIndicator(
+                progress:
+                    ref.watch(
+                      backupControllerProvider.select((s) => s.value?.restore),
+                    ) ??
+                    const SyncProgress(
+                      SyncPhase.saving,
+                      message: 'Restoring backup…',
+                    ),
+              ),
             ),
           ),
         ),
@@ -252,7 +256,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               const Divider(height: 1, indent: 72),
               _BackupNowTile(
                 status: backupState.statusOf(d),
-                running: backupState.running.contains(d),
+                progress: backupState.running[d],
                 enabled: !backupState.restoring,
                 onTap: () => _backUp(d),
               ),
@@ -472,9 +476,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
               children: [
                 _BackupNowTile(
                   status: backupState.statusOf(BackupDestination.local),
-                  running: backupState.running.contains(
-                    BackupDestination.local,
-                  ),
+                  progress: backupState.running[BackupDestination.local],
                   enabled: !backupState.restoring,
                   onTap: () => _backUp(BackupDestination.local),
                 ),
@@ -597,13 +599,15 @@ class _CloudAccountTile extends ConsumerWidget {
 class _BackupNowTile extends StatelessWidget {
   const _BackupNowTile({
     required this.status,
-    required this.running,
+    required this.progress,
     required this.enabled,
     required this.onTap,
   });
 
   final DestinationStatus status;
-  final bool running;
+
+  /// Where the backup is at while one is running.
+  final SyncProgress? progress;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -611,6 +615,8 @@ class _BackupNowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final last = status.lastBackupAt;
+    final progress = this.progress;
+    final running = progress != null;
     return ListTile(
       leading: Icon(
         Icons.backup_outlined,
@@ -620,13 +626,17 @@ class _BackupNowTile extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            running
-                ? 'Backing up…'
-                : last == null
-                ? 'No backups yet'
-                : 'Last backup: ${_dateFormat.format(last)}',
-          ),
+          if (running)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: SyncProgressIndicator(progress: progress, compact: true),
+            )
+          else
+            Text(
+              last == null
+                  ? 'No backups yet'
+                  : 'Last backup: ${_dateFormat.format(last)}',
+            ),
           if (status.lastError != null && !running)
             Text(
               status.lastError!,
@@ -634,13 +644,6 @@ class _BackupNowTile extends StatelessWidget {
             ),
         ],
       ),
-      trailing: running
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
       enabled: enabled && !running,
       onTap: onTap,
     );

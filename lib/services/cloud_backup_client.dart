@@ -32,17 +32,29 @@ class CloudReauthRequired extends BackupException {
   const CloudReauthRequired(super.message);
 }
 
+/// Called during a transfer with the fraction done, from 0 to 1.
+typedef TransferProgress = void Function(double fraction);
+
 /// What the backup controller needs from a cloud provider. Every backup
 /// lives in a single folder owned by the app.
 abstract interface class CloudBackupClient {
   Future<CloudAccount> currentAccount();
 
-  Future<void> upload(String name, Uint8List bytes);
+  Future<void> upload(
+    String name,
+    Uint8List bytes, {
+    TransferProgress? onProgress,
+  });
 
   /// Backups in the folder, newest first.
   Future<List<RemoteBackup>> list();
 
-  Future<Uint8List> download(String id);
+  /// [size] stands in for the length when the provider doesn't send one.
+  Future<Uint8List> download(
+    String id, {
+    int? size,
+    TransferProgress? onProgress,
+  });
 
   Future<void> delete(String id);
 

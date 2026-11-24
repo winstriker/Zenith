@@ -212,7 +212,12 @@ void main() {
     expect(backups.first.createdAt, DateTime(2026, 11, 4, 10));
     expect(backups.first.size, 40);
 
-    expect(await client.download(backups.first.id), bytes(40));
+    final received = <double>[];
+    expect(
+      await client.download(backups.first.id, onProgress: received.add),
+      bytes(40),
+    );
+    expect(received.last, 1);
 
     await client.prune(keep: 2);
     backups = await client.list();
@@ -222,8 +227,14 @@ void main() {
   test('uploads in chunks through a resumable session', () async {
     client = GoogleDriveClient(auth, chunkSize: 16);
     final data = Uint8List.fromList(List.generate(40, (i) => i));
-    await client.upload('zenith_backup_20261114_100000.zip', data);
+    final sent = <double>[];
+    await client.upload(
+      'zenith_backup_20261114_100000.zip',
+      data,
+      onProgress: sent.add,
+    );
     expect(drive.content.values.single, data);
+    expect(sent, [16 / 40, 32 / 40, 1]);
     expect(drive.chunks, 3);
   });
 

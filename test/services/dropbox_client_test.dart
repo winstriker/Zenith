@@ -202,8 +202,13 @@ void main() {
     expect(backups.first.createdAt, DateTime(2026, 11, 4, 10));
     expect(backups.first.size, 40);
 
-    final downloaded = await client.download(backups.first.id);
+    final received = <double>[];
+    final downloaded = await client.download(
+      backups.first.id,
+      onProgress: received.add,
+    );
     expect(downloaded, bytes(40));
+    expect(received.last, 1);
 
     await client.prune(keep: 2);
     backups = await client.list();
@@ -213,8 +218,14 @@ void main() {
   test('uploads in chunks through an upload session', () async {
     client = DropboxClient(auth, chunkSize: 16);
     final data = Uint8List.fromList(List.generate(40, (i) => i));
-    await client.upload('zenith_backup_20261114_100000.zip', data);
+    final sent = <double>[];
+    await client.upload(
+      'zenith_backup_20261114_100000.zip',
+      data,
+      onProgress: sent.add,
+    );
     expect(dropbox.files.values.single, data);
+    expect(sent, [16 / 40, 32 / 40, 1]);
     // 16 + 16 appended, the last 8 sent with finish.
     expect(dropbox.appends, 3);
 

@@ -6,6 +6,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
+import 'network.dart';
+
 /// OAuthService for PKCE-compliant providers
 /// Flow:
 /// - startLogin() ->
@@ -132,20 +134,22 @@ class OAuthService {
     required String code,
     required String verifier,
   }) async {
-    final response = await _http.post(
-      Uri.parse(tokenEndpoint),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: {
-        'grant_type': 'authorization_code',
-        'client_id': clientId,
-        'code': code,
-        'redirect_uri': redirectUri,
-        'code_verifier': verifier,
-      },
-    );
+    final response = await _http
+        .post(
+          Uri.parse(tokenEndpoint),
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+          },
+          body: {
+            'grant_type': 'authorization_code',
+            'client_id': clientId,
+            'code': code,
+            'redirect_uri': redirectUri,
+            'code_verifier': verifier,
+          },
+        )
+        .withTimeout();
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OAuthException(
@@ -192,18 +196,20 @@ class OAuthService {
       );
     }
 
-    final response = await _http.post(
-      Uri.parse(tokenEndpoint),
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: {
-        'grant_type': 'refresh_token',
-        'client_id': clientId,
-        'refresh_token': refreshToken,
-      },
-    );
+    final response = await _http
+        .post(
+          Uri.parse(tokenEndpoint),
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+          },
+          body: {
+            'grant_type': 'refresh_token',
+            'client_id': clientId,
+            'refresh_token': refreshToken,
+          },
+        )
+        .withTimeout();
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       // The refresh token may have expired/revoked.
@@ -281,51 +287,30 @@ class OAuthService {
     }
   }
 
-  /// Authenticated get request
-  Future<http.Response> get(String url, {Map<String, String>? headers}) async {
-    final accessToken = await getAccessToken();
-
-    final response = await _http.get(
-      Uri.parse(url),
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Accept': 'application/json',
-        ...?headers,
-      },
-    );
-
-    // Optional defensive retry.
-    // If the token expired unexpectedly, refresh it and retry once.
-    if (response.statusCode == 401) {
-      final newAccessToken = await refreshAccessToken();
-
-      return _http.get(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $newAccessToken',
-          'Accept': 'application/json',
-          ...?headers,
-        },
-      );
-    }
-
-    return response;
-  }
+  /// Authenticated get request, as JSON.
+  Future<http.Response> get(String url, {Map<String, String>? headers}) => send(
+    'GET',
+    Uri.parse(url),
+    headers: {'Accept': 'application/json', ...?headers},
+  );
 
   /// Authenticated post request. Retries once with a fresh token on 401.
   Future<http.Response> post(
     Uri url, {
     Map<String, String>? headers,
     Object? body,
-  }) => send('POST', url, headers: headers, body: body);
+    Duration timeout = networkTimeout,
+  }) => send('POST', url, headers: headers, body: body, timeout: timeout);
 
   /// Authenticated request with any [method] (GET, POST, PUT, PATCH,
-  /// DELETE). Retries once with a fresh token on 401.
+  /// DELETE). Retries once with a fresh token on 401. Fails with a
+  /// [NetworkTimeout] when the answer takes longer than [timeout].
   Future<http.Response> send(
     String method,
     Uri url, {
     Map<String, String>? headers,
     Object? body,
+    Duration timeout = networkTimeout,
   }) async {
     Future<http.Response> attempt(String token) {
       final h = {'Authorization': 'Bearer $token', ...?headers};
@@ -336,7 +321,7 @@ class OAuthService {
         'PATCH' => _http.patch(url, headers: h, body: body),
         'DELETE' => _http.delete(url, headers: h, body: body),
         _ => throw ArgumentError.value(method, 'method'),
-      };
+      }.withTimeout(timeout);
     }
 
     final response = await attempt(await getAccessToken());
@@ -344,6 +329,27 @@ class OAuthService {
       return attempt(await refreshAccessToken());
     }
     return response;
+  }
+
+  /// Authenticated request whose answer is read as it arrives, for
+  /// downloads: read its body with [readDownload], which fails if it
+  /// stalls. Retries once with a fresh token on 401.
+  Future<http.StreamedResponse> stream(
+    String method,
+    Uri url, {
+    Map<String, String>? headers,
+  }) async {
+    Future<http.StreamedResponse> attempt(String token) => _http
+        .send(
+          http.Request(method, url)
+            ..headers.addAll({'Authorization': 'Bearer $token', ...?headers}),
+        )
+        .withTimeout();
+
+    final response = await attempt(await getAccessToken());
+    if (response.statusCode != 401) return response;
+    await response.stream.drain<void>();
+    return attempt(await refreshAccessToken());
   }
 
   /// Revokes the grant at an RFC 7009 [endpoint] by posting the refresh
@@ -354,11 +360,13 @@ class OAuthService {
           await _storage.read(key: refreshTokenKey) ??
           await _storage.read(key: accessTokenKey);
       if (token == null || token.isEmpty) return;
-      await _http.post(
-        Uri.parse(endpoint),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {'token': token},
-      );
+      await _http
+          .post(
+            Uri.parse(endpoint),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: {'token': token},
+          )
+          .withTimeout();
     } catch (e) {
       logger.warning('Token revocation failed: $e');
     }
