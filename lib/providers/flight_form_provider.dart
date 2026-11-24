@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/crew_rules.dart';
@@ -154,54 +153,46 @@ class FlightFormState {
     );
   }
 
-  String get depTzLabel {
-    switch (depTzMode) {
+  String get depTzLabel => _tzLabel(
+    depTzMode,
+    selectedDeparture,
+    depTime,
+    departureDate,
+    depIanaLocation,
+  );
+
+  String get arrTzLabel => _tzLabel(
+    arrTzMode,
+    selectedArrival,
+    arrTime,
+    arrivalDate,
+    arrIanaLocation,
+  );
+
+  static String _tzLabel(
+    TimezoneMode mode,
+    Airport? airport,
+    String time,
+    DateTime? date,
+    String? ianaLocation,
+  ) {
+    switch (mode) {
       case TimezoneMode.utc:
         return 'UTC';
       case TimezoneMode.local:
-        return _airportTimezone(selectedDeparture);
+        final location = TZDateTimeParser.locationAt(
+          airport?.latitudeDeg,
+          airport?.longitudeDeg,
+        );
+        if (location == null) return 'LCL';
+        return tz.TZDateTime.now(location).timeZone.abbreviation;
       case TimezoneMode.iana:
+        if (date == null) return 'IANA';
         return TZDateTimeParser.parseDateTimeFromText(
-          depTime,
-          departureDate,
-          depIanaLocation,
+          time,
+          date,
+          ianaLocation,
         ).timeZone.abbreviation;
-    }
-  }
-
-  String get arrTzLabel {
-    switch (arrTzMode) {
-      case TimezoneMode.utc:
-        return 'UTC';
-      case TimezoneMode.local:
-        return _airportTimezone(selectedArrival);
-      case TimezoneMode.iana:
-        if (arrivalDate == null) return 'IANA';
-        return TZDateTimeParser.parseDateTimeFromText(
-          arrTime,
-          arrivalDate!,
-          arrIanaLocation,
-        ).timeZone.abbreviation;
-    }
-  }
-
-  String _airportTimezone(Airport? airport) {
-    if (airport == null) return 'LCL';
-    if (airport.latitudeDeg == null || airport.longitudeDeg == null) {
-      return 'LCL';
-    }
-
-    try {
-      final ianaLocation = latLngToTimezoneString(
-        airport.latitudeDeg!,
-        airport.longitudeDeg!,
-      );
-
-      final location = tz.getLocation(ianaLocation);
-      final now = tz.TZDateTime.now(location);
-      return now.timeZone.abbreviation;
-    } catch (_) {
-      return 'LCL';
     }
   }
 
@@ -326,12 +317,8 @@ class FlightFormState {
 
 class FlightFormNotifier extends Notifier<FlightFormState> {
   @override
-  FlightFormState build() {
-    final state = FlightFormState();
-    return state.copyWith(
-      depTime: TZDateTimeParser.formatHHmm(TimeOfDay.now()),
-    );
-  }
+  FlightFormState build() =>
+      FlightFormState(depTime: TZDateTimeParser.formatHHmm(TimeOfDay.now()));
 
   void setDepartureCode(String code) =>
       state = state.copyWith(departureCode: code);
@@ -340,73 +327,40 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
   void setArrTime(String time) => state = state.copyWith(arrTime: time);
   void setRemarks(String text) => state = state.copyWith(remarks: text);
 
+  static String _codeOf(Airport airport) =>
+      airport.ident ??
+      airport.icaoCode ??
+      airport.iataCode ??
+      airport.name ??
+      '';
+
+  static String? _ianaAt(Airport airport) => TZDateTimeParser.locationAt(
+    airport.latitudeDeg,
+    airport.longitudeDeg,
+  )?.name;
+
+  /// In local time mode, the times follow the airport's time zone.
   void setSelectedDeparture(Airport? airport) {
-    if (airport != null) {
-      final code =
-          airport.ident ??
-          airport.icaoCode ??
-          airport.iataCode ??
-          airport.name ??
-          '';
-      // If in local mode, update the IANA location to match airport's timezone
-      if (state.depTzMode == TimezoneMode.local &&
-          airport.latitudeDeg != null &&
-          airport.longitudeDeg != null) {
-        try {
-          final ianaLocation = latLngToTimezoneString(
-            airport.latitudeDeg!,
-            airport.longitudeDeg!,
-          );
-          state = state.copyWith(
-            selectedDeparture: airport,
-            departureCode: code,
-            depIanaLocation: ianaLocation,
-          );
-        } catch (_) {
-          state = state.copyWith(
-            selectedDeparture: airport,
-            departureCode: code,
-          );
-        }
-      } else {
-        state = state.copyWith(selectedDeparture: airport, departureCode: code);
-      }
-    } else {
-      state = state.copyWith();
-    }
+    if (airport == null) return;
+    state = state.copyWith(
+      selectedDeparture: airport,
+      departureCode: _codeOf(airport),
+      depIanaLocation: state.depTzMode == TimezoneMode.local
+          ? _ianaAt(airport)
+          : null,
+    );
   }
 
+  /// In local time mode, the times follow the airport's time zone.
   void setSelectedArrival(Airport? airport) {
-    if (airport != null) {
-      final code =
-          airport.ident ??
-          airport.icaoCode ??
-          airport.iataCode ??
-          airport.name ??
-          '';
-      // If in local mode, update the IANA location to match airport's timezone
-      if (state.arrTzMode == TimezoneMode.local &&
-          airport.latitudeDeg != null &&
-          airport.longitudeDeg != null) {
-        try {
-          final ianaLocation = latLngToTimezoneString(
-            airport.latitudeDeg!,
-            airport.longitudeDeg!,
-          );
-          state = state.copyWith(
-            selectedArrival: airport,
-            arrivalCode: code,
-            arrIanaLocation: ianaLocation,
-          );
-        } catch (_) {
-          state = state.copyWith(selectedArrival: airport, arrivalCode: code);
-        }
-      } else {
-        state = state.copyWith(selectedArrival: airport, arrivalCode: code);
-      }
-    } else {
-      state = state.copyWith();
-    }
+    if (airport == null) return;
+    state = state.copyWith(
+      selectedArrival: airport,
+      arrivalCode: _codeOf(airport),
+      arrIanaLocation: state.arrTzMode == TimezoneMode.local
+          ? _ianaAt(airport)
+          : null,
+    );
   }
 
   void setDepartureDate(DateTime date) =>
@@ -414,21 +368,15 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
   void setArrivalDate(DateTime? date) =>
       state = state.copyWith(arrivalDate: date, clearArrivalDate: date == null);
 
-  void setDepTzMode(TimezoneMode mode) {
-    if (mode != TimezoneMode.iana) {
-      state = state.copyWith(depTzMode: mode, clearDepIana: true);
-    } else {
-      state = state.copyWith(depTzMode: mode);
-    }
-  }
+  void setDepTzMode(TimezoneMode mode) => state = state.copyWith(
+    depTzMode: mode,
+    clearDepIana: mode != TimezoneMode.iana,
+  );
 
-  void setArrTzMode(TimezoneMode mode) {
-    if (mode != TimezoneMode.iana) {
-      state = state.copyWith(arrTzMode: mode, clearArrIana: true);
-    } else {
-      state = state.copyWith(arrTzMode: mode);
-    }
-  }
+  void setArrTzMode(TimezoneMode mode) => state = state.copyWith(
+    arrTzMode: mode,
+    clearArrIana: mode != TimezoneMode.iana,
+  );
 
   void setDepIanaLocation(String? location) => state = state.copyWith(
     depIanaLocation: location,
@@ -482,16 +430,6 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
     state = state.copyWith(instrumentMinutes: (block - time).inMinutes);
   }
 
-  void incrementNightLandings() =>
-      state = state.copyWith(nightLandings: state.nightLandings + 1);
-  void decrementNightLandings() => state = state.copyWith(
-    nightLandings: (state.nightLandings - 1).clamp(0, 99),
-  );
-  void incrementDayLandings() =>
-      state = state.copyWith(dayLandings: state.dayLandings + 1);
-  void decrementDayLandings() =>
-      state = state.copyWith(dayLandings: (state.dayLandings - 1).clamp(0, 99));
-
   void setTrack(List<TimedPosition> track) =>
       state = state.copyWith(track: track);
 
@@ -500,17 +438,11 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
   void addCrewMember(CrewMember member) =>
       _setCrew([...state.crewMembers, member]);
 
-  void removeCrewMember(int index) {
-    final updated = [...state.crewMembers];
-    updated.removeAt(index);
-    _setCrew(updated);
-  }
+  void removeCrewMember(int index) =>
+      _setCrew([...state.crewMembers]..removeAt(index));
 
-  void updateCrewMember(int index, CrewMember member) {
-    final updated = [...state.crewMembers];
-    updated[index] = member;
-    _setCrew(updated);
-  }
+  void updateCrewMember(int index, CrewMember member) =>
+      _setCrew([...state.crewMembers]..[index] = member);
 
   void setProficiencyCheck(bool value) =>
       state = state.copyWith(proficiencyCheck: value);
@@ -526,7 +458,7 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
     );
   }
 
-  void reset() => state = FlightFormState();
+  void reset() => state = build();
 }
 
 final flightFormProvider =

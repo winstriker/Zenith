@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:lat_lng_to_timezone/lat_lng_to_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_page_route.dart';
@@ -15,6 +14,7 @@ import '../services/adsb_track_service.dart';
 import '../services/adsb_track_source.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
+import '../utils/tz_datetime.dart';
 import '../widgets/airport_search_dialog.dart';
 import '../widgets/sync_progress_indicator.dart';
 import 'adsb_settings_page.dart';
@@ -91,17 +91,9 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
   DateTime? get _departureAround {
     final around = _around;
     if (around == null) return null;
-    var location = tz.UTC;
-    final from = _from;
-    if (from?.latitudeDeg != null && from?.longitudeDeg != null) {
-      try {
-        location = tz.getLocation(
-          latLngToTimezoneString(from!.latitudeDeg!, from.longitudeDeg!),
-        );
-      } catch (_) {}
-    }
     return tz.TZDateTime(
-      location,
+      TZDateTimeParser.locationAt(_from?.latitudeDeg, _from?.longitudeDeg) ??
+          tz.UTC,
       _day.year,
       _day.month,
       _day.day,

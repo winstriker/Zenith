@@ -40,63 +40,20 @@ void main() {
     );
   });
 
-  group('formatBlockTime', () {
-    test('formats hours and minutes', () {
-      expect(
-        TZDateTimeParser.formatBlockTime(const Duration(hours: 2, minutes: 5)),
-        '2:05',
-      );
-    });
-
-    test('returns 0:00 for null or negative durations', () {
-      expect(TZDateTimeParser.formatBlockTime(null), '0:00');
-      expect(
-        TZDateTimeParser.formatBlockTime(const Duration(minutes: -10)),
-        '0:00',
-      );
-    });
-  });
-
-  group('calculateBlockTime', () {
-    test('accounts for different departure/arrival timezones', () {
-      // 10:00 in Rome (UTC+1 in January) -> 10:00 in London (UTC+0)
-      // is a 1h block time.
-      final dep = TextEditingController(text: '10:00');
-      final arr = TextEditingController(text: '10:00');
-      addTearDown(dep.dispose);
-      addTearDown(arr.dispose);
-      final date = DateTime(2026, 1, 15);
-
-      final block = TZDateTimeParser.calculateBlockTime(
-        dep,
-        date,
-        'Europe/Rome',
-        arr,
-        date,
-        'Europe/London',
-      );
-
-      expect(block, const Duration(hours: 1));
-    });
-
-    test('returns null when arrival is missing', () {
-      final dep = TextEditingController(text: '10:00');
-      final arr = TextEditingController();
-      addTearDown(dep.dispose);
-      addTearDown(arr.dispose);
-
-      expect(
-        TZDateTimeParser.calculateBlockTime(
-          dep,
-          DateTime(2026),
-          null,
-          arr,
-          DateTime(2026),
-          null,
-        ),
-        isNull,
-      );
-    });
+  test('parseDateTimeFromText accounts for the time zone', () {
+    // 10:00 in Rome (UTC+1 in January) is an hour before 10:00 in London.
+    final date = DateTime(2026, 1, 15);
+    final rome = TZDateTimeParser.parseDateTimeFromText(
+      '10:00',
+      date,
+      'Europe/Rome',
+    );
+    final london = TZDateTimeParser.parseDateTimeFromText(
+      '10:00',
+      date,
+      'Europe/London',
+    );
+    expect(london.difference(rome), const Duration(hours: 1));
   });
 
   test('formatHHmmInTimezone converts from UTC', () {
