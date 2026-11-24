@@ -7,7 +7,7 @@ import '../core/search.dart';
 import '../providers/database_provider.dart';
 import '../services/database.dart';
 
-/// Repository for airport data access using Drift's reactive queries
+/// Airports, with the countries and regions they are in.
 class AirportRepository {
   AirportRepository(this._database);
   final LogbookDatabase _database;
@@ -208,39 +208,11 @@ class AirportRepository {
     return statement.get();
   }
 
-  /// Stream of countries, by name
+  /// Stream of countries, by name.
   Stream<List<Country>> watchCountries() {
     return (_database.select(
       _database.countries,
     )..orderBy([(c) => OrderingTerm.asc(c.name)])).watch();
-  }
-
-  /// Stream of complete airport data with runways and frequencies
-  Future<AirportWithEverything?> getCompleteAirportData(int airportId) async {
-    final result = await _database.managers.airports
-        .filter((a) => a.id(airportId))
-        .withReferences(
-          (prefetch) => prefetch(
-            isoCountry: true,
-            isoRegion: true,
-            runwayRefs: true,
-            frequencyRefs: true,
-          ),
-        )
-        .getSingleOrNull();
-
-    if (result == null) {
-      return null;
-    }
-
-    final (airport, refs) = result;
-    return AirportWithEverything(
-      airport: airport,
-      country: refs.isoCountry.prefetchedData?.singleOrNull,
-      region: refs.isoRegion.prefetchedData?.singleOrNull,
-      runways: refs.runwayRefs.prefetchedData ?? [],
-      frequencies: refs.frequencyRefs.prefetchedData ?? [],
-    );
   }
 
   /// The airport with [id], or null.
@@ -265,10 +237,9 @@ class AirportRepository {
     ).first;
   }
 
-  /// Airports most recently used in flights.
-  Future<List<Airport>> getRecentAirports({int limit = 5}) {
-    return _database.getRecentAirports(limit: limit);
-  }
+  /// Airports most recently used in flights, the most recent first.
+  Future<List<Airport>> getRecentAirports({int limit = 5}) =>
+      watchRecentAirports(limit: limit).first;
 
   /// Stream of the regions of a country, by name.
   Stream<List<Region>> watchRegions(String countryCode) {
@@ -371,17 +342,18 @@ class AirportRepository {
         );
   }
 
-  /// Check if airport is referenced in flights
+  /// Whether a flight departed from or arrived at the airport.
   Future<bool> isAirportReferencedInFlights(int airportId) async {
-    final departureCountQuery = _database.select(_database.flights)
-      ..where((f) => f.departure.equals(airportId));
-    final departureCount = await departureCountQuery.get();
-    if (departureCount.isNotEmpty) return true;
-
-    final arrivalCountQuery = _database.select(_database.flights)
-      ..where((f) => f.arrival.equals(airportId));
-    final arrivalCount = await arrivalCountQuery.get();
-    return arrivalCount.isNotEmpty;
+    final used =
+        await (_database.selectOnly(_database.flights)
+              ..addColumns([_database.flights.id])
+              ..where(
+                _database.flights.departure.equals(airportId) |
+                    _database.flights.arrival.equals(airportId),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return used != null;
   }
 }
 

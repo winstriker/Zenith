@@ -1076,7 +1076,6 @@ void main() {
       validUntil: DateTime(2026, 12, 20),
     );
     const settings = CurrencySettings(
-      loaded: true,
       leads: {ReminderLead.threeMonths, ReminderLead.oneMonth},
       reminderTime: TimeOfDay(hour: 9, minute: 30),
     );
@@ -1118,7 +1117,6 @@ void main() {
       final plan = planReminders(
         [medical],
         const CurrencySettings(
-          loaded: true,
           leads: {ReminderLead.onTheDay},
           reminderTime: TimeOfDay(hour: 18, minute: 0),
         ),

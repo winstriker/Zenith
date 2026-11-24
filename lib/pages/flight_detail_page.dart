@@ -83,9 +83,7 @@ class _FlightDetailView extends ConsumerWidget {
     // not start over at every rebuild.
     final track = ref.watch(flightTrackProvider(listed.flight.id));
     final points = track.value ?? const <FlightDataPoint>[];
-    final flight = points.isEmpty
-        ? listed
-        : listed.copyWith(dataPoints: points);
+    final flight = points.isEmpty ? listed : listed.withTrack(points);
     final approachType = flight.flight.approachType;
     final flightRules = flight.flight.flightRules;
     final signatureName = flight.flight.signatureFile;

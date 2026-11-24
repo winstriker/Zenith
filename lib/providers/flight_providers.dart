@@ -6,10 +6,6 @@ import '../services/flight_service.dart';
 import '../services/person_photo_store.dart';
 import 'database_provider.dart';
 
-// Flight Repository Provider
-// Provided by flight_repository.dart
-
-/// Stream of all recorded flights (new reactive approach)
 /// Which part of the logbook a paged flight list shows.
 typedef FlightsPageKey = ({int limit, String query, DateTime? day});
 
@@ -36,28 +32,18 @@ final temporaryFlightsProvider = StreamProvider<List<FlightWithStats>>((ref) {
   return ref.watch(flightRepositoryProvider).watchTemporaryFlights();
 });
 
-/// Stream of a specific flight by ID
-final flightByIdStreamProvider = StreamProvider.family<FlightWithStats?, int>((
-  ref,
-  flightId,
-) {
-  final repository = ref.watch(flightRepositoryProvider);
-  return repository.watchFlightById(flightId);
-});
+/// A flight; null once deleted.
+final flightByIdStreamProvider = StreamProvider.autoDispose
+    .family<FlightWithStats?, int>(
+      (ref, id) => ref.watch(flightRepositoryProvider).watchFlightById(id),
+    );
 
-/// Stream of flights for a specific aircraft
-final flightsForAircraftStreamProvider =
-    StreamProvider.family<List<FlightWithStats>, int>((ref, aircraftId) {
-      final repository = ref.watch(flightRepositoryProvider);
-      return repository.watchFlightsForAircraft(aircraftId);
-    });
+/// Minutes flown in the whole logbook.
+final totalFlightTimeProvider = StreamProvider<int>(
+  (ref) => ref.watch(flightRepositoryProvider).watchTotalFlightTime(),
+);
 
-final totalFlightTimeProvider = StreamProvider<int>((ref) {
-  final repository = ref.watch(flightRepositoryProvider);
-  return repository.watchTotalFlightTime();
-});
-
-// Legacy flight service provider (for mutation operations)
+/// Saves and deletes flights.
 final flightServiceProvider = Provider<FlightService>((ref) {
   final db = ref.watch(databaseProvider);
   return FlightService(db, ref.watch(signatureStoreProvider));

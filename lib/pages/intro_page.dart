@@ -98,7 +98,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
     }
 
     await ref.read(userNicknameProvider.notifier).setNickname(nickname);
-
+    if (!mounted) return;
     setState(() => _step = 1);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -117,6 +117,7 @@ class _IntroPageState extends ConsumerState<IntroPage>
         .read(userSignatureNameProvider.notifier)
         .setSignatureName(signatureName);
 
+    if (!mounted) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _step = 2);
   }

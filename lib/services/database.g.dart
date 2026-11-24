@@ -11102,201 +11102,6 @@ class $AircraftWithStatssView
   };
 }
 
-class FlightStat extends DataClass {
-  final int id;
-  final int? aircraftId;
-  final int? flightTime;
-  final int? dayLandings;
-  final int? nightLandings;
-  const FlightStat({
-    required this.id,
-    this.aircraftId,
-    this.flightTime,
-    this.dayLandings,
-    this.nightLandings,
-  });
-  factory FlightStat.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return FlightStat(
-      id: serializer.fromJson<int>(json['id']),
-      aircraftId: serializer.fromJson<int?>(json['aircraftId']),
-      flightTime: serializer.fromJson<int?>(json['flightTime']),
-      dayLandings: serializer.fromJson<int?>(json['dayLandings']),
-      nightLandings: serializer.fromJson<int?>(json['nightLandings']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'aircraftId': serializer.toJson<int?>(aircraftId),
-      'flightTime': serializer.toJson<int?>(flightTime),
-      'dayLandings': serializer.toJson<int?>(dayLandings),
-      'nightLandings': serializer.toJson<int?>(nightLandings),
-    };
-  }
-
-  FlightStat copyWith({
-    int? id,
-    Value<int?> aircraftId = const Value.absent(),
-    Value<int?> flightTime = const Value.absent(),
-    Value<int?> dayLandings = const Value.absent(),
-    Value<int?> nightLandings = const Value.absent(),
-  }) => FlightStat(
-    id: id ?? this.id,
-    aircraftId: aircraftId.present ? aircraftId.value : this.aircraftId,
-    flightTime: flightTime.present ? flightTime.value : this.flightTime,
-    dayLandings: dayLandings.present ? dayLandings.value : this.dayLandings,
-    nightLandings: nightLandings.present
-        ? nightLandings.value
-        : this.nightLandings,
-  );
-  @override
-  String toString() {
-    return (StringBuffer('FlightStat(')
-          ..write('id: $id, ')
-          ..write('aircraftId: $aircraftId, ')
-          ..write('flightTime: $flightTime, ')
-          ..write('dayLandings: $dayLandings, ')
-          ..write('nightLandings: $nightLandings')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode =>
-      Object.hash(id, aircraftId, flightTime, dayLandings, nightLandings);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is FlightStat &&
-          other.id == this.id &&
-          other.aircraftId == this.aircraftId &&
-          other.flightTime == this.flightTime &&
-          other.dayLandings == this.dayLandings &&
-          other.nightLandings == this.nightLandings);
-}
-
-class $FlightStatsView extends ViewInfo<$FlightStatsView, FlightStat>
-    implements HasResultSet {
-  final String? _alias;
-  @override
-  final _$LogbookDatabase attachedDatabase;
-  $FlightStatsView(this.attachedDatabase, [this._alias]);
-  $FlightsTable get flights => attachedDatabase.flights.createAlias('t0');
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    aircraftId,
-    flightTime,
-    dayLandings,
-    nightLandings,
-  ];
-  @override
-  String get aliasedName => _alias ?? entityName;
-  @override
-  String get entityName => 'flight_stats';
-  @override
-  Map<SqlDialect, String>? get createViewStatements => null;
-  @override
-  $FlightStatsView get asDslTable => this;
-  @override
-  FlightStat map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return FlightStat(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      aircraftId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}aircraft_id'],
-      ),
-      flightTime: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}flight_time'],
-      ),
-      dayLandings: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}day_landings'],
-      ),
-      nightLandings: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}night_landings'],
-      ),
-    );
-  }
-
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    generatedAs: GeneratedAs(flights.id, false),
-    type: DriftSqlType.int,
-  );
-  late final GeneratedColumn<int> aircraftId = GeneratedColumn<int>(
-    'aircraft_id',
-    aliasedName,
-    true,
-    generatedAs: GeneratedAs(flights.aircraftId, false),
-    type: DriftSqlType.int,
-  );
-  late final GeneratedColumn<int> flightTime = GeneratedColumn<int>(
-    'flight_time',
-    aliasedName,
-    true,
-    generatedAs: GeneratedAs(
-      CustomExpression<int>('''
-      CAST(
-        (
-          ${flights.arrivalTime.escapedNameFor(SqlDialect.sqlite)} -
-          ${flights.departureTime.escapedNameFor(SqlDialect.sqlite)}
-        ) / 60
-        AS INTEGER
-      )
-    '''),
-      false,
-    ),
-    type: DriftSqlType.int,
-  );
-  late final GeneratedColumn<int> dayLandings = GeneratedColumn<int>(
-    'day_landings',
-    aliasedName,
-    true,
-    generatedAs: GeneratedAs(flights.dayLandings, false),
-    type: DriftSqlType.int,
-  );
-  late final GeneratedColumn<int> nightLandings = GeneratedColumn<int>(
-    'night_landings',
-    aliasedName,
-    true,
-    generatedAs: GeneratedAs(flights.nightLandings, false),
-    type: DriftSqlType.int,
-  );
-  @override
-  $FlightStatsView createAlias(String alias) {
-    return $FlightStatsView(attachedDatabase, alias);
-  }
-
-  @override
-  Query? get query =>
-      (attachedDatabase.selectOnly(flights)..addColumns($columns));
-  @override
-  Set<String> get readTables => const {
-    'flights',
-    'airports',
-    'aircrafts',
-    'simulators',
-    'icao_aircrafts',
-    'countries',
-    'regions',
-  };
-}
-
 class AircraftWithIcao extends DataClass {
   final int id;
   final String tailNumber;
@@ -11930,7 +11735,6 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
   late final $PilotProfileTable pilotProfile = $PilotProfileTable(this);
   late final $AircraftWithStatssView aircraftWithStatss =
       $AircraftWithStatssView(this);
-  late final $FlightStatsView flightStats = $FlightStatsView(this);
   late final $AircraftWithIcaosView aircraftWithIcaos = $AircraftWithIcaosView(
     this,
   );
@@ -11938,13 +11742,57 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     'airports_lat_lon_idx',
     'CREATE INDEX airports_lat_lon_idx ON airports (latitude_deg, longitude_deg)',
   );
+  late final Index airportsIsoCountryIdx = Index(
+    'airports_iso_country_idx',
+    'CREATE INDEX airports_iso_country_idx ON airports (iso_country)',
+  );
+  late final Index airportsIcaoIdx = Index(
+    'airports_icao_idx',
+    'CREATE INDEX airports_icao_idx ON airports (icao_code)',
+  );
+  late final Index airportsIataIdx = Index(
+    'airports_iata_idx',
+    'CREATE INDEX airports_iata_idx ON airports (iata_code)',
+  );
+  late final Index frequenciesAirportIdx = Index(
+    'frequencies_airport_idx',
+    'CREATE INDEX frequencies_airport_idx ON frequencies (airport)',
+  );
+  late final Index runwaysAirportIdx = Index(
+    'runways_airport_idx',
+    'CREATE INDEX runways_airport_idx ON runways (airport)',
+  );
   late final Index flightsSimulatorIdIdx = Index(
     'flights_simulator_id_idx',
     'CREATE INDEX flights_simulator_id_idx ON flights (simulator_id)',
   );
+  late final Index flightsDepartureTimeIdx = Index(
+    'flights_departure_time_idx',
+    'CREATE INDEX flights_departure_time_idx ON flights (departure_time)',
+  );
+  late final Index flightsAircraftIdIdx = Index(
+    'flights_aircraft_id_idx',
+    'CREATE INDEX flights_aircraft_id_idx ON flights (aircraft_id)',
+  );
+  late final Index flightsDepartureIdx = Index(
+    'flights_departure_idx',
+    'CREATE INDEX flights_departure_idx ON flights (departure)',
+  );
+  late final Index flightsArrivalIdx = Index(
+    'flights_arrival_idx',
+    'CREATE INDEX flights_arrival_idx ON flights (arrival)',
+  );
   late final Index flightDataPointsFlightTimestampIdx = Index(
     'flight_data_points_flight_timestamp_idx',
     'CREATE INDEX flight_data_points_flight_timestamp_idx ON flight_data_points (flight, timestamp)',
+  );
+  late final Index flightCrewPersonIdx = Index(
+    'flight_crew_person_idx',
+    'CREATE INDEX flight_crew_person_idx ON flight_crew (person)',
+  );
+  late final Index licenceRatingsLicenceIdx = Index(
+    'licence_ratings_licence_idx',
+    'CREATE INDEX licence_ratings_licence_idx ON licence_ratings (licence)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -11968,11 +11816,21 @@ abstract class _$LogbookDatabase extends GeneratedDatabase {
     medicalCertificates,
     pilotProfile,
     aircraftWithStatss,
-    flightStats,
     aircraftWithIcaos,
     airportsLatLonIdx,
+    airportsIsoCountryIdx,
+    airportsIcaoIdx,
+    airportsIataIdx,
+    frequenciesAirportIdx,
+    runwaysAirportIdx,
     flightsSimulatorIdIdx,
+    flightsDepartureTimeIdx,
+    flightsAircraftIdIdx,
+    flightsDepartureIdx,
+    flightsArrivalIdx,
     flightDataPointsFlightTimestampIdx,
+    flightCrewPersonIdx,
+    licenceRatingsLicenceIdx,
   ];
 }
 

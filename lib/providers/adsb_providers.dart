@@ -151,10 +151,8 @@ class AircraftRegistryLoadNotifier extends Notifier<SyncProgress> {
       }
     });
     // Deferred: loadData updates progress synchronously, which must not
-    // happen while this provider is building. And not before the saved
-    // choice is read: until then everything looks switched on.
+    // happen while this provider is building.
     Future.microtask(() async {
-      await ref.read(disabledHexSourcesProvider.notifier).loaded;
       if (!ref.mounted || !_enabled) return;
       await _service.loadData();
     });
@@ -215,8 +213,6 @@ final adsbTrackSourcesProvider = FutureProvider<List<AdsbTrackSource>>((
   ref,
 ) async {
   final credentials = await ref.watch(adsbCredentialsProvider.future);
-  // Until the saved choice is read, only the defaults apply.
-  await ref.read(disabledTrackProvidersProvider.notifier).loaded;
   final off = ref.watch(disabledTrackProvidersProvider);
   return [
     if (!off.contains(AdsbProvider.flyItalyAdsb.id))
@@ -234,7 +230,6 @@ final adsbTrackSourcesProvider = FutureProvider<List<AdsbTrackSource>>((
 
 final adsbTrackServiceProvider = FutureProvider<AdsbTrackService>((ref) async {
   final sources = await ref.watch(adsbTrackSourcesProvider.future);
-  await ref.read(disabledHexSourcesProvider.notifier).loaded;
   return AdsbTrackService(
     sources: sources,
     resolver: ref.watch(aircraftHexResolverProvider),
@@ -261,7 +256,6 @@ final adsbFlightImporterProvider = FutureProvider<AdsbFlightImporter>((
   ref,
 ) async {
   final service = await ref.watch(adsbTrackServiceProvider.future);
-  await ref.read(disabledHexSourcesProvider.notifier).loaded;
   final off = ref.watch(disabledHexSourcesProvider);
   final registry = ref.watch(registryDatabaseProvider);
   final database = ref.watch(databaseProvider);

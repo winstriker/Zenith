@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +12,7 @@ import '../models/aircraft_photo.dart';
 import '../models/aircraft_type_enums.dart';
 import '../models/airport_type.dart';
 import '../models/crew.dart';
+import '../models/flight_track.dart';
 import '../models/licence.dart';
 import '../models/logbook_overrides.dart';
 import '../models/previous_totals.dart';
@@ -56,12 +58,13 @@ class Regions extends Table {
   Set<Column<Object>>? get primaryKey => {id};
 }
 
-/// The map looks airports up by position. (The `indexes` getter below isn't
-/// read by drift: only annotations create indexes.)
 @TableIndex(
   name: 'airports_lat_lon_idx',
   columns: {#latitudeDeg, #longitudeDeg},
 )
+@TableIndex(name: 'airports_iso_country_idx', columns: {#isoCountry})
+@TableIndex(name: 'airports_icao_idx', columns: {#icaoCode})
+@TableIndex(name: 'airports_iata_idx', columns: {#iataCode})
 class Airports extends Table {
   IntColumn get id => integer()();
   TextColumn get ident => text().unique().nullable()();
@@ -99,39 +102,28 @@ class Airports extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'airports_iso_country_idx', columns: {isoCountry}),
-    TableIndex(name: 'airports_ident_idx', columns: {ident}),
-    TableIndex(name: 'airports_icao_idx', columns: {icaoCode}),
-    TableIndex(name: 'airports_iata_idx', columns: {iataCode}),
-  ];
 }
 
+@TableIndex(name: 'frequencies_airport_idx', columns: {#airport})
 class Frequencies extends Table {
   IntColumn get id => integer()();
 
   @ReferenceName('frequencyRefs')
-  IntColumn get airport => integer().references(Airports, #id)(); //airport_ref
-  //IntColumn get airportIdent => integer().references(Airports, #ident)();
+  IntColumn get airport => integer().references(Airports, #id)();
   TextColumn get type => text().nullable()();
   TextColumn get description => text().nullable()();
   TextColumn get frequencyMhz => text().withLength(min: 0, max: 8).nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'frequencies_airport_idx', columns: {airport}),
-  ];
 }
 
+@TableIndex(name: 'runways_airport_idx', columns: {#airport})
 class Runways extends Table {
   IntColumn get id => integer()();
 
   @ReferenceName('runwayRefs')
-  IntColumn get airport => integer().references(Airports, #id)(); //airport_ref
-  //IntColumn get airportIdent => integer().references(Airports, #ident)();
+  IntColumn get airport => integer().references(Airports, #id)();
   IntColumn get lengthFt => integer().nullable()();
   IntColumn get widthFt => integer().nullable()();
   TextColumn get surface => text().nullable()();
@@ -156,10 +148,6 @@ class Runways extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'runways_airport_idx', columns: {airport}),
-  ];
 }
 
 class Aircrafts extends Table {
@@ -228,9 +216,11 @@ class Simulators extends Table {
   TextColumn get notes => text().nullable()();
 }
 
-/// Sessions are looked up by simulator. (The `indexes` getter below isn't
-/// read by drift: only annotations create indexes.)
 @TableIndex(name: 'flights_simulator_id_idx', columns: {#simulatorId})
+@TableIndex(name: 'flights_departure_time_idx', columns: {#departureTime})
+@TableIndex(name: 'flights_aircraft_id_idx', columns: {#aircraftId})
+@TableIndex(name: 'flights_departure_idx', columns: {#departure})
+@TableIndex(name: 'flights_arrival_idx', columns: {#arrival})
 class Flights extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text()();
@@ -296,14 +286,6 @@ class Flights extends Table {
   /// inside the app's signature folder, laid over the remarks in the
   /// exported logbook.
   TextColumn get signatureFile => text().nullable()();
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'flights_departure_time_idx', columns: {departureTime}),
-    TableIndex(name: 'flights_aircraft_id_idx', columns: {aircraftId}),
-    TableIndex(name: 'flights_is_recording_idx', columns: {isRecording}),
-    TableIndex(name: 'flights_departure_idx', columns: {departure}),
-    TableIndex(name: 'flights_arrival_idx', columns: {arrival}),
-  ];
 }
 
 @DataClassName('Person')
@@ -319,6 +301,7 @@ class People extends Table {
 /// Many-to-many link between [Flights] and [People], with the role the
 /// person had on that flight.
 @DataClassName('FlightCrewEntry')
+@TableIndex(name: 'flight_crew_person_idx', columns: {#person})
 class FlightCrew extends Table {
   IntColumn get flight => integer().references(Flights, #id)();
   IntColumn get person => integer().references(People, #id)();
@@ -326,10 +309,6 @@ class FlightCrew extends Table {
 
   @override
   Set<Column<Object>>? get primaryKey => {flight, person};
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'flight_crew_person_idx', columns: {person}),
-  ];
 }
 
 /// The track of a flight, one row per position: recorded by the app's GPS,
@@ -395,6 +374,7 @@ class Licences extends Table {
 
 /// A rating, endorsement or certificate on a [Licences] row.
 @DataClassName('LicenceRating')
+@TableIndex(name: 'licence_ratings_licence_idx', columns: {#licence})
 class LicenceRatings extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get licence => integer().references(Licences, #id)();
@@ -425,10 +405,6 @@ class LicenceRatings extends Table {
   /// proficiency check (FCL.740.H(a)(2)).
   BoolColumn get lightSingleEngine =>
       boolean().withDefault(const Constant(false))();
-
-  List<TableIndex> get indexes => [
-    TableIndex(name: 'licence_ratings_licence_idx', columns: {licence}),
-  ];
 }
 
 /// A medical certificate (Part-MED).
@@ -599,12 +575,7 @@ class FlightWithStats {
     this.simulator,
     this.departure,
     this.arrival,
-  }) {
-    duration = flight.arrivalTime?.difference(flight.departureTime);
-    maxAltitude = dataPoints.isEmpty
-        ? null
-        : dataPoints.map((p) => p.altitude).reduce((a, b) => a > b ? a : b);
-  }
+  });
   final Flight flight;
   final List<FlightDataPoint> dataPoints;
   final AircraftWithStats? aircraftWithStats;
@@ -613,62 +584,40 @@ class FlightWithStats {
   final SimulatorWithStats? simulator;
   final Airport? departure;
   final Airport? arrival;
-  Duration? duration;
-  int? maxAltitude;
+
+  Duration? get duration =>
+      flight.arrivalTime?.difference(flight.departureTime);
+
+  late final int? maxAltitude = dataPoints.isEmpty
+      ? null
+      : dataPoints.map((p) => p.altitude).reduce(max);
 
   /// Whether this is a session in a flight simulation training device
   /// rather than a flight.
   bool get isSimulatorSession => flight.simulatorId != null;
 
-  double? get totalDistance {
-    if (dataPoints.length < 2) return null;
-    double dist = 0;
-    for (int i = 1; i < dataPoints.length; i++) {
-      dist += _haversine(
-        dataPoints[i - 1].latitude,
-        dataPoints[i - 1].longitude,
-        dataPoints[i].latitude,
-        dataPoints[i].longitude,
-      );
-    }
-    return dist;
-  }
+  /// Length of the track, in kilometres.
+  late final double? totalDistance = dataPoints.length < 2
+      ? null
+      : [
+          for (var i = 1; i < dataPoints.length; i++)
+            greatCircleKm(
+              dataPoints[i - 1].latitude,
+              dataPoints[i - 1].longitude,
+              dataPoints[i].latitude,
+              dataPoints[i].longitude,
+            ),
+        ].reduce((a, b) => a + b);
 
-  FlightWithStats copyWith({
-    Flight? flight,
-    List<FlightDataPoint>? dataPoints,
-    AircraftWithStats? aircraftWithStats,
-    Airport? departure,
-    Airport? arrival,
-    Duration? duration,
-    int? maxAltitude,
-    bool removeAircraft = false,
-  }) => FlightWithStats(
-    flight: flight ?? this.flight,
-    dataPoints: dataPoints ?? this.dataPoints,
-    aircraftWithStats: removeAircraft
-        ? null
-        : (aircraftWithStats ?? this.aircraftWithStats),
+  /// This flight with its [track] loaded.
+  FlightWithStats withTrack(List<FlightDataPoint> track) => FlightWithStats(
+    flight: flight,
+    dataPoints: track,
+    aircraftWithStats: aircraftWithStats,
     simulator: simulator,
-    departure: departure ?? this.departure,
-    arrival: arrival ?? this.arrival,
+    departure: departure,
+    arrival: arrival,
   );
-
-  static double _haversine(double lat1, double lon1, double lat2, double lon2) {
-    const R = 6371;
-    final dLat = _toRadians(lat2 - lat1);
-    final dLon = _toRadians(lon2 - lon1);
-    final a =
-        sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRadians(lat1)) *
-            cos(_toRadians(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-    final c = 2 * asin(sqrt(a));
-    return R * c;
-  }
-
-  static double _toRadians(double deg) => deg * 3.141592653589793 / 180;
 }
 
 /// A simulator with the aircraft type it represents and how much it was
@@ -752,28 +701,6 @@ class AirportWithDistance {
   AirportWithDistance(this.airport, this.distance);
   final Airport airport;
   final double distance;
-}
-
-abstract class FlightStats extends View {
-  Flights get flights;
-  Expression<int> get flightTime => CustomExpression<int>('''
-      CAST(
-        (
-          ${flights.arrivalTime.escapedNameFor(SqlDialect.sqlite)} -
-          ${flights.departureTime.escapedNameFor(SqlDialect.sqlite)}
-        ) / 60
-        AS INTEGER
-      )
-    ''');
-
-  @override
-  Query as() => select([
-    flights.id,
-    flights.aircraftId,
-    flightTime,
-    flights.dayLandings,
-    flights.nightLandings,
-  ]).from(flights);
 }
 
 @DataClassName("AircraftWithStats")
@@ -942,7 +869,7 @@ extension ToIcaoAircraft on AircraftWithStats {
     MedicalCertificates,
     PilotProfile,
   ],
-  views: [AircraftWithStatss, FlightStats, AircraftWithIcaos],
+  views: [AircraftWithStatss, AircraftWithIcaos],
 )
 class LogbookDatabase extends _$LogbookDatabase {
   factory LogbookDatabase([QueryExecutor? executor]) {
@@ -957,12 +884,31 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
+      // Columns are only added when missing: the migration tests start
+      // from the current schema, where they already exist.
+      Future<void> addMissing(
+        TableInfo table,
+        List<GeneratedColumn> columns,
+      ) async {
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(${table.actualTableName})',
+          ).get())
+            row.read<String>('name'),
+        };
+        for (final column in columns) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(table, column);
+          }
+        }
+      }
+
       if (from < 2) {
         await customStatement('ALTER TABLE flights ADD COLUMN pilot_role TEXT');
         await customStatement('ALTER TABLE flights ADD COLUMN crew_json TEXT');
@@ -970,13 +916,6 @@ class LogbookDatabase extends _$LogbookDatabase {
       if (from < 3) {
         await m.createTable(people);
         await m.createTable(flightCrew);
-        await m.createIndex(
-          Index(
-            'flight_crew_person_idx',
-            'CREATE INDEX IF NOT EXISTS flight_crew_person_idx '
-                'ON flight_crew (person)',
-          ),
-        );
         await _migrateCrewJson();
         // Rebuild flights without the crew_json column.
         await m.alterTable(TableMigration(flights));
@@ -986,15 +925,7 @@ class LogbookDatabase extends _$LogbookDatabase {
         await m.addColumn(people, people.photo);
       }
       if (from < 5) {
-        // Only the missing ones: the migration tests start from the current
-        // schema, where these columns already exist.
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(aircrafts)',
-          ).get())
-            row.read<String>('name'),
-        };
-        for (final column in [
+        await addMissing(aircrafts, [
           aircrafts.aircraftClass,
           aircrafts.typeRating,
           aircrafts.photoFile,
@@ -1002,59 +933,25 @@ class LogbookDatabase extends _$LogbookDatabase {
           aircrafts.photoThumbnailUrl,
           aircrafts.photoLink,
           aircrafts.photoCredit,
-        ]) {
-          if (!existing.contains(column.name)) {
-            await m.addColumn(aircrafts, column);
-          }
-        }
+        ]);
         // The aircraft views list the new columns.
         await m.recreateAllViews();
         await assignDeducedAircraftClasses();
       }
-      if (from < 6) {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(flights)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(flights.trackSource.name)) {
-          await m.addColumn(flights, flights.trackSource);
-        }
-        // Until now tracks had no index at all.
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS flight_data_points_flight_timestamp_idx '
-          'ON flight_data_points (flight, timestamp)',
-        );
-      }
+      if (from < 6) await addMissing(flights, [flights.trackSource]);
       if (from < 7) {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(flights)',
-          ).get())
-            row.read<String>('name'),
-        };
-        for (final column in <GeneratedColumn>[
+        await addMissing(flights, [
           flights.instrumentMinutes,
           flights.nightMinutes,
           flights.logbookOverrides,
-        ]) {
-          if (!existing.contains(column.name)) {
-            await m.addColumn(flights, column);
-          }
-        }
+        ]);
         await _backfillLogbookTimes();
       }
       if (from < 8) {
-        // createTable is CREATE TABLE IF NOT EXISTS: fine for the migration
-        // tests, which start from the current schema.
+        // CREATE TABLE IF NOT EXISTS, like every createTable.
         await m.createTable(licences);
         await m.createTable(licenceRatings);
         await m.createTable(medicalCertificates);
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS licence_ratings_licence_idx '
-          'ON licence_ratings (licence)',
-        );
       }
       if (from < 9) {
         final existing = {
@@ -1072,102 +969,47 @@ class LogbookDatabase extends _$LogbookDatabase {
           );
         }
       }
-      if (from < 10) {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(flights)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(flights.signatureFile.name)) {
-          await m.addColumn(flights, flights.signatureFile);
-        }
-      }
+      if (from < 10) await addMissing(flights, [flights.signatureFile]);
       if (from < 11) {
         await m.createTable(simulators);
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(flights)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(flights.simulatorId.name)) {
-          await m.addColumn(flights, flights.simulatorId);
-        }
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS flights_simulator_id_idx '
-          'ON flights (simulator_id)',
-        );
+        await addMissing(flights, [flights.simulatorId]);
       }
-      if (from < 12) {
-        await m.createTable(pilotProfile);
-      }
+      if (from < 12) await m.createTable(pilotProfile);
       if (from < 13) {
-        Future<Set<String>> columns(String table) async => {
-          for (final row in await customSelect(
-            'PRAGMA table_info($table)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!(await columns(
-          'licence_ratings',
-        )).contains(licenceRatings.lightSingleEngine.name)) {
-          await m.addColumn(licenceRatings, licenceRatings.lightSingleEngine);
-        }
-        if (!(await columns(
-          'flights',
-        )).contains(flights.mountainLandings.name)) {
-          await m.addColumn(flights, flights.mountainLandings);
-        }
-        if (!(await columns(
-          'pilot_profile',
-        )).contains(pilotProfile.address.name)) {
-          await m.addColumn(pilotProfile, pilotProfile.address);
-        }
+        await addMissing(licenceRatings, [licenceRatings.lightSingleEngine]);
+        await addMissing(flights, [flights.mountainLandings]);
+        await addMissing(pilotProfile, [pilotProfile.address]);
         await retireEnRouteInstrumentRatings();
       }
       if (from < 14) {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(aircrafts)',
-          ).get())
-            row.read<String>('name'),
-        };
-        for (final column in [
+        await addMissing(aircrafts, [
           aircrafts.logbookType,
           aircrafts.logbookSubtitle,
-        ]) {
-          if (!existing.contains(column.name)) {
-            await m.addColumn(aircrafts, column);
-          }
-        }
-        // The aircraft views list the new columns.
+        ]);
         await m.recreateAllViews();
       }
-      if (from < 15) {
-        await customStatement(
-          'CREATE INDEX IF NOT EXISTS airports_lat_lon_idx '
-          'ON airports (latitude_deg, longitude_deg)',
-        );
-      }
       if (from < 17) {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(airports)',
-          ).get())
-            row.read<String>('name'),
-        };
-        for (final column in [
+        await addMissing(airports, [
           airports.logbookIdent,
           airports.logbookAnnotate,
           airports.logbookNote,
-        ]) {
-          if (!existing.contains(column.name)) {
-            await m.addColumn(airports, column);
-          }
-        }
+        ]);
         // Schema 16 kept them in a table of their own (development only).
         await customStatement('DROP TABLE IF EXISTS airport_logbook_overrides');
+      }
+      if (from < 18) {
+        // Indexes used to be declared where drift doesn't read them, so most
+        // were never created.
+        for (final index in allSchemaEntities.whereType<Index>()) {
+          await customStatement(
+            index.createStatementsByDialect.values.first.replaceFirst(
+              'CREATE INDEX',
+              'CREATE INDEX IF NOT EXISTS',
+            ),
+          );
+        }
+        await customStatement('DROP INDEX IF EXISTS flights_is_recording_idx');
+        await customStatement('DROP VIEW IF EXISTS flight_stats');
       }
     },
   );
@@ -1316,32 +1158,21 @@ class LogbookDatabase extends _$LogbookDatabase {
   }
 
   Future<AirportWithEverything?> getCompleteAirportData(int airportId) async {
-    final query = select(airports).join([
+    final row = await (select(airports).join([
       leftOuterJoin(countries, countries.code.equalsExp(airports.isoCountry)),
       leftOuterJoin(regions, regions.code.equalsExp(airports.isoRegion)),
-    ])..where(airports.id.equals(airportId));
-
-    final row = await query.getSingleOrNull();
+    ])..where(airports.id.equals(airportId))).getSingleOrNull();
     if (row == null) return null;
-
-    final airport = row.readTable(airports);
-    final country = row.readTableOrNull(countries);
-    final region = row.readTableOrNull(regions);
-
-    final runwaysQuery = select(this.runways)
-      ..where((r) => r.airport.equals(airportId));
-    final runways = await runwaysQuery.get();
-
-    final frequenciesQuery = select(this.frequencies)
-      ..where((f) => f.airport.equals(airportId));
-    final frequencies = await frequenciesQuery.get();
-
     return AirportWithEverything(
-      airport: airport,
-      country: country,
-      region: region,
-      runways: runways,
-      frequencies: frequencies,
+      airport: row.readTable(airports),
+      country: row.readTableOrNull(countries),
+      region: row.readTableOrNull(regions),
+      runways: await (select(
+        runways,
+      )..where((r) => r.airport.equals(airportId))).get(),
+      frequencies: await (select(
+        frequencies,
+      )..where((f) => f.airport.equals(airportId))).get(),
     );
   }
 
@@ -1376,44 +1207,27 @@ class LogbookDatabase extends _$LogbookDatabase {
     return matches.firstOrNull;
   }
 
-  Future<List<Airport>?> getAirportsWithinSquare(
+  /// Airports within [delta] degrees of the coordinates.
+  Future<List<Airport>> getAirportsWithinSquare(
     double latitude,
     double longitude, {
     double delta = 2.0,
   }) {
-    final query = select(airports)
-      ..where(
-        (a) =>
-            a.latitudeDeg.isBetweenValues(latitude - delta, latitude + delta),
-      )
-      ..where(
-        (a) => a.longitudeDeg.isBetweenValues(
-          longitude - delta,
-          longitude + delta,
-        ),
-      );
-
-    return query.get();
-  }
-
-  Future<List<Aircraft>> getAircrafts() async {
-    return (select(aircrafts)..orderBy([(a) => OrderingTerm.desc(a.id)])).get();
-  }
-
-  Future<Aircraft?> getAircraft(int id) async {
-    final query = select(aircrafts)..where((a) => a.id.equals(id));
-    return query.getSingleOrNull();
-  }
-
-  /// Get all ICAO aircrafts (for dropdown)
-  Future<List<IcaoAircraft>> getAllIcaoAircrafts({int limit = 200}) async {
-    return (select(icaoAircrafts)
-          ..orderBy([(a) => OrderingTerm.asc(a.modelFullName)])
-          ..limit(limit))
+    return (select(airports)..where(
+          (a) =>
+              a.latitudeDeg.isBetweenValues(
+                latitude - delta,
+                latitude + delta,
+              ) &
+              a.longitudeDeg.isBetweenValues(
+                longitude - delta,
+                longitude + delta,
+              ),
+        ))
         .get();
   }
 
-  /// Add a new ICAO aircraft (user inserted)
+  /// Adds an ICAO type of the user's own.
   Future<int> addIcaoAircraft({
     required String modelFullName,
     required String manufacturer,
@@ -1436,45 +1250,6 @@ class LogbookDatabase extends _$LogbookDatabase {
         engineType: engineType,
         userInserted: const Value(true),
       ),
-    );
-  }
-
-  Future<int> addAircraft({
-    required int icaoAircraftId,
-    required String tailNumber,
-    String? notes,
-  }) async {
-    return into(aircrafts).insert(
-      AircraftsCompanion.insert(
-        icaoAircraft: icaoAircraftId,
-        tailNumber: tailNumber,
-        notes: Value(notes),
-      ),
-    );
-  }
-
-  Future<void> updateAircraft(
-    int id, {
-    int? icaoAircraftId,
-    String? tailNumber,
-    String? notes,
-  }) async {
-    await (update(aircrafts)..where((a) => a.id.equals(id))).write(
-      AircraftsCompanion(
-        icaoAircraft: icaoAircraftId != null
-            ? Value(icaoAircraftId)
-            : const Value.absent(),
-        tailNumber: tailNumber != null
-            ? Value(tailNumber)
-            : const Value.absent(),
-        notes: notes != null ? Value(notes) : const Value.absent(),
-      ),
-    );
-  }
-
-  Future<void> updateFlightAircraft(int flightId, {int? aircraftId}) async {
-    await (update(flights)..where((f) => f.id.equals(flightId))).write(
-      FlightsCompanion(aircraftId: Value(aircraftId)),
     );
   }
 
@@ -1535,42 +1310,14 @@ class LogbookDatabase extends _$LogbookDatabase {
     });
   }
 
-  Future<void> deleteAircraft(int id) async {
-    await (update(flights)..where((f) => f.aircraftId.equals(id))).write(
-      const FlightsCompanion(aircraftId: Value(null)),
-    );
-    await (delete(aircrafts)..where((a) => a.id.equals(id))).go();
-  }
-
-  Future<List<Airport>> getRecentAirports({int limit = 5}) async {
-    final recentFlightsQuery = select(flights)
-      ..orderBy([(f) => OrderingTerm.desc(f.departureTime)])
-      ..limit(20);
-    final recentFlights = await recentFlightsQuery.get();
-    final airportIds = <int>{};
-    for (final f in recentFlights) {
-      if (f.departure != null) airportIds.add(f.departure!);
-      if (f.arrival != null) airportIds.add(f.arrival!);
-    }
-    if (airportIds.isEmpty) return [];
-    final airportQuery = select(airports)
-      ..where((a) => a.id.isIn(airportIds.toList()))
-      ..limit(limit);
-    return airportQuery.get();
-  }
-
-  Future<bool> isAirportReferencedInFlights(int airportId) async {
-    final departureCountQuery = select(flights)
-      ..where((f) => f.departure.equals(airportId));
-    final arrivalCountQuery = select(flights)
-      ..where((f) => f.arrival.equals(airportId));
-
-    final departureCount = await departureCountQuery.get();
-    if (departureCount.isNotEmpty) return true;
-
-    final arrivalCount = await arrivalCountQuery.get();
-    return arrivalCount.isNotEmpty;
-  }
+  /// Deletes a flight with its track and crew, atomically.
+  Future<void> deleteFlight(int flightId) => transaction(() async {
+    await (delete(
+      flightDataPoints,
+    )..where((p) => p.flight.equals(flightId))).go();
+    await (delete(flightCrew)..where((c) => c.flight.equals(flightId))).go();
+    await (delete(flights)..where((f) => f.id.equals(flightId))).go();
+  });
 
   /// Ids of every airport used as departure or arrival by any flight.
   Future<Set<int>> getReferencedAirportIds() async {

@@ -6,22 +6,13 @@ import '../models/flight_track.dart';
 import '../providers/database_provider.dart';
 import '../services/database.dart';
 
-/// Repository for flight data access using Drift's reactive queries
+/// Flights, their tracks and the recording in progress.
 class FlightRepository {
   FlightRepository(this._database);
   final LogbookDatabase _database;
 
-  /// Stream of all recorded flights with stats, ordered by departure time descending
-  Stream<List<FlightWithStats>> watchRecordedFlights({int limit = 100}) {
-    return _watchFlights(
-      where: _database.flights.isRecording.equals(false),
-      limit: limit,
-    );
-  }
-
   /// Every recorded flight and simulator session, newest first, as they
-  /// are now: what the logbook export and "delete all" work on. Unlike
-  /// [watchRecordedFlights], nothing is left out.
+  /// are now: what the logbook export and "delete all" work on.
   Future<List<FlightWithStats>> allRecordedFlights() => _watchFlights(
     where: _database.flights.isRecording.equals(false),
     limit: null,
@@ -105,7 +96,7 @@ class FlightRepository {
     );
   }
 
-  /// Stream of a specific flight by ID
+  /// The flight with [flightId]; null once deleted.
   Stream<FlightWithStats?> watchFlightById(int flightId) {
     return _watchFlights(
       where: _database.flights.id.equals(flightId),
@@ -113,7 +104,7 @@ class FlightRepository {
     ).map((list) => list.isEmpty ? null : list.first);
   }
 
-  /// Stream of flights for a specific aircraft
+  /// The flights flown with an aircraft, newest first.
   Stream<List<FlightWithStats>> watchFlightsForAircraft(
     int aircraftId, {
     int limit = 5,
@@ -126,7 +117,7 @@ class FlightRepository {
     );
   }
 
-  /// Stream of the flights that departed from or arrived at an airport,
+  /// The flights that departed from or arrived at an airport,
   /// newest first.
   Stream<List<FlightWithStats>> watchFlightsForAirport(
     int airportId, {
@@ -140,7 +131,7 @@ class FlightRepository {
     );
   }
 
-  /// Stream of the sessions flown in a simulator, newest first.
+  /// The sessions flown in a simulator, newest first.
   Stream<List<FlightWithStats>> watchSessionsForSimulator(
     int simulatorId, {
     int limit = 500,
@@ -151,7 +142,7 @@ class FlightRepository {
     );
   }
 
-  /// Stream of flights a person was on as crew
+  /// The flights a person was on as crew, newest first.
   Stream<List<FlightWithStats>> watchFlightsForPerson(
     int personId, {
     int limit = 500,
@@ -176,14 +167,7 @@ class FlightRepository {
           readsFrom: {_database.flights},
         )
         .watch()
-        .map((row) {
-          return row.first.read<int>('total_flight_time');
-        });
-  }
-
-  /// Stream of recent flights (for home page)
-  Stream<List<FlightWithStats>> watchRecentFlights({int limit = 20}) {
-    return watchRecordedFlights(limit: limit);
+        .map((rows) => rows.first.read<int>('total_flight_time'));
   }
 
   // Tracks ------------------------------------------------------------------
@@ -258,9 +242,8 @@ class FlightRepository {
     });
   }
 
-  /// Internal method to watch flights with joins for related data
-  ///
-  /// [matching] narrows [where] with conditions on the joined departure,
+  /// The flights matching [where], with their aircraft, airports and
+  /// simulator. [matching] narrows [where] with conditions on the joined departure,
   /// arrival and aircraft.
   Stream<List<FlightWithStats>> _watchFlights({
     required Expression<bool> where,
@@ -324,34 +307,28 @@ class FlightRepository {
           ]);
     if (limit != null) stat.limit(limit, offset: offset);
 
-    final flightStream = stat.watch();
-
-    // Transform the flight stream to include related data
-    return flightStream.asyncMap((rows) async {
-      if (rows.isEmpty) return <FlightWithStats>[];
-
-      return rows.map((flight) {
-        final device = flight.readTableOrNull(simulator);
-        return FlightWithStats(
-          flight: flight.readTable(_database.flights),
-          dataPoints: [],
-          aircraftWithStats: flight.readTableOrNull(
-            _database.aircraftWithStatss,
+    return stat.watch().map(
+      (rows) => [
+        for (final row in rows)
+          FlightWithStats(
+            flight: row.readTable(_database.flights),
+            dataPoints: const [],
+            aircraftWithStats: row.readTableOrNull(
+              _database.aircraftWithStatss,
+            ),
+            simulator: switch (row.readTableOrNull(simulator)) {
+              final device? => SimulatorWithStats(
+                simulator: device,
+                type: row.readTableOrNull(simulatorType),
+              ),
+              null => null,
+            },
+            departure: row.readTableOrNull(departure),
+            arrival: row.readTableOrNull(arrival),
           ),
-          simulator: device == null
-              ? null
-              : SimulatorWithStats(
-                  simulator: device,
-                  type: flight.readTableOrNull(simulatorType),
-                ),
-          departure: flight.readTableOrNull(departure),
-          arrival: flight.readTableOrNull(arrival),
-        );
-      }).toList();
-    });
+      ],
+    );
   }
-
-  // Mutating operations (non-reactive)
 
   /// Starts recording a flight: recording, with no arrival time until
   /// [endSession]. Returns its id.
@@ -428,101 +405,10 @@ class FlightRepository {
     );
   }
 
-  Future<void> setFlightAircraft(int flightId, int? aircraftId) async {
-    await (_database.update(_database.flights)
-          ..where((f) => f.id.equals(flightId)))
-        .write(FlightsCompanion(aircraftId: Value(aircraftId)));
-  }
-
-  Future<void> deleteSession(int sessionId) async {
-    await (_database.delete(
-      _database.flightDataPoints,
-    )..where((p) => p.flight.equals(sessionId))).go();
-    await (_database.delete(
-      _database.flightCrew,
-    )..where((c) => c.flight.equals(sessionId))).go();
-    await (_database.delete(
-      _database.flights,
-    )..where((f) => f.id.equals(sessionId))).go();
-  }
-
-  Future<void> addFlight({
-    required int? departureId,
-    required int? arrivalId,
-    required String title,
-    required DateTime departureTime,
-    DateTime? arrivalTime,
-    int? aircraftId,
-    String? approachType,
-    int? nightLandings,
-    int? dayLandings,
-    String? flightRules,
-    String? remarks,
-    String? departureIanaLocation,
-    String? arrivalIanaLocation,
-  }) async {
-    await _database
-        .into(_database.flights)
-        .insert(
-          FlightsCompanion.insert(
-            title: title,
-            departure: Value(departureId),
-            arrival: Value(arrivalId),
-            departureTime: departureTime,
-            arrivalTime: Value(arrivalTime),
-            departureIanaLocation: Value(departureIanaLocation),
-            arrivalIanaLocation: Value(arrivalIanaLocation),
-            isRecording: false,
-            aircraftId: Value(aircraftId),
-            approachType: Value(approachType),
-            nightLandings: Value(nightLandings),
-            dayLandings: Value(dayLandings),
-            flightRules: Value(flightRules),
-            remarks: Value(remarks),
-          ),
-        );
-  }
-
-  Future<void> updateFlight({
-    required int flightId,
-    required int? departureId,
-    required int? arrivalId,
-    required String title,
-    required DateTime departureTime,
-    DateTime? arrivalTime,
-    int? aircraftId,
-    String? approachType,
-    int? nightLandings,
-    int? dayLandings,
-    String? flightRules,
-    String? remarks,
-    String? departureIanaLocation,
-    String? arrivalIanaLocation,
-    bool isRecording = false,
-  }) async {
-    // write(), not replace(): the columns not listed here (pilot role, where
-    // the track comes from) keep their values.
-    await (_database.update(
-      _database.flights,
-    )..where((f) => f.id.equals(flightId))).write(
-      FlightsCompanion(
-        title: Value(title),
-        departure: Value(departureId),
-        arrival: Value(arrivalId),
-        departureTime: Value(departureTime),
-        arrivalTime: Value(arrivalTime),
-        departureIanaLocation: Value(departureIanaLocation),
-        arrivalIanaLocation: Value(arrivalIanaLocation),
-        aircraftId: Value(aircraftId),
-        approachType: Value(approachType),
-        nightLandings: Value(nightLandings),
-        dayLandings: Value(dayLandings),
-        flightRules: Value(flightRules),
-        remarks: Value(remarks),
-        isRecording: Value(isRecording),
-      ),
-    );
-  }
+  /// Deletes a flight with its track and crew. Flights saved from the form
+  /// may have a signature: delete those with `FlightService.deleteSession`.
+  Future<void> deleteSession(int sessionId) =>
+      _database.deleteFlight(sessionId);
 }
 
 final flightRepositoryProvider = Provider<FlightRepository>((ref) {

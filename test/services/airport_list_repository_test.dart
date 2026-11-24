@@ -107,7 +107,7 @@ void main() {
         .insert(
           FlightsCompanion.insert(
             title: '$from-$to',
-            departureTime: DateTime(2026, 3, 1),
+            departureTime: DateTime(2026, 3),
             isRecording: false,
             departure: Value(ids[from]),
             arrival: Value(ids[to]),

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 
 import '../models/sync_progress.dart';
+import 'network.dart';
 import 'registry_database.dart';
 
 /// What a download of the registry brought: the file, and the version tag
@@ -371,14 +372,16 @@ class AircraftRegistryService {
   ) async {
     // autoUncompress off: the bytes received then match Content-Length, so
     // the percentage is right.
-    final client = HttpClient()..autoUncompress = false;
+    final client = HttpClient()
+      ..autoUncompress = false
+      ..connectionTimeout = networkTimeout;
     try {
       final request = await client.getUrl(_url);
       request.headers.set(HttpHeaders.acceptEncodingHeader, 'identity');
       if (etag != null) {
         request.headers.set(HttpHeaders.ifNoneMatchHeader, etag);
       }
-      final response = await request.close();
+      final response = await request.close().withTimeout();
       if (response.statusCode == HttpStatus.notModified) {
         await response.drain<void>();
         return null;
@@ -393,7 +396,7 @@ class AircraftRegistryService {
       }
       final total = response.contentLength > 0 ? response.contentLength : null;
       final builder = BytesBuilder(copy: false);
-      await for (final chunk in response) {
+      await for (final chunk in response.withIdleTimeout()) {
         builder.add(chunk);
         onProgress(builder.length, total);
       }

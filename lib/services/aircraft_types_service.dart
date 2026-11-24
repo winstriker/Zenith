@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 
 import '../models/sync_progress.dart';
 import 'database.dart';
+import 'network.dart';
 
 class AircraftTypesService {
   AircraftTypesService(this.database);
@@ -94,7 +95,9 @@ class AircraftTypesService {
     final client = http.Client();
     try {
       final uri = Uri.parse(icaoTypesUrl);
-      final response = await client.send(http.Request('POST', uri));
+      final response = await client
+          .send(http.Request('POST', uri))
+          .withTimeout();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw http.ClientException(
           'ICAO types download failed (${response.statusCode})',
@@ -104,7 +107,7 @@ class AircraftTypesService {
       final total = response.contentLength;
       final bytes = BytesBuilder(copy: false);
       final throttle = Stopwatch()..start();
-      await for (final chunk in response.stream) {
+      await for (final chunk in response.stream.withIdleTimeout()) {
         bytes.add(chunk);
         if (throttle.elapsedMilliseconds < 100) continue;
         throttle.reset();

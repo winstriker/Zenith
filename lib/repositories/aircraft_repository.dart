@@ -6,7 +6,7 @@ import '../providers/database_provider.dart';
 import '../services/database.dart';
 import '../services/person_photo_store.dart';
 
-/// Repository for aircraft data access using Drift's reactive queries
+/// The user's aircraft and the ICAO types they are of.
 class AircraftRepository {
   AircraftRepository(this._database, [this._photos]);
   final LogbookDatabase _database;
@@ -15,12 +15,20 @@ class AircraftRepository {
   /// with the aircraft or when the photo is replaced.
   final AircraftPhotoStore? _photos;
 
-  /// Stream of a specific aircraft with stats
+  /// An aircraft with its stats.
   Stream<AircraftWithStats?> watchAircraftWithStats(int id) {
-    final stmt = _database.aircraftWithStatss.select();
-    stmt.where((acws) => acws.id.equals(id));
-    stmt.limit(1);
-    return stmt.watchSingle();
+    return (_database.aircraftWithStatss.select()
+          ..where((a) => a.id.equals(id))
+          ..limit(1))
+        .watchSingle();
+  }
+
+  /// How many aircraft there are.
+  Stream<int> watchAircraftCount() {
+    final count = _database.aircrafts.id.count();
+    return (_database.selectOnly(
+      _database.aircrafts,
+    )..addColumns([count])).map((row) => row.read(count) ?? 0).watchSingle();
   }
 
   /// Stream of the aircraft with stats, in the order they were added.
@@ -47,42 +55,7 @@ class AircraftRepository {
     return stmt.watch();
   }
 
-  /// Stream of a single aircraft with ICAO data
-  Stream<AircraftWithIcao?> watchAircraftWithIcao(int id) {
-    return (_database.select(
-      _database.aircraftWithIcaos,
-    )..where((a) => a.id.equals(id))).watchSingleOrNull();
-  }
-
-  /// Stream of a specific aircraft
-  Stream<Aircraft?> watchAircraft(int id) {
-    return (_database.select(
-      _database.aircrafts,
-    )..where((a) => a.id.equals(id))).watchSingleOrNull();
-  }
-
-  /// Search ICAO aircrafts by model name, manufacturer, or type
-  Future<List<IcaoAircraft>> searchIcaoAircrafts(
-    String query, {
-    int limit = 50,
-  }) async {
-    final term = '%$query%';
-    return (_database.select(_database.icaoAircrafts)
-          ..where(
-            (a) =>
-                a.modelFullName.like(term) |
-                a.manufacturer.like(term) |
-                a.designator.like(term),
-          )
-          ..orderBy([
-            (a) => OrderingTerm.asc(a.manufacturer),
-            (a) => OrderingTerm.asc(a.modelFullName),
-          ])
-          ..limit(limit))
-        .get();
-  }
-
-  /// Stream of all ICAO aircrafts
+  /// Every ICAO type, by manufacturer and model.
   Stream<List<IcaoAircraft>> watchAllIcaoAircrafts() {
     return (_database.select(_database.icaoAircrafts)..orderBy([
           (a) => OrderingTerm.asc(a.manufacturer),
@@ -115,7 +88,6 @@ class AircraftRepository {
     return [for (final row in rows) row.read(rating)!];
   }
 
-  // Mutating operations
   Future<int> addAircraft({
     required int icaoAircraftId,
     required String tailNumber,
@@ -159,7 +131,7 @@ class AircraftRepository {
     required AircraftDescription description,
     required int engineCount,
     required EngineType engineType,
-  }) async {
+  }) {
     return _database.addIcaoAircraft(
       modelFullName: modelFullName,
       manufacturer: manufacturer,

@@ -47,10 +47,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               final sessions = await ref
                   .read(flightRepositoryProvider)
                   .allRecordedFlights();
-              for (final s in sessions) {
-                await flightService.deleteSession(s.flight.id);
-              }
-              // Stream provider automatically updates
+              await flightService.deleteSessions([
+                for (final s in sessions) s.flight.id,
+              ]);
               if (ctx.mounted) Navigator.pop(ctx);
             },
             style: FilledButton.styleFrom(

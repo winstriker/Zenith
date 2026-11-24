@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import '../core/fab_hero_tags.dart';
 import '../providers/airport_providers.dart';
 import '../repositories/airport_repository.dart';
+import '../services/airport_service.dart' show locationTimeout;
 import '../services/database.dart';
 import '../widgets/page_title.dart';
 import '../widgets/picker_sheet.dart';
@@ -163,6 +166,7 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: locationTimeout,
         ),
       );
       if (!mounted) return;
@@ -173,6 +177,12 @@ class _AirportFormPageState extends ConsumerState<AirportFormPage> {
         _elevation.text = (position.altitude * 3.28084).round().toString();
       }
       await _fillCountryFromCoordinates();
+    } on TimeoutException {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('No GPS position yet. Try again in the open.'),
+        ),
+      );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(content: Text('Could not get your location: $e')),

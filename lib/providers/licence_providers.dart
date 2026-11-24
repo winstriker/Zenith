@@ -13,8 +13,8 @@ final licencesStreamProvider = StreamProvider<List<LicenceWithRatings>>(
   (ref) => ref.watch(licenceRepositoryProvider).watchLicences(),
 );
 
-final licenceByIdStreamProvider =
-    StreamProvider.family<LicenceWithRatings?, int>(
+final licenceByIdStreamProvider = StreamProvider.autoDispose
+    .family<LicenceWithRatings?, int>(
       (ref, id) => ref.watch(licenceRepositoryProvider).watchLicence(id),
     );
 
@@ -22,8 +22,8 @@ final medicalsStreamProvider = StreamProvider<List<MedicalCertificate>>(
   (ref) => ref.watch(licenceRepositoryProvider).watchMedicals(),
 );
 
-final medicalByIdStreamProvider =
-    StreamProvider.family<MedicalCertificate?, int>(
+final medicalByIdStreamProvider = StreamProvider.autoDispose
+    .family<MedicalCertificate?, int>(
       (ref, id) => ref.watch(licenceRepositoryProvider).watchMedical(id),
     );
 
@@ -88,7 +88,7 @@ final currencyReminderSyncProvider = Provider<void>((ref) {
   final service = ref.watch(currencyReminderServiceProvider);
   final settings = ref.watch(currencySettingsProvider);
   final items = ref.watch(currencyItemsProvider).value;
-  if (!settings.loaded || items == null) return;
+  if (items == null) return;
   final plan = planReminders(items, settings, DateTime.now());
   // Edits come in bursts (a flight and its crew, a licence and its
   // ratings): schedule once they settle.

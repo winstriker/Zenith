@@ -48,10 +48,10 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? now,
-      firstDate: DateTime(2020),
+      firstDate: DateTime(2000),
       lastDate: now.add(const Duration(days: 1)),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
         _selectedDate = picked;
         _limit = loadMorePageSize;
@@ -99,7 +99,6 @@ class _FlightsPageState extends ConsumerState<FlightsPage> {
     );
     if (confirmed == true) {
       await ref.read(flightServiceProvider).deleteSession(flight.flight.id);
-      // Stream provider automatically updates
     }
   }
 
