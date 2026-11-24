@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/sync_progress.dart';
 import '../services/update_service.dart';
+import 'shared_preferences_provider.dart';
 
 final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
 
@@ -13,21 +13,12 @@ final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
 class AutoUpdateCheckNotifier extends Notifier<bool> {
   static const prefsKey = 'auto_update_check';
 
-  /// The saved choice, for callers that can't wait for the provider to load.
-  static Future<bool> read() async =>
-      (await SharedPreferences.getInstance()).getBool(prefsKey) ?? true;
-
   @override
-  bool build() {
-    read().then((value) {
-      if (ref.mounted) state = value;
-    });
-    return true;
-  }
+  bool build() => ref.read(sharedPreferencesProvider).getBool(prefsKey) ?? true;
 
   Future<void> set(bool value) async {
     state = value;
-    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setBool(prefsKey, value);
   }
 }
 

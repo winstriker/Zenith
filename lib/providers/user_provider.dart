@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'shared_preferences_provider.dart';
 
@@ -14,8 +13,7 @@ class UserNicknameNotifier extends Notifier<String?> {
 
   Future<void> setNickname(String nickname) async {
     state = nickname;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(prefsKey, nickname);
+    await ref.read(sharedPreferencesProvider).setString(prefsKey, nickname);
   }
 }
 
@@ -34,8 +32,7 @@ class UserSignatureNameNotifier extends Notifier<String?> {
 
   Future<void> setSignatureName(String name) async {
     state = name;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(prefsKey, name);
+    await ref.read(sharedPreferencesProvider).setString(prefsKey, name);
   }
 }
 
@@ -52,8 +49,7 @@ class OnboardingCompleteNotifier extends Notifier<bool> {
 
   Future<void> setComplete() async {
     state = true;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_key, true);
+    await ref.read(sharedPreferencesProvider).setBool(_key, true);
   }
 }
 
@@ -68,23 +64,15 @@ class PicNameModeNotifier extends Notifier<PicNameMode> {
   static const prefsKey = 'pic_name_mode';
 
   @override
-  PicNameMode build() {
-    _load();
-    return PicNameMode.self;
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(prefsKey);
-    if (raw == PicNameMode.name.name) {
-      state = PicNameMode.name;
-    }
-  }
+  PicNameMode build() =>
+      ref.read(sharedPreferencesProvider).getString(prefsKey) ==
+          PicNameMode.name.name
+      ? PicNameMode.name
+      : PicNameMode.self;
 
   Future<void> setMode(PicNameMode mode) async {
     state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(prefsKey, mode.name);
+    await ref.read(sharedPreferencesProvider).setString(prefsKey, mode.name);
   }
 }
 
@@ -103,7 +91,7 @@ class PicusColumnNotifier extends Notifier<bool> {
 
   Future<void> set(bool value) async {
     state = value;
-    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setBool(prefsKey, value);
   }
 }
 

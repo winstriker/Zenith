@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'shared_preferences_provider.dart';
+
 /// The replay speed the pilot chose for themselves, as how many times faster
 /// than the flight: null until they choose one.
 class CustomReplaySpeedNotifier extends Notifier<int?> {
@@ -9,20 +11,16 @@ class CustomReplaySpeedNotifier extends Notifier<int?> {
   static const max = 1000;
 
   @override
-  int? build() {
-    SharedPreferences.getInstance().then((prefs) {
-      final value = prefs.getInt(prefsKey);
-      // It may come from a backup: only a speed the picker allows.
-      if (ref.mounted && value != null && value >= min && value <= max) {
-        state = value;
-      }
-    });
-    return null;
-  }
+  int? build() =>
+      _allowed(ref.read(sharedPreferencesProvider).getInt(prefsKey));
+
+  /// [value] if the picker allows it: it may come from a backup.
+  static int? _allowed(int? value) =>
+      value != null && value >= min && value <= max ? value : null;
 
   Future<void> set(int value) async {
     state = value;
-    await (await SharedPreferences.getInstance()).setInt(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setInt(prefsKey, value);
   }
 }
 
@@ -36,14 +34,9 @@ abstract final class LastReplaySpeed {
   static const prefsKey = 'replay_speed';
 
   /// Null until a speed was chosen: replays then pick one for the flight.
-  static Future<int?> read() async {
-    final value = (await SharedPreferences.getInstance()).getInt(prefsKey);
-    // It may come from a backup: only a speed the picker allows.
-    const min = CustomReplaySpeedNotifier.min;
-    const max = CustomReplaySpeedNotifier.max;
-    return value != null && value >= min && value <= max ? value : null;
-  }
+  static int? read(SharedPreferences prefs) =>
+      CustomReplaySpeedNotifier._allowed(prefs.getInt(prefsKey));
 
-  static Future<void> write(int value) async =>
-      (await SharedPreferences.getInstance()).setInt(prefsKey, value);
+  static Future<void> write(SharedPreferences prefs, int value) =>
+      prefs.setInt(prefsKey, value);
 }

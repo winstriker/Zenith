@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../core/theme.dart';
 import '../providers/replay_speed_provider.dart';
+import '../providers/shared_preferences_provider.dart';
 import '../providers/unit_provider.dart';
 import '../services/adsb_track_source.dart';
 import '../services/database.dart';
@@ -35,7 +36,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   // into the flight the replay is, from 0 to 1.
   late final AnimationController _animationController;
 
-  // Flight data (pre-computed)
   late final List<FlightDataPoint> _points;
   late final List<LatLng> _pathPoints;
 
@@ -51,7 +51,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   /// From the first position to the last.
   late final Duration _trackDuration;
 
-  // Current state (updated by animation)
   LatLng? _currentPosition;
   double _currentAltitude = 0;
   double? _currentSpeed;
@@ -79,16 +78,15 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
   void initState() {
     super.initState();
     _initFlightData();
+    // The speed chosen last time, over the one picked for this flight.
+    final saved = LastReplaySpeed.read(ref.read(sharedPreferencesProvider));
+    if (saved != null) _speed = saved.toDouble();
     _animationController = AnimationController(
       vsync: this,
       duration: _playbackDuration,
     );
     _animationController.addListener(_onAnimationTick);
     _animationController.addStatusListener(_onAnimationStatusChanged);
-    // The speed chosen last time, over the one picked for this flight.
-    LastReplaySpeed.read().then((saved) {
-      if (saved != null && mounted) _setSpeed(saved.toDouble());
-    });
   }
 
   void _initFlightData() {
@@ -304,7 +302,7 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
     }
     if (!mounted) return;
     _setSpeed(speed.toDouble());
-    await LastReplaySpeed.write(speed);
+    await LastReplaySpeed.write(ref.read(sharedPreferencesProvider), speed);
   }
 
   Future<void> _pickUnits() async {
@@ -388,7 +386,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             ),
             children: [
               const BaseMapLayer(),
-              // Static full path
               if (_pathPoints.length >= 2)
                 PolylineLayer(
                   polylines: [
@@ -401,7 +398,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
                 ),
               // Under the plane, which flies over them.
               FlightRouteLayer(flight: widget.flight, path: _pathPoints),
-              // Animated trail + plane marker
               AnimatedBuilder(
                 animation: _animationController,
                 builder: (context, _) {
@@ -443,7 +439,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             ],
           ),
 
-          // Top gradient overlay (static)
           Positioned(
             top: 0,
             left: 0,
@@ -460,7 +455,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             ),
           ),
 
-          // Top bar with flight info
           Positioned(
             top: padding.top + 4,
             left: 4,
@@ -475,7 +469,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
 
           // Without a track there is nothing to play: only the route.
           if (_pathPoints.length >= 2) ...[
-            // Bottom gradient overlay (static)
             Positioned(
               bottom: 0,
               left: 0,
@@ -546,7 +539,6 @@ class _ReplayPageState extends ConsumerState<ReplayPage>
             ),
           ),
 
-          // Empty state for insufficient data
           if (_extent.isEmpty)
             const _ReplayEmptyState(message: 'No flight data available'),
         ],

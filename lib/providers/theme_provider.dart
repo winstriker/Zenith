@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme.dart';
 import 'shared_preferences_provider.dart';
@@ -21,8 +20,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
 
   Future<void> setThemeMode(ThemeMode mode) async {
     state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(prefsKey, mode.index);
+    await ref.read(sharedPreferencesProvider).setInt(prefsKey, mode.index);
   }
 }
 
@@ -41,10 +39,7 @@ class PaletteNotifier extends Notifier<AppPalette> {
 
   Future<void> set(AppPalette palette) async {
     state = palette;
-    await (await SharedPreferences.getInstance()).setString(
-      prefsKey,
-      palette.name,
-    );
+    await ref.read(sharedPreferencesProvider).setString(prefsKey, palette.name);
   }
 }
 
@@ -62,7 +57,7 @@ class OledNotifier extends Notifier<bool> {
 
   Future<void> set(bool value) async {
     state = value;
-    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setBool(prefsKey, value);
   }
 }
 
@@ -84,7 +79,7 @@ class FullScreenNotifier extends Notifier<bool> {
   Future<void> set(bool value) async {
     state = value;
     _apply(value);
-    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setBool(prefsKey, value);
   }
 
   // Off is Flutter's default: both bars shown.
@@ -111,7 +106,7 @@ class SystemColorsNotifier extends Notifier<bool> {
 
   Future<void> set(bool value) async {
     state = value;
-    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setBool(prefsKey, value);
   }
 }
 

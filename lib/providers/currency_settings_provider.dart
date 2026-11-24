@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/currency.dart';
+import 'shared_preferences_provider.dart';
 
 /// How long before something expires a reminder goes off.
 ///
@@ -43,7 +43,6 @@ enum ReminderLead {
 @immutable
 class CurrencySettings {
   const CurrencySettings({
-    this.loaded = false,
     this.notificationsEnabled = true,
     this.leads = defaultLeads,
     this.recencyReminders = true,
@@ -56,8 +55,6 @@ class CurrencySettings {
     ReminderLead.oneWeek,
   };
 
-  /// False until read from storage: nothing is scheduled before that.
-  final bool loaded;
   final bool notificationsEnabled;
   final Set<ReminderLead> leads;
 
@@ -83,7 +80,6 @@ class CurrencySettings {
     bool? recencyReminders,
     TimeOfDay? reminderTime,
   }) => CurrencySettings(
-    loaded: loaded,
     notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     leads: leads ?? this.leads,
     recencyReminders: recencyReminders ?? this.recencyReminders,
@@ -93,7 +89,6 @@ class CurrencySettings {
   @override
   bool operator ==(Object other) =>
       other is CurrencySettings &&
-      other.loaded == loaded &&
       other.notificationsEnabled == notificationsEnabled &&
       other.leads.length == leads.length &&
       other.leads.containsAll(leads) &&
@@ -102,7 +97,6 @@ class CurrencySettings {
 
   @override
   int get hashCode => Object.hash(
-    loaded,
     notificationsEnabled,
     Object.hashAllUnordered(leads),
     recencyReminders,
@@ -118,17 +112,11 @@ class CurrencySettingsNotifier extends Notifier<CurrencySettings> {
 
   @override
   CurrencySettings build() {
-    _load();
-    return const CurrencySettings();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider);
     final leadNames = prefs.getStringList(leadsKey);
     final byName = ReminderLead.values.asNameMap();
     final minutes = prefs.getInt(timeKey);
-    state = CurrencySettings(
-      loaded: true,
+    return CurrencySettings(
       notificationsEnabled: prefs.getBool(enabledKey) ?? true,
       leads: leadNames == null
           ? CurrencySettings.defaultLeads
@@ -142,16 +130,14 @@ class CurrencySettingsNotifier extends Notifier<CurrencySettings> {
 
   Future<void> setNotificationsEnabled({required bool enabled}) async {
     state = state.copyWith(notificationsEnabled: enabled);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(enabledKey, enabled);
+    await ref.read(sharedPreferencesProvider).setBool(enabledKey, enabled);
   }
 
   Future<void> setLead(ReminderLead lead, {required bool enabled}) async {
     final leads = {...state.leads};
     enabled ? leads.add(lead) : leads.remove(lead);
     state = state.copyWith(leads: leads);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(leadsKey, [
+    await ref.read(sharedPreferencesProvider).setStringList(leadsKey, [
       for (final l in ReminderLead.values)
         if (leads.contains(l)) l.name,
     ]);
@@ -159,14 +145,14 @@ class CurrencySettingsNotifier extends Notifier<CurrencySettings> {
 
   Future<void> setRecencyReminders({required bool enabled}) async {
     state = state.copyWith(recencyReminders: enabled);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(recencyKey, enabled);
+    await ref.read(sharedPreferencesProvider).setBool(recencyKey, enabled);
   }
 
   Future<void> setReminderTime(TimeOfDay time) async {
     state = state.copyWith(reminderTime: time);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(timeKey, time.hour * 60 + time.minute);
+    await ref
+        .read(sharedPreferencesProvider)
+        .setInt(timeKey, time.hour * 60 + time.minute);
   }
 }
 

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../repositories/airport_repository.dart';
 import '../repositories/flight_repository.dart';
@@ -21,7 +20,7 @@ class IcaoOnlyNotifier extends Notifier<bool> {
 
   Future<void> set(bool value) async {
     state = value;
-    await (await SharedPreferences.getInstance()).setBool(prefsKey, value);
+    await ref.read(sharedPreferencesProvider).setBool(prefsKey, value);
   }
 }
 
@@ -45,45 +44,6 @@ final excludedAirportTypesProvider = Provider<Set<AirportType>>((ref) {
       if (names.contains(t.name)) t,
   };
 });
-
-// Airport Repository Provider
-// Provided by airport_repository.dart
-
-/// Stream of recent airports (from recent flights)
-final recentAirportsStreamProvider = StreamProvider<List<Airport>>((ref) {
-  // For now, return empty stream - can be enhanced later
-  return Stream.value(<Airport>[]);
-});
-
-/// Stream of airports matching search criteria
-final airportSearchStreamProvider =
-    StreamProvider.family<
-      List<Airport>,
-      ({String query, String? countryCode, AirportType? type, int limit})
-    >((ref, params) {
-      final repository = ref.watch(airportRepositoryProvider);
-      return repository.searchAirports(
-        query: params.query,
-        countryCode: params.countryCode,
-        type: params.type,
-        limit: params.limit,
-      );
-    });
-
-/// Stream of airports near coordinates
-final airportsNearStreamProvider =
-    StreamProvider.family<
-      List<Airport>,
-      ({double latitude, double longitude, double delta, int limit})
-    >((ref, params) {
-      final repository = ref.watch(airportRepositoryProvider);
-      return repository.watchAirportsNear(
-        params.latitude,
-        params.longitude,
-        delta: params.delta,
-        limit: params.limit,
-      );
-    });
 
 /// Which part of the airport list a paged list shows.
 typedef AirportsPageKey = ({
@@ -165,11 +125,10 @@ final regionsStreamProvider = StreamProvider.autoDispose
       return ref.watch(airportRepositoryProvider).watchRegions(countryCode);
     });
 
-/// Stream of all countries
-final countriesStreamProvider = StreamProvider<List<Country>>((ref) {
-  final repository = ref.watch(airportRepositoryProvider);
-  return repository.watchCountries();
-});
+/// Stream of all countries, by name.
+final countriesStreamProvider = StreamProvider<List<Country>>(
+  (ref) => ref.watch(airportRepositoryProvider).watchCountries(),
+);
 
 // ---------------------------------------------------------------------------
 // OurAirports download / sync

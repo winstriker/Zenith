@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zenith/models/aircraft_photo.dart';
+import 'package:zenith/providers/shared_preferences_provider.dart';
 import 'package:zenith/services/aircraft_image_cache.dart';
 import 'package:zenith/widgets/aircraft_photo_view.dart';
 
@@ -167,7 +168,12 @@ void main() {
 
   test('the limit chosen in the settings is remembered and applied', () async {
     SharedPreferences.setMockInitialValues({});
-    var container = ProviderContainer();
+    final prefs = [
+      sharedPreferencesProvider.overrideWithValue(
+        await SharedPreferences.getInstance(),
+      ),
+    ];
+    var container = ProviderContainer(overrides: prefs);
     final images = container.read(aircraftImageCacheProvider);
     expect(images.maxBytes, AircraftImageCache.defaultMaxBytes);
     await container
@@ -176,10 +182,8 @@ void main() {
     expect(images.maxBytes, 50 * 1024 * 1024);
     container.dispose();
 
-    container = ProviderContainer();
+    container = ProviderContainer(overrides: prefs);
     addTearDown(container.dispose);
-    container.read(aircraftImageCacheProvider);
-    await Future<void>.delayed(Duration.zero);
     expect(
       container.read(aircraftImageCacheProvider).maxBytes,
       50 * 1024 * 1024,

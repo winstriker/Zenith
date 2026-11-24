@@ -1,12 +1,9 @@
 import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/secret_store.dart';
+import 'shared_preferences_provider.dart';
 
-// ---------------------------------------------------------------------------
-// API Key persistence
-// ---------------------------------------------------------------------------
 /// The CARTO API key, kept in the device's keystore.
 class CartoApiKeyNotifier extends Notifier<String?> {
   static const _key = 'carto_api_key';
@@ -18,7 +15,7 @@ class CartoApiKeyNotifier extends Notifier<String?> {
   @override
   String? build() {
     loaded = _loadKey();
-    return null; // while loading
+    return null;
   }
 
   Future<void> _loadKey() async {
@@ -32,7 +29,7 @@ class CartoApiKeyNotifier extends Notifier<String?> {
     }
     // Older versions kept the key in the preferences: moved to the
     // keystore, and out of the preferences.
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider);
     final legacy = prefs.getString(_key);
     if (legacy != null) {
       if (key == null) {
@@ -57,9 +54,7 @@ final cartoApiKeyProvider = NotifierProvider<CartoApiKeyNotifier, String?>(
   CartoApiKeyNotifier.new,
 );
 
-// ---------------------------------------------------------------------------
-// CARTO Voyager style (disk-cache handled by StyleReader)
-// ---------------------------------------------------------------------------
+/// CARTO Voyager style; StyleReader keeps it in a disk cache.
 const _styleUrl =
     'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
@@ -68,21 +63,11 @@ class CartoStyleNotifier extends AsyncNotifier<Style?> {
   Future<Style?> build() async {
     final key = ref.watch(cartoApiKeyProvider);
     if (key == null || key.isEmpty) return null;
-    return _loadStyle(key);
-  }
-
-  Future<Style?> _loadStyle(String apiKey) async {
-    try {
-      final style = await StyleReader(
-        uri: '$_styleUrl?key={key}',
-        apiKey: apiKey,
-        logger: const Logger.console(),
-      ).read();
-      return style;
-    } catch (e, st) {
-      // Re-throw to let AsyncNotifier handle error state
-      Error.throwWithStackTrace(e, st);
-    }
+    return StyleReader(
+      uri: '$_styleUrl?key={key}',
+      apiKey: key,
+      logger: const Logger.console(),
+    ).read();
   }
 }
 

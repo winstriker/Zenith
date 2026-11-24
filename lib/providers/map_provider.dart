@@ -1,9 +1,9 @@
 import 'package:flutter_map_vector_tiles/flutter_map_vector_tiles.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart' as logging;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'carto_provider.dart';
+import 'shared_preferences_provider.dart';
 
 final _log = logging.Logger('MapProvider');
 
@@ -16,34 +16,19 @@ enum MapSource {
   osm,
 }
 
-// ---------------------------------------------------------------------------
-// Chosen source persistence
-// ---------------------------------------------------------------------------
 class MapSourceNotifier extends Notifier<MapSource> {
   static const prefsKey = 'map_source';
 
-  /// Completes once the saved choice has been read.
-  late Future<void> loaded;
-
   @override
-  MapSource build() {
-    loaded = _load();
-    return MapSource.carto;
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString(prefsKey);
-    state = MapSource.values.firstWhere(
-      (s) => s.name == name,
-      orElse: () => MapSource.carto,
-    );
-  }
+  MapSource build() =>
+      MapSource.values.asNameMap()[ref
+          .read(sharedPreferencesProvider)
+          .getString(prefsKey)] ??
+      MapSource.carto;
 
   Future<void> setSource(MapSource source) async {
     state = source;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(prefsKey, source.name);
+    await ref.read(sharedPreferencesProvider).setString(prefsKey, source.name);
   }
 }
 
@@ -61,9 +46,6 @@ final effectiveMapSourceProvider = Provider<MapSource>((ref) {
       : MapSource.osm;
 });
 
-// ---------------------------------------------------------------------------
-// Tiles to draw
-// ---------------------------------------------------------------------------
 sealed class MapTiles {
   const MapTiles();
 }
@@ -81,12 +63,9 @@ class OsmMapTiles extends MapTiles {
 /// key, when the user picked it, or when the CARTO style can't be loaded.
 final mapTilesProvider = FutureProvider<MapTiles>((ref) async {
   final source = ref.watch(effectiveMapSourceProvider);
-  // Until both settings are read, the source above may be a default: wait
-  // for them. If one changes, this provider rebuilds with the real value.
-  await Future.wait([
-    ref.read(mapSourceProvider.notifier).loaded,
-    ref.read(cartoApiKeyProvider.notifier).loaded,
-  ]);
+  // Until the key is read from the keystore, the source above may be the
+  // fallback. If it changes, this provider rebuilds with the real value.
+  await ref.read(cartoApiKeyProvider.notifier).loaded;
   if (!ref.mounted || source == MapSource.osm) return const OsmMapTiles();
 
   try {

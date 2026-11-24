@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'shared_preferences_provider.dart';
 
 enum MeasurementUnit { metric, knots }
 
@@ -8,24 +8,15 @@ class UnitNotifier extends Notifier<MeasurementUnit> {
 
   @override
   MeasurementUnit build() {
-    _loadUnit();
-    return MeasurementUnit.metric;
-  }
-
-  Future<void> _loadUnit() async {
-    final prefs = await SharedPreferences.getInstance();
-    final unitIndex = prefs.getInt(prefsKey);
-    if (unitIndex != null &&
-        unitIndex >= 0 &&
-        unitIndex < MeasurementUnit.values.length) {
-      state = MeasurementUnit.values[unitIndex];
-    }
+    final index = ref.read(sharedPreferencesProvider).getInt(prefsKey);
+    return index != null && index >= 0 && index < MeasurementUnit.values.length
+        ? MeasurementUnit.values[index]
+        : MeasurementUnit.metric;
   }
 
   Future<void> setUnit(MeasurementUnit unit) async {
     state = unit;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(prefsKey, unit.index);
+    await ref.read(sharedPreferencesProvider).setInt(prefsKey, unit.index);
   }
 }
 

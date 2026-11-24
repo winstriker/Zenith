@@ -63,7 +63,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final flights = _flights;
     final hasMore = flights != null && flights.length >= _limit;
     final flightCount = ref.watch(recordedFlightCountProvider);
-    final aircraftList = ref.watch(aircraftListStreamProvider);
+    final aircraftCount = ref.watch(aircraftCountProvider);
     final nickname = ref.watch(userNicknameProvider);
     final totalFlightTime = ref.watch(totalFlightTimeProvider);
     // Flight time logged before the app counts too.
@@ -110,8 +110,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                       error: (_, _) => -1,
                       loading: () => 0,
                     ),
-                    aircraftCount: aircraftList.when(
-                      data: (val) => val.length,
+                    aircraftCount: aircraftCount.when(
+                      data: (val) => val,
                       error: (_, _) => -1,
                       loading: () => 0,
                     ),

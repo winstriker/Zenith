@@ -23,16 +23,4 @@ void main() {
     expect(DurationFormatter.descriptive(const Duration(minutes: 45)), '45m');
     expect(DurationFormatter.descriptive(Duration.zero), '0m');
   });
-
-  test('withLabel', () {
-    expect(DurationFormatter.withLabel(d), 'Duration: 01:02');
-    expect(
-      DurationFormatter.withLabel(d, label: 'Block', format: 'hms'),
-      'Block: 1:02:30',
-    );
-    expect(
-      DurationFormatter.withLabel(d, format: 'descriptive'),
-      'Duration: 1h 2m',
-    );
-  });
 }

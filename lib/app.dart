@@ -81,7 +81,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
         !canSelfUpdate ||
         updatesRepoUrl.isEmpty ||
         !ref.read(onboardingCompleteProvider) ||
-        !await AutoUpdateCheckNotifier.read()) {
+        !ref.read(autoUpdateCheckProvider)) {
       return;
     }
     final release = await ref.read(updateProvider.notifier).check();

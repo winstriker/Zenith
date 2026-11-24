@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/sync_progress.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_backup_client.dart';
 import '../services/dropbox_client.dart';
@@ -17,6 +18,7 @@ import '../services/oauth_service.dart';
 import '../services/person_photo_store.dart';
 import 'app_settings_backup.dart';
 import 'database_provider.dart';
+import 'shared_preferences_provider.dart';
 
 final _log = Logger('Backup');
 
@@ -108,7 +110,7 @@ class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
 
   @override
   Future<BackupSettings> build() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider);
     return BackupSettings({
       for (final d in BackupDestination.values) d: _read(prefs, d),
     });
@@ -139,22 +141,21 @@ class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
 
   Future<void> setIncludePhotos(BackupDestination d, bool value) async {
     await _update(d, (s) => s.copyWith(includePhotos: value));
-    await (await SharedPreferences.getInstance()).setBool(photosKey(d), value);
+    await ref.read(sharedPreferencesProvider).setBool(photosKey(d), value);
   }
 
   Future<void> setFrequency(BackupDestination d, BackupFrequency value) async {
     await _update(d, (s) => s.copyWith(frequency: value));
-    await (await SharedPreferences.getInstance()).setString(
-      frequencyKey(d),
-      value.name,
-    );
+    await ref
+        .read(sharedPreferencesProvider)
+        .setString(frequencyKey(d), value.name);
     unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
   }
 
   /// Takes effect at the next backup, which prunes down to [value].
   Future<void> setKeep(BackupDestination d, int value) async {
     await _update(d, (s) => s.copyWith(keep: value));
-    await (await SharedPreferences.getInstance()).setInt(keepKey(d), value);
+    await ref.read(sharedPreferencesProvider).setInt(keepKey(d), value);
   }
 }
 
@@ -398,27 +399,34 @@ class BackupState {
   const BackupState({
     this.statuses = const {},
     this.running = const {},
-    this.restoring = false,
+    this.restore,
   });
 
   final Map<BackupDestination, DestinationStatus> statuses;
-  final Set<BackupDestination> running;
-  final bool restoring;
+
+  /// Where each backup in progress is at.
+  final Map<BackupDestination, SyncProgress> running;
+
+  /// Where the restore in progress is at; null when there is none.
+  final SyncProgress? restore;
 
   DestinationStatus statusOf(BackupDestination d) =>
       statuses[d] ?? const DestinationStatus();
 
+  bool get restoring => restore != null;
   bool get busy => running.isNotEmpty || restoring;
 
   BackupState copyWith({
     Map<BackupDestination, DestinationStatus>? statuses,
-    Set<BackupDestination>? running,
-    bool? restoring,
+    Map<BackupDestination, SyncProgress>? running,
   }) => BackupState(
     statuses: statuses ?? this.statuses,
     running: running ?? this.running,
-    restoring: restoring ?? this.restoring,
+    restore: restore,
   );
+
+  BackupState withRestore(SyncProgress? restore) =>
+      BackupState(statuses: statuses, running: running, restore: restore);
 }
 
 final backupControllerProvider =
@@ -432,7 +440,7 @@ class BackupController extends AsyncNotifier<BackupState> {
 
   @override
   Future<BackupState> build() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider);
     return BackupState(
       statuses: {
         for (final d in BackupDestination.values)
@@ -493,9 +501,14 @@ class BackupController extends AsyncNotifier<BackupState> {
     required bool automatic,
   }) async {
     final current = await future;
-    final todo = destinations.where((d) => !current.running.contains(d));
+    final todo = destinations.where((d) => !current.running.containsKey(d));
     if (todo.isEmpty || current.restoring) return;
-    _setRunning(todo, true);
+    for (final d in todo) {
+      _progress(
+        d,
+        const SyncProgress(SyncPhase.parsing, message: 'Preparing backup…'),
+      );
+    }
 
     Object? firstError;
     try {
@@ -512,7 +525,7 @@ class BackupController extends AsyncNotifier<BackupState> {
               .create(
                 includePhotos: includePhotos,
                 settings: AppSettingsBackup.read(
-                  await SharedPreferences.getInstance(),
+                  ref.read(sharedPreferencesProvider),
                 ),
               );
         } catch (e) {
@@ -557,7 +570,13 @@ class BackupController extends AsyncNotifier<BackupState> {
         }
       }
     } finally {
-      _setRunning(todo, false);
+      final current = state.value ?? const BackupState();
+      state = AsyncData(
+        current.copyWith(
+          running: {...current.running}
+            ..removeWhere((d, _) => todo.contains(d)),
+        ),
+      );
     }
     if (firstError != null) {
       throw firstError is BackupException
@@ -571,20 +590,43 @@ class BackupController extends AsyncNotifier<BackupState> {
     BackupSnapshot snapshot, {
     required int keep,
   }) async {
+    const pruning = SyncProgress(
+      SyncPhase.saving,
+      fraction: 1,
+      message: 'Removing old backups…',
+    );
     switch (d) {
       case BackupDestination.dropbox || BackupDestination.googleDrive:
         final client = ref.read(cloudClientProvider(d));
+        final total = snapshot.bytes.length;
         _log.info(
-          'Uploading ${snapshot.fileName} '
-          '(${(snapshot.bytes.length / 1048576).toStringAsFixed(1)} MB) '
-          'to ${d.label}.',
+          'Uploading ${snapshot.fileName} (${_mb(total)} MB) to ${d.label}.',
         );
-        await client.upload(snapshot.fileName, snapshot.bytes);
+        void sent(double fraction) => _progress(
+          d,
+          SyncProgress(
+            SyncPhase.saving,
+            fraction: fraction,
+            message: 'Uploading ${_mb(fraction * total)} / ${_mb(total)} MB',
+          ),
+        );
+        sent(0);
+        await client.upload(
+          snapshot.fileName,
+          snapshot.bytes,
+          onProgress: sent,
+        );
+        _progress(d, pruning);
         await client.prune(keep: keep);
         ref.invalidate(cloudBackupsProvider(d));
       case BackupDestination.local:
         final store = ref.read(localBackupStoreProvider);
+        _progress(
+          d,
+          const SyncProgress(SyncPhase.saving, message: 'Saving backup…'),
+        );
         await store.save(snapshot);
+        _progress(d, pruning);
         await store.prune(keep: keep);
         ref.invalidate(localBackupsProvider);
     }
@@ -597,13 +639,16 @@ class BackupController extends AsyncNotifier<BackupState> {
     if (current.busy) {
       throw const BackupException('A backup is in progress, try again soon.');
     }
-    state = AsyncData(current.copyWith(restoring: true));
+    void step(String message) =>
+        _restoreProgress(SyncProgress(SyncPhase.saving, message: message));
+    step('Checking the backup…');
     try {
       // Validate before touching anything.
       await BackupService.readHeader(bytes);
+      step('Saving a copy of the current data…');
       final service = ref.read(backupServiceProvider);
       final store = ref.read(localBackupStoreProvider);
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = ref.read(sharedPreferencesProvider);
       final safety = await service.create(
         includePhotos: true,
         settings: AppSettingsBackup.read(prefs),
@@ -613,6 +658,7 @@ class BackupController extends AsyncNotifier<BackupState> {
         final settings = await ref.read(backupSettingsProvider.future);
         await store.prune(keep: settings.of(BackupDestination.local).keep);
       }
+      step('Restoring backup…');
       final summary = await service.restore(bytes);
       if (summary.settings case final settings?) {
         await AppSettingsBackup.restore(ref, settings);
@@ -629,24 +675,44 @@ class BackupController extends AsyncNotifier<BackupState> {
     } catch (e) {
       throw BackupException(_message(e));
     } finally {
-      state = AsyncData((await future).copyWith(restoring: false));
+      _restoreProgress(null);
     }
   }
 
+  /// Downloads [backup] for [restore], reporting the progress as the
+  /// restore's.
   Future<Uint8List> downloadFromCloud(
     BackupDestination d,
     RemoteBackup backup,
   ) async {
+    if ((await future).busy) {
+      throw const BackupException('A backup is in progress, try again soon.');
+    }
+    void received(double? fraction) => _restoreProgress(
+      SyncProgress(
+        SyncPhase.downloading,
+        fraction: fraction,
+        message: fraction == null || backup.size <= 0
+            ? 'Downloading backup…'
+            : 'Downloading ${_mb(fraction * backup.size)} / '
+                  '${_mb(backup.size)} MB',
+      ),
+    );
+    received(backup.size > 0 ? 0 : null);
     try {
-      return await ref.read(cloudClientProvider(d)).download(backup.id);
+      return await ref
+          .read(cloudClientProvider(d))
+          .download(backup.id, size: backup.size, onProgress: received);
     } on CloudReauthRequired catch (e) {
       await ref.read(cloudAuthProvider(d).notifier).sessionExpired(e.message);
       rethrow;
+    } finally {
+      _restoreProgress(null);
     }
   }
 
   Future<void> resetStatus(BackupDestination d) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider);
     for (final field in ['last_at', 'last_error', 'last_hash']) {
       await prefs.remove(_key(d, field));
     }
@@ -658,16 +724,26 @@ class BackupController extends AsyncNotifier<BackupState> {
     );
   }
 
-  void _setRunning(Iterable<BackupDestination> ds, bool running) {
+  /// Shows where the backup to [d] is at. A rebuild per percent, not per
+  /// network chunk.
+  void _progress(BackupDestination d, SyncProgress progress) {
     final current = state.value ?? const BackupState();
+    if (_same(current.running[d], progress)) return;
     state = AsyncData(
-      current.copyWith(
-        running: running
-            ? {...current.running, ...ds}
-            : current.running.difference(ds.toSet()),
-      ),
+      current.copyWith(running: {...current.running, d: progress}),
     );
   }
+
+  void _restoreProgress(SyncProgress? progress) {
+    final current = state.value ?? const BackupState();
+    if (progress != null && _same(current.restore, progress)) return;
+    state = AsyncData(current.withRestore(progress));
+  }
+
+  static bool _same(SyncProgress? a, SyncProgress b) =>
+      a != null && a.message == b.message && a.percent == b.percent;
+
+  static String _mb(num bytes) => (bytes / 1048576).toStringAsFixed(1);
 
   /// Stores the outcome of a run. Success clears the error; failure keeps
   /// the last successful time.
@@ -678,7 +754,7 @@ class BackupController extends AsyncNotifier<BackupState> {
     String? error,
     bool keepError = false,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = ref.read(sharedPreferencesProvider);
     final previous = (await future).statusOf(d);
     final next = error != null
         ? DestinationStatus(

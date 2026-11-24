@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/adsb_track_source.dart';
+import 'shared_preferences_provider.dart';
 
 /// The ids of the things of one kind (online services, airport types) that
 /// the user switched off in the settings.
@@ -15,31 +15,19 @@ class DisabledIdsNotifier extends Notifier<Set<String>> {
   /// Switched off until the user makes a choice.
   final Set<String> _defaultOff;
 
-  /// Completes once the saved choice has been read.
-  late Future<void> loaded;
-
   @override
-  Set<String> build() {
-    loaded = _load();
-    return _defaultOff;
-  }
-
-  Future<void> _load() async {
-    try {
-      final saved = (await SharedPreferences.getInstance()).getStringList(_key);
-      if (saved != null && ref.mounted) state = saved.toSet();
-    } catch (_) {
-      // No preferences (tests, for instance): the defaults stay.
-    }
-  }
+  Set<String> build() =>
+      ref.read(sharedPreferencesProvider).getStringList(_key)?.toSet() ??
+      _defaultOff;
 
   bool isEnabled(String id) => !state.contains(id);
 
   Future<void> setEnabled(String id, {required bool enabled}) async {
     if (enabled == isEnabled(id)) return;
     state = enabled ? ({...state}..remove(id)) : {...state, id};
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_key, state.toList()..sort());
+    await ref
+        .read(sharedPreferencesProvider)
+        .setStringList(_key, state.toList()..sort());
   }
 }
 

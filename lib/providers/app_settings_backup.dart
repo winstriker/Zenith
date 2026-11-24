@@ -8,6 +8,7 @@ import 'currency_settings_provider.dart';
 import 'map_provider.dart';
 import 'provider_toggles.dart';
 import 'replay_speed_provider.dart';
+import 'shared_preferences_provider.dart';
 import 'theme_provider.dart';
 import 'unit_provider.dart';
 import 'update_providers.dart';
@@ -111,7 +112,7 @@ class AppSettingsBackup {
 
   /// Applies [settings] from a backup, and has the app pick them up.
   static Future<void> restore(Ref ref, Map<String, Object?> settings) async {
-    await write(await SharedPreferences.getInstance(), settings);
+    await write(ref.read(sharedPreferencesProvider), settings);
     // Each one reads its preferences when built.
     ref
       ..invalidate(userNicknameProvider)

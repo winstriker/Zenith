@@ -9,7 +9,8 @@ import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../providers/shared_preferences_provider.dart';
 
 /// Keeps the online aircraft photos that have been shown once, so they can
 /// be shown again without a connection.
@@ -266,22 +267,15 @@ class AircraftImageCacheLimit extends Notifier<int> {
 
   @override
   int build() {
-    _load();
-    return AircraftImageCache.defaultMaxBytes;
-  }
-
-  Future<void> _load() async {
-    try {
-      final saved = (await SharedPreferences.getInstance()).getInt(prefsKey);
-      if (saved != null && saved >= 0) state = saved;
-    } catch (_) {
-      // No preferences (tests, for instance): keep the default.
-    }
+    final saved = ref.read(sharedPreferencesProvider).getInt(prefsKey);
+    return saved != null && saved >= 0
+        ? saved
+        : AircraftImageCache.defaultMaxBytes;
   }
 
   Future<void> setMaxBytes(int maxBytes) async {
     state = maxBytes;
-    await (await SharedPreferences.getInstance()).setInt(prefsKey, maxBytes);
+    await ref.read(sharedPreferencesProvider).setInt(prefsKey, maxBytes);
   }
 }
 
