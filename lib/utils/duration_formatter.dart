@@ -10,7 +10,7 @@ class DurationFormatter {
     return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  /// Format as MM:SS: '02:30'
+  /// Format as HH:MM: '02:30'
   static String hm(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
@@ -42,20 +42,5 @@ class DurationFormatter {
     } else {
       return '${minutes}m';
     }
-  }
-
-  /// Format with label: 'Duration: 2:30'
-  static String withLabel(
-    Duration duration, {
-    String label = 'Duration',
-    String format = 'compact',
-  }) {
-    final formatted = switch (format) {
-      'hms' => hms(duration),
-      'hm' => hm(duration),
-      'descriptive' => descriptive(duration),
-      _ => hm(duration),
-    };
-    return '$label: $formatted';
   }
 }
