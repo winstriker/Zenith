@@ -1,6 +1,5 @@
 // ignore_for_file: strict_raw_type
 
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:drift/drift.dart';
@@ -18,6 +17,7 @@ import '../models/logbook_overrides.dart';
 import '../models/previous_totals.dart';
 import '../models/simulator_kind.dart';
 import '../utils/night_time.dart';
+import 'sync_service.dart';
 
 export '../models/aircraft_class.dart';
 export '../models/aircraft_photo.dart';
@@ -30,6 +30,11 @@ export '../models/previous_totals.dart';
 export '../models/simulator_kind.dart';
 
 part 'database.g.dart';
+
+/// Default of the `sync_id` columns: a random id that names the row on every
+/// device the logbook syncs to (see [SyncService]), where its integer id
+/// differs.
+const newSyncId = CustomExpression<String>('(lower(hex(randomblob(16))))');
 
 class Countries extends Table {
   IntColumn get id => integer()();
@@ -100,6 +105,11 @@ class Airports extends Table {
   /// airport's data.
   TextColumn get logbookNote => text().nullable()();
 
+  /// Identifies an airport of the user's own (see [CustomAirport]) on every
+  /// device it syncs to. Null for OurAirports airports, whose ids are the
+  /// same everywhere.
+  TextColumn get syncId => text().unique().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -152,6 +162,7 @@ class Runways extends Table {
 
 class Aircrafts extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get syncId => text().unique().withDefault(newSyncId)();
   IntColumn get icaoAircraft => integer().references(IcaoAircrafts, #id)();
   TextColumn get tailNumber => text()();
   TextColumn get notes => text().nullable()();
@@ -188,6 +199,7 @@ class Aircrafts extends Table {
 /// session is a [Flights] row pointing at it through [Flights.simulatorId].
 class Simulators extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get syncId => text().unique().withDefault(newSyncId)();
   TextColumn get kind => textEnum<SimulatorKind>()();
 
   /// Qualification level ("D" for an FFS, "II MCC" for an FNPT). Null when
@@ -223,6 +235,7 @@ class Simulators extends Table {
 @TableIndex(name: 'flights_arrival_idx', columns: {#arrival})
 class Flights extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get syncId => text().unique().withDefault(newSyncId)();
   TextColumn get title => text()();
   @ReferenceName("departureAirportRefs")
   IntColumn get departure => integer().nullable().references(Airports, #id)();
@@ -291,6 +304,7 @@ class Flights extends Table {
 @DataClassName('Person')
 class People extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get syncId => text().unique().withDefault(newSyncId)();
   TextColumn get name => text()();
   TextColumn get surname => text()();
 
@@ -356,6 +370,7 @@ class IcaoAircrafts extends Table {
 /// A pilot licence held by the user.
 class Licences extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get syncId => text().unique().withDefault(newSyncId)();
   TextColumn get kind => textEnum<LicenceKind>()();
   TextColumn get category => textEnum<AircraftCategory>()();
 
@@ -411,6 +426,7 @@ class LicenceRatings extends Table {
 @DataClassName('MedicalCertificate')
 class MedicalCertificates extends Table {
   IntColumn get id => integer().autoIncrement()();
+  TextColumn get syncId => text().unique().withDefault(newSyncId)();
   TextColumn get medicalClass => textEnum<MedicalClass>()();
   DateTimeColumn get examinationDate => dateTime().nullable()();
 
@@ -884,166 +900,17 @@ class LogbookDatabase extends _$LogbookDatabase {
   static LogbookDatabase? _instance;
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 1;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) => m.createAll(),
-    onUpgrade: (m, from, to) async {
-      // Columns are only added when missing: the migration tests start
-      // from the current schema, where they already exist.
-      Future<void> addMissing(
-        TableInfo table,
-        List<GeneratedColumn> columns,
-      ) async {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(${table.actualTableName})',
-          ).get())
-            row.read<String>('name'),
-        };
-        for (final column in columns) {
-          if (!existing.contains(column.name)) {
-            await m.addColumn(table, column);
-          }
-        }
-      }
-
-      if (from < 2) {
-        await customStatement('ALTER TABLE flights ADD COLUMN pilot_role TEXT');
-        await customStatement('ALTER TABLE flights ADD COLUMN crew_json TEXT');
-      }
-      if (from < 3) {
-        await m.createTable(people);
-        await m.createTable(flightCrew);
-        await _migrateCrewJson();
-        // Rebuild flights without the crew_json column.
-        await m.alterTable(TableMigration(flights));
-      }
-      // Databases upgraded from < 3 got `people` with this column already.
-      if (from == 3) {
-        await m.addColumn(people, people.photo);
-      }
-      if (from < 5) {
-        await addMissing(aircrafts, [
-          aircrafts.aircraftClass,
-          aircrafts.typeRating,
-          aircrafts.photoFile,
-          aircrafts.photoUrl,
-          aircrafts.photoThumbnailUrl,
-          aircrafts.photoLink,
-          aircrafts.photoCredit,
-        ]);
-        // The aircraft views list the new columns.
-        await m.recreateAllViews();
-        await assignDeducedAircraftClasses();
-      }
-      if (from < 6) await addMissing(flights, [flights.trackSource]);
-      if (from < 7) {
-        await addMissing(flights, [
-          flights.instrumentMinutes,
-          flights.nightMinutes,
-          flights.logbookOverrides,
-        ]);
-        await _backfillLogbookTimes();
-      }
-      if (from < 8) {
-        // CREATE TABLE IF NOT EXISTS, like every createTable.
-        await m.createTable(licences);
-        await m.createTable(licenceRatings);
-        await m.createTable(medicalCertificates);
-      }
-      if (from < 9) {
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(flights)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(flights.proficiencyCheck.name)) {
-          await m.addColumn(flights, flights.proficiencyCheck);
-          // A flight with an examiner was, more often than not, a check.
-          await customStatement(
-            'UPDATE flights SET proficiency_check = 1 WHERE id IN '
-            "(SELECT flight FROM flight_crew WHERE role = 'exm')",
-          );
-        }
-      }
-      if (from < 10) await addMissing(flights, [flights.signatureFile]);
-      if (from < 11) {
-        await m.createTable(simulators);
-        await addMissing(flights, [flights.simulatorId]);
-      }
-      if (from < 12) await m.createTable(pilotProfile);
-      if (from < 13) {
-        await addMissing(licenceRatings, [licenceRatings.lightSingleEngine]);
-        await addMissing(flights, [flights.mountainLandings]);
-        await addMissing(pilotProfile, [pilotProfile.address]);
-        await retireEnRouteInstrumentRatings();
-      }
-      if (from < 14) {
-        await addMissing(aircrafts, [
-          aircrafts.logbookType,
-          aircrafts.logbookSubtitle,
-        ]);
-        await m.recreateAllViews();
-      }
-      if (from < 17) {
-        await addMissing(airports, [
-          airports.logbookIdent,
-          airports.logbookAnnotate,
-          airports.logbookNote,
-        ]);
-        // Schema 16 kept them in a table of their own (development only).
-        await customStatement('DROP TABLE IF EXISTS airport_logbook_overrides');
-      }
-      if (from < 18) {
-        // Indexes used to be declared where drift doesn't read them, so most
-        // were never created.
-        for (final index in allSchemaEntities.whereType<Index>()) {
-          await customStatement(
-            index.createStatementsByDialect.values.first.replaceFirst(
-              'CREATE INDEX',
-              'CREATE INDEX IF NOT EXISTS',
-            ),
-          );
-        }
-        await customStatement('DROP INDEX IF EXISTS flights_is_recording_idx');
-        await customStatement('DROP VIEW IF EXISTS flight_stats');
+    onCreate: (m) async {
+      await m.createAll();
+      for (final statement in SyncService.schema) {
+        await customStatement(statement);
       }
     },
   );
-
-  /// The en route instrument rating (FCL.825) was deleted from Part-FCL:
-  /// EIRs could only be used until 8 September 2022 (Article 4c). Ratings
-  /// recorded as one become "other" ratings named EIR, kept for the record.
-  Future<void> retireEnRouteInstrumentRatings() => customStatement(
-    "UPDATE licence_ratings SET kind = 'other', "
-    "name = COALESCE(NULLIF(TRIM(name), ''), 'EIR') "
-    "WHERE kind = 'enRouteInstrument'",
-  );
-
-  /// Works out the instrument and night time of the flights logged before
-  /// they were stored. Instrument time is only known for plain VFR and IFR
-  /// flights: the others are left for the pilot.
-  Future<void> _backfillLogbookTimes() async {
-    final logged = await (select(
-      flights,
-    )..where((f) => f.arrivalTime.isNotNull())).get();
-    for (final flight in logged) {
-      final block = flight.arrivalTime!.difference(flight.departureTime);
-      if (block.isNegative) continue;
-      final instrument = switch (flight.flightRules) {
-        null || 'VFR' => 0,
-        'IFR' => block.inMinutes,
-        _ => null,
-      };
-      await (update(flights)..where((f) => f.id.equals(flight.id))).write(
-        FlightsCompanion(instrumentMinutes: Value(instrument)),
-      );
-      await updateNightTime(flight.id);
-    }
-  }
 
   /// Works the night time of [flightId] out again from what is stored: its
   /// airports, times and track. For when one of them changes outside the
@@ -1072,87 +939,13 @@ class LogbookDatabase extends _$LogbookDatabase {
     );
   }
 
-  /// Gives every aircraft that has no class yet the class rating its type
-  /// implies (see [AircraftClass.deduce]), so aircraft added before classes
-  /// existed don't all have to be edited by hand. Aircraft that can't be
-  /// told apart from their type alone, or that need a type rating (whose
-  /// name only the pilot knows), are left for the user. Returns how many
-  /// aircraft got a class.
-  Future<int> assignDeducedAircraftClasses() async {
-    final rows = await customSelect(
-      'SELECT a.id AS id, t.description AS description, '
-      't.engine_count AS engine_count, t.engine_type AS engine_type '
-      'FROM aircrafts a JOIN icao_aircrafts t ON t.id = a.icao_aircraft '
-      'WHERE a.aircraft_class IS NULL',
-    ).get();
-    var assigned = 0;
-    for (final row in rows) {
-      final description = AircraftDescription.values
-          .asNameMap()[row.read<String>('description')];
-      final engineType = EngineType.values
-          .asNameMap()[row.read<String>('engine_type')];
-      if (description == null || engineType == null) continue;
-      final deduced = AircraftClass.deduce(
-        description: description,
-        engineCount: row.read<int>('engine_count'),
-        engineType: engineType,
-      );
-      if (deduced == null || !deduced.isClassRating) continue;
-      await customUpdate(
-        'UPDATE aircrafts SET aircraft_class = ? WHERE id = ?',
-        variables: [
-          Variable.withString(deduced.name),
-          Variable.withInt(row.read<int>('id')),
-        ],
-        updates: {aircrafts},
-      );
-      assigned++;
-    }
-    return assigned;
-  }
-
-  /// Moves the legacy `flights.crew_json` column into [people] and
-  /// [flightCrew]. Names are split on the first space into name / surname.
-  Future<void> _migrateCrewJson() async {
-    final rows = await customSelect(
-      'SELECT id, crew_json FROM flights WHERE crew_json IS NOT NULL',
-    ).get();
-    final personIds = <String, int>{};
-    for (final row in rows) {
-      final flightId = row.read<int>('id');
-      final List<dynamic> members;
-      try {
-        members = jsonDecode(row.read<String>('crew_json')) as List<dynamic>;
-      } catch (_) {
-        continue;
-      }
-      for (final m in members.whereType<Map<String, dynamic>>()) {
-        final fullName = (m['name'] as String? ?? '').trim();
-        if (fullName.isEmpty) continue;
-        final space = fullName.indexOf(' ');
-        final name = space < 0 ? fullName : fullName.substring(0, space);
-        final surname = space < 0 ? '' : fullName.substring(space + 1).trim();
-        final key = fullName.toLowerCase();
-        final personId = personIds[key] ??= await into(
-          people,
-        ).insert(PeopleCompanion.insert(name: name, surname: surname));
-        await into(flightCrew).insert(
-          FlightCrewCompanion.insert(
-            flight: flightId,
-            person: personId,
-            role: CrewRole.fromString(m['role'] as String? ?? 'oth'),
-          ),
-          mode: InsertMode.insertOrIgnore,
-        );
-      }
-    }
-  }
-
   static QueryExecutor _openConnection() {
     return driftDatabase(
       name: 'zenith',
       native: const DriftNativeOptions(
         databaseDirectory: getApplicationSupportDirectory,
+        // The background sync (main.dart) opens it from another isolate.
+        shareAcrossIsolates: true,
       ),
     );
   }

@@ -62,6 +62,7 @@ class AppSettingsBackup {
       BackupSettingsNotifier.photosKey(d): _Kind.bool,
       BackupSettingsNotifier.frequencyKey(d): _Kind.string,
       BackupSettingsNotifier.keepKey(d): _Kind.int,
+      BackupSettingsNotifier.syncKey(d): _Kind.bool,
     },
     // Updates.
     AutoUpdateCheckNotifier.prefsKey: _Kind.bool,

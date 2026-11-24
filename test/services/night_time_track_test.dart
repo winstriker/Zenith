@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,23 +7,6 @@ import 'package:zenith/services/database.dart';
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
-
-  Future<void> addAirport(LogbookDatabase db, int id, String ident) async {
-    await db
-        .into(db.airports)
-        .insert(
-          AirportsCompanion.insert(
-            id: Value(id),
-            ident: Value(ident),
-            type: AirportType.mediumAirport,
-            continent: 'EU',
-            isoCountry: 'IT',
-            isoRegion: 'IT-25',
-            latitudeDeg: const Value(45.63),
-            longitudeDeg: const Value(8.72),
-          ),
-        );
-  }
 
   Future<int> addFlight(
     LogbookDatabase db, {
@@ -46,56 +27,6 @@ void main() {
           arrival: Value(airport),
         ),
       );
-
-  test('v6 → v7 works out IFR and night time of the logged flights', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration_v7');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    final v7 = LogbookDatabase(NativeDatabase(file));
-    await addAirport(v7, 1, 'LIMC');
-    final day = DateTime.utc(2026, 6, 21, 9);
-    final night = DateTime.utc(2026, 12, 21, 19);
-    final vfr = await addFlight(v7, rules: 'VFR', dep: day, airport: 1);
-    final ifr = await addFlight(v7, rules: 'IFR', dep: night, airport: 1);
-    final mixed = await addFlight(v7, rules: 'Y', dep: night, airport: 1);
-    final noAirport = await addFlight(v7, rules: null, dep: night);
-    for (final column in [
-      'instrument_minutes',
-      'night_minutes',
-      'logbook_overrides',
-    ]) {
-      await v7.customStatement('ALTER TABLE flights DROP COLUMN $column');
-    }
-    await v7.customStatement('PRAGMA user_version = 6');
-    await v7.close();
-
-    final db = LogbookDatabase(NativeDatabase(file));
-    addTearDown(db.close);
-    Future<Flight> flight(int id) =>
-        (db.select(db.flights)..where((f) => f.id.equals(id))).getSingle();
-
-    expect((await flight(vfr)).instrumentMinutes, 0);
-    expect((await flight(vfr)).nightMinutes, 0);
-    expect((await flight(ifr)).instrumentMinutes, 60);
-    expect((await flight(ifr)).nightMinutes, 60);
-    // The split of a Y flight is only known to the pilot.
-    expect((await flight(mixed)).instrumentMinutes, isNull);
-    expect((await flight(mixed)).nightMinutes, 60);
-    expect((await flight(noAirport)).instrumentMinutes, 0);
-    expect((await flight(noAirport)).nightMinutes, isNull);
-    expect((await flight(vfr)).logbookOverrides, isNull);
-
-    // And overrides can be stored.
-    final repo = FlightRepository(db);
-    const overrides = LogbookOverrides(
-      times: {LogbookTimeField.total: Duration(minutes: 55)},
-    );
-    await repo.setLogbookOverrides(vfr, overrides);
-    expect((await flight(vfr)).logbookOverrides, overrides);
-    await repo.setLogbookOverrides(vfr, LogbookOverrides.empty);
-    expect((await flight(vfr)).logbookOverrides, isNull);
-  });
 
   group('night time follows the track', () {
     late LogbookDatabase db;

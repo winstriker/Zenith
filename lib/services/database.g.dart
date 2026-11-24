@@ -1202,6 +1202,16 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1226,6 +1236,7 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
     logbookIdent,
     logbookAnnotate,
     logbookNote,
+    syncId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1395,6 +1406,12 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
         ),
       );
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
+    }
     return context;
   }
 
@@ -1494,6 +1511,10 @@ class $AirportsTable extends Airports with TableInfo<$AirportsTable, Airport> {
         DriftSqlType.string,
         data['${effectivePrefix}logbook_note'],
       ),
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      ),
     );
   }
 
@@ -1538,6 +1559,11 @@ class Airport extends DataClass implements Insertable<Airport> {
   /// The pilot's own description under the table. Null: worked out from the
   /// airport's data.
   final String? logbookNote;
+
+  /// Identifies an airport of the user's own (see [CustomAirport]) on every
+  /// device it syncs to. Null for OurAirports airports, whose ids are the
+  /// same everywhere.
+  final String? syncId;
   const Airport({
     required this.id,
     this.ident,
@@ -1561,6 +1587,7 @@ class Airport extends DataClass implements Insertable<Airport> {
     this.logbookIdent,
     this.logbookAnnotate,
     this.logbookNote,
+    this.syncId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1623,6 +1650,9 @@ class Airport extends DataClass implements Insertable<Airport> {
     if (!nullToAbsent || logbookNote != null) {
       map['logbook_note'] = Variable<String>(logbookNote);
     }
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -1682,6 +1712,9 @@ class Airport extends DataClass implements Insertable<Airport> {
       logbookNote: logbookNote == null && nullToAbsent
           ? const Value.absent()
           : Value(logbookNote),
+      syncId: syncId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncId),
     );
   }
 
@@ -1715,6 +1748,7 @@ class Airport extends DataClass implements Insertable<Airport> {
       logbookIdent: serializer.fromJson<String?>(json['logbookIdent']),
       logbookAnnotate: serializer.fromJson<bool?>(json['logbookAnnotate']),
       logbookNote: serializer.fromJson<String?>(json['logbookNote']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -1745,6 +1779,7 @@ class Airport extends DataClass implements Insertable<Airport> {
       'logbookIdent': serializer.toJson<String?>(logbookIdent),
       'logbookAnnotate': serializer.toJson<bool?>(logbookAnnotate),
       'logbookNote': serializer.toJson<String?>(logbookNote),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -1771,6 +1806,7 @@ class Airport extends DataClass implements Insertable<Airport> {
     Value<String?> logbookIdent = const Value.absent(),
     Value<bool?> logbookAnnotate = const Value.absent(),
     Value<String?> logbookNote = const Value.absent(),
+    Value<String?> syncId = const Value.absent(),
   }) => Airport(
     id: id ?? this.id,
     ident: ident.present ? ident.value : this.ident,
@@ -1800,6 +1836,7 @@ class Airport extends DataClass implements Insertable<Airport> {
         ? logbookAnnotate.value
         : this.logbookAnnotate,
     logbookNote: logbookNote.present ? logbookNote.value : this.logbookNote,
+    syncId: syncId.present ? syncId.value : this.syncId,
   );
   Airport copyWithCompanion(AirportsCompanion data) {
     return Airport(
@@ -1845,6 +1882,7 @@ class Airport extends DataClass implements Insertable<Airport> {
       logbookNote: data.logbookNote.present
           ? data.logbookNote.value
           : this.logbookNote,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -1872,7 +1910,8 @@ class Airport extends DataClass implements Insertable<Airport> {
           ..write('keywords: $keywords, ')
           ..write('logbookIdent: $logbookIdent, ')
           ..write('logbookAnnotate: $logbookAnnotate, ')
-          ..write('logbookNote: $logbookNote')
+          ..write('logbookNote: $logbookNote, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -1901,6 +1940,7 @@ class Airport extends DataClass implements Insertable<Airport> {
     logbookIdent,
     logbookAnnotate,
     logbookNote,
+    syncId,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1927,7 +1967,8 @@ class Airport extends DataClass implements Insertable<Airport> {
           other.keywords == this.keywords &&
           other.logbookIdent == this.logbookIdent &&
           other.logbookAnnotate == this.logbookAnnotate &&
-          other.logbookNote == this.logbookNote);
+          other.logbookNote == this.logbookNote &&
+          other.syncId == this.syncId);
 }
 
 class AirportsCompanion extends UpdateCompanion<Airport> {
@@ -1953,6 +1994,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
   final Value<String?> logbookIdent;
   final Value<bool?> logbookAnnotate;
   final Value<String?> logbookNote;
+  final Value<String?> syncId;
   const AirportsCompanion({
     this.id = const Value.absent(),
     this.ident = const Value.absent(),
@@ -1976,6 +2018,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     this.logbookIdent = const Value.absent(),
     this.logbookAnnotate = const Value.absent(),
     this.logbookNote = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   AirportsCompanion.insert({
     this.id = const Value.absent(),
@@ -2000,6 +2043,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     this.logbookIdent = const Value.absent(),
     this.logbookAnnotate = const Value.absent(),
     this.logbookNote = const Value.absent(),
+    this.syncId = const Value.absent(),
   }) : type = Value(type),
        continent = Value(continent),
        isoCountry = Value(isoCountry),
@@ -2027,6 +2071,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     Expression<String>? logbookIdent,
     Expression<bool>? logbookAnnotate,
     Expression<String>? logbookNote,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2051,6 +2096,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
       if (logbookIdent != null) 'logbook_ident': logbookIdent,
       if (logbookAnnotate != null) 'logbook_annotate': logbookAnnotate,
       if (logbookNote != null) 'logbook_note': logbookNote,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -2077,6 +2123,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     Value<String?>? logbookIdent,
     Value<bool?>? logbookAnnotate,
     Value<String?>? logbookNote,
+    Value<String?>? syncId,
   }) {
     return AirportsCompanion(
       id: id ?? this.id,
@@ -2101,6 +2148,7 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
       logbookIdent: logbookIdent ?? this.logbookIdent,
       logbookAnnotate: logbookAnnotate ?? this.logbookAnnotate,
       logbookNote: logbookNote ?? this.logbookNote,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -2175,6 +2223,9 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
     if (logbookNote.present) {
       map['logbook_note'] = Variable<String>(logbookNote.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -2202,7 +2253,8 @@ class AirportsCompanion extends UpdateCompanion<Airport> {
           ..write('keywords: $keywords, ')
           ..write('logbookIdent: $logbookIdent, ')
           ..write('logbookAnnotate: $logbookAnnotate, ')
-          ..write('logbookNote: $logbookNote')
+          ..write('logbookNote: $logbookNote, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -4410,6 +4462,17 @@ class $AircraftsTable extends Aircrafts
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    defaultValue: newSyncId,
+  );
   static const VerificationMeta _icaoAircraftMeta = const VerificationMeta(
     'icaoAircraft',
   );
@@ -4545,6 +4608,7 @@ class $AircraftsTable extends Aircrafts
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    syncId,
     icaoAircraft,
     tailNumber,
     notes,
@@ -4572,6 +4636,12 @@ class $AircraftsTable extends Aircrafts
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
     }
     if (data.containsKey('icao_aircraft')) {
       context.handle(
@@ -4671,6 +4741,10 @@ class $AircraftsTable extends Aircrafts
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      )!,
       icaoAircraft: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}icao_aircraft'],
@@ -4741,6 +4815,7 @@ class $AircraftsTable extends Aircrafts
 
 class Aircraft extends DataClass implements Insertable<Aircraft> {
   final int id;
+  final String syncId;
   final int icaoAircraft;
   final String tailNumber;
   final String? notes;
@@ -4773,6 +4848,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   final String? logbookSubtitle;
   const Aircraft({
     required this.id,
+    required this.syncId,
     required this.icaoAircraft,
     required this.tailNumber,
     this.notes,
@@ -4790,6 +4866,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['sync_id'] = Variable<String>(syncId);
     map['icao_aircraft'] = Variable<int>(icaoAircraft);
     map['tail_number'] = Variable<String>(tailNumber);
     if (!nullToAbsent || notes != null) {
@@ -4830,6 +4907,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   AircraftsCompanion toCompanion(bool nullToAbsent) {
     return AircraftsCompanion(
       id: Value(id),
+      syncId: Value(syncId),
       icaoAircraft: Value(icaoAircraft),
       tailNumber: Value(tailNumber),
       notes: notes == null && nullToAbsent
@@ -4872,6 +4950,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Aircraft(
       id: serializer.fromJson<int>(json['id']),
+      syncId: serializer.fromJson<String>(json['syncId']),
       icaoAircraft: serializer.fromJson<int>(json['icaoAircraft']),
       tailNumber: serializer.fromJson<String>(json['tailNumber']),
       notes: serializer.fromJson<String?>(json['notes']),
@@ -4895,6 +4974,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'syncId': serializer.toJson<String>(syncId),
       'icaoAircraft': serializer.toJson<int>(icaoAircraft),
       'tailNumber': serializer.toJson<String>(tailNumber),
       'notes': serializer.toJson<String?>(notes),
@@ -4914,6 +4994,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
 
   Aircraft copyWith({
     int? id,
+    String? syncId,
     int? icaoAircraft,
     String? tailNumber,
     Value<String?> notes = const Value.absent(),
@@ -4928,6 +5009,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
     Value<String?> logbookSubtitle = const Value.absent(),
   }) => Aircraft(
     id: id ?? this.id,
+    syncId: syncId ?? this.syncId,
     icaoAircraft: icaoAircraft ?? this.icaoAircraft,
     tailNumber: tailNumber ?? this.tailNumber,
     notes: notes.present ? notes.value : this.notes,
@@ -4950,6 +5032,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   Aircraft copyWithCompanion(AircraftsCompanion data) {
     return Aircraft(
       id: data.id.present ? data.id.value : this.id,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
       icaoAircraft: data.icaoAircraft.present
           ? data.icaoAircraft.value
           : this.icaoAircraft,
@@ -4985,6 +5068,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   String toString() {
     return (StringBuffer('Aircraft(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('icaoAircraft: $icaoAircraft, ')
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
@@ -5004,6 +5088,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
   @override
   int get hashCode => Object.hash(
     id,
+    syncId,
     icaoAircraft,
     tailNumber,
     notes,
@@ -5022,6 +5107,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
       identical(this, other) ||
       (other is Aircraft &&
           other.id == this.id &&
+          other.syncId == this.syncId &&
           other.icaoAircraft == this.icaoAircraft &&
           other.tailNumber == this.tailNumber &&
           other.notes == this.notes &&
@@ -5038,6 +5124,7 @@ class Aircraft extends DataClass implements Insertable<Aircraft> {
 
 class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   final Value<int> id;
+  final Value<String> syncId;
   final Value<int> icaoAircraft;
   final Value<String> tailNumber;
   final Value<String?> notes;
@@ -5052,6 +5139,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   final Value<String?> logbookSubtitle;
   const AircraftsCompanion({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     this.icaoAircraft = const Value.absent(),
     this.tailNumber = const Value.absent(),
     this.notes = const Value.absent(),
@@ -5067,6 +5155,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   });
   AircraftsCompanion.insert({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     required int icaoAircraft,
     required String tailNumber,
     this.notes = const Value.absent(),
@@ -5083,6 +5172,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
        tailNumber = Value(tailNumber);
   static Insertable<Aircraft> custom({
     Expression<int>? id,
+    Expression<String>? syncId,
     Expression<int>? icaoAircraft,
     Expression<String>? tailNumber,
     Expression<String>? notes,
@@ -5098,6 +5188,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (syncId != null) 'sync_id': syncId,
       if (icaoAircraft != null) 'icao_aircraft': icaoAircraft,
       if (tailNumber != null) 'tail_number': tailNumber,
       if (notes != null) 'notes': notes,
@@ -5115,6 +5206,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
 
   AircraftsCompanion copyWith({
     Value<int>? id,
+    Value<String>? syncId,
     Value<int>? icaoAircraft,
     Value<String>? tailNumber,
     Value<String?>? notes,
@@ -5130,6 +5222,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   }) {
     return AircraftsCompanion(
       id: id ?? this.id,
+      syncId: syncId ?? this.syncId,
       icaoAircraft: icaoAircraft ?? this.icaoAircraft,
       tailNumber: tailNumber ?? this.tailNumber,
       notes: notes ?? this.notes,
@@ -5150,6 +5243,9 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
     }
     if (icaoAircraft.present) {
       map['icao_aircraft'] = Variable<int>(icaoAircraft.value);
@@ -5196,6 +5292,7 @@ class AircraftsCompanion extends UpdateCompanion<Aircraft> {
   String toString() {
     return (StringBuffer('AircraftsCompanion(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('icaoAircraft: $icaoAircraft, ')
           ..write('tailNumber: $tailNumber, ')
           ..write('notes: $notes, ')
@@ -5231,6 +5328,17 @@ class $SimulatorsTable extends Simulators
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'PRIMARY KEY AUTOINCREMENT',
     ),
+  );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    defaultValue: newSyncId,
   );
   @override
   late final GeneratedColumnWithTypeConverter<SimulatorKind, String> kind =
@@ -5318,6 +5426,7 @@ class $SimulatorsTable extends Simulators
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    syncId,
     kind,
     level,
     icaoAircraft,
@@ -5341,6 +5450,12 @@ class $SimulatorsTable extends Simulators
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
     }
     if (data.containsKey('level')) {
       context.handle(
@@ -5400,6 +5515,10 @@ class $SimulatorsTable extends Simulators
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      )!,
       kind: $SimulatorsTable.$converterkind.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -5458,6 +5577,7 @@ class $SimulatorsTable extends Simulators
 
 class Simulator extends DataClass implements Insertable<Simulator> {
   final int id;
+  final String syncId;
   final SimulatorKind kind;
 
   /// Qualification level ("D" for an FFS, "II MCC" for an FNPT). Null when
@@ -5485,6 +5605,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
   final String? notes;
   const Simulator({
     required this.id,
+    required this.syncId,
     required this.kind,
     this.level,
     this.icaoAircraft,
@@ -5498,6 +5619,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['sync_id'] = Variable<String>(syncId);
     {
       map['kind'] = Variable<String>(
         $SimulatorsTable.$converterkind.toSql(kind),
@@ -5532,6 +5654,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
   SimulatorsCompanion toCompanion(bool nullToAbsent) {
     return SimulatorsCompanion(
       id: Value(id),
+      syncId: Value(syncId),
       kind: Value(kind),
       level: level == null && nullToAbsent
           ? const Value.absent()
@@ -5564,6 +5687,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Simulator(
       id: serializer.fromJson<int>(json['id']),
+      syncId: serializer.fromJson<String>(json['syncId']),
       kind: $SimulatorsTable.$converterkind.fromJson(
         serializer.fromJson<String>(json['kind']),
       ),
@@ -5585,6 +5709,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'syncId': serializer.toJson<String>(syncId),
       'kind': serializer.toJson<String>(
         $SimulatorsTable.$converterkind.toJson(kind),
       ),
@@ -5602,6 +5727,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
 
   Simulator copyWith({
     int? id,
+    String? syncId,
     SimulatorKind? kind,
     Value<String?> level = const Value.absent(),
     Value<int?> icaoAircraft = const Value.absent(),
@@ -5612,6 +5738,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
     Value<String?> notes = const Value.absent(),
   }) => Simulator(
     id: id ?? this.id,
+    syncId: syncId ?? this.syncId,
     kind: kind ?? this.kind,
     level: level.present ? level.value : this.level,
     icaoAircraft: icaoAircraft.present ? icaoAircraft.value : this.icaoAircraft,
@@ -5628,6 +5755,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
   Simulator copyWithCompanion(SimulatorsCompanion data) {
     return Simulator(
       id: data.id.present ? data.id.value : this.id,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
       kind: data.kind.present ? data.kind.value : this.kind,
       level: data.level.present ? data.level.value : this.level,
       icaoAircraft: data.icaoAircraft.present
@@ -5653,6 +5781,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
   String toString() {
     return (StringBuffer('Simulator(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('kind: $kind, ')
           ..write('level: $level, ')
           ..write('icaoAircraft: $icaoAircraft, ')
@@ -5668,6 +5797,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
   @override
   int get hashCode => Object.hash(
     id,
+    syncId,
     kind,
     level,
     icaoAircraft,
@@ -5682,6 +5812,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
       identical(this, other) ||
       (other is Simulator &&
           other.id == this.id &&
+          other.syncId == this.syncId &&
           other.kind == this.kind &&
           other.level == this.level &&
           other.icaoAircraft == this.icaoAircraft &&
@@ -5694,6 +5825,7 @@ class Simulator extends DataClass implements Insertable<Simulator> {
 
 class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   final Value<int> id;
+  final Value<String> syncId;
   final Value<SimulatorKind> kind;
   final Value<String?> level;
   final Value<int?> icaoAircraft;
@@ -5704,6 +5836,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   final Value<String?> notes;
   const SimulatorsCompanion({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     this.kind = const Value.absent(),
     this.level = const Value.absent(),
     this.icaoAircraft = const Value.absent(),
@@ -5715,6 +5848,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   });
   SimulatorsCompanion.insert({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     required SimulatorKind kind,
     this.level = const Value.absent(),
     this.icaoAircraft = const Value.absent(),
@@ -5726,6 +5860,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   }) : kind = Value(kind);
   static Insertable<Simulator> custom({
     Expression<int>? id,
+    Expression<String>? syncId,
     Expression<String>? kind,
     Expression<String>? level,
     Expression<int>? icaoAircraft,
@@ -5737,6 +5872,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (syncId != null) 'sync_id': syncId,
       if (kind != null) 'kind': kind,
       if (level != null) 'level': level,
       if (icaoAircraft != null) 'icao_aircraft': icaoAircraft,
@@ -5751,6 +5887,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
 
   SimulatorsCompanion copyWith({
     Value<int>? id,
+    Value<String>? syncId,
     Value<SimulatorKind>? kind,
     Value<String?>? level,
     Value<int?>? icaoAircraft,
@@ -5762,6 +5899,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   }) {
     return SimulatorsCompanion(
       id: id ?? this.id,
+      syncId: syncId ?? this.syncId,
       kind: kind ?? this.kind,
       level: level ?? this.level,
       icaoAircraft: icaoAircraft ?? this.icaoAircraft,
@@ -5778,6 +5916,9 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
     }
     if (kind.present) {
       map['kind'] = Variable<String>(
@@ -5814,6 +5955,7 @@ class SimulatorsCompanion extends UpdateCompanion<Simulator> {
   String toString() {
     return (StringBuffer('SimulatorsCompanion(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('kind: $kind, ')
           ..write('level: $level, ')
           ..write('icaoAircraft: $icaoAircraft, ')
@@ -5844,6 +5986,17 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'PRIMARY KEY AUTOINCREMENT',
     ),
+  );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    defaultValue: newSyncId,
   );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
@@ -6117,6 +6270,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    syncId,
     title,
     departure,
     arrival,
@@ -6155,6 +6309,12 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -6355,6 +6515,10 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      )!,
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -6465,6 +6629,7 @@ class $FlightsTable extends Flights with TableInfo<$FlightsTable, Flight> {
 
 class Flight extends DataClass implements Insertable<Flight> {
   final int id;
+  final String syncId;
   final String title;
   final int? departure;
   final int? arrival;
@@ -6525,6 +6690,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   final String? signatureFile;
   const Flight({
     required this.id,
+    required this.syncId,
     required this.title,
     this.departure,
     this.arrival,
@@ -6553,6 +6719,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['sync_id'] = Variable<String>(syncId);
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || departure != null) {
       map['departure'] = Variable<int>(departure);
@@ -6622,6 +6789,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   FlightsCompanion toCompanion(bool nullToAbsent) {
     return FlightsCompanion(
       id: Value(id),
+      syncId: Value(syncId),
       title: Value(title),
       departure: departure == null && nullToAbsent
           ? const Value.absent()
@@ -6693,6 +6861,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Flight(
       id: serializer.fromJson<int>(json['id']),
+      syncId: serializer.fromJson<String>(json['syncId']),
       title: serializer.fromJson<String>(json['title']),
       departure: serializer.fromJson<int?>(json['departure']),
       arrival: serializer.fromJson<int?>(json['arrival']),
@@ -6729,6 +6898,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'syncId': serializer.toJson<String>(syncId),
       'title': serializer.toJson<String>(title),
       'departure': serializer.toJson<int?>(departure),
       'arrival': serializer.toJson<int?>(arrival),
@@ -6761,6 +6931,7 @@ class Flight extends DataClass implements Insertable<Flight> {
 
   Flight copyWith({
     int? id,
+    String? syncId,
     String? title,
     Value<int?> departure = const Value.absent(),
     Value<int?> arrival = const Value.absent(),
@@ -6786,6 +6957,7 @@ class Flight extends DataClass implements Insertable<Flight> {
     Value<String?> signatureFile = const Value.absent(),
   }) => Flight(
     id: id ?? this.id,
+    syncId: syncId ?? this.syncId,
     title: title ?? this.title,
     departure: departure.present ? departure.value : this.departure,
     arrival: arrival.present ? arrival.value : this.arrival,
@@ -6827,6 +6999,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   Flight copyWithCompanion(FlightsCompanion data) {
     return Flight(
       id: data.id.present ? data.id.value : this.id,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
       title: data.title.present ? data.title.value : this.title,
       departure: data.departure.present ? data.departure.value : this.departure,
       arrival: data.arrival.present ? data.arrival.value : this.arrival,
@@ -6893,6 +7066,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   String toString() {
     return (StringBuffer('Flight(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('title: $title, ')
           ..write('departure: $departure, ')
           ..write('arrival: $arrival, ')
@@ -6923,6 +7097,7 @@ class Flight extends DataClass implements Insertable<Flight> {
   @override
   int get hashCode => Object.hashAll([
     id,
+    syncId,
     title,
     departure,
     arrival,
@@ -6952,6 +7127,7 @@ class Flight extends DataClass implements Insertable<Flight> {
       identical(this, other) ||
       (other is Flight &&
           other.id == this.id &&
+          other.syncId == this.syncId &&
           other.title == this.title &&
           other.departure == this.departure &&
           other.arrival == this.arrival &&
@@ -6979,6 +7155,7 @@ class Flight extends DataClass implements Insertable<Flight> {
 
 class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<int> id;
+  final Value<String> syncId;
   final Value<String> title;
   final Value<int?> departure;
   final Value<int?> arrival;
@@ -7004,6 +7181,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   final Value<String?> signatureFile;
   const FlightsCompanion({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     this.title = const Value.absent(),
     this.departure = const Value.absent(),
     this.arrival = const Value.absent(),
@@ -7030,6 +7208,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   });
   FlightsCompanion.insert({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     required String title,
     this.departure = const Value.absent(),
     this.arrival = const Value.absent(),
@@ -7058,6 +7237,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
        isRecording = Value(isRecording);
   static Insertable<Flight> custom({
     Expression<int>? id,
+    Expression<String>? syncId,
     Expression<String>? title,
     Expression<int>? departure,
     Expression<int>? arrival,
@@ -7084,6 +7264,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (syncId != null) 'sync_id': syncId,
       if (title != null) 'title': title,
       if (departure != null) 'departure': departure,
       if (arrival != null) 'arrival': arrival,
@@ -7114,6 +7295,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
 
   FlightsCompanion copyWith({
     Value<int>? id,
+    Value<String>? syncId,
     Value<String>? title,
     Value<int?>? departure,
     Value<int?>? arrival,
@@ -7140,6 +7322,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   }) {
     return FlightsCompanion(
       id: id ?? this.id,
+      syncId: syncId ?? this.syncId,
       title: title ?? this.title,
       departure: departure ?? this.departure,
       arrival: arrival ?? this.arrival,
@@ -7172,6 +7355,9 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -7255,6 +7441,7 @@ class FlightsCompanion extends UpdateCompanion<Flight> {
   String toString() {
     return (StringBuffer('FlightsCompanion(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('title: $title, ')
           ..write('departure: $departure, ')
           ..write('arrival: $arrival, ')
@@ -7810,6 +7997,17 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, Person> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    defaultValue: newSyncId,
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -7840,7 +8038,7 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, Person> {
     requiredDuringInsert: false,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, surname, photo];
+  List<GeneratedColumn> get $columns => [id, syncId, name, surname, photo];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -7855,6 +8053,12 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, Person> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -7891,6 +8095,10 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, Person> {
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      )!,
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -7914,6 +8122,7 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, Person> {
 
 class Person extends DataClass implements Insertable<Person> {
   final int id;
+  final String syncId;
   final String name;
   final String surname;
 
@@ -7921,6 +8130,7 @@ class Person extends DataClass implements Insertable<Person> {
   final String? photo;
   const Person({
     required this.id,
+    required this.syncId,
     required this.name,
     required this.surname,
     this.photo,
@@ -7929,6 +8139,7 @@ class Person extends DataClass implements Insertable<Person> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['sync_id'] = Variable<String>(syncId);
     map['name'] = Variable<String>(name);
     map['surname'] = Variable<String>(surname);
     if (!nullToAbsent || photo != null) {
@@ -7940,6 +8151,7 @@ class Person extends DataClass implements Insertable<Person> {
   PeopleCompanion toCompanion(bool nullToAbsent) {
     return PeopleCompanion(
       id: Value(id),
+      syncId: Value(syncId),
       name: Value(name),
       surname: Value(surname),
       photo: photo == null && nullToAbsent
@@ -7955,6 +8167,7 @@ class Person extends DataClass implements Insertable<Person> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Person(
       id: serializer.fromJson<int>(json['id']),
+      syncId: serializer.fromJson<String>(json['syncId']),
       name: serializer.fromJson<String>(json['name']),
       surname: serializer.fromJson<String>(json['surname']),
       photo: serializer.fromJson<String?>(json['photo']),
@@ -7965,6 +8178,7 @@ class Person extends DataClass implements Insertable<Person> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'syncId': serializer.toJson<String>(syncId),
       'name': serializer.toJson<String>(name),
       'surname': serializer.toJson<String>(surname),
       'photo': serializer.toJson<String?>(photo),
@@ -7973,11 +8187,13 @@ class Person extends DataClass implements Insertable<Person> {
 
   Person copyWith({
     int? id,
+    String? syncId,
     String? name,
     String? surname,
     Value<String?> photo = const Value.absent(),
   }) => Person(
     id: id ?? this.id,
+    syncId: syncId ?? this.syncId,
     name: name ?? this.name,
     surname: surname ?? this.surname,
     photo: photo.present ? photo.value : this.photo,
@@ -7985,6 +8201,7 @@ class Person extends DataClass implements Insertable<Person> {
   Person copyWithCompanion(PeopleCompanion data) {
     return Person(
       id: data.id.present ? data.id.value : this.id,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
       name: data.name.present ? data.name.value : this.name,
       surname: data.surname.present ? data.surname.value : this.surname,
       photo: data.photo.present ? data.photo.value : this.photo,
@@ -7995,6 +8212,7 @@ class Person extends DataClass implements Insertable<Person> {
   String toString() {
     return (StringBuffer('Person(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('name: $name, ')
           ..write('surname: $surname, ')
           ..write('photo: $photo')
@@ -8003,12 +8221,13 @@ class Person extends DataClass implements Insertable<Person> {
   }
 
   @override
-  int get hashCode => Object.hash(id, name, surname, photo);
+  int get hashCode => Object.hash(id, syncId, name, surname, photo);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Person &&
           other.id == this.id &&
+          other.syncId == this.syncId &&
           other.name == this.name &&
           other.surname == this.surname &&
           other.photo == this.photo);
@@ -8016,17 +8235,20 @@ class Person extends DataClass implements Insertable<Person> {
 
 class PeopleCompanion extends UpdateCompanion<Person> {
   final Value<int> id;
+  final Value<String> syncId;
   final Value<String> name;
   final Value<String> surname;
   final Value<String?> photo;
   const PeopleCompanion({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     this.name = const Value.absent(),
     this.surname = const Value.absent(),
     this.photo = const Value.absent(),
   });
   PeopleCompanion.insert({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     required String name,
     required String surname,
     this.photo = const Value.absent(),
@@ -8034,12 +8256,14 @@ class PeopleCompanion extends UpdateCompanion<Person> {
        surname = Value(surname);
   static Insertable<Person> custom({
     Expression<int>? id,
+    Expression<String>? syncId,
     Expression<String>? name,
     Expression<String>? surname,
     Expression<String>? photo,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (syncId != null) 'sync_id': syncId,
       if (name != null) 'name': name,
       if (surname != null) 'surname': surname,
       if (photo != null) 'photo': photo,
@@ -8048,12 +8272,14 @@ class PeopleCompanion extends UpdateCompanion<Person> {
 
   PeopleCompanion copyWith({
     Value<int>? id,
+    Value<String>? syncId,
     Value<String>? name,
     Value<String>? surname,
     Value<String?>? photo,
   }) {
     return PeopleCompanion(
       id: id ?? this.id,
+      syncId: syncId ?? this.syncId,
       name: name ?? this.name,
       surname: surname ?? this.surname,
       photo: photo ?? this.photo,
@@ -8065,6 +8291,9 @@ class PeopleCompanion extends UpdateCompanion<Person> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -8082,6 +8311,7 @@ class PeopleCompanion extends UpdateCompanion<Person> {
   String toString() {
     return (StringBuffer('PeopleCompanion(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('name: $name, ')
           ..write('surname: $surname, ')
           ..write('photo: $photo')
@@ -8381,6 +8611,17 @@ class $LicencesTable extends Licences with TableInfo<$LicencesTable, Licence> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    defaultValue: newSyncId,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<LicenceKind, String> kind =
       GeneratedColumn<String>(
@@ -8453,6 +8694,7 @@ class $LicencesTable extends Licences with TableInfo<$LicencesTable, Licence> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    syncId,
     kind,
     category,
     number,
@@ -8475,6 +8717,12 @@ class $LicencesTable extends Licences with TableInfo<$LicencesTable, Licence> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
     }
     if (data.containsKey('number')) {
       context.handle(
@@ -8521,6 +8769,10 @@ class $LicencesTable extends Licences with TableInfo<$LicencesTable, Licence> {
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
+      )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
       )!,
       kind: $LicencesTable.$converterkind.fromSql(
         attachedDatabase.typeMapping.read(
@@ -8572,6 +8824,7 @@ class $LicencesTable extends Licences with TableInfo<$LicencesTable, Licence> {
 
 class Licence extends DataClass implements Insertable<Licence> {
   final int id;
+  final String syncId;
   final LicenceKind kind;
   final AircraftCategory category;
 
@@ -8588,6 +8841,7 @@ class Licence extends DataClass implements Insertable<Licence> {
   final String? notes;
   const Licence({
     required this.id,
+    required this.syncId,
     required this.kind,
     required this.category,
     this.number,
@@ -8600,6 +8854,7 @@ class Licence extends DataClass implements Insertable<Licence> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['sync_id'] = Variable<String>(syncId);
     {
       map['kind'] = Variable<String>($LicencesTable.$converterkind.toSql(kind));
     }
@@ -8629,6 +8884,7 @@ class Licence extends DataClass implements Insertable<Licence> {
   LicencesCompanion toCompanion(bool nullToAbsent) {
     return LicencesCompanion(
       id: Value(id),
+      syncId: Value(syncId),
       kind: Value(kind),
       category: Value(category),
       number: number == null && nullToAbsent
@@ -8656,6 +8912,7 @@ class Licence extends DataClass implements Insertable<Licence> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Licence(
       id: serializer.fromJson<int>(json['id']),
+      syncId: serializer.fromJson<String>(json['syncId']),
       kind: $LicencesTable.$converterkind.fromJson(
         serializer.fromJson<String>(json['kind']),
       ),
@@ -8676,6 +8933,7 @@ class Licence extends DataClass implements Insertable<Licence> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'syncId': serializer.toJson<String>(syncId),
       'kind': serializer.toJson<String>(
         $LicencesTable.$converterkind.toJson(kind),
       ),
@@ -8694,6 +8952,7 @@ class Licence extends DataClass implements Insertable<Licence> {
 
   Licence copyWith({
     int? id,
+    String? syncId,
     LicenceKind? kind,
     AircraftCategory? category,
     Value<String?> number = const Value.absent(),
@@ -8703,6 +8962,7 @@ class Licence extends DataClass implements Insertable<Licence> {
     Value<String?> notes = const Value.absent(),
   }) => Licence(
     id: id ?? this.id,
+    syncId: syncId ?? this.syncId,
     kind: kind ?? this.kind,
     category: category ?? this.category,
     number: number.present ? number.value : this.number,
@@ -8716,6 +8976,7 @@ class Licence extends DataClass implements Insertable<Licence> {
   Licence copyWithCompanion(LicencesCompanion data) {
     return Licence(
       id: data.id.present ? data.id.value : this.id,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
       kind: data.kind.present ? data.kind.value : this.kind,
       category: data.category.present ? data.category.value : this.category,
       number: data.number.present ? data.number.value : this.number,
@@ -8732,6 +8993,7 @@ class Licence extends DataClass implements Insertable<Licence> {
   String toString() {
     return (StringBuffer('Licence(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('kind: $kind, ')
           ..write('category: $category, ')
           ..write('number: $number, ')
@@ -8746,6 +9008,7 @@ class Licence extends DataClass implements Insertable<Licence> {
   @override
   int get hashCode => Object.hash(
     id,
+    syncId,
     kind,
     category,
     number,
@@ -8759,6 +9022,7 @@ class Licence extends DataClass implements Insertable<Licence> {
       identical(this, other) ||
       (other is Licence &&
           other.id == this.id &&
+          other.syncId == this.syncId &&
           other.kind == this.kind &&
           other.category == this.category &&
           other.number == this.number &&
@@ -8770,6 +9034,7 @@ class Licence extends DataClass implements Insertable<Licence> {
 
 class LicencesCompanion extends UpdateCompanion<Licence> {
   final Value<int> id;
+  final Value<String> syncId;
   final Value<LicenceKind> kind;
   final Value<AircraftCategory> category;
   final Value<String?> number;
@@ -8779,6 +9044,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
   final Value<String?> notes;
   const LicencesCompanion({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     this.kind = const Value.absent(),
     this.category = const Value.absent(),
     this.number = const Value.absent(),
@@ -8789,6 +9055,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
   });
   LicencesCompanion.insert({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     required LicenceKind kind,
     required AircraftCategory category,
     this.number = const Value.absent(),
@@ -8800,6 +9067,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
        category = Value(category);
   static Insertable<Licence> custom({
     Expression<int>? id,
+    Expression<String>? syncId,
     Expression<String>? kind,
     Expression<String>? category,
     Expression<String>? number,
@@ -8810,6 +9078,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (syncId != null) 'sync_id': syncId,
       if (kind != null) 'kind': kind,
       if (category != null) 'category': category,
       if (number != null) 'number': number,
@@ -8823,6 +9092,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
 
   LicencesCompanion copyWith({
     Value<int>? id,
+    Value<String>? syncId,
     Value<LicenceKind>? kind,
     Value<AircraftCategory>? category,
     Value<String?>? number,
@@ -8833,6 +9103,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
   }) {
     return LicencesCompanion(
       id: id ?? this.id,
+      syncId: syncId ?? this.syncId,
       kind: kind ?? this.kind,
       category: category ?? this.category,
       number: number ?? this.number,
@@ -8848,6 +9119,9 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
     }
     if (kind.present) {
       map['kind'] = Variable<String>(
@@ -8883,6 +9157,7 @@ class LicencesCompanion extends UpdateCompanion<Licence> {
   String toString() {
     return (StringBuffer('LicencesCompanion(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('kind: $kind, ')
           ..write('category: $category, ')
           ..write('number: $number, ')
@@ -9619,6 +9894,17 @@ class $MedicalCertificatesTable extends MedicalCertificates
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+    'sync_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+    defaultValue: newSyncId,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<MedicalClass, String>
   medicalClass =
@@ -9677,6 +9963,7 @@ class $MedicalCertificatesTable extends MedicalCertificates
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    syncId,
     medicalClass,
     examinationDate,
     expiryDate,
@@ -9697,6 +9984,12 @@ class $MedicalCertificatesTable extends MedicalCertificates
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sync_id')) {
+      context.handle(
+        _syncIdMeta,
+        syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta),
+      );
     }
     if (data.containsKey('examination_date')) {
       context.handle(
@@ -9743,6 +10036,10 @@ class $MedicalCertificatesTable extends MedicalCertificates
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      syncId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_id'],
+      )!,
       medicalClass: $MedicalCertificatesTable.$convertermedicalClass.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -9782,6 +10079,7 @@ class $MedicalCertificatesTable extends MedicalCertificates
 class MedicalCertificate extends DataClass
     implements Insertable<MedicalCertificate> {
   final int id;
+  final String syncId;
   final MedicalClass medicalClass;
   final DateTime? examinationDate;
 
@@ -9793,6 +10091,7 @@ class MedicalCertificate extends DataClass
   final String? notes;
   const MedicalCertificate({
     required this.id,
+    required this.syncId,
     required this.medicalClass,
     this.examinationDate,
     required this.expiryDate,
@@ -9803,6 +10102,7 @@ class MedicalCertificate extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['sync_id'] = Variable<String>(syncId);
     {
       map['medical_class'] = Variable<String>(
         $MedicalCertificatesTable.$convertermedicalClass.toSql(medicalClass),
@@ -9824,6 +10124,7 @@ class MedicalCertificate extends DataClass
   MedicalCertificatesCompanion toCompanion(bool nullToAbsent) {
     return MedicalCertificatesCompanion(
       id: Value(id),
+      syncId: Value(syncId),
       medicalClass: Value(medicalClass),
       examinationDate: examinationDate == null && nullToAbsent
           ? const Value.absent()
@@ -9845,6 +10146,7 @@ class MedicalCertificate extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return MedicalCertificate(
       id: serializer.fromJson<int>(json['id']),
+      syncId: serializer.fromJson<String>(json['syncId']),
       medicalClass: $MedicalCertificatesTable.$convertermedicalClass.fromJson(
         serializer.fromJson<String>(json['medicalClass']),
       ),
@@ -9859,6 +10161,7 @@ class MedicalCertificate extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'syncId': serializer.toJson<String>(syncId),
       'medicalClass': serializer.toJson<String>(
         $MedicalCertificatesTable.$convertermedicalClass.toJson(medicalClass),
       ),
@@ -9871,6 +10174,7 @@ class MedicalCertificate extends DataClass
 
   MedicalCertificate copyWith({
     int? id,
+    String? syncId,
     MedicalClass? medicalClass,
     Value<DateTime?> examinationDate = const Value.absent(),
     DateTime? expiryDate,
@@ -9878,6 +10182,7 @@ class MedicalCertificate extends DataClass
     Value<String?> notes = const Value.absent(),
   }) => MedicalCertificate(
     id: id ?? this.id,
+    syncId: syncId ?? this.syncId,
     medicalClass: medicalClass ?? this.medicalClass,
     examinationDate: examinationDate.present
         ? examinationDate.value
@@ -9889,6 +10194,7 @@ class MedicalCertificate extends DataClass
   MedicalCertificate copyWithCompanion(MedicalCertificatesCompanion data) {
     return MedicalCertificate(
       id: data.id.present ? data.id.value : this.id,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
       medicalClass: data.medicalClass.present
           ? data.medicalClass.value
           : this.medicalClass,
@@ -9909,6 +10215,7 @@ class MedicalCertificate extends DataClass
   String toString() {
     return (StringBuffer('MedicalCertificate(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('medicalClass: $medicalClass, ')
           ..write('examinationDate: $examinationDate, ')
           ..write('expiryDate: $expiryDate, ')
@@ -9921,6 +10228,7 @@ class MedicalCertificate extends DataClass
   @override
   int get hashCode => Object.hash(
     id,
+    syncId,
     medicalClass,
     examinationDate,
     expiryDate,
@@ -9932,6 +10240,7 @@ class MedicalCertificate extends DataClass
       identical(this, other) ||
       (other is MedicalCertificate &&
           other.id == this.id &&
+          other.syncId == this.syncId &&
           other.medicalClass == this.medicalClass &&
           other.examinationDate == this.examinationDate &&
           other.expiryDate == this.expiryDate &&
@@ -9941,6 +10250,7 @@ class MedicalCertificate extends DataClass
 
 class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   final Value<int> id;
+  final Value<String> syncId;
   final Value<MedicalClass> medicalClass;
   final Value<DateTime?> examinationDate;
   final Value<DateTime> expiryDate;
@@ -9948,6 +10258,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   final Value<String?> notes;
   const MedicalCertificatesCompanion({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     this.medicalClass = const Value.absent(),
     this.examinationDate = const Value.absent(),
     this.expiryDate = const Value.absent(),
@@ -9956,6 +10267,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   });
   MedicalCertificatesCompanion.insert({
     this.id = const Value.absent(),
+    this.syncId = const Value.absent(),
     required MedicalClass medicalClass,
     this.examinationDate = const Value.absent(),
     required DateTime expiryDate,
@@ -9965,6 +10277,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
        expiryDate = Value(expiryDate);
   static Insertable<MedicalCertificate> custom({
     Expression<int>? id,
+    Expression<String>? syncId,
     Expression<String>? medicalClass,
     Expression<DateTime>? examinationDate,
     Expression<DateTime>? expiryDate,
@@ -9973,6 +10286,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (syncId != null) 'sync_id': syncId,
       if (medicalClass != null) 'medical_class': medicalClass,
       if (examinationDate != null) 'examination_date': examinationDate,
       if (expiryDate != null) 'expiry_date': expiryDate,
@@ -9983,6 +10297,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
 
   MedicalCertificatesCompanion copyWith({
     Value<int>? id,
+    Value<String>? syncId,
     Value<MedicalClass>? medicalClass,
     Value<DateTime?>? examinationDate,
     Value<DateTime>? expiryDate,
@@ -9991,6 +10306,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   }) {
     return MedicalCertificatesCompanion(
       id: id ?? this.id,
+      syncId: syncId ?? this.syncId,
       medicalClass: medicalClass ?? this.medicalClass,
       examinationDate: examinationDate ?? this.examinationDate,
       expiryDate: expiryDate ?? this.expiryDate,
@@ -10004,6 +10320,9 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
     }
     if (medicalClass.present) {
       map['medical_class'] = Variable<String>(
@@ -10031,6 +10350,7 @@ class MedicalCertificatesCompanion extends UpdateCompanion<MedicalCertificate> {
   String toString() {
     return (StringBuffer('MedicalCertificatesCompanion(')
           ..write('id: $id, ')
+          ..write('syncId: $syncId, ')
           ..write('medicalClass: $medicalClass, ')
           ..write('examinationDate: $examinationDate, ')
           ..write('expiryDate: $expiryDate, ')
@@ -12715,6 +13035,7 @@ typedef $$AirportsTableCreateCompanionBuilder =
       Value<String?> logbookIdent,
       Value<bool?> logbookAnnotate,
       Value<String?> logbookNote,
+      Value<String?> syncId,
     });
 typedef $$AirportsTableUpdateCompanionBuilder =
     AirportsCompanion Function({
@@ -12740,6 +13061,7 @@ typedef $$AirportsTableUpdateCompanionBuilder =
       Value<String?> logbookIdent,
       Value<bool?> logbookAnnotate,
       Value<String?> logbookNote,
+      Value<String?> syncId,
     });
 
 final class $$AirportsTableReferences
@@ -12967,6 +13289,11 @@ class $$AirportsTableFilterComposer
 
   ColumnFilters<String> get logbookNote => $composableBuilder(
     column: $table.logbookNote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13226,6 +13553,11 @@ class $$AirportsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CountriesTableOrderingComposer get isoCountry {
     final $$CountriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -13359,6 +13691,9 @@ class $$AirportsTableAnnotationComposer
     column: $table.logbookNote,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   $$CountriesTableAnnotationComposer get isoCountry {
     final $$CountriesTableAnnotationComposer composer = $composerBuilder(
@@ -13564,6 +13899,7 @@ class $$AirportsTableTableManager
                 Value<String?> logbookIdent = const Value.absent(),
                 Value<bool?> logbookAnnotate = const Value.absent(),
                 Value<String?> logbookNote = const Value.absent(),
+                Value<String?> syncId = const Value.absent(),
               }) => AirportsCompanion(
                 id: id,
                 ident: ident,
@@ -13587,6 +13923,7 @@ class $$AirportsTableTableManager
                 logbookIdent: logbookIdent,
                 logbookAnnotate: logbookAnnotate,
                 logbookNote: logbookNote,
+                syncId: syncId,
               ),
           createCompanionCallback:
               ({
@@ -13612,6 +13949,7 @@ class $$AirportsTableTableManager
                 Value<String?> logbookIdent = const Value.absent(),
                 Value<bool?> logbookAnnotate = const Value.absent(),
                 Value<String?> logbookNote = const Value.absent(),
+                Value<String?> syncId = const Value.absent(),
               }) => AirportsCompanion.insert(
                 id: id,
                 ident: ident,
@@ -13635,6 +13973,7 @@ class $$AirportsTableTableManager
                 logbookIdent: logbookIdent,
                 logbookAnnotate: logbookAnnotate,
                 logbookNote: logbookNote,
+                syncId: syncId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -15268,6 +15607,7 @@ typedef $$IcaoAircraftsTableProcessedTableManager =
 typedef $$AircraftsTableCreateCompanionBuilder =
     AircraftsCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       required int icaoAircraft,
       required String tailNumber,
       Value<String?> notes,
@@ -15284,6 +15624,7 @@ typedef $$AircraftsTableCreateCompanionBuilder =
 typedef $$AircraftsTableUpdateCompanionBuilder =
     AircraftsCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       Value<int> icaoAircraft,
       Value<String> tailNumber,
       Value<String?> notes,
@@ -15351,6 +15692,11 @@ class $$AircraftsTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15473,6 +15819,11 @@ class $$AircraftsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get tailNumber => $composableBuilder(
     column: $table.tailNumber,
     builder: (column) => ColumnOrderings(column),
@@ -15563,6 +15914,9 @@ class $$AircraftsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   GeneratedColumn<String> get tailNumber => $composableBuilder(
     column: $table.tailNumber,
@@ -15690,6 +16044,7 @@ class $$AircraftsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 Value<int> icaoAircraft = const Value.absent(),
                 Value<String> tailNumber = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
@@ -15704,6 +16059,7 @@ class $$AircraftsTableTableManager
                 Value<String?> logbookSubtitle = const Value.absent(),
               }) => AircraftsCompanion(
                 id: id,
+                syncId: syncId,
                 icaoAircraft: icaoAircraft,
                 tailNumber: tailNumber,
                 notes: notes,
@@ -15720,6 +16076,7 @@ class $$AircraftsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 required int icaoAircraft,
                 required String tailNumber,
                 Value<String?> notes = const Value.absent(),
@@ -15734,6 +16091,7 @@ class $$AircraftsTableTableManager
                 Value<String?> logbookSubtitle = const Value.absent(),
               }) => AircraftsCompanion.insert(
                 id: id,
+                syncId: syncId,
                 icaoAircraft: icaoAircraft,
                 tailNumber: tailNumber,
                 notes: notes,
@@ -15833,6 +16191,7 @@ typedef $$AircraftsTableProcessedTableManager =
 typedef $$SimulatorsTableCreateCompanionBuilder =
     SimulatorsCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       required SimulatorKind kind,
       Value<String?> level,
       Value<int?> icaoAircraft,
@@ -15845,6 +16204,7 @@ typedef $$SimulatorsTableCreateCompanionBuilder =
 typedef $$SimulatorsTableUpdateCompanionBuilder =
     SimulatorsCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       Value<SimulatorKind> kind,
       Value<String?> level,
       Value<int?> icaoAircraft,
@@ -15908,6 +16268,11 @@ class $$SimulatorsTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16011,6 +16376,11 @@ class $$SimulatorsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get kind => $composableBuilder(
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
@@ -16081,6 +16451,9 @@ class $$SimulatorsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<SimulatorKind, String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
@@ -16190,6 +16563,7 @@ class $$SimulatorsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 Value<SimulatorKind> kind = const Value.absent(),
                 Value<String?> level = const Value.absent(),
                 Value<int?> icaoAircraft = const Value.absent(),
@@ -16200,6 +16574,7 @@ class $$SimulatorsTableTableManager
                 Value<String?> notes = const Value.absent(),
               }) => SimulatorsCompanion(
                 id: id,
+                syncId: syncId,
                 kind: kind,
                 level: level,
                 icaoAircraft: icaoAircraft,
@@ -16212,6 +16587,7 @@ class $$SimulatorsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 required SimulatorKind kind,
                 Value<String?> level = const Value.absent(),
                 Value<int?> icaoAircraft = const Value.absent(),
@@ -16222,6 +16598,7 @@ class $$SimulatorsTableTableManager
                 Value<String?> notes = const Value.absent(),
               }) => SimulatorsCompanion.insert(
                 id: id,
+                syncId: syncId,
                 kind: kind,
                 level: level,
                 icaoAircraft: icaoAircraft,
@@ -16323,6 +16700,7 @@ typedef $$SimulatorsTableProcessedTableManager =
 typedef $$FlightsTableCreateCompanionBuilder =
     FlightsCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       required String title,
       Value<int?> departure,
       Value<int?> arrival,
@@ -16350,6 +16728,7 @@ typedef $$FlightsTableCreateCompanionBuilder =
 typedef $$FlightsTableUpdateCompanionBuilder =
     FlightsCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       Value<String> title,
       Value<int?> departure,
       Value<int?> arrival,
@@ -16498,6 +16877,11 @@ class $$FlightsTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16754,6 +17138,11 @@ class $$FlightsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -16953,6 +17342,9 @@ class $$FlightsTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
@@ -17223,6 +17615,7 @@ class $$FlightsTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<int?> departure = const Value.absent(),
                 Value<int?> arrival = const Value.absent(),
@@ -17249,6 +17642,7 @@ class $$FlightsTableTableManager
                 Value<String?> signatureFile = const Value.absent(),
               }) => FlightsCompanion(
                 id: id,
+                syncId: syncId,
                 title: title,
                 departure: departure,
                 arrival: arrival,
@@ -17276,6 +17670,7 @@ class $$FlightsTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 required String title,
                 Value<int?> departure = const Value.absent(),
                 Value<int?> arrival = const Value.absent(),
@@ -17302,6 +17697,7 @@ class $$FlightsTableTableManager
                 Value<String?> signatureFile = const Value.absent(),
               }) => FlightsCompanion.insert(
                 id: id,
+                syncId: syncId,
                 title: title,
                 departure: departure,
                 arrival: arrival,
@@ -17877,6 +18273,7 @@ typedef $$FlightDataPointsTableProcessedTableManager =
 typedef $$PeopleTableCreateCompanionBuilder =
     PeopleCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       required String name,
       required String surname,
       Value<String?> photo,
@@ -17884,6 +18281,7 @@ typedef $$PeopleTableCreateCompanionBuilder =
 typedef $$PeopleTableUpdateCompanionBuilder =
     PeopleCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       Value<String> name,
       Value<String> surname,
       Value<String?> photo,
@@ -17923,6 +18321,11 @@ class $$PeopleTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17981,6 +18384,11 @@ class $$PeopleTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -18008,6 +18416,9 @@ class $$PeopleTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -18073,11 +18484,13 @@ class $$PeopleTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> surname = const Value.absent(),
                 Value<String?> photo = const Value.absent(),
               }) => PeopleCompanion(
                 id: id,
+                syncId: syncId,
                 name: name,
                 surname: surname,
                 photo: photo,
@@ -18085,11 +18498,13 @@ class $$PeopleTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 required String name,
                 required String surname,
                 Value<String?> photo = const Value.absent(),
               }) => PeopleCompanion.insert(
                 id: id,
+                syncId: syncId,
                 name: name,
                 surname: surname,
                 photo: photo,
@@ -18516,6 +18931,7 @@ typedef $$FlightCrewTableProcessedTableManager =
 typedef $$LicencesTableCreateCompanionBuilder =
     LicencesCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       required LicenceKind kind,
       required AircraftCategory category,
       Value<String?> number,
@@ -18527,6 +18943,7 @@ typedef $$LicencesTableCreateCompanionBuilder =
 typedef $$LicencesTableUpdateCompanionBuilder =
     LicencesCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       Value<LicenceKind> kind,
       Value<AircraftCategory> category,
       Value<String?> number,
@@ -18571,6 +18988,11 @@ class $$LicencesTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18651,6 +19073,11 @@ class $$LicencesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get kind => $composableBuilder(
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
@@ -18698,6 +19125,9 @@ class $$LicencesTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<LicenceKind, String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
@@ -18777,6 +19207,7 @@ class $$LicencesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 Value<LicenceKind> kind = const Value.absent(),
                 Value<AircraftCategory> category = const Value.absent(),
                 Value<String?> number = const Value.absent(),
@@ -18786,6 +19217,7 @@ class $$LicencesTableTableManager
                 Value<String?> notes = const Value.absent(),
               }) => LicencesCompanion(
                 id: id,
+                syncId: syncId,
                 kind: kind,
                 category: category,
                 number: number,
@@ -18797,6 +19229,7 @@ class $$LicencesTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 required LicenceKind kind,
                 required AircraftCategory category,
                 Value<String?> number = const Value.absent(),
@@ -18806,6 +19239,7 @@ class $$LicencesTableTableManager
                 Value<String?> notes = const Value.absent(),
               }) => LicencesCompanion.insert(
                 id: id,
+                syncId: syncId,
                 kind: kind,
                 category: category,
                 number: number,
@@ -19318,6 +19752,7 @@ typedef $$LicenceRatingsTableProcessedTableManager =
 typedef $$MedicalCertificatesTableCreateCompanionBuilder =
     MedicalCertificatesCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       required MedicalClass medicalClass,
       Value<DateTime?> examinationDate,
       required DateTime expiryDate,
@@ -19327,6 +19762,7 @@ typedef $$MedicalCertificatesTableCreateCompanionBuilder =
 typedef $$MedicalCertificatesTableUpdateCompanionBuilder =
     MedicalCertificatesCompanion Function({
       Value<int> id,
+      Value<String> syncId,
       Value<MedicalClass> medicalClass,
       Value<DateTime?> examinationDate,
       Value<DateTime> expiryDate,
@@ -19345,6 +19781,11 @@ class $$MedicalCertificatesTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+    column: $table.syncId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19389,6 +19830,11 @@ class $$MedicalCertificatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+    column: $table.syncId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get medicalClass => $composableBuilder(
     column: $table.medicalClass,
     builder: (column) => ColumnOrderings(column),
@@ -19426,6 +19872,9 @@ class $$MedicalCertificatesTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<MedicalClass, String> get medicalClass =>
       $composableBuilder(
@@ -19496,6 +19945,7 @@ class $$MedicalCertificatesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 Value<MedicalClass> medicalClass = const Value.absent(),
                 Value<DateTime?> examinationDate = const Value.absent(),
                 Value<DateTime> expiryDate = const Value.absent(),
@@ -19503,6 +19953,7 @@ class $$MedicalCertificatesTableTableManager
                 Value<String?> notes = const Value.absent(),
               }) => MedicalCertificatesCompanion(
                 id: id,
+                syncId: syncId,
                 medicalClass: medicalClass,
                 examinationDate: examinationDate,
                 expiryDate: expiryDate,
@@ -19512,6 +19963,7 @@ class $$MedicalCertificatesTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> syncId = const Value.absent(),
                 required MedicalClass medicalClass,
                 Value<DateTime?> examinationDate = const Value.absent(),
                 required DateTime expiryDate,
@@ -19519,6 +19971,7 @@ class $$MedicalCertificatesTableTableManager
                 Value<String?> notes = const Value.absent(),
               }) => MedicalCertificatesCompanion.insert(
                 id: id,
+                syncId: syncId,
                 medicalClass: medicalClass,
                 examinationDate: examinationDate,
                 expiryDate: expiryDate,

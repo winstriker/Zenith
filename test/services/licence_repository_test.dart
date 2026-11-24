@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -214,51 +212,6 @@ void main() {
     ]);
   });
 
-  test('v7 → v8 adds the licence tables', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration_v8');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    // A v7 database: today's schema without the licence tables.
-    final v7 = LogbookDatabase(NativeDatabase(file));
-    await v7.customStatement('DROP TABLE licence_ratings');
-    await v7.customStatement('DROP TABLE licences');
-    await v7.customStatement('DROP TABLE medical_certificates');
-    await v7.customStatement('PRAGMA user_version = 7');
-    await v7.close();
-
-    final v8 = LogbookDatabase(NativeDatabase(file));
-    addTearDown(v8.close);
-    final upgraded = LicenceRepository(v8);
-    final id = await upgraded.addLicence(
-      const LicencesCompanion(
-        kind: Value(LicenceKind.lapl),
-        category: Value(AircraftCategory.aeroplane),
-      ),
-    );
-    await upgraded.addRating(
-      LicenceRatingsCompanion(
-        licence: Value(id),
-        kind: const Value(RatingKind.classRating),
-        aircraftClass: const Value(AircraftClass.sepLand),
-      ),
-    );
-    await upgraded.addMedical(
-      MedicalCertificatesCompanion.insert(
-        medicalClass: MedicalClass.lapl,
-        expiryDate: DateTime(2028),
-      ),
-    );
-    expect((await upgraded.watchLicences().first).single.ratings, hasLength(1));
-    final index = await v8
-        .customSelect(
-          "SELECT name FROM sqlite_master WHERE type = 'index' "
-          "AND name = 'licence_ratings_licence_idx'",
-        )
-        .get();
-    expect(index, hasLength(1));
-  });
-
   test('a flight is a proficiency check only with an examiner', () async {
     final dep = DateTime(2026, 5, 3, 10);
     final withExaminer = await addFlight(dep: dep, check: true);
@@ -269,29 +222,5 @@ void main() {
     final flights = await repo.currencyFlights(since: DateTime(2026));
     flights.sort((a, b) => a.date.compareTo(b.date));
     expect(flights.map((f) => f.proficiencyCheck), [true, false]);
-  });
-
-  test('v8 → v9 marks the flights with an examiner as checks', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration_v9');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    // The helpers write to `db`; tearDown closes the last one.
-    await db.close();
-    final v8 = db = LogbookDatabase(NativeDatabase(file));
-    final checked = await addFlight(dep: DateTime(2026, 5, 3));
-    await addExaminer(checked);
-    await addFlight(dep: DateTime(2026, 5, 4));
-    await v8.customStatement(
-      'ALTER TABLE flights DROP COLUMN proficiency_check',
-    );
-    await v8.customStatement('PRAGMA user_version = 8');
-    await v8.close();
-
-    final v9 = db = LogbookDatabase(NativeDatabase(file));
-    final rows = await (v9.select(
-      v9.flights,
-    )..orderBy([(f) => OrderingTerm.asc(f.departureTime)])).get();
-    expect(rows.map((f) => f.proficiencyCheck), [true, false]);
   });
 }

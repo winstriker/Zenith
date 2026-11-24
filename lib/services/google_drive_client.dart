@@ -12,15 +12,27 @@ import 'oauth_service.dart';
 /// Minimal Google Drive API v3 client for backup files.
 ///
 /// Uses the `drive.file` scope, so Zenith only sees the files and folders it
-/// created itself. Backups go to a [folderName] folder in "My Drive", which
-/// the user can see, move or rename; it is found again by name.
+/// created itself. Files go to a [folder] in "My Drive", which the user can
+/// see, move or rename; it is found again by name.
 class GoogleDriveClient implements CloudBackupClient {
-  GoogleDriveClient(this._auth, {this.chunkSize = 1024 * 1024});
+  GoogleDriveClient(
+    this._auth, {
+    this.chunkSize = 1024 * 1024,
+    this.folder = folderName,
+    this.lists = BackupService.isBackupFileName,
+  });
 
   final OAuthService _auth;
   static final _log = Logger('GoogleDriveClient');
 
   static const folderName = 'Zenith Backups';
+  static const syncFolderName = 'Zenith Sync';
+
+  /// Name of the folder holding the files.
+  final String folder;
+
+  /// Which files of the folder [list] returns, by name.
+  final bool Function(String name) lists;
   static const revokeEndpoint = 'https://oauth2.googleapis.com/revoke';
   static const _api = 'https://www.googleapis.com/drive/v3';
   static const _uploadApi = 'https://www.googleapis.com/upload/drive/v3';
@@ -147,7 +159,7 @@ class GoogleDriveClient implements CloudBackupClient {
 
     return [
       for (final f in files)
-        if (BackupService.isBackupFileName(f['name'] as String))
+        if (lists(f['name'] as String))
           RemoteBackup(
             name: f['name'] as String,
             id: f['id'] as String,
@@ -206,7 +218,7 @@ class GoogleDriveClient implements CloudBackupClient {
       'GET',
       _apiUri('files', {
         'q':
-            "name = '$folderName' and mimeType = '$_folderMime' "
+            "name = '$folder' and mimeType = '$_folderMime' "
             'and trashed = false',
         'fields': 'files(id)',
         'orderBy': 'createdTime',
@@ -224,7 +236,7 @@ class GoogleDriveClient implements CloudBackupClient {
       'POST',
       _apiUri('files', {'fields': 'id'}),
       headers: {'Content-Type': 'application/json; charset=UTF-8'},
-      body: jsonEncode({'name': folderName, 'mimeType': _folderMime}),
+      body: jsonEncode({'name': folder, 'mimeType': _folderMime}),
     );
     return (jsonDecode(created.body) as Map<String, dynamic>)['id'] as String;
   }

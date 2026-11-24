@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -167,76 +165,6 @@ void main() {
     expect(detail, isNot(contains('SCAN')));
     expect(detail, isNot(contains('TEMP B-TREE')));
   });
-
-  test(
-    'v5 → v6 migration adds the track source and indexes the tracks',
-    () async {
-      final dir = await Directory.systemTemp.createTemp('zenith_migration_v6');
-      final file = File('${dir.path}/db.sqlite');
-      addTearDown(() => dir.delete(recursive: true));
-
-      // Build a current database, then take it back to what version 5 had.
-      final v6 = LogbookDatabase(NativeDatabase(file));
-      final id = await v6
-          .into(v6.flights)
-          .insert(
-            FlightsCompanion.insert(
-              title: 'Recorded',
-              departureTime: _start,
-              isRecording: false,
-              pilotRole: const Value('pic'),
-            ),
-          );
-      for (var second = 0; second < 3; second++) {
-        await v6
-            .into(v6.flightDataPoints)
-            .insert(
-              FlightDataPointsCompanion.insert(
-                flight: id,
-                longitude: 9,
-                latitude: 45,
-                altitude: 100 + second,
-                timestamp: _start.add(Duration(seconds: second)),
-              ),
-            );
-      }
-      await v6.customStatement(
-        'DROP INDEX flight_data_points_flight_timestamp_idx',
-      );
-      await v6.customStatement('ALTER TABLE flights DROP COLUMN track_source');
-      await v6.customStatement('PRAGMA user_version = 5');
-      await v6.close();
-
-      final db = LogbookDatabase(NativeDatabase(file));
-      addTearDown(db.close);
-      final repo = FlightRepository(db);
-
-      // What was there is untouched...
-      final migrated = await (db.select(
-        db.flights,
-      )..where((f) => f.id.equals(id))).getSingle();
-      expect(migrated.pilotRole, 'pic');
-      expect(migrated.trackSource, isNull);
-      expect(await repo.getTrack(id), hasLength(3));
-      // ...and the new things work.
-      final indexes = await db
-          .customSelect(
-            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'flight_data_points'",
-          )
-          .get();
-      expect(
-        indexes.map((r) => r.read<String>('name')),
-        contains('flight_data_points_flight_timestamp_idx'),
-      );
-      await repo.replaceTrack(id, [_point(0), _point(1)], source: 'opensky');
-      expect(
-        (await (db.select(
-          db.flights,
-        )..where((f) => f.id.equals(id))).getSingle()).trackSource,
-        'opensky',
-      );
-    },
-  );
 
   test('a recording becomes a temporary flight, out of the logbook until '
       'completed', () async {

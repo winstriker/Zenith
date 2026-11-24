@@ -10,6 +10,7 @@ import '../core/fab_hero_tags.dart';
 import '../core/theme.dart';
 import '../models/sync_progress.dart';
 import '../providers/backup_providers.dart';
+import '../providers/sync_providers.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_backup_client.dart';
 import '../services/local_backup_store.dart';
@@ -95,8 +96,8 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       builder: (ctx) => AlertDialog(
         title: Text('Disconnect ${d.label}?'),
         content: Text(
-          'Automatic backups to ${d.label} will stop. Backups already in '
-          'your ${d.label} are kept.',
+          'Automatic backups and sync with ${d.label} will stop. Backups '
+          'already in your ${d.label} are kept.',
         ),
         actions: [
           TextButton(
@@ -271,6 +272,7 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
                 enabled: !backupState.busy,
                 onTap: () => _showCloudBackups(d),
               ),
+              ..._syncTiles(d, settings.of(d).sync),
               ..._destinationSettings(d, settings.of(d)),
             ],
           ],
@@ -278,6 +280,112 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       ),
       const SizedBox(height: 8),
     ];
+  }
+
+  /// Whether the logbook syncs through [d], and how the last sync went.
+  List<Widget> _syncTiles(BackupDestination d, bool on) {
+    final theme = Theme.of(context);
+    final status = ref.watch(syncControllerProvider)[d] ?? const SyncStatus();
+    final last = status.lastSyncAt;
+    Future<void> syncNow() async {
+      try {
+        await ref.read(syncControllerProvider.notifier).syncNow(d);
+      } catch (e) {
+        _snack(_errorText(e));
+      }
+    }
+
+    return [
+      const Divider(height: 1, indent: 72),
+      SwitchListTile(
+        secondary: Icon(Icons.sync, color: theme.colorScheme.primary),
+        title: const Text('Sync across devices'),
+        subtitle: Text(
+          'Keeps the logbook the same on every device that syncs with this '
+          '${d.label}. Works offline: changes sync when back online.',
+        ),
+        value: on,
+        onChanged: (v) async {
+          await ref.read(backupSettingsProvider.notifier).setSync(d, v);
+          if (v) await syncNow();
+        },
+      ),
+      if (on) ...[
+        const Divider(height: 1, indent: 72),
+        ListTile(
+          leading: Icon(Icons.sync_alt, color: theme.colorScheme.primary),
+          title: const Text('Sync now'),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (status.running)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: LinearProgressIndicator(),
+                )
+              else
+                Text(
+                  last == null
+                      ? 'Not synced yet'
+                      : 'Last sync: ${_dateFormat.format(last)}',
+                ),
+              if (status.lastError != null && !status.running)
+                Text(
+                  status.lastError!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+            ],
+          ),
+          enabled: !status.running,
+          onTap: syncNow,
+        ),
+      ],
+      const Divider(height: 1, indent: 72),
+      ListTile(
+        leading: Icon(Icons.delete_sweep, color: theme.colorScheme.error),
+        title: const Text('Delete sync data'),
+        subtitle: Text(
+          'Turns sync off here and empties the Zenith Sync folder in '
+          '${d.label}. Your logbook stays on this device.',
+        ),
+        enabled: !status.running,
+        onTap: () => _deleteSyncData(d),
+      ),
+    ];
+  }
+
+  Future<void> _deleteSyncData(BackupDestination d) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.delete_sweep),
+        title: const Text('Delete sync data?'),
+        content: Text(
+          'Sync is turned off on this device and the Zenith Sync folder in '
+          '${d.label} is emptied. The logbook on your devices is not '
+          'touched.\n\n'
+          'Other devices that still sync with this ${d.label} upload their '
+          'data again: turn sync off on them first to keep the folder empty.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(syncControllerProvider.notifier).deleteSyncData(d);
+      _snack('Sync data deleted from ${d.label}');
+    } catch (e) {
+      _snack(_errorText(e));
+    }
   }
 
   /// Frequency, crew photos and retention of one destination.

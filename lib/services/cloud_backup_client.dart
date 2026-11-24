@@ -46,7 +46,8 @@ abstract interface class CloudBackupClient {
     TransferProgress? onProgress,
   });
 
-  /// Backups in the folder, newest first.
+  /// Files in the folder (backups, unless the client lists others), newest
+  /// first.
   Future<List<RemoteBackup>> list();
 
   /// [size] stands in for the length when the provider doesn't send one.

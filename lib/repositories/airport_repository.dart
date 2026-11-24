@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/search.dart';
 import '../providers/database_provider.dart';
@@ -269,7 +270,9 @@ class AirportRepository {
       final id = min(lowest ?? 0, 0) - 1;
       await _database
           .into(_database.airports)
-          .insert(airport.copyWith(id: Value(id)));
+          .insert(
+            airport.copyWith(id: Value(id), syncId: Value(const Uuid().v4())),
+          );
       return id;
     });
   }

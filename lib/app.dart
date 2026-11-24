@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'core/app_page_route.dart';
 import 'core/theme.dart';
@@ -19,6 +21,7 @@ import 'providers/flight_recorder_provider.dart';
 import 'providers/licence_providers.dart';
 import 'providers/map_provider.dart';
 import 'providers/navigation_provider.dart';
+import 'providers/sync_providers.dart';
 import 'providers/theme_provider.dart';
 import 'providers/update_providers.dart';
 import 'providers/user_provider.dart';
@@ -42,15 +45,20 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   @override
   void initState() {
     super.initState();
-    // Automatic backups run shortly after launch and whenever the app comes
-    // back to the foreground; the controller skips them if none is due.
+    // Automatic backups and syncs run shortly after launch and whenever the
+    // app comes back to the foreground; the controller skips backups that
+    // aren't due. Every change syncs a moment later (syncOnChanges), and
+    // leaving the app syncs too, through WorkManager, so closing the app
+    // (Android) or iOS suspending it doesn't cut it off.
     _lifecycle = AppLifecycleListener(
       onResume: () {
         _runAutomaticBackups();
         unawaited(ref.read(systemAccentProvider.notifier).load());
       },
+      onPause: Platform.isAndroid || Platform.isIOS ? _syncInBackground : _sync,
     );
-    Future.delayed(const Duration(seconds: 5), _runAutomaticBackups);
+    Future.delayed(const Duration(), _runAutomaticBackups);
+    ref.read(syncControllerProvider.notifier).syncOnChanges();
     Future.delayed(const Duration(seconds: 5), _checkForUpdates);
     WidgetsBinding.instance.addPostFrameCallback((_) => _resumeRecording());
   }
@@ -74,6 +82,27 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
   void _runAutomaticBackups() {
     if (!mounted || !ref.read(onboardingCompleteProvider)) return;
     unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
+    _sync();
+  }
+
+  void _sync() {
+    if (!mounted || !ref.read(onboardingCompleteProvider)) return;
+    unawaited(ref.read(syncControllerProvider.notifier).syncAll());
+  }
+
+  void _syncInBackground() {
+    if (!mounted || !ref.read(onboardingCompleteProvider)) return;
+    unawaited(
+      Workmanager().registerOneOffTask(
+        'sync',
+        'sync',
+        constraints: Constraints(networkType: NetworkType.connected),
+        // shortcut: an edit made while a sync is mid-run waits for the next
+        // pause or launch; use append if that proves too late (it chains a
+        // sync per pause while offline).
+        existingWorkPolicy: ExistingWorkPolicy.keep,
+      ),
+    );
   }
 
   Future<void> _checkForUpdates() async {

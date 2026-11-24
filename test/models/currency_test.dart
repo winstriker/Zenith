@@ -15,6 +15,7 @@ void main() {
     DateTime? check,
     DateTime? issued,
   }) => Licence(
+    syncId: 'test',
     id: id,
     kind: kind,
     category: category,
@@ -608,6 +609,7 @@ void main() {
       const [],
       medicals: [
         MedicalCertificate(
+          syncId: 'test',
           id: 5,
           medicalClass: MedicalClass.class2,
           expiryDate: DateTime(2026, 11, 10),

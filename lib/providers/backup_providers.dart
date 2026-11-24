@@ -19,6 +19,7 @@ import '../services/person_photo_store.dart';
 import 'app_settings_backup.dart';
 import 'database_provider.dart';
 import 'shared_preferences_provider.dart';
+import 'sync_providers.dart';
 
 final _log = Logger('Backup');
 
@@ -59,6 +60,7 @@ class DestinationSettings {
     required this.includePhotos,
     required this.frequency,
     required this.keep,
+    this.sync = false,
   });
 
   final bool includePhotos;
@@ -66,6 +68,10 @@ class DestinationSettings {
 
   /// Backups kept; older ones are deleted after each backup.
   final int keep;
+
+  /// Whether the logbook syncs with other devices through this (cloud)
+  /// destination.
+  final bool sync;
 
   static const keepChoices = [3, 5];
   static const keepMin = 1;
@@ -82,10 +88,12 @@ class DestinationSettings {
     bool? includePhotos,
     BackupFrequency? frequency,
     int? keep,
+    bool? sync,
   }) => DestinationSettings(
     includePhotos: includePhotos ?? this.includePhotos,
     frequency: frequency ?? this.frequency,
     keep: keep ?? this.keep,
+    sync: sync ?? this.sync,
   );
 }
 
@@ -107,6 +115,7 @@ class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
   static String frequencyKey(BackupDestination d) =>
       'backup_${d.name}_frequency';
   static String keepKey(BackupDestination d) => 'backup_${d.name}_keep';
+  static String syncKey(BackupDestination d) => 'backup_${d.name}_sync';
 
   @override
   Future<BackupSettings> build() async {
@@ -128,6 +137,7 @@ class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
         orElse: () => defaults.frequency,
       ),
       keep: prefs.getInt(keepKey(d)) ?? defaults.keep,
+      sync: prefs.getBool(syncKey(d)) ?? defaults.sync,
     );
   }
 
@@ -150,6 +160,11 @@ class BackupSettingsNotifier extends AsyncNotifier<BackupSettings> {
         .read(sharedPreferencesProvider)
         .setString(frequencyKey(d), value.name);
     unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
+  }
+
+  Future<void> setSync(BackupDestination d, bool value) async {
+    await _update(d, (s) => s.copyWith(sync: value));
+    await ref.read(sharedPreferencesProvider).setBool(syncKey(d), value);
   }
 
   /// Takes effect at the next backup, which prunes down to [value].
@@ -247,6 +262,30 @@ final cloudClientProvider =
       };
     });
 
+/// The client of the folder each cloud destination syncs through.
+final cloudSyncClientProvider =
+    Provider.family<CloudBackupClient, BackupDestination>((ref, destination) {
+      final auth = ref.watch(cloudOAuthProvider(destination));
+      bool all(String _) => true;
+      return switch (destination) {
+        BackupDestination.dropbox => DropboxClient(
+          auth,
+          folder: DropboxClient.syncFolder,
+          lists: all,
+        ),
+        BackupDestination.googleDrive => GoogleDriveClient(
+          auth,
+          folder: GoogleDriveClient.syncFolderName,
+          lists: all,
+        ),
+        BackupDestination.local => throw ArgumentError.value(
+          destination,
+          'destination',
+          'not a cloud',
+        ),
+      };
+    });
+
 // -----------------------------------------------------------------------------
 // Cloud sessions
 // -----------------------------------------------------------------------------
@@ -309,6 +348,7 @@ class CloudAuthNotifier extends AsyncNotifier<bool> {
     state = const AsyncData(false);
     // A different account may be connected next: forget what was uploaded.
     await ref.read(backupControllerProvider.notifier).resetStatus(destination);
+    await ref.read(syncControllerProvider.notifier).reset(destination);
   }
 }
 
@@ -366,8 +406,6 @@ final callbackServiceProvider = Provider((ref) {
       ref
           .read(backupNoticeProvider.notifier)
           .show('${destination.label} connected');
-      // First backup right away, if automatic backups are on.
-      unawaited(ref.read(backupControllerProvider.notifier).runAutomatic());
     },
     onLoginError: (service, error) {
       ref
@@ -479,7 +517,9 @@ class BackupController extends AsyncNotifier<BackupState> {
         if (d.isCloud && !await ref.read(cloudAuthProvider(d).future)) {
           continue;
         }
-        final last = current.statusOf(d).lastBackupAt;
+        final last =
+            current.statusOf(d).lastBackupAt ??
+            (d.isCloud ? await _connectedAt(d) : null);
         if (last == null || DateTime.now().difference(last) >= dueAfter) {
           due.add(d);
         }
@@ -530,7 +570,7 @@ class BackupController extends AsyncNotifier<BackupState> {
               );
         } catch (e) {
           for (final d in group) {
-            await _record(d, error: _message(e));
+            await _record(d, error: errorMessage(e));
           }
           firstError ??= e;
           continue;
@@ -559,7 +599,7 @@ class BackupController extends AsyncNotifier<BackupState> {
             );
           } catch (e) {
             _log.warning('${d.name} backup failed: $e');
-            await _record(d, error: _message(e));
+            await _record(d, error: errorMessage(e));
             if (e is CloudReauthRequired) {
               await ref
                   .read(cloudAuthProvider(d).notifier)
@@ -581,7 +621,7 @@ class BackupController extends AsyncNotifier<BackupState> {
     if (firstError != null) {
       throw firstError is BackupException
           ? firstError
-          : BackupException(_message(firstError));
+          : BackupException(errorMessage(firstError));
     }
   }
 
@@ -673,7 +713,7 @@ class BackupController extends AsyncNotifier<BackupState> {
     } on BackupException {
       rethrow;
     } catch (e) {
-      throw BackupException(_message(e));
+      throw BackupException(errorMessage(e));
     } finally {
       _restoreProgress(null);
     }
@@ -711,9 +751,27 @@ class BackupController extends AsyncNotifier<BackupState> {
     }
   }
 
+  /// When cloud [d] was first seen connected: connecting doesn't back up
+  /// right away, the first automatic backup is due a period later.
+  Future<DateTime> _connectedAt(BackupDestination d) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final known = DateTime.tryParse(
+      prefs.getString(_key(d, 'connected_at')) ?? '',
+    );
+    if (known != null) return known;
+    final now = DateTime.now();
+    await prefs.setString(_key(d, 'connected_at'), now.toIso8601String());
+    return now;
+  }
+
   Future<void> resetStatus(BackupDestination d) async {
     final prefs = ref.read(sharedPreferencesProvider);
-    for (final field in ['last_at', 'last_error', 'last_hash']) {
+    for (final field in [
+      'last_at',
+      'last_error',
+      'last_hash',
+      'connected_at',
+    ]) {
       await prefs.remove(_key(d, field));
     }
     final current = await future;
@@ -781,7 +839,8 @@ class BackupController extends AsyncNotifier<BackupState> {
     );
   }
 
-  static String _message(Object e) => switch (e) {
+  /// What to tell the user about [e].
+  static String errorMessage(Object e) => switch (e) {
     BackupException(:final message) => message,
     OAuthException(:final message) => message,
     // Only a failed DNS lookup really means "offline"; other socket errors

@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
+import 'backup_service.dart';
 import 'network.dart';
 
 /// OAuthService for PKCE-compliant providers
@@ -211,7 +212,7 @@ class OAuthService {
         )
         .withTimeout();
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    if (response.statusCode == 400 || response.statusCode == 401) {
       // The refresh token may have expired/revoked.
       // Delete credentials so the application can request another login.
       await logout();
@@ -220,6 +221,13 @@ class OAuthService {
         'Token refresh failed.\n'
         'Status: ${response.statusCode}\n'
         'Body: ${response.body}',
+      );
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      // The server's trouble, not the session's: keep the credentials.
+      throw BackupException(
+        'The sign-in server is not available (${response.statusCode}). '
+        'Try again later.',
       );
     }
 

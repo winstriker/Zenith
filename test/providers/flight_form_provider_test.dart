@@ -70,7 +70,7 @@ void main() {
 
   test('a proficiency check needs an examiner, ticked when one joins', () {
     const examiner = CrewMember(
-      person: Person(id: 1, name: 'Anna', surname: 'Verdi'),
+      person: Person(syncId: 'test', id: 1, name: 'Anna', surname: 'Verdi'),
       role: CrewRole.exm,
     );
     expect(state().hasExaminer, isFalse);
@@ -96,7 +96,7 @@ void main() {
 
   group('simulator sessions', () {
     const sim = SimulatorWithStats(
-      simulator: Simulator(id: 1, kind: SimulatorKind.ffs),
+      simulator: Simulator(syncId: 'test', id: 1, kind: SimulatorKind.ffs),
     );
 
     test('need a simulator, start without landings', () {

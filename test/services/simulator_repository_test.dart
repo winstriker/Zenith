@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -162,35 +160,4 @@ void main() {
       expect(s.total, Duration.zero);
     },
   );
-
-  test('v10 → v11 adds simulators to an existing logbook', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration_v11');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    final v10 = LogbookDatabase(NativeDatabase(file));
-    await v10
-        .into(v10.flights)
-        .insert(
-          FlightsCompanion.insert(
-            title: 'Flight',
-            departureTime: DateTime(2026, 5, 3),
-            isRecording: false,
-          ),
-        );
-    await v10.customStatement('DROP INDEX flights_simulator_id_idx');
-    await v10.customStatement('ALTER TABLE flights DROP COLUMN simulator_id');
-    await v10.customStatement('DROP TABLE simulators');
-    await v10.customStatement('PRAGMA user_version = 10');
-    await v10.close();
-
-    final v11 = LogbookDatabase(NativeDatabase(file));
-    addTearDown(v11.close);
-    final flight = await v11.select(v11.flights).getSingle();
-    expect(flight.simulatorId, isNull);
-    final id = await SimulatorRepository(
-      v11,
-    ).addSimulator(const SimulatorsCompanion(kind: Value(SimulatorKind.ffs)));
-    expect(await SimulatorRepository(v11).watchSimulator(id).first, isNotNull);
-  });
 }

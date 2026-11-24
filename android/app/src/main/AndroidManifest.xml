@@ -14,7 +14,11 @@
         android:label="Zenith"
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false">
+        <!-- No Android Auto Backup: Zenith backs up itself, and a restored
+             copy would bring back an incompatible database and the sync
+             device id of another installation. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

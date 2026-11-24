@@ -132,41 +132,6 @@ void main() {
     );
   });
 
-  test('v2 → v3 migration moves crew_json into people/flight_crew', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    // Build a v2-shaped database: current schema, minus the crew tables,
-    // plus the legacy crew_json column.
-    final v3 = LogbookDatabase(NativeDatabase(file));
-    final flight = await addFlight(v3, DateTime(2025, 3, 3));
-    await v3.customStatement('DROP TABLE flight_crew');
-    await v3.customStatement('DROP TABLE people');
-    await v3.customStatement('ALTER TABLE flights ADD COLUMN crew_json TEXT');
-    await v3.customStatement('UPDATE flights SET crew_json = ? WHERE id = ?', [
-      '[{"role":"ins","name":"Anna Maria Rossi"},'
-          '{"role":"sic","name":"Cher"}]',
-      flight,
-    ]);
-    await v3.customStatement('PRAGMA user_version = 2');
-    await v3.close();
-
-    final db = LogbookDatabase(NativeDatabase(file));
-    addTearDown(db.close);
-
-    final crew = await db.getFlightCrew(flight);
-    expect(crew.map((c) => (c.person.name, c.person.surname, c.role)), [
-      ('Anna', 'Maria Rossi', CrewRole.ins),
-      ('Cher', '', CrewRole.sic),
-    ]);
-    final columns = await db.customSelect('PRAGMA table_info(flights)').get();
-    expect(
-      columns.map((c) => c.read<String>('name')),
-      isNot(contains('crew_json')),
-    );
-  });
-
   group('photos', () {
     late LogbookDatabase db;
     late Directory root;
@@ -252,23 +217,5 @@ void main() {
 
     await repo.deletePerson(anna.id);
     expect(await repo.watchPerson(anna.id).first, isNull);
-  });
-
-  test('v3 → v4 migration adds the photo column', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration_v4');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    final v4 = LogbookDatabase(NativeDatabase(file));
-    await PersonRepository(v4).addPerson(name: 'Anna', surname: 'Rossi');
-    await v4.customStatement('ALTER TABLE people DROP COLUMN photo');
-    await v4.customStatement('PRAGMA user_version = 3');
-    await v4.close();
-
-    final db = LogbookDatabase(NativeDatabase(file));
-    addTearDown(db.close);
-    final people = await PersonRepository(db).watchPeople().first;
-    expect(people.single.person.fullName, 'Anna Rossi');
-    expect(people.single.person.photo, isNull);
   });
 }

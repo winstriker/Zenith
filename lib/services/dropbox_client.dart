@@ -14,12 +14,23 @@ import 'oauth_service.dart';
 /// Every file lives in [folder]. With an "App folder" Dropbox app that is
 /// `Apps/<app name>/Backups`; with full access it is `/Zenith Backups`.
 class DropboxClient implements CloudBackupClient {
-  DropboxClient(this._auth, {this.chunkSize = 1024 * 1024});
+  DropboxClient(
+    this._auth, {
+    this.chunkSize = 1024 * 1024,
+    this.folder = backupFolder,
+    this.lists = BackupService.isBackupFileName,
+  });
 
   final OAuthService _auth;
   static final _log = Logger('DropboxClient');
 
-  static const folder = '/Zenith Backups';
+  static const backupFolder = '/Zenith Backups';
+  static const syncFolder = '/Zenith Sync';
+
+  final String folder;
+
+  /// Which files of [folder] [list] returns, by name.
+  final bool Function(String name) lists;
   static const _api = 'https://api.dropboxapi.com/2';
   static const _content = 'https://content.dropboxapi.com/2';
 
@@ -81,7 +92,7 @@ class DropboxClient implements CloudBackupClient {
     onProgress?.call(1);
   }
 
-  /// Backups in [folder], newest first.
+  /// Files of [folder] that [lists] accepts, newest first.
   @override
   Future<List<RemoteBackup>> list() async {
     final entries = <Map<String, dynamic>>[];
@@ -105,8 +116,7 @@ class DropboxClient implements CloudBackupClient {
 
     final backups = [
       for (final e in entries)
-        if (e['.tag'] == 'file' &&
-            BackupService.isBackupFileName(e['name'] as String))
+        if (e['.tag'] == 'file' && lists(e['name'] as String))
           RemoteBackup(
             name: e['name'] as String,
             id: e['path_lower'] as String,

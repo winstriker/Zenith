@@ -17,6 +17,7 @@ FlightWithStats _flight({
   String? remarks = 'Nice',
 }) => FlightWithStats(
   flight: Flight(
+    syncId: 'test',
     id: 1,
     title: 'A → B',
     departureTime: _dep,
@@ -156,7 +157,7 @@ void main() {
 
   group('multi-pilot time', () {
     const sic = CrewMember(
-      person: Person(id: 2, name: 'Luca', surname: 'Bianchi'),
+      person: Person(syncId: 'test', id: 2, name: 'Luca', surname: 'Bianchi'),
       role: CrewRole.sic,
     );
 
@@ -170,7 +171,7 @@ void main() {
 
     test('so does being the second in command', () {
       const pic = CrewMember(
-        person: Person(id: 3, name: 'Anna', surname: 'Verdi'),
+        person: Person(syncId: 'test', id: 3, name: 'Anna', surname: 'Verdi'),
         role: CrewRole.pic,
       );
       final entry = LogbookEntry.of(
@@ -184,7 +185,7 @@ void main() {
 
     test('other crew leave it single-pilot', () {
       const passenger = CrewMember(
-        person: Person(id: 4, name: 'Marco', surname: 'Neri'),
+        person: Person(syncId: 'test', id: 4, name: 'Marco', surname: 'Neri'),
         role: CrewRole.oth,
       );
       final entry = LogbookEntry.of(_flight(), crew: const [passenger]);
@@ -236,15 +237,15 @@ void main() {
 
   group('pilot function and remarks (AMC1 FCL.050)', () {
     const examiner = CrewMember(
-      person: Person(id: 5, name: 'Marco', surname: 'Rossi'),
+      person: Person(syncId: 'test', id: 5, name: 'Marco', surname: 'Rossi'),
       role: CrewRole.exm,
     );
     const instructor = CrewMember(
-      person: Person(id: 6, name: 'Giulia', surname: 'Bassi'),
+      person: Person(syncId: 'test', id: 6, name: 'Giulia', surname: 'Bassi'),
       role: CrewRole.ins,
     );
     const pic = CrewMember(
-      person: Person(id: 7, name: 'Anna', surname: 'Verdi'),
+      person: Person(syncId: 'test', id: 7, name: 'Anna', surname: 'Verdi'),
       role: CrewRole.pic,
     );
 

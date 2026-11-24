@@ -8,7 +8,7 @@ void main() {
   testWidgets('tapping a crew member opens the role sheet and changes role', (
     tester,
   ) async {
-    const anna = Person(id: 1, name: 'Anna', surname: 'Rossi');
+    const anna = Person(syncId: 'test', id: 1, name: 'Anna', surname: 'Rossi');
     var crew = [const CrewMember(person: anna, role: CrewRole.ins)];
     var removed = false;
 
@@ -53,7 +53,7 @@ void main() {
   testWidgets('read-only card shows crew without edit controls', (
     tester,
   ) async {
-    const anna = Person(id: 1, name: 'Anna', surname: 'Rossi');
+    const anna = Person(syncId: 'test', id: 1, name: 'Anna', surname: 'Rossi');
     CrewMember? tapped;
 
     await tester.pumpWidget(

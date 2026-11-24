@@ -9,6 +9,7 @@ final _dep = DateTime.utc(2026, 11, 13, 8);
 
 FlightWithStats _flight(int id) => FlightWithStats(
   flight: Flight(
+    syncId: 'test',
     id: id,
     title: 'A → B',
     departureTime: _dep.add(Duration(days: id)),
@@ -90,6 +91,7 @@ void main() {
     final html = PdfExportService.buildLogbookHtml([
       FlightWithStats(
         flight: Flight(
+          syncId: 'test',
           id: 1,
           title: 'A → B',
           // Stored times come back in the device's time zone.

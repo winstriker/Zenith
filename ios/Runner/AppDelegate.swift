@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
+import workmanager_apple
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -13,6 +14,10 @@ import UserNotifications
   ) -> Bool {
     // Lets flutter_local_notifications show reminders and handle their taps.
     UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+    // A sync started while the Flutter engine is gone runs on its own engine.
+    WorkmanagerPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

@@ -286,6 +286,34 @@ void main() {
     );
   });
 
+  test('a sign-in server in trouble does not sign out', () async {
+    for (final status in [429, 500, 503]) {
+      final failing = OAuthService(
+        'google_drive',
+        'https://accounts.google.com/o/oauth2/v2/auth',
+        'https://oauth2.googleapis.com/token',
+        'id',
+        'x:/y',
+        'scope',
+        httpClient: MockClient((req) async => http.Response('', status)),
+      );
+      FlutterSecureStorage.setMockInitialValues({
+        'google_drive_refresh_token': 'refresh',
+      });
+      await expectLater(
+        GoogleDriveClient(failing).list(),
+        throwsA(
+          isA<BackupException>().having(
+            (e) => e,
+            'kind',
+            isNot(isA<CloudReauthRequired>()),
+          ),
+        ),
+      );
+      expect(await failing.isLoggedIn(), isTrue);
+    }
+  });
+
   test('revoke posts the refresh token', () async {
     await client.revoke();
     expect(drive.revoked, 'refresh');

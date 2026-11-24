@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,25 +36,6 @@ void main() {
 
   test('a new database has every index', () async {
     final db = LogbookDatabase(NativeDatabase.memory());
-    addTearDown(db.close);
-    expect(await indexes(db), expected);
-  });
-
-  test('v17 → v18 creates the missing indexes', () async {
-    final dir = await Directory.systemTemp.createTemp('zenith_migration_v18');
-    final file = File('${dir.path}/db.sqlite');
-    addTearDown(() => dir.delete(recursive: true));
-
-    final v17 = LogbookDatabase(NativeDatabase(file));
-    for (final name in await indexes(v17)) {
-      if (name != 'airports_lat_lon_idx') {
-        await v17.customStatement('DROP INDEX $name');
-      }
-    }
-    await v17.customStatement('PRAGMA user_version = 17');
-    await v17.close();
-
-    final db = LogbookDatabase(NativeDatabase(file));
     addTearDown(db.close);
     expect(await indexes(db), expected);
   });
