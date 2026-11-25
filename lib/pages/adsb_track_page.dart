@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_page_route.dart';
+import '../core/fab_hero_tags.dart';
 import '../models/flight_track.dart';
 import '../models/sync_progress.dart';
 import '../providers/adsb_providers.dart';
@@ -16,8 +17,10 @@ import '../services/database.dart';
 import '../utils/duration_formatter.dart';
 import '../utils/tz_datetime.dart';
 import '../widgets/airport_search_dialog.dart';
+import '../widgets/page_title.dart';
 import '../widgets/sync_progress_indicator.dart';
 import 'adsb_settings_page.dart';
+import 'adsb_track_editor_page.dart';
 import 'flight_form_page.dart';
 
 enum _SearchBy {
@@ -277,12 +280,47 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
     return best.overlapWith(from, to) > Duration.zero ? best : null;
   }
 
-  /// Fills the flight form in with [candidate], to log it as a new flight.
-  Future<void> _import(AdsbFlight candidate) async {
+  /// Lets the user cut [candidate] down to the flight they mean, and goes on
+  /// with that.
+  Future<void> _edit(AdsbFlight candidate) async {
     if (_saving != null) return;
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = candidate);
+    List<TrackPoint>? points;
+    try {
+      final service = await ref.read(adsbTrackServiceProvider.future);
+      points = await service.fetchPoints(candidate);
+    } on AdsbException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not load the track ($e).')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = null);
+    }
+    if (points == null || !mounted) return;
+
+    final track = points;
+    final part = await navigator.push<AdsbFlight>(
+      AppPageRoute(
+        builder: (_) => AdsbTrackEditorPage(flight: candidate, points: track),
+      ),
+    );
+    if (part == null || !mounted) return;
+    await (widget.isImport
+        ? _import(part, tile: candidate)
+        : _save(part, tile: candidate));
+  }
+
+  /// Fills the flight form in with [candidate], to log it as a new flight.
+  /// [tile] is the flight listed, when [candidate] was cut out of it.
+  Future<void> _import(AdsbFlight candidate, {AdsbFlight? tile}) async {
+    if (_saving != null) return;
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = tile ?? candidate);
     AdsbImportDraft? draft;
     try {
       final importer = await ref.read(adsbFlightImporterProvider.future);
@@ -310,7 +348,7 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
     if (saved == true && mounted) navigator.pop(true);
   }
 
-  Future<void> _save(AdsbFlight candidate) async {
+  Future<void> _save(AdsbFlight candidate, {AdsbFlight? tile}) async {
     if (_saving != null) return;
     final flight = widget.flight!;
     final navigator = Navigator.of(context);
@@ -343,7 +381,7 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
       if (confirmed != true || !mounted) return;
     }
 
-    setState(() => _saving = candidate);
+    setState(() => _saving = tile ?? candidate);
     try {
       final service = await ref.read(adsbTrackServiceProvider.future);
       final points = await service.loadTrack(
@@ -387,18 +425,26 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
     final error = _error;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isImport ? 'Import from ADS-B' : 'ADS-B Track'),
-        centerTitle: true,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startTop,
+      floatingActionButton: FloatingActionButton(
+        heroTag: closeFabHeroTag,
+        tooltip: 'Close',
+        onPressed: () => Navigator.pop(context),
+        child: const Icon(Icons.close),
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           16,
-          8,
+          0,
           16,
           16 + MediaQuery.paddingOf(context).bottom,
         ),
         children: [
+          PageTitle(
+            widget.isImport ? 'Import from ADS-B' : 'ADS-B Track',
+            belowCloseButton: true,
+            horizontalPadding: 0,
+          ),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -631,6 +677,7 @@ class _AdsbTrackPageState extends ConsumerState<AdsbTrackPage> {
                               ? _import(candidate)
                               : _save(candidate)
                         : null,
+                    onEdit: _saving == null ? () => _edit(candidate) : null,
                   ),
                 ),
               for (final provider in {
@@ -697,6 +744,7 @@ class _FlightTile extends StatelessWidget {
     required this.isSaving,
     required this.actionIcon,
     required this.onTap,
+    required this.onEdit,
   });
 
   final AdsbFlight flight;
@@ -706,6 +754,7 @@ class _FlightTile extends StatelessWidget {
   final bool isSaving;
   final IconData actionIcon;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -750,6 +799,11 @@ class _FlightTile extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                tooltip: 'Edit track',
+                icon: const Icon(Icons.content_cut),
+                onPressed: onEdit,
               ),
               const SizedBox(width: 12),
               if (isSaving)

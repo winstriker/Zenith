@@ -183,6 +183,41 @@ void main() {
       expect(draft.arrivalTime, start.add(const Duration(hours: 1)));
     });
 
+    test('a merged track is cut into the way there and the way back', () async {
+      final merged = flight(departure: 'LIMC', arrival: 'LIMC');
+      Future<AdsbImportDraft> prepare(AdsbFlight part) => AdsbFlightImporter(
+        fetchPoints: (flight) async => flight.points!,
+        airportByCode: (code) async => {'LIMC': airport(1, 'LIMC')}[code],
+        airportsNear: (lat, lon) async => [
+          if (lat == 45.5) AirportWithDistance(airport(2, 'LIML'), 0.4),
+        ],
+        localRegistrations: (_) async => const [],
+        onlineRegistration: (_) async => null,
+        aircraft: () async => const [],
+      ).prepare(part);
+      final turnaround = track[1].time;
+
+      final out = await prepare(merged.trimmed(track, 0, 1));
+      expect(out.departure?.airport.ident, 'LIMC');
+      expect(out.arrival?.airport.ident, 'LIML');
+      expect(out.arrival?.origin, ImportedAirportOrigin.nearest);
+      expect(out.departureTime, merged.start);
+      expect(out.arrivalTime, turnaround);
+      expect(out.points, hasLength(2));
+
+      final back = await prepare(merged.trimmed(track, 1, 2));
+      expect(back.departure?.airport.ident, 'LIML');
+      expect(back.arrival?.airport.ident, 'LIMC');
+      expect(back.departureTime, turnaround);
+      expect(back.arrivalTime, merged.end);
+    });
+
+    test('cutting the end off settles a landing nobody saw', () {
+      final unseen = flight().foundByRoute(arrival: 'HEMA');
+      expect(unseen.trimmed(track, 1, 2).arrivalUnseen, isTrue);
+      expect(unseen.trimmed(track, 0, 1).arrivalUnseen, isFalse);
+    });
+
     group('pickNearest', () {
       AirportWithDistance at(String ident, AirportType type, double km) =>
           AirportWithDistance(airport(0, ident, type: type), km);

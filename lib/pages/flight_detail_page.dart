@@ -856,7 +856,6 @@ class _NoTrackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -864,15 +863,6 @@ class _NoTrackCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _CardTitle(icon: Icons.route, title: 'TRACK'),
-            const SizedBox(height: 12),
-            Text(
-              'This flight has no track. If its aircraft was seen by ADS-B '
-              'receivers, the track it flew can be fetched: the route on '
-              'the map, the altitude profile and the replay.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

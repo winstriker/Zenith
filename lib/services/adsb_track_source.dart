@@ -178,6 +178,26 @@ class AdsbFlight {
     arrivalUnseen: arrivalUnseen || arrival != null,
   );
 
+  /// The part of this flight from the [first] to the [last] of [points], its
+  /// whole track. An end that was cut off takes the time of the track there,
+  /// and its airport with it: the provider's is that of another flight.
+  AdsbFlight trimmed(List<TrackPoint> points, int first, int last) {
+    final startCut = first > 0;
+    final endCut = last < points.length - 1;
+    return AdsbFlight(
+      provider: provider,
+      icao24: icao24,
+      start: startCut ? points[first].time : start,
+      end: endCut ? points[last].time : end,
+      callsign: callsign,
+      departure: startCut ? null : departure,
+      arrival: endCut ? null : arrival,
+      points: points.sublist(first, last + 1),
+      byRoute: byRoute,
+      arrivalUnseen: arrivalUnseen && !endCut,
+    );
+  }
+
   Duration get duration => end.difference(start);
 
   /// How much of the flight falls between [from] and [to].
