@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi' show Abi;
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -15,6 +16,15 @@ const updatesRepoUrl = String.fromEnvironment('UPDATES_REPO_URL');
 /// Releases ship as APKs; elsewhere (iOS) the store delivers updates.
 bool get canSelfUpdate => defaultTargetPlatform == TargetPlatform.android;
 
+/// The running architecture as the release workflow names its APKs, or null
+/// when there is none for it.
+String? get _currentAbi => switch (Abi.current()) {
+  Abi.androidArm => 'armeabi-v7a',
+  Abi.androidArm64 => 'arm64-v8a',
+  Abi.androidX64 => 'x86_64',
+  _ => null,
+};
+
 /// A published release: its tag (`v1.2.0+42`), what changed since the
 /// previous one (empty for the first) and the APK to install.
 typedef AppRelease = ({String version, String notes, Uri apkUrl});
@@ -28,12 +38,17 @@ class UpdateService {
     http.Client? client,
     this.repoUrl = updatesRepoUrl,
     int? currentBuild,
+    String? abi,
   }) : _client = client ?? http.Client(),
-       currentBuild = currentBuild ?? int.tryParse(appBuildNumber ?? '') ?? 0;
+       currentBuild = currentBuild ?? int.tryParse(appBuildNumber ?? '') ?? 0,
+       abi = abi ?? _currentAbi;
 
   final http.Client _client;
   final String repoUrl;
   final int currentBuild;
+
+  /// The architecture whose APK to download; null takes the universal one.
+  final String? abi;
 
   /// The latest release, when it is newer than this build.
   Future<AppRelease?> latestNewer() async {
@@ -55,16 +70,20 @@ class UpdateService {
     final tag = json['tag_name'] as String;
     final build = int.tryParse(RegExp(r'\+(\d+)$').firstMatch(tag)?[1] ?? '');
     if (build == null || build <= currentBuild) return null;
-    for (final asset in (json['assets'] as List).cast<Map<String, dynamic>>()) {
-      if ((asset['name'] as String).endsWith('.apk')) {
-        return (
-          version: tag,
-          notes: ((json['body'] as String?) ?? '').trim(),
-          apkUrl: Uri.parse(asset['browser_download_url'] as String),
-        );
+    final assets = (json['assets'] as List).cast<Map<String, dynamic>>();
+    // The smaller APK for this architecture, else the universal one.
+    for (final suffix in [?abi, 'universal']) {
+      for (final asset in assets) {
+        if ((asset['name'] as String).endsWith('-$suffix.apk')) {
+          return (
+            version: tag,
+            notes: ((json['body'] as String?) ?? '').trim(),
+            apkUrl: Uri.parse(asset['browser_download_url'] as String),
+          );
+        }
       }
     }
-    throw FormatException('Release $tag has no APK');
+    throw FormatException('Release $tag has no APK for this device');
   }
 
   /// Downloads [release]'s APK into the folder the installer can read from,

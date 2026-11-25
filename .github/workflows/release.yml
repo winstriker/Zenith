@@ -49,7 +49,8 @@ jobs:
 
       # The run number is the build number (Android version code), so every
       # release is newer than the last one, which the in-app updater relies on.
-      - name: Build APK
+      # One universal APK, plus a smaller one per architecture.
+      - name: Build APKs
         env:
           DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -60,19 +61,30 @@ jobs:
           TERMS_OF_SERVICE_URL: ${{ secrets.TERMS_OF_SERVICE_URL }}
         run: |
           flutter pub get
-          flutter build apk --release \
-            --build-number=${{ github.run_number }} \
-            --dart-define=DROPBOX_APP_KEY="$DROPBOX_APP_KEY" \
-            --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
-            --dart-define=ICAO_TYPES_URL="$ICAO_TYPES_URL" \
-            --dart-define=UPDATES_REPO_URL="$UPDATES_REPO_URL" \
-            --dart-define=ANNOUNCEMENTS_URL="$ANNOUNCEMENTS_URL" \
-            --dart-define=PRIVACY_POLICY_URL="$PRIVACY_POLICY_URL" \
+          build=(
+            flutter build apk --release
+            --build-number=${{ github.run_number }}
+            --dart-define=DROPBOX_APP_KEY="$DROPBOX_APP_KEY"
+            --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID"
+            --dart-define=ICAO_TYPES_URL="$ICAO_TYPES_URL"
+            --dart-define=UPDATES_REPO_URL="$UPDATES_REPO_URL"
+            --dart-define=ANNOUNCEMENTS_URL="$ANNOUNCEMENTS_URL"
+            --dart-define=PRIVACY_POLICY_URL="$PRIVACY_POLICY_URL"
             --dart-define=TERMS_OF_SERVICE_URL="$TERMS_OF_SERVICE_URL"
+          )
+          out=build/app/outputs/flutter-apk
+          mkdir apks
+          "${build[@]}"
+          cp "$out/app-release.apk" apks/universal.apk
+          "${build[@]}" --split-per-abi
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            cp "$out/app-$abi-release.apk" "apks/$abi.apk"
+          done
 
       # Tagged v<pubspec version name>+<build number>, as the updater expects.
       # Titled after the commit's first line (minus the marker); described by
-      # the commits since the previous release, if there is one.
+      # the commits since the previous release, if there is one. The updater
+      # picks its APK by the architecture at the end of the file name.
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,6 +98,8 @@ jobs:
             git log --no-merges --invert-grep -F --grep='[BUILD RELEASE]' \
               --format='- %s' "$previous..HEAD" > notes.md
           fi
-          cp build/app/outputs/flutter-apk/app-release.apk "zenith-$version.apk"
-          gh release create "v$version" "zenith-$version.apk" \
+          for apk in apks/*.apk; do
+            mv "$apk" "apks/zenith-$version-$(basename "$apk")"
+          done
+          gh release create "v$version" apks/*.apk \
             --title "${title:-Zenith $version}" --notes-file notes.md --target "$GITHUB_SHA"
