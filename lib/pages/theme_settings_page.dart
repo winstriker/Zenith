@@ -101,10 +101,7 @@ class ThemeSettingsPage extends ConsumerWidget {
                       Icons.wallpaper,
                       color: Theme.of(context).colorScheme.primary,
                     ),
-                    title: const Text('System colors'),
-                    subtitle: const Text(
-                      "Follow your wallpaper's colors instead of a theme",
-                    ),
+                    title: const Text('Use system colors'),
                     value: useSystem,
                     onChanged: ref.read(systemColorsProvider.notifier).set,
                   ),
@@ -114,7 +111,6 @@ class ThemeSettingsPage extends ConsumerWidget {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   title: const Text('OLED black'),
-                  subtitle: const Text('Pure black background in dark theme'),
                   value: oled,
                   onChanged: themeMode == ThemeMode.light
                       ? null
@@ -126,7 +122,6 @@ class ThemeSettingsPage extends ConsumerWidget {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   title: const Text('Full screen'),
-                  subtitle: const Text('Hide the status and navigation bars'),
                   value: ref.watch(fullScreenProvider),
                   onChanged: ref.read(fullScreenProvider.notifier).set,
                 ),

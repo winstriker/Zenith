@@ -300,10 +300,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       SwitchListTile(
         secondary: Icon(Icons.sync, color: theme.colorScheme.primary),
         title: const Text('Sync across devices'),
-        subtitle: Text(
-          'Keeps the logbook the same on every device that syncs with this '
-          '${d.label}. Works offline: changes sync when back online.',
-        ),
         value: on,
         onChanged: (v) async {
           await ref.read(backupSettingsProvider.notifier).setSync(d, v);
@@ -344,10 +340,6 @@ class _BackupSettingsPageState extends ConsumerState<BackupSettingsPage> {
       ListTile(
         leading: Icon(Icons.delete_sweep, color: theme.colorScheme.error),
         title: const Text('Delete sync data'),
-        subtitle: Text(
-          'Turns sync off here and empties the Zenith Sync folder in '
-          '${d.label}. Your logbook stays on this device.',
-        ),
         enabled: !status.running,
         onTap: () => _deleteSyncData(d),
       ),

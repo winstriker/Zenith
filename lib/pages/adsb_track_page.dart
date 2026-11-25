@@ -21,9 +21,9 @@ import 'adsb_settings_page.dart';
 import 'flight_form_page.dart';
 
 enum _SearchBy {
-  registration('Registration', 'e.g. EI-DCL', Icons.airplanemode_active),
+  registration('Tail', 'e.g. EI-DCL', Icons.airplanemode_active),
   callsign('Flight no.', 'e.g. RYR4WY', Icons.confirmation_number_outlined),
-  hex('ICAO address', 'e.g. 4CA242', Icons.tag);
+  hex('HEX', 'e.g. 4CA242', Icons.tag);
 
   const _SearchBy(this.label, this.hint, this.icon);
   final String label;

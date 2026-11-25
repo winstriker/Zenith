@@ -284,7 +284,7 @@ class InlineSelect<T> extends StatelessWidget {
       itemLabel(value),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
     );
     if (onChanged == null) return text;
     return InkWell(

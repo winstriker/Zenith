@@ -23,8 +23,9 @@ class TimeInput extends StatelessWidget {
       textAlign: TextAlign.center,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
+        hintStyle: theme.textTheme.titleMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
         isDense: true,
