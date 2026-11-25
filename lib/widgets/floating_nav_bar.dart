@@ -39,7 +39,7 @@ class FloatingNavBar extends StatelessWidget {
   static const _height = 64.0;
 
   /// Gap between the pill and its slot's edges.
-  static const _pillInset = EdgeInsets.symmetric(horizontal: 2, vertical: 6);
+  static const _pillInset = EdgeInsets.all(6);
 
   static const _slideDuration = Duration(milliseconds: 380);
   static const _slideCurve = Curves.easeOutCubic;
@@ -79,7 +79,11 @@ class FloatingNavBar extends StatelessWidget {
                       child: DecoratedBox(
                         decoration: ShapeDecoration(
                           color: cs.primary.withValues(alpha: 0.14),
-                          shape: const StadiumBorder(),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              _radius - _pillInset.top,
+                            ),
+                          ),
                         ),
                       ),
                     ),
