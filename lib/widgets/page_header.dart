@@ -171,7 +171,7 @@ class PageHeader extends ConsumerWidget {
                 16,
                 60,
                 trailing == null ? 56 : 104,
-                24,
+                16,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,7 +198,7 @@ class PageHeader extends ConsumerWidget {
             ),
             Positioned(
               right: 8,
-              bottom: 8,
+              bottom: 10,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [

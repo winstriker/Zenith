@@ -16,6 +16,7 @@ import 'pages/licences_page.dart';
 import 'pages/recording_page.dart';
 import 'pages/settings_page.dart';
 import 'providers/aircraft_providers.dart';
+import 'providers/announcement_providers.dart';
 import 'providers/backup_providers.dart';
 import 'providers/flight_recorder_provider.dart';
 import 'providers/licence_providers.dart';
@@ -60,6 +61,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     Future.delayed(const Duration(), _runAutomaticBackups);
     ref.read(syncControllerProvider.notifier).syncOnChanges();
     Future.delayed(const Duration(seconds: 5), _checkForUpdates);
+    Future.delayed(const Duration(seconds: 6), _checkAnnouncements);
     WidgetsBinding.instance.addPostFrameCallback((_) => _resumeRecording());
   }
 
@@ -103,6 +105,17 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
         existingWorkPolicy: ExistingWorkPolicy.keep,
       ),
     );
+  }
+
+  /// Fetches announcements, so the home page can flag unread ones.
+  void _checkAnnouncements() {
+    if (!mounted ||
+        !ref.read(onboardingCompleteProvider) ||
+        !ref.read(showAnnouncementsProvider)) {
+      return;
+    }
+    // Offline is fine: the page shows the error when opened.
+    ref.read(announcementsProvider.future).ignore();
   }
 
   Future<void> _checkForUpdates() async {

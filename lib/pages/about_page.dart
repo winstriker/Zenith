@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../models/sync_progress.dart';
+import '../providers/announcement_providers.dart';
 import '../providers/backup_providers.dart';
 import '../providers/update_providers.dart';
 import '../services/backup_service.dart';
@@ -148,6 +149,13 @@ class AboutPage extends ConsumerWidget {
                     onChanged: ref.read(autoUpdateCheckProvider.notifier).set,
                   ),
                 ],
+                const Divider(height: 1, indent: 16),
+                SwitchListTile(
+                  secondary: Icon(Icons.campaign_outlined, color: primary),
+                  title: const Text('Show announcements'),
+                  value: ref.watch(showAnnouncementsProvider),
+                  onChanged: ref.read(showAnnouncementsProvider.notifier).set,
+                ),
                 const Divider(height: 1, indent: 16),
                 ListTile(
                   leading: Icon(Icons.description_outlined, color: primary),

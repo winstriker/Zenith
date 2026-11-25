@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/aircraft_image_cache.dart';
 import 'airport_providers.dart';
+import 'announcement_providers.dart';
 import 'backup_providers.dart';
 import 'currency_settings_provider.dart';
 import 'map_provider.dart';
@@ -66,6 +67,7 @@ class AppSettingsBackup {
     },
     // Updates.
     AutoUpdateCheckNotifier.prefsKey: _Kind.bool,
+    ShowAnnouncementsNotifier.prefsKey: _Kind.bool,
   };
 
   /// Without these the app goes back to the intro: a backup can replace
@@ -136,6 +138,7 @@ class AppSettingsBackup {
       ..invalidate(disabledPhotoSourcesProvider)
       ..invalidate(aircraftImageCacheLimitProvider)
       ..invalidate(backupSettingsProvider)
-      ..invalidate(autoUpdateCheckProvider);
+      ..invalidate(autoUpdateCheckProvider)
+      ..invalidate(showAnnouncementsProvider);
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../providers/aircraft_providers.dart';
+import '../providers/announcement_providers.dart';
 import '../providers/flight_providers.dart';
 import '../providers/flight_recorder_provider.dart';
 import '../providers/navigation_provider.dart';
@@ -22,6 +23,7 @@ import '../widgets/speed_dial_fab.dart';
 import '../widgets/temporary_flights.dart';
 import 'adsb_track_page.dart';
 import 'aircrafts_page.dart';
+import 'announcements_page.dart';
 import 'flight_detail_page.dart';
 import 'flight_form_page.dart';
 import 'flights_page.dart';
@@ -89,6 +91,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                   nickname ?? 'Pilot',
                   tab: MainTab.home,
                   overline: 'Welcome back,',
+                  trailing: ref.watch(showAnnouncementsProvider)
+                      ? IconButton(
+                          tooltip: 'Announcements',
+                          icon: Badge(
+                            isLabelVisible: ref.watch(
+                              hasUnreadAnnouncementsProvider,
+                            ),
+                            child: const Icon(Icons.campaign_outlined),
+                          ),
+                          onPressed: () => Navigator.push(
+                            context,
+                            AppPageRoute<void>(
+                              builder: (_) => const AnnouncementsPage(),
+                            ),
+                          ),
+                        )
+                      : null,
                   motif: (size, color) => Image.asset(
                     'assets/images/zenith_logo.png',
                     width: size,
@@ -341,7 +360,7 @@ class _QuickStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
       child: Row(
         children: [
           _StatCard(
