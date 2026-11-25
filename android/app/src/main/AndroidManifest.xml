@@ -11,7 +11,7 @@
     <!-- In-app updates: lets the APK downloaded from GitHub releases be installed. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application
-        android:label="Zenith"
+        android:label="${appName}"
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"

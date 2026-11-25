@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -330,5 +331,21 @@ void main() {
       auth.matchesCallback(Uri.parse('zenithlogbook://dropbox?code=c')),
       isFalse,
     );
+  });
+
+  test('only the debug flavor on iOS has its own redirect', () {
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    for (final (platform, debugFlavor, scheme) in [
+      (TargetPlatform.iOS, true, 'it.winstriker.zenithdebug'),
+      (TargetPlatform.iOS, false, 'it.winstriker.zenith'),
+      (TargetPlatform.android, true, 'it.winstriker.zenith'),
+      (TargetPlatform.android, false, 'it.winstriker.zenith'),
+    ]) {
+      debugDefaultTargetPlatformOverride = platform;
+      expect(
+        googleRedirectUriFor(debugFlavor: debugFlavor),
+        '$scheme:/oauth2redirect',
+      );
+    }
   });
 }

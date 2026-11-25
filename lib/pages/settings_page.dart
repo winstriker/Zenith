@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_info.dart';
 import '../core/app_page_route.dart';
 import '../providers/currency_settings_provider.dart';
 import '../providers/flight_providers.dart';
@@ -210,7 +211,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   const SizedBox(height: 32),
                   Center(
                     child: Text(
-                      'Zenith v$appBuildName',
+                      '$appName v$appBuildName',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

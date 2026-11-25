@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'core/app_info.dart';
 import 'core/app_page_route.dart';
 import 'core/theme.dart';
 import 'pages/about_page.dart';
@@ -170,7 +171,7 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
     if (!needsIntro) ref.listen(currencyReminderSyncProvider, (_, _) {});
 
     return MaterialApp(
-      title: 'Zenith',
+      title: appName,
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,

@@ -9,7 +9,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Zenith</string>
+	<string>$(APP_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -37,13 +37,13 @@
 				<string>zenithlogbook</string>
 			</array>
 		</dict>
-		<!-- Google Drive OAuth redirect (it.winstriker.zenith:/oauth2redirect). -->
+		<!-- Google Drive OAuth redirect (bundle ID:/oauth2redirect). -->
 		<dict>
 			<key>CFBundleURLName</key>
 			<string>it.winstriker.zenith.google</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>it.winstriker.zenith</string>
+				<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			</array>
 		</dict>
 	</array>

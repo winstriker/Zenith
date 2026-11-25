@@ -36,6 +36,35 @@ android {
         versionName = flutter.versionName
     }
 
+    // Flavors can't be named like a build type, such as "debug".
+    flavorDimensions += "app"
+    productFlavors {
+        create("dev") {
+            dimension = "app"
+            applicationId = "it.winstriker.zenithdebug"
+            manifestPlaceholders["appName"] = "Zenith Debug"
+        }
+        create("prod") {
+            dimension = "app"
+            manifestPlaceholders["appName"] = "Zenith"
+        }
+    }
+
+    // With --split-per-abi, also build the universal APK in the same run.
+    splits {
+        abi {
+            isUniversalApk = true
+        }
+    }
+
+    // Flutter doesn't run on x86, but plugins ship x86 libraries, which the
+    // universal APK above would otherwise include.
+    packaging {
+        jniLibs {
+            excludes += "lib/x86/**"
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {

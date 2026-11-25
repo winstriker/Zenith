@@ -11,9 +11,12 @@ jobs:
       contains(github.event.head_commit.message, '[BUILD RELEASE]') &&
       github.actor == github.repository_owner
     runs-on: ubuntu-latest
-    environment: production
+    environment: Build Release
     permissions:
       contents: write
+    env:
+      # Same Flutter (main channel) the app is developed with.
+      FLUTTER_REF: 7ddb90b4c7
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,12 +28,32 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # Same Flutter (main channel) the app is developed with.
+      # GitHub drops caches unused for 7 days; the build then downloads it all.
+      - name: Cache Flutter
+        id: flutter
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/flutter
+          key: flutter-${{ runner.os }}-${{ env.FLUTTER_REF }}
+
+      - name: Cache pub and Gradle dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: deps-${{ runner.os }}-${{ env.FLUTTER_REF }}-${{ hashFiles('pubspec.lock', 'android/**/*.gradle.kts', 'android/gradle.properties', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: deps-${{ runner.os }}-${{ env.FLUTTER_REF }}-
+
       - name: Install Flutter
+        if: steps.flutter.outputs.cache-hit != 'true'
         run: |
           git clone --filter=blob:none https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
-          git -C "$RUNNER_TEMP/flutter" checkout 7ddb90b4c7
-          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          git -C "$RUNNER_TEMP/flutter" checkout "$FLUTTER_REF"
+
+      - name: Add Flutter to PATH
+        run: echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
       - name: Set up signing
         env:
@@ -39,7 +62,16 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
+          # Fail now rather than at the end of the build.
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Secret $name is empty or not set in the Build Release environment"
+              exit 1
+            fi
+          done
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          keytool -list -keystore android/app/upload-keystore.jks \
+            -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS"
           cat > android/key.properties <<PROPS
           storeFile=upload-keystore.jks
           storePassword=$KEYSTORE_PASSWORD
@@ -49,7 +81,8 @@ jobs:
 
       # The run number is the build number (Android version code), so every
       # release is newer than the last one, which the in-app updater relies on.
-      # One universal APK, plus a smaller one per architecture.
+      # One universal APK (see splits in android/app/build.gradle.kts), plus a
+      # smaller one per architecture, all from a single build.
       - name: Build APKs
         env:
           DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
@@ -62,7 +95,7 @@ jobs:
         run: |
           flutter pub get
           build=(
-            flutter build apk --release
+            flutter build apk --release --flavor prod
             --build-number=${{ github.run_number }}
             --dart-define=DROPBOX_APP_KEY="$DROPBOX_APP_KEY"
             --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID"
@@ -74,11 +107,10 @@ jobs:
           )
           out=build/app/outputs/flutter-apk
           mkdir apks
-          "${build[@]}"
-          cp "$out/app-release.apk" apks/universal.apk
           "${build[@]}" --split-per-abi
+          cp "$out/app-prod-release.apk" apks/universal.apk
           for abi in armeabi-v7a arm64-v8a x86_64; do
-            cp "$out/app-$abi-release.apk" "apks/$abi.apk"
+            cp "$out/app-$abi-prod-release.apk" "apks/$abi.apk"
           done
 
       # Tagged v<pubspec version name>+<build number>, as the updater expects.
@@ -101,5 +133,10 @@ jobs:
           for apk in apks/*.apk; do
             mv "$apk" "apks/zenith-$version-$(basename "$apk")"
           done
-          gh release create "v$version" apks/*.apk \
-            --title "${title:-Zenith $version}" --notes-file notes.md --target "$GITHUB_SHA"
+          # GitHub sometimes answers with a 5xx; retry instead of rebuilding.
+          for wait in 15 30 60 120 0; do
+            gh release create "v$version" apks/*.apk \
+              --title "${title:-Zenith $version}" --notes-file notes.md --target "$GITHUB_SHA" && exit 0
+            sleep "$wait"
+          done
+          exit 1

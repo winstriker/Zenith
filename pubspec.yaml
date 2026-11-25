@@ -1,7 +1,7 @@
 name: zenith
 description: "Zenith - Pilot's Logbook"
 publish_to: "none"
-version: 1.0.0
+version: 1.0.0-beta-1
 
 environment:
   sdk: ^3.12.0
@@ -49,6 +49,8 @@ dev_dependencies:
     sdk: flutter
 
 flutter:
+  # Zenith Debug, installable alongside Zenith (--flavor prod).
+  default-flavor: dev
   uses-material-design: true
   assets:
     - assets/images/zenith_logo.png

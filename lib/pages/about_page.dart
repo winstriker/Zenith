@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_info.dart';
 import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
 import '../models/sync_progress.dart';
@@ -67,7 +68,7 @@ class AboutPage extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Zenith',
+                                appName,
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                               Text(

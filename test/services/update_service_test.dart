@@ -40,8 +40,30 @@ void main() {
     expect(release?.apkUrl, Uri.parse('https://dl/zenith-universal.apk'));
   });
 
+  test('a pre-release version name updates a numbered one', () async {
+    final release = await _service(
+      'v1.0.0-beta-1+11',
+      assets: [
+        'zenith-1.0.0-beta-1+11-universal.apk',
+        'zenith-1.0.0-beta-1+11-arm64-v8a.apk',
+      ],
+      abi: 'arm64-v8a',
+    ).latestNewer();
+    expect(release?.version, 'v1.0.0-beta-1+11');
+    expect(
+      release?.apkUrl,
+      Uri.parse('https://dl/zenith-1.0.0-beta-1+11-arm64-v8a.apk'),
+    );
+  });
+
   test('the same, older or unnumbered builds are not', () async {
-    for (final tag in ['v1.0.0+10', 'v2.0.0+9', 'v2.0.0']) {
+    for (final tag in [
+      'v1.0.0+10',
+      'v2.0.0+9',
+      'v2.0.0',
+      'v1.0.0-beta-1+10',
+      'v1.0.0-beta-1',
+    ]) {
       expect(await _service(tag).latestNewer(), isNull, reason: tag);
     }
   });

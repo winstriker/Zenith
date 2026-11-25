@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show appBuildNumber;
 import 'package:http/http.dart' as http;
 
+import '../core/app_info.dart';
 import 'file_opener.dart';
 import 'network.dart';
 
@@ -13,8 +14,10 @@ import 'network.dart';
 /// `https://github.com/winstriker/Zenith`. Empty: this build can't update.
 const updatesRepoUrl = String.fromEnvironment('UPDATES_REPO_URL');
 
-/// Releases ship as APKs; elsewhere (iOS) the store delivers updates.
-bool get canSelfUpdate => defaultTargetPlatform == TargetPlatform.android;
+/// Releases ship as APKs; elsewhere (iOS) the store delivers updates. They are
+/// of Zenith, a different app from Zenith Debug, which they can't update.
+bool get canSelfUpdate =>
+    defaultTargetPlatform == TargetPlatform.android && !isDebugFlavor;
 
 /// The running architecture as the release workflow names its APKs, or null
 /// when there is none for it.

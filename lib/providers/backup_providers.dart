@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/app_info.dart';
 import '../models/sync_progress.dart';
 import '../services/backup_service.dart';
 import '../services/cloud_backup_client.dart';
@@ -199,9 +202,15 @@ final localBackupStoreProvider = Provider<LocalBackupStore>((ref) {
 
 /// Google allows Android OAuth clients a custom-scheme redirect on the
 /// package name (with "Custom URI scheme" enabled in the client's advanced
-/// settings), and iOS clients one on the bundle ID. Registered in
-/// AndroidManifest.xml and Info.plist; iOS builds need an iOS client's ID.
+/// settings). Registered in AndroidManifest.xml.
 const googleRedirectUri = 'it.winstriker.zenith:/oauth2redirect';
+
+/// iOS clients are allowed one on their bundle ID, which each flavor has its
+/// own of, and so its own client. Registered in Info.plist.
+String googleRedirectUriFor({required bool debugFlavor}) =>
+    debugFlavor && defaultTargetPlatform == TargetPlatform.iOS
+    ? 'it.winstriker.zenithdebug:/oauth2redirect'
+    : googleRedirectUri;
 
 /// The dart-define holding each cloud provider's OAuth client ID.
 const _clientIdDefine = {
@@ -233,7 +242,7 @@ final cloudOAuthProvider = Provider.family<OAuthService, BackupDestination>((
         "https://accounts.google.com/o/oauth2/v2/auth",
         "https://oauth2.googleapis.com/token",
         clientId,
-        googleRedirectUri,
+        googleRedirectUriFor(debugFlavor: isDebugFlavor),
         // Only the files Zenith creates: no app verification needed.
         "https://www.googleapis.com/auth/drive.file",
         // A refresh token is only issued for offline access, and only on
