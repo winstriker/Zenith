@@ -56,6 +56,8 @@ jobs:
           ICAO_TYPES_URL: ${{ secrets.ICAO_TYPES_URL }}
           UPDATES_REPO_URL: ${{ secrets.UPDATES_REPO_URL }}
           ANNOUNCEMENTS_URL: ${{ secrets.ANNOUNCEMENTS_URL }}
+          PRIVACY_POLICY_URL: ${{ secrets.PRIVACY_POLICY_URL }}
+          TERMS_OF_SERVICE_URL: ${{ secrets.TERMS_OF_SERVICE_URL }}
         run: |
           flutter pub get
           flutter build apk --release \
@@ -63,8 +65,10 @@ jobs:
             --dart-define=DROPBOX_APP_KEY="$DROPBOX_APP_KEY" \
             --dart-define=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
             --dart-define=ICAO_TYPES_URL="$ICAO_TYPES_URL" \
-            --dart-define=UPDATES_REPO_URL="$UPDATES_REPO_URL"
-            --dart-define=ANNOUNCEMENTS_URL="$ANNOUNCEMENTS_URL"
+            --dart-define=UPDATES_REPO_URL="$UPDATES_REPO_URL" \
+            --dart-define=ANNOUNCEMENTS_URL="$ANNOUNCEMENTS_URL" \
+            --dart-define=PRIVACY_POLICY_URL="$PRIVACY_POLICY_URL" \
+            --dart-define=TERMS_OF_SERVICE_URL="$TERMS_OF_SERVICE_URL"
 
       # Tagged v<pubspec version name>+<build number>, as the updater expects.
       # Titled after the commit's first line (minus the marker); described by

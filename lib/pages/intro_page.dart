@@ -8,6 +8,8 @@ import '../providers/carto_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/airport_service.dart';
 import '../widgets/sync_progress_indicator.dart';
+import 'import_backup_page.dart';
+import 'legal_page.dart';
 import 'previous_totals_page.dart';
 
 class IntroPage extends ConsumerStatefulWidget {
@@ -37,7 +39,9 @@ class _IntroPageState extends ConsumerState<IntroPage>
   bool _savingKey = false;
   bool _finishing = false;
   String? _keyError;
-  int _step = 0;
+
+  /// -1 is the pre-step asking whether to start fresh or import a backup.
+  int _step = -1;
   final _nicknameController = TextEditingController();
   final _signatureController = TextEditingController();
   final _apiKeyController = TextEditingController();
@@ -88,6 +92,33 @@ class _IntroPageState extends ConsumerState<IntroPage>
     _signatureFocus.dispose();
     _apiKeyFocus.dispose();
     super.dispose();
+  }
+
+  void _onStartFresh() {
+    setState(() => _step = 0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nicknameFocus.requestFocus();
+    });
+  }
+
+  Future<void> _onImportBackup() async {
+    final startFresh = await Navigator.push<bool>(
+      context,
+      AppPageRoute(builder: (_) => const ImportBackupPage()),
+    );
+    // A successful restore completes onboarding itself, which swaps the
+    // whole app over to the main shell; this page is never revisited then.
+    if (startFresh == true && mounted) _onStartFresh();
+  }
+
+  void _openLegalPage(String title, String url) {
+    if (url.isEmpty) return;
+    Navigator.push<void>(
+      context,
+      AppPageRoute(
+        builder: (_) => LegalPage(title: title, url: url),
+      ),
+    );
   }
 
   Future<void> _onNicknameContinue() async {
@@ -192,6 +223,16 @@ class _IntroPageState extends ConsumerState<IntroPage>
 
   Widget _currentStep() {
     switch (_step) {
+      case -1:
+        return _StartChoiceStep(
+          key: const ValueKey('startChoice'),
+          onStartFresh: _onStartFresh,
+          onImportBackup: _onImportBackup,
+          onPrivacyPolicy: () =>
+              _openLegalPage('Privacy Policy', privacyPolicyUrl),
+          onTermsOfService: () =>
+              _openLegalPage('Terms of Service', termsOfServiceUrl),
+        );
       case 0:
         return _TextInputStep(
           key: const ValueKey('nickname'),
@@ -314,8 +355,10 @@ class _IntroPageState extends ConsumerState<IntroPage>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _StepProgress(step: _step, count: _stepCount),
-                            SizedBox(height: compact ? 16 : 24),
+                            if (_step >= 0) ...[
+                              _StepProgress(step: _step, count: _stepCount),
+                              SizedBox(height: compact ? 16 : 24),
+                            ],
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 350),
                               switchInCurve: Curves.easeOutCubic,
@@ -691,6 +734,65 @@ class _PreviousTotalsStep extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _StepSkipButton(label: "No, I'm Starting Fresh", onPressed: onSkip),
+      ],
+    );
+  }
+}
+
+/// Pre-step asking whether to start a new logbook or import an existing
+/// backup first, with the legal pages at the bottom.
+class _StartChoiceStep extends StatelessWidget {
+  const _StartChoiceStep({
+    super.key,
+    required this.onStartFresh,
+    required this.onImportBackup,
+    required this.onPrivacyPolicy,
+    required this.onTermsOfService,
+  });
+
+  final VoidCallback onStartFresh;
+  final VoidCallback onImportBackup;
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onTermsOfService;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _StepPrimaryButton(
+          label: 'Start Fresh',
+          icon: const Icon(Icons.arrow_forward, size: 24),
+          onPressed: onStartFresh,
+        ),
+        const SizedBox(height: 12),
+        _StepSkipButton(label: 'Import Backup', onPressed: onImportBackup),
+        const SizedBox(height: 24),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            TextButton(
+              onPressed: onPrivacyPolicy,
+              child: const Text('Privacy Policy'),
+            ),
+            Text('·', style: theme.textTheme.bodyMedium),
+            TextButton(
+              onPressed: onTermsOfService,
+              child: const Text('Terms of Service'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'By using Zenith, you agree to the Terms of Service and release '
+          "the application's creator and contributors from any liability.",
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

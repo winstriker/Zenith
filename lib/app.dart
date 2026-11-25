@@ -186,13 +186,20 @@ class _LogbookAppState extends ConsumerState<LogbookApp> {
         systemAccent: systemAccent,
       ),
       themeMode: themeMode,
-      // Keyed so the home subtree (not the whole app/navigator) is rebuilt
-      // once location permission is granted.
-      home: KeyedSubtree(
-        key: ValueKey(_permissionGranted),
+      // Crossfades from onboarding to the main shell (e.g. finishing setup,
+      // or restoring a backup during it). Keyed so the main shell is also
+      // rebuilt once location permission is granted.
+      home: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
         child: needsIntro
-            ? IntroPage(onPermissionGranted: _onPermissionGranted)
-            : const _MainShell(),
+            ? IntroPage(
+                key: const ValueKey('intro'),
+                onPermissionGranted: _onPermissionGranted,
+              )
+            : KeyedSubtree(
+                key: ValueKey('main-$_permissionGranted'),
+                child: const _MainShell(),
+              ),
       ),
     );
   }
