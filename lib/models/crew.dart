@@ -49,7 +49,7 @@ enum CrewRole {
       case CrewRole.pic:
         return 'Pilot in Command';
       case CrewRole.picus:
-        return 'PIC under Supervision - PICUS,P1S';
+        return 'PIC under Supervision';
       case CrewRole.sic:
         return 'Second in Command';
       case CrewRole.crcp:
@@ -76,11 +76,11 @@ enum CrewRole {
   String? get subtitle {
     switch (this) {
       case CrewRole.picus:
-        return 'PF, Pilot Flying with Frozen ATPL';
+        return 'PICUS, P1S, PF with fATPL';
       case CrewRole.sic:
         return 'Co-Pilot, First Officer, P2';
       case CrewRole.crcp:
-        return 'Relieves the pilots in cruise, logs co-pilot time';
+        return 'In cruise, logs co-pilot time';
       case CrewRole.dual:
         return 'Pilot in Training (with Instructor)';
       case CrewRole.spic:

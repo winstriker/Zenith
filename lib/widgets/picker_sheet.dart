@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
 /// Bottom sheet listing [items] to pick one from, with a search field when
-/// there are many. Resolves to the picked item, or null when dismissed.
+/// there are many, unless [searchHint] is null. Resolves to the picked item, or
+/// null when dismissed. Rows with a [leading] widget are all as tall as one
+/// with a subtitle.
 Future<T?> showPickerSheet<T>(
   BuildContext context, {
   required String title,
   required List<T> items,
   required String Function(T item) label,
   String? Function(T item)? subtitle,
+  Widget Function(T item)? leading,
   T? selected,
-  String searchHint = 'Search...',
+  String? searchHint = 'Search...',
 }) {
   return showModalBottomSheet<T>(
     context: context,
@@ -20,6 +23,7 @@ Future<T?> showPickerSheet<T>(
       items: items,
       label: label,
       subtitle: subtitle,
+      leading: leading,
       selected: selected,
       searchHint: searchHint,
     ),
@@ -32,6 +36,7 @@ class _PickerSheet<T> extends StatefulWidget {
     required this.items,
     required this.label,
     required this.subtitle,
+    required this.leading,
     required this.selected,
     required this.searchHint,
   });
@@ -40,8 +45,9 @@ class _PickerSheet<T> extends StatefulWidget {
   final List<T> items;
   final String Function(T item) label;
   final String? Function(T item)? subtitle;
+  final Widget Function(T item)? leading;
   final T? selected;
-  final String searchHint;
+  final String? searchHint;
 
   @override
   State<_PickerSheet<T>> createState() => _PickerSheetState<T>();
@@ -50,8 +56,8 @@ class _PickerSheet<T> extends StatefulWidget {
 class _PickerSheetState<T> extends State<_PickerSheet<T>> {
   String _query = '';
 
-  /// Short lists fit on screen and need no search.
-  bool get _searchable => widget.items.length > 8;
+  /// Short lists fit on screen and need no search or dragging.
+  bool get _long => widget.items.length > 8;
 
   List<T> get _filtered {
     final q = _query.trim().toLowerCase();
@@ -82,6 +88,8 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
         final selected = item == widget.selected;
         final subtitle = widget.subtitle?.call(item);
         return ListTile(
+          minTileHeight: widget.leading == null ? null : 72,
+          leading: widget.leading?.call(item),
           title: Text(widget.label(item)),
           subtitle: subtitle == null ? null : Text(subtitle),
           selected: selected,
@@ -101,7 +109,7 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
       ),
     );
 
-    if (!_searchable) {
+    if (!_long) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -121,25 +129,26 @@ class _PickerSheetState<T> extends State<_PickerSheet<T>> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header,
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: TextField(
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: widget.searchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 12,
+          if (widget.searchHint != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: widget.searchHint,
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                onChanged: (v) => setState(() => _query = v),
               ),
-              onChanged: (v) => setState(() => _query = v),
             ),
-          ),
           Expanded(
             child: items.isEmpty
                 ? Center(

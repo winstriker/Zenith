@@ -37,6 +37,10 @@ void main() {
     await tester.tap(find.text('Anna Rossi'));
     await tester.pumpAndSettle();
     expect(find.text('Select Role'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect({
+      for (final tile in find.byType(ListTile).evaluate()) tile.size!.height,
+    }, hasLength(1));
 
     await tester.tap(find.text('Second in Command'));
     await tester.pumpAndSettle();

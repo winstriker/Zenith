@@ -4,6 +4,7 @@ import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../pages/person_select_page.dart';
 import '../services/database.dart';
+import 'picker_sheet.dart';
 import 'section_header.dart';
 
 /// SELF plus the other crew of a flight. Editable by default; use
@@ -347,85 +348,14 @@ Future<CrewRole?> showCrewRolePicker(
   BuildContext context, {
   CrewRole? current,
 }) {
-  return showModalBottomSheet<CrewRole>(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.7,
-      maxChildSize: 0.9,
-      minChildSize: 0.4,
-      builder: (_, scrollController) => _CrewRolePickerSheet(
-        current: current,
-        scrollController: scrollController,
-      ),
-    ),
+  return showPickerSheet<CrewRole>(
+    context,
+    title: 'Select Role',
+    items: CrewRole.values,
+    label: (r) => r.displayName,
+    subtitle: (r) => r.subtitle,
+    leading: (r) => CrewRoleBadge(role: r, size: 48),
+    selected: current,
+    searchHint: null,
   );
-}
-
-class _CrewRolePickerSheet extends StatelessWidget {
-  const _CrewRolePickerSheet({this.current, required this.scrollController});
-  final CrewRole? current;
-  final ScrollController scrollController;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        Container(
-          width: 36,
-          height: 4,
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Select Role',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: ListView.separated(
-            controller: scrollController,
-            itemCount: CrewRole.values.length,
-            separatorBuilder: (context, i) =>
-                const Divider(height: 1, indent: 84),
-            itemBuilder: (_, i) {
-              final role = CrewRole.values[i];
-              return ListTile(
-                leading: CrewRoleBadge(role: role),
-                title: Text(role.displayName),
-                subtitle: role.subtitle != null
-                    ? Text(
-                        role.subtitle!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      )
-                    : null,
-                selected: role == current,
-                onTap: () => Navigator.of(context).pop(role),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
 }
