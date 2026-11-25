@@ -18,8 +18,42 @@ class TZDateTimeParser {
   static String formatHHmm(TimeOfDay time) =>
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-  /// [text] (HH:mm) on [date], in the [ianaLocation] time zone (the
-  /// device's when null).
+  /// The zone called [name]: UTC when null, as flights without one are, or
+  /// when this database doesn't have it (synced from a newer app).
+  static tz.Location location(String? name) =>
+      tz.timeZoneDatabase.locations[name] ?? tz.UTC;
+
+  /// The name of the device's time zone. Dart only knows its offsets and
+  /// abbreviations: this is the zone that matches them, UTC if none does.
+  ///
+  /// shortcut: compares two years around now, zones that differed only
+  /// before that are taken for one another; use flutter_timezone if sessions
+  /// that old need their zone.
+  static String deviceZone() {
+    final now = DateTime.now();
+    final days = [
+      for (var month = -12; month < 12; month++)
+        DateTime(now.year, now.month + month),
+    ];
+    final matches = tz.timeZoneDatabase.locations.values.where(
+      (l) => days.every(
+        (d) => TZDateTime.from(d, l).timeZoneOffset == d.timeZoneOffset,
+      ),
+    );
+    if (matches.isEmpty) return 'UTC';
+    // Same offsets, other names: Lisbon and London.
+    return matches
+        .firstWhere(
+          (l) => days.every(
+            (d) =>
+                TZDateTime.from(d, l).timeZone.abbreviation == d.timeZoneName,
+          ),
+          orElse: () => matches.first,
+        )
+        .name;
+  }
+
+  /// [text] (HH:mm) on [date], in the [ianaLocation] time zone.
   static TZDateTime parseDateTimeFromText(
     String text,
     DateTime date,
@@ -27,7 +61,7 @@ class TZDateTimeParser {
   ) {
     final time = parseTimeOfDay(text);
     return TZDateTime(
-      ianaLocation != null ? tz.getLocation(ianaLocation) : tz.local,
+      location(ianaLocation),
       date.year,
       date.month,
       date.day,
@@ -35,6 +69,11 @@ class TZDateTimeParser {
       time.minute,
     );
   }
+
+  /// Whether the clocks skip [text] (HH:mm) on the day of [parsed], which was
+  /// read from it.
+  static bool isSkipped(String text, TZDateTime parsed) =>
+      TimeOfDay.fromDateTime(parsed) != parseTimeOfDay(text);
 
   /// The time zone at a position; null without one, or where none is known.
   static tz.Location? locationAt(double? latitude, double? longitude) {
@@ -44,15 +83,5 @@ class TZDateTimeParser {
     } catch (_) {
       return null;
     }
-  }
-
-  /// [utcTime] as HH:mm in the [ianaLocation] time zone.
-  static String formatHHmmInTimezone(DateTime utcTime, String? ianaLocation) {
-    final location = ianaLocation != null
-        ? tz.getLocation(ianaLocation)
-        : tz.local;
-    return formatHHmm(
-      TimeOfDay.fromDateTime(TZDateTime.from(utcTime, location)),
-    );
   }
 }

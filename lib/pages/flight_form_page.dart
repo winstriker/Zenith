@@ -4,7 +4,6 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:timezone/timezone.dart' as tz;
 
 import '../core/app_page_route.dart';
 import '../core/fab_hero_tags.dart';
@@ -19,7 +18,6 @@ import '../services/adsb_flight_importer.dart';
 import '../services/database.dart';
 import '../services/pdf_export_service.dart';
 import '../services/person_photo_store.dart';
-import '../utils/tz_datetime.dart';
 import '../widgets/aircraft_card.dart';
 import '../widgets/airport_search_dialog.dart';
 import '../widgets/crew_card.dart';
@@ -76,8 +74,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
   late bool _simulator =
       widget.simulator || (widget.flightToEdit?.isSimulatorSession ?? false);
 
-  /// Bumped once an edited entry is loaded: rebuilds the time fields, which
-  /// only read their value when created.
+  /// Bumped once the entry is loaded: rebuilds the time fields, which only
+  /// read their value when created.
   int _loaded = 0;
 
   /// Whether the airport dialogs search every airport, ignoring the search
@@ -103,9 +101,13 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _populateFromImport(widget.adsbImport!);
       });
-    } else if (_simulator) {
+    } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _formNotifier.setSimulator(true);
+        if (!mounted) return;
+        // Starts now: the shared state dates from when the last form closed.
+        _formNotifier.reset();
+        _formNotifier.setSimulator(_simulator);
+        setState(() => _loaded++);
       });
     }
   }
@@ -128,37 +130,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     final notifier = _formNotifier;
     final f = flight.flight;
 
-    // Start from a clean state so nothing from a previous form survives.
-    notifier.reset();
-    if (flight.isSimulatorSession) {
-      notifier.setSimulator(true);
-      notifier.setSelectedSimulator(flight.simulator);
-    }
-
-    // Fetch airports from the database
     final depAirport = flight.departure;
     final arrAirport = flight.arrival;
-    notifier.setDepartureDate(f.departureTime);
-    notifier.setArrivalDate(f.arrivalTime);
-    notifier.setDepTime(
-      TZDateTimeParser.formatHHmmInTimezone(
-        f.departureTime,
-        f.departureIanaLocation,
-      ),
-    );
-    notifier.setArrTime(
-      f.arrivalTime != null
-          ? TZDateTimeParser.formatHHmmInTimezone(
-              f.arrivalTime!,
-              f.arrivalIanaLocation,
-            )
-          : '',
-    );
-    notifier.setRemarks(f.remarks ?? '');
-    notifier.setApproachType(f.approachType ?? 'VISUAL');
-    if (f.pilotRole != null) {
-      notifier.setPilotRole(CrewRole.fromString(f.pilotRole!));
-    }
     final crew = await ref.read(databaseProvider).getFlightCrew(f.id);
     final track = await ref.read(flightRepositoryProvider).getTrack(f.id);
     // A temporary flight has no airports yet: guess them from where the
@@ -174,11 +147,23 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       guess && depAirport == null
           ? nearest(track.first)
           : Future<Airport?>.value(),
-      guess && arrAirport == null
+      guess && arrAirport == null && f.arrivalTime != null
           ? nearest(track.last)
           : Future<Airport?>.value(),
     ).wait;
     if (!mounted) return;
+
+    // Start from a clean state so nothing from a previous form survives.
+    notifier.reset();
+    if (flight.isSimulatorSession) {
+      notifier.setSimulator(true);
+      notifier.setSelectedSimulator(flight.simulator);
+    }
+    notifier.setRemarks(f.remarks ?? '');
+    notifier.setApproachType(f.approachType ?? 'VISUAL');
+    if (f.pilotRole != null) {
+      notifier.setPilotRole(CrewRole.fromString(f.pilotRole!));
+    }
     notifier.setTrack([for (final p in track) p.timedPosition]);
     for (final member in crew) {
       notifier.addCrewMember(member);
@@ -192,46 +177,32 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
       notifier.setInstrumentTime(Duration(minutes: f.instrumentMinutes!));
     }
 
-    if (depAirport != null) {
-      notifier.setSelectedDeparture(depAirport);
-    } else if (f.departureIanaLocation != null) {
-      notifier.setDepartureCode(f.departureIanaLocation!);
-      notifier.setDepIanaLocation(f.departureIanaLocation);
+    // An airport that is gone leaves its code in the title.
+    final codes = f.title.split(' → ');
+    if (codes.length == 2) {
+      notifier.setDepartureCode(codes.first);
+      notifier.setArrivalCode(codes.last);
     }
-    if (arrAirport != null) {
-      notifier.setSelectedArrival(arrAirport);
-    } else if (f.arrivalIanaLocation != null) {
-      notifier.setArrivalCode(f.arrivalIanaLocation!);
-      notifier.setArrIanaLocation(f.arrivalIanaLocation);
+    notifier.setSelectedDeparture(depAirport ?? depGuess);
+    notifier.setSelectedArrival(arrAirport ?? arrGuess);
+
+    // The zones it was saved in (none is UTC), then the times in them. A
+    // guessed airport has its own.
+    final depZone = f.departureIanaLocation ?? 'UTC';
+    if (depGuess == null && depZone != ref.read(flightFormProvider).depZone) {
+      notifier.setDepIanaLocation(depZone);
     }
-    // The times were shown in the device's zone: show them in the guessed
-    // airports' instead.
-    tz.TZDateTime inZone(DateTime time, String? iana) => tz.TZDateTime.from(
-      time,
-      iana == null ? tz.local : tz.getLocation(iana),
-    );
-    if (depGuess != null) {
-      notifier.setSelectedDeparture(depGuess);
-      final t = inZone(
-        f.departureTime,
-        ref.read(flightFormProvider).depIanaLocation,
-      );
-      notifier.setDepartureDate(DateTime(t.year, t.month, t.day));
-      notifier.setDepTime(
-        TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(t)),
-      );
+    notifier.setDepInstant(f.departureTime);
+    final arrival = f.arrivalTime;
+    if (arrGuess == null &&
+        (arrival != null || f.arrivalIanaLocation != null)) {
+      final arrZone = f.arrivalIanaLocation ?? 'UTC';
+      if (arrZone != ref.read(flightFormProvider).arrZone) {
+        notifier.setArrIanaLocation(arrZone);
+      }
     }
-    if (arrGuess != null && f.arrivalTime != null) {
-      notifier.setSelectedArrival(arrGuess);
-      final t = inZone(
-        f.arrivalTime!,
-        ref.read(flightFormProvider).arrIanaLocation,
-      );
-      notifier.setArrivalDate(DateTime(t.year, t.month, t.day));
-      notifier.setArrTime(
-        TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(t)),
-      );
-    }
+    if (arrival != null) notifier.setArrInstant(arrival);
+
     if (flight.aircraftWithStats != null) {
       notifier.setSelectedAircraft(flight.aircraftWithStats);
     }
@@ -244,60 +215,30 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
     final notifier = _formNotifier;
     notifier.reset();
 
-    void side({
-      required ImportedAirport? airport,
-      required DateTime? time,
-      required DateTime day,
-      required void Function(Airport) select,
-      required void Function(String?) setIana,
-      required String? Function() iana,
-      required void Function(DateTime) setDate,
-      required void Function(String) setTime,
-    }) {
-      if (airport != null) {
-        select(airport.airport);
-      } else {
-        // Without an airport there is no local time to speak of.
-        setIana('UTC');
-      }
-      final location = switch (iana()) {
-        final name? => tz.getLocation(name),
-        null => tz.local,
-      };
-      final local = tz.TZDateTime.from(time ?? day, location);
-      setDate(DateTime(local.year, local.month, local.day));
-      if (time != null) {
-        setTime(TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(local)));
-      }
+    final departure = draft.departure;
+    if (departure != null) {
+      notifier.setSelectedDeparture(departure.airport);
+    } else {
+      notifier.setDepTzMode(TimezoneMode.utc);
     }
+    notifier.setDepInstant(draft.departureTime);
 
-    side(
-      airport: draft.departure,
-      time: draft.departureTime,
-      day: draft.departureTime,
-      select: notifier.setSelectedDeparture,
-      setIana: notifier.setDepIanaLocation,
-      iana: () => ref.read(flightFormProvider).depIanaLocation,
-      setDate: notifier.setDepartureDate,
-      setTime: notifier.setDepTime,
-    );
-    side(
-      airport: draft.arrival,
-      time: draft.arrivalTime,
-      // Without a landing time, the day it was last heard: a fair guess at
-      // the day it landed, so a typed time is all it takes.
-      day: draft.flight.end,
-      select: notifier.setSelectedArrival,
-      setIana: notifier.setArrIanaLocation,
-      iana: () => ref.read(flightFormProvider).arrIanaLocation,
-      setDate: notifier.setArrivalDate,
-      setTime: notifier.setArrTime,
-    );
+    final arrival = draft.arrival;
+    if (arrival != null) {
+      notifier.setSelectedArrival(arrival.airport);
+    } else {
+      notifier.setArrTzMode(TimezoneMode.utc);
+    }
+    // Without a landing time, a typed one is the first after departure.
+    final arrivalTime = draft.arrivalTime;
+    if (arrivalTime != null) notifier.setArrInstant(arrivalTime);
+
     if (draft.aircraft != null) notifier.setSelectedAircraft(draft.aircraft);
     notifier.setTrack([
       for (final p in draft.points)
         (time: p.time, latitude: p.latitude, longitude: p.longitude),
     ]);
+    setState(() => _loaded++);
   }
 
   /// Adds the aircraft of the imported flight, which the user doesn't have
@@ -329,6 +270,17 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             .value
             ?.any((l) => l.ratings.any((r) => r.kind == RatingKind.mountain)) ??
         false;
+    final timeError = form.timeError == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+            child: Text(
+              form.timeError!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          );
     final draft = widget.adsbImport;
     final missingRegistration =
         draft?.registration != null && form.selectedAircraft == null
@@ -404,6 +356,7 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   onStartChanged: notifier.setDepTime,
                   onEndChanged: notifier.setArrTime,
                 ),
+                ?timeError,
                 const SizedBox(height: 16),
                 SimulatorCard(
                   simulator: form.selectedSimulator,
@@ -432,8 +385,9 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   ),
               ] else ...[
                 FlightFormCard(
+                  key: ValueKey(_loaded),
                   departureDate: form.departureDate,
-                  arrivalDate: form.arrivalDate,
+                  arrivalDate: form.arrivalDate ?? form.arrTZDateTime,
                   departureCode: form.departureCode,
                   arrivalCode: form.arrivalCode,
                   depTime: form.depTime,
@@ -442,7 +396,6 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                   selectedArrival: form.selectedArrival,
                   depTzLabel: form.depTzLabel,
                   arrTzLabel: form.arrTzLabel,
-                  blockTime: form.blockTimeFormatted,
                   onDepartureDateTap: () =>
                       _pickDate(notifier, isDeparture: true),
                   onArrivalDateTap: () =>
@@ -457,10 +410,10 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
                       _pickAirport(notifier, isDeparture: false),
                   onDepTimeChanged: notifier.setDepTime,
                   onArrTimeChanged: notifier.setArrTime,
-                  parseDateTime: TZDateTimeParser.parseDateTimeFromText,
-                  depIanaLocation: form.depIanaLocation,
-                  arrIanaLocation: form.arrIanaLocation,
+                  departure: form.depTime.isEmpty ? null : form.depTZDateTime,
+                  arrival: form.arrTZDateTime,
                 ),
+                ?timeError,
                 const SizedBox(height: 16),
                 AircraftCard(
                   aircraft: form.selectedAircraft,
@@ -763,6 +716,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             title: sim.title,
             departureTime: depDateTime,
             arrivalTime: arrDateTime,
+            departureIanaLocation: form.depZone,
+            arrivalIanaLocation: form.arrZone,
             simulatorId: sim.id,
             approachType: form.approachType,
             nightLandings: form.nightLandings,
@@ -780,6 +735,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
             title: sim.title,
             departureTime: depDateTime,
             arrivalTime: arrDateTime,
+            departureIanaLocation: form.depZone,
+            arrivalIanaLocation: form.arrZone,
             simulatorId: sim.id,
             approachType: form.approachType,
             nightLandings: form.nightLandings,
@@ -810,8 +767,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           ),
           flightRules: form.flightRules,
           remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
-          departureIanaLocation: form.depIanaLocation,
-          arrivalIanaLocation: form.arrIanaLocation,
+          departureIanaLocation: form.depZone,
+          arrivalIanaLocation: form.arrZone,
           pilotRole: form.pilotRole.name,
           instrumentMinutes: form.instrumentTime?.inMinutes,
           nightMinutes: form.nightTime?.inMinutes,
@@ -837,8 +794,8 @@ class _FlightFormPageState extends ConsumerState<FlightFormPage> {
           ),
           flightRules: form.flightRules,
           remarks: form.remarks.trim().isEmpty ? null : form.remarks.trim(),
-          departureIanaLocation: form.depIanaLocation,
-          arrivalIanaLocation: form.arrIanaLocation,
+          departureIanaLocation: form.depZone,
+          arrivalIanaLocation: form.arrZone,
           pilotRole: form.pilotRole.name,
           instrumentMinutes: form.instrumentTime?.inMinutes,
           nightMinutes: form.nightTime?.inMinutes,

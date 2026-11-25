@@ -24,6 +24,17 @@ class AirportField extends StatelessWidget {
     final displayCode = code.isNotEmpty ? code : '';
     final countryCode = selectedAirport?.isoCountry;
 
+    final flag = countryCode != null && countryCode.length == 2
+        ? SizedBox(
+            width: 28,
+            height: 20,
+            child: CountryFlag.fromCountryCode(
+              countryCode,
+              theme: const ImageTheme(shape: RoundedRectangle(4)),
+            ),
+          )
+        : null;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -35,31 +46,31 @@ class AirportField extends StatelessWidget {
               : MainAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (flag != null && !isArrival) ...[flag, const SizedBox(width: 8)],
             if (displayCode.isNotEmpty)
-              Text(
-                displayCode,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: Text(
+                  displayCode,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               )
             else
-              Text(
-                label,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
                 ),
               ),
-            if (countryCode != null && countryCode.length == 2) ...[
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 28,
-                height: 20,
-                child: CountryFlag.fromCountryCode(
-                  countryCode,
-                  theme: const ImageTheme(shape: RoundedRectangle(4)),
-                ),
-              ),
-            ],
+            if (flag != null && isArrival) ...[const SizedBox(width: 8), flag],
           ],
         ),
       ),

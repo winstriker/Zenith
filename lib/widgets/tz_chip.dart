@@ -12,7 +12,9 @@ class TzChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        // UTC, GMT, LCL and the like are all as wide.
+        constraints: const BoxConstraints(minWidth: 48),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest.withValues(
             alpha: 0.5,
@@ -21,6 +23,8 @@ class TzChip extends StatelessWidget {
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
           style: theme.textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
           ),

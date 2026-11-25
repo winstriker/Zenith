@@ -25,6 +25,7 @@ class FlightFormState {
     this.arrTzMode = TimezoneMode.local,
     this.depIanaLocation,
     this.arrIanaLocation,
+    this.deviceZone = 'UTC',
     this.selectedAircraft,
     this.isSimulator = false,
     this.selectedSimulator,
@@ -52,13 +53,19 @@ class FlightFormState {
   final DateTime? arrivalDate;
   final TimezoneMode depTzMode;
   final TimezoneMode arrTzMode;
+
+  /// The zones picked by hand, for [TimezoneMode.iana]. What the times are
+  /// in is [depZone] and [arrZone].
   final String? depIanaLocation;
   final String? arrIanaLocation;
+
+  /// The time zone of the phone: what is local without an airport.
+  final String deviceZone;
   final AircraftWithStats? selectedAircraft;
 
   /// Whether this is a session in a simulator rather than a flight: no
   /// airports, aircraft or flight rules, and times in the device's (the
-  /// phone's) time zone.
+  /// phone's) time zone, or the one it was saved in.
   final bool isSimulator;
   final SimulatorWithStats? selectedSimulator;
   final String approachType;
@@ -135,6 +142,7 @@ class FlightFormState {
       arrIanaLocation: clearArrIana
           ? null
           : (arrIanaLocation ?? this.arrIanaLocation),
+      deviceZone: deviceZone,
       selectedAircraft: selectedAircraft ?? this.selectedAircraft,
       isSimulator: isSimulator ?? this.isSimulator,
       selectedSimulator: selectedSimulator ?? this.selectedSimulator,
@@ -153,92 +161,95 @@ class FlightFormState {
     );
   }
 
-  String get depTzLabel => _tzLabel(
-    depTzMode,
-    selectedDeparture,
-    depTime,
-    departureDate,
-    depIanaLocation,
-  );
+  /// The time zone the departure's date and time are in.
+  String get depZone => isSimulator
+      ? depIanaLocation ?? deviceZone
+      : _zone(depTzMode, selectedDeparture, depIanaLocation);
 
-  String get arrTzLabel => _tzLabel(
-    arrTzMode,
-    selectedArrival,
-    arrTime,
-    arrivalDate,
-    arrIanaLocation,
-  );
+  /// The time zone the arrival's date and time are in.
+  String get arrZone => isSimulator
+      ? depZone
+      : _zone(arrTzMode, selectedArrival, arrIanaLocation);
 
-  static String _tzLabel(
-    TimezoneMode mode,
-    Airport? airport,
-    String time,
-    DateTime? date,
-    String? ianaLocation,
-  ) {
-    switch (mode) {
-      case TimezoneMode.utc:
-        return 'UTC';
-      case TimezoneMode.local:
-        final location = TZDateTimeParser.locationAt(
-          airport?.latitudeDeg,
-          airport?.longitudeDeg,
-        );
-        if (location == null) return 'LCL';
-        return tz.TZDateTime.now(location).timeZone.abbreviation;
-      case TimezoneMode.iana:
-        if (date == null) return 'IANA';
-        return TZDateTimeParser.parseDateTimeFromText(
-          time,
-          date,
-          ianaLocation,
-        ).timeZone.abbreviation;
+  String _zone(TimezoneMode mode, Airport? airport, String? ianaLocation) =>
+      switch (mode) {
+        TimezoneMode.utc => 'UTC',
+        TimezoneMode.local =>
+          TZDateTimeParser.locationAt(
+                airport?.latitudeDeg,
+                airport?.longitudeDeg,
+              )?.name ??
+              deviceZone,
+        TimezoneMode.iana => ianaLocation ?? 'UTC',
+      };
+
+  String get depTzLabel =>
+      depTzMode == TimezoneMode.local && selectedDeparture == null
+      ? 'LCL'
+      : depTZDateTime.timeZone.abbreviation;
+
+  String get arrTzLabel =>
+      arrTzMode == TimezoneMode.local && selectedArrival == null
+      ? 'LCL'
+      : (arrTZDateTime ??
+                TZDateTimeParser.parseDateTimeFromText(
+                  arrTime,
+                  arrivalDate ?? departureDate,
+                  arrZone,
+                ))
+            .timeZone
+            .abbreviation;
+
+  tz.TZDateTime get depTZDateTime =>
+      TZDateTimeParser.parseDateTimeFromText(depTime, departureDate, depZone);
+
+  /// On [arrivalDate]; without one (or in a simulator) the first time it is
+  /// [arrTime] there after the departure.
+  tz.TZDateTime? get arrTZDateTime {
+    if (arrTime.isEmpty) return null;
+    final date = isSimulator ? null : arrivalDate;
+    if (date != null) {
+      return TZDateTimeParser.parseDateTimeFromText(arrTime, date, arrZone);
     }
+    if (depTime.isEmpty) return null;
+    final departure = depTZDateTime;
+    final day = tz.TZDateTime.from(
+      departure,
+      TZDateTimeParser.location(arrZone),
+    );
+    final arrival = TZDateTimeParser.parseDateTimeFromText(
+      arrTime,
+      day,
+      arrZone,
+    );
+    return arrival.isBefore(departure)
+        ? TZDateTimeParser.parseDateTimeFromText(
+            arrTime,
+            DateTime(day.year, day.month, day.day + 1),
+            arrZone,
+          )
+        : arrival;
   }
 
-  tz.TZDateTime get depTZDateTime => TZDateTimeParser.parseDateTimeFromText(
-    depTime,
-    departureDate,
-    isSimulator ? null : depIanaLocation,
-  );
-
-  tz.TZDateTime? get arrTZDateTime {
-    if (isSimulator) {
-      // A session ends the day it starts, or the next one when its end
-      // reads earlier than its start.
-      if (arrTime.isEmpty) return null;
-      final end = TZDateTimeParser.parseDateTimeFromText(
-        arrTime,
-        departureDate,
-        null,
-      );
-      return end.isBefore(depTZDateTime)
-          ? TZDateTimeParser.parseDateTimeFromText(
-              arrTime,
-              departureDate.add(const Duration(days: 1)),
-              null,
-            )
-          : end;
+  /// Non-null when the times can't be right.
+  String? get timeError {
+    final arrival = arrTZDateTime;
+    if (depTime.isNotEmpty &&
+        TZDateTimeParser.isSkipped(depTime, depTZDateTime)) {
+      return 'The clocks skip $depTime on the departure date';
     }
-    if (arrTime.isEmpty || arrivalDate == null) return null;
-    return TZDateTimeParser.parseDateTimeFromText(
-      arrTime,
-      arrivalDate!,
-      arrIanaLocation,
-    );
+    if (arrival != null && TZDateTimeParser.isSkipped(arrTime, arrival)) {
+      return 'The clocks skip $arrTime on the arrival date';
+    }
+    return blockTime?.isNegative ?? false
+        ? 'The arrival is before the departure'
+        : null;
   }
 
   Duration? get blockTime {
     final arr = arrTZDateTime;
-    if (arr == null) return null;
+    if (arr == null || depTime.isEmpty) return null;
     return arr.difference(depTZDateTime);
-  }
-
-  String get blockTimeFormatted {
-    final d = blockTime;
-    if (d == null || d.isNegative) return '0:00';
-    final m = d.inMinutes;
-    return '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
   }
 
   FlightRulesKind get rulesKind => FlightRulesKind.of(flightRules);
@@ -282,7 +293,7 @@ class FlightFormState {
   /// out.
   Duration? get nightTime => nightTimeOf(
     departureTime: depTZDateTime,
-    arrivalTime: arrTZDateTime,
+    arrivalTime: depTime.isEmpty ? null : arrTZDateTime,
     departure: selectedDeparture,
     arrival: selectedArrival,
     track: track,
@@ -304,11 +315,13 @@ class FlightFormState {
           depTime.isNotEmpty &&
           session != null &&
           session > Duration.zero &&
+          timeError == null &&
           crewError == null;
     }
     return departureCode.isNotEmpty &&
         arrivalCode.isNotEmpty &&
         depTime.isNotEmpty &&
+        timeError == null &&
         crewError == null &&
         (rulesKind != FlightRulesKind.mixed || instrumentMinutes != null) &&
         instrumentError == null;
@@ -317,8 +330,10 @@ class FlightFormState {
 
 class FlightFormNotifier extends Notifier<FlightFormState> {
   @override
-  FlightFormState build() =>
-      FlightFormState(depTime: TZDateTimeParser.formatHHmm(TimeOfDay.now()));
+  FlightFormState build() => FlightFormState(
+    depTime: TZDateTimeParser.formatHHmm(TimeOfDay.now()),
+    deviceZone: TZDateTimeParser.deviceZone(),
+  );
 
   void setDepartureCode(String code) =>
       state = state.copyWith(departureCode: code);
@@ -334,20 +349,12 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
       airport.name ??
       '';
 
-  static String? _ianaAt(Airport airport) => TZDateTimeParser.locationAt(
-    airport.latitudeDeg,
-    airport.longitudeDeg,
-  )?.name;
-
   /// In local time mode, the times follow the airport's time zone.
   void setSelectedDeparture(Airport? airport) {
     if (airport == null) return;
     state = state.copyWith(
       selectedDeparture: airport,
       departureCode: _codeOf(airport),
-      depIanaLocation: state.depTzMode == TimezoneMode.local
-          ? _ianaAt(airport)
-          : null,
     );
   }
 
@@ -357,9 +364,6 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
     state = state.copyWith(
       selectedArrival: airport,
       arrivalCode: _codeOf(airport),
-      arrIanaLocation: state.arrTzMode == TimezoneMode.local
-          ? _ianaAt(airport)
-          : null,
     );
   }
 
@@ -367,6 +371,50 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
       state = state.copyWith(departureDate: date);
   void setArrivalDate(DateTime? date) =>
       state = state.copyWith(arrivalDate: date, clearArrivalDate: date == null);
+
+  /// Sets date and time to those of [instant] in the departure's zone, or in
+  /// UTC when they come twice there (the clocks go back) and would be read as
+  /// the other one.
+  void setDepInstant(DateTime instant) {
+    void show() {
+      final t = tz.TZDateTime.from(
+        instant,
+        TZDateTimeParser.location(state.depZone),
+      );
+      state = state.copyWith(
+        departureDate: DateTime(t.year, t.month, t.day),
+        depTime: TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(t)),
+      );
+    }
+
+    show();
+    if (state.depTZDateTime.difference(instant).inMinutes == 0) return;
+    setDepIanaLocation('UTC');
+    show();
+  }
+
+  /// As [setDepInstant], for the arrival. Its date is only set when it isn't
+  /// the one worked out, so that it follows the departure's.
+  void setArrInstant(DateTime instant) {
+    bool shown() => state.arrTZDateTime?.difference(instant).inMinutes == 0;
+    void show() {
+      final t = tz.TZDateTime.from(
+        instant,
+        TZDateTimeParser.location(state.arrZone),
+      );
+      state = state.copyWith(
+        arrTime: TZDateTimeParser.formatHHmm(TimeOfDay.fromDateTime(t)),
+        clearArrivalDate: true,
+      );
+      if (shown()) return;
+      state = state.copyWith(arrivalDate: DateTime(t.year, t.month, t.day));
+    }
+
+    show();
+    if (shown()) return;
+    setArrIanaLocation('UTC');
+    show();
+  }
 
   void setDepTzMode(TimezoneMode mode) => state = state.copyWith(
     depTzMode: mode,
@@ -396,6 +444,9 @@ class FlightFormNotifier extends Notifier<FlightFormState> {
     if (isSimulator == state.isSimulator) return;
     state = state.copyWith(
       isSimulator: isSimulator,
+      // A zone picked for a flight isn't the session's.
+      depTzMode: TimezoneMode.local,
+      clearDepIana: true,
       dayLandings: isSimulator ? 0 : 1,
       nightLandings: 0,
       mountainLandings: 0,

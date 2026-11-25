@@ -56,14 +56,18 @@ void main() {
     expect(london.difference(rome), const Duration(hours: 1));
   });
 
-  test('formatHHmmInTimezone converts from UTC', () {
-    // 12:00 UTC on 15 Jul 2026 is 14:00 in Rome (CEST, UTC+2).
-    expect(
-      TZDateTimeParser.formatHHmmInTimezone(
-        DateTime.utc(2026, 7, 15, 12),
-        'Europe/Rome',
-      ),
-      '14:00',
-    );
+  test("deviceZone has the device's offsets", () {
+    final zone = TZDateTimeParser.deviceZone();
+    for (final month in [1, 4, 7, 10]) {
+      final day = DateTime(DateTime.now().year, month, 15, 12);
+      expect(
+        TZDateTimeParser.parseDateTimeFromText(
+          '12:00',
+          day,
+          zone,
+        ).isAtSameMomentAs(day),
+        isTrue,
+      );
+    }
   });
 }

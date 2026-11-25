@@ -21,7 +21,6 @@ class FlightFormCard extends StatelessWidget {
     required this.selectedArrival,
     required this.depTzLabel,
     required this.arrTzLabel,
-    required this.blockTime,
     required this.onDepartureDateTap,
     required this.onArrivalDateTap,
     required this.onDepartureTzTap,
@@ -30,9 +29,8 @@ class FlightFormCard extends StatelessWidget {
     required this.onArrivalAirportTap,
     required this.onDepTimeChanged,
     required this.onArrTimeChanged,
-    required this.parseDateTime,
-    required this.depIanaLocation,
-    required this.arrIanaLocation,
+    required this.departure,
+    required this.arrival,
   });
   final DateTime departureDate;
   final DateTime? arrivalDate;
@@ -44,7 +42,6 @@ class FlightFormCard extends StatelessWidget {
   final Airport? selectedArrival;
   final String depTzLabel;
   final String arrTzLabel;
-  final String blockTime;
   final VoidCallback onDepartureDateTap;
   final VoidCallback onArrivalDateTap;
   final VoidCallback onDepartureTzTap;
@@ -53,9 +50,10 @@ class FlightFormCard extends StatelessWidget {
   final VoidCallback onArrivalAirportTap;
   final ValueChanged<String> onDepTimeChanged;
   final ValueChanged<String> onArrTimeChanged;
-  final tz.TZDateTime Function(String, DateTime, String?) parseDateTime;
-  final String? depIanaLocation;
-  final String? arrIanaLocation;
+
+  /// The instants the dates and times stand for; null until known.
+  final tz.TZDateTime? departure;
+  final tz.TZDateTime? arrival;
 
   @override
   Widget build(BuildContext context) {
@@ -96,21 +94,33 @@ class FlightFormCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: DateButton(
-                    date: departureDate,
-                    onTap: onDepartureDateTap,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: DateButton(
+                          date: departureDate,
+                          onTap: onDepartureDateTap,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TzChip(label: depTzLabel, onTap: onDepartureTzTap),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                TzChip(label: depTzLabel, onTap: onDepartureTzTap),
-                const SizedBox(width: 8),
-                TzChip(label: arrTzLabel, onTap: onArrivalTzTap),
-                const SizedBox(width: 8),
                 Expanded(
-                  child: DateButton(
-                    date: arrivalDate,
-                    onTap: onArrivalDateTap,
-                    textAlign: TextAlign.end,
+                  child: Row(
+                    children: [
+                      TzChip(label: arrTzLabel, onTap: onArrivalTzTap),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: DateButton(
+                          date: arrivalDate,
+                          onTap: onArrivalDateTap,
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -179,35 +189,33 @@ class FlightFormCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: TimeInput(
-                    value: depTime,
-                    hint: 'HH:mm',
-                    onChanged: onDepTimeChanged,
+                  child: _TimeSide(
+                    time: IntrinsicWidth(
+                      child: TimeInput(
+                        value: depTime,
+                        hint: 'HH:mm',
+                        onChanged: onDepTimeChanged,
+                        textAlign: TextAlign.start,
+                      ),
+                    ),
+                    zone: TzChip(label: depTzLabel),
                   ),
                 ),
                 const SizedBox(width: 8),
-                TzChip(label: depTzLabel),
-                const SizedBox(width: 8),
-                TimePill(
-                  label: "Block Time",
-                  start: (depTime.isEmpty || depIanaLocation == null)
-                      ? null
-                      : parseDateTime(depTime, departureDate, depIanaLocation),
-                  end:
-                      (arrTime.isEmpty ||
-                          arrIanaLocation == null ||
-                          arrivalDate == null)
-                      ? null
-                      : parseDateTime(arrTime, arrivalDate!, arrIanaLocation),
-                ),
-                const SizedBox(width: 8),
-                TzChip(label: arrTzLabel),
+                TimePill(label: "Block Time", start: departure, end: arrival),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TimeInput(
-                    value: arrTime,
-                    hint: 'HH:mm',
-                    onChanged: onArrTimeChanged,
+                  child: _TimeSide(
+                    isArrival: true,
+                    time: IntrinsicWidth(
+                      child: TimeInput(
+                        value: arrTime,
+                        hint: 'HH:mm',
+                        onChanged: onArrTimeChanged,
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
+                    zone: TzChip(label: arrTzLabel),
                   ),
                 ),
               ],
@@ -215,6 +223,34 @@ class FlightFormCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// [time] at the edge of the card and its [zone] towards the middle. Short of
+/// room, it is the zone that shrinks: the time is always readable.
+class _TimeSide extends StatelessWidget {
+  const _TimeSide({
+    required this.time,
+    required this.zone,
+    this.isArrival = false,
+  });
+  final Widget time;
+  final Widget zone;
+  final bool isArrival;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = [
+      time,
+      const SizedBox(width: 8),
+      Flexible(
+        child: FittedBox(fit: BoxFit.scaleDown, child: zone),
+      ),
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: isArrival ? children.reversed.toList() : children,
     );
   }
 }

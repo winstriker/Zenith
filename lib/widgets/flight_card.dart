@@ -6,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../core/spacing.dart';
 import '../services/database.dart';
 import '../utils/duration_formatter.dart';
+import '../utils/tz_datetime.dart';
 import 'base_card.dart';
 import 'overridden_icon.dart';
 import 'simulator_card.dart';
@@ -36,12 +37,7 @@ class FlightCard extends StatelessWidget {
   static tz.TZDateTime _toLocalTZDateTime(
     DateTime utcTime,
     String? ianaLocation,
-  ) {
-    final location = ianaLocation != null
-        ? tz.getLocation(ianaLocation)
-        : tz.local;
-    return tz.TZDateTime.from(utcTime, location);
-  }
+  ) => tz.TZDateTime.from(utcTime, TZDateTimeParser.location(ianaLocation));
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +88,7 @@ class FlightCard extends StatelessWidget {
                   child: _FlightEndpoint(
                     airport: flight.arrival,
                     onTap: onAirportTap,
-                    localTime: arrLocal ?? depLocal,
+                    localTime: arrLocal,
                     alignEnd: true,
                   ),
                 ),
@@ -116,7 +112,9 @@ class _FlightEndpoint extends StatelessWidget {
 
   final Airport? airport;
   final ValueChanged<Airport>? onTap;
-  final tz.TZDateTime localTime;
+
+  /// Null when not known.
+  final tz.TZDateTime? localTime;
   final bool alignEnd;
 
   static final _dateFormat = DateFormat('dd MMM yyyy');
@@ -130,8 +128,8 @@ class _FlightEndpoint extends StatelessWidget {
         airport?.ident ?? airport?.icaoCode ?? airport?.iataCode ?? '----';
     final name = airport?.name ?? '';
     final countryCode = airport?.isoCountry;
-    final localTz = localTime.timeZone.abbreviation;
-    final showUtc = localTime.timeZoneOffset != Duration.zero;
+    final time = localTime;
+    final localTz = time?.timeZone.abbreviation;
 
     final codeText = Flexible(
       child: Text(
@@ -157,7 +155,7 @@ class _FlightEndpoint extends StatelessWidget {
           : CrossAxisAlignment.start,
       children: [
         Text(
-          '${_dateFormat.format(localTime)} $localTz',
+          time == null ? '--' : '${_dateFormat.format(time)} $localTz',
           style: theme.textTheme.labelSmall?.copyWith(
             color: cs.onSurfaceVariant,
           ),
@@ -188,13 +186,13 @@ class _FlightEndpoint extends StatelessWidget {
         ],
         const SizedBox(height: 4),
         Text(
-          '${_timeFormat.format(localTime)} $localTz',
+          time == null ? '--:--' : '${_timeFormat.format(time)} $localTz',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: cs.onSurfaceVariant,
           ),
           textAlign: alignEnd ? TextAlign.right : TextAlign.left,
         ),
-        if (showUtc) ...[
+        if (time != null && time.timeZoneOffset != Duration.zero) ...[
           const SizedBox(height: 2),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -203,7 +201,7 @@ class _FlightEndpoint extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              'UTC ${_timeFormat.format(localTime.toUtc())}',
+              'UTC ${_timeFormat.format(time.toUtc())}',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
               ),

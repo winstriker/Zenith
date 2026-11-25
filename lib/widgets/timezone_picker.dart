@@ -33,6 +33,7 @@ class TimezonePicker {
               _TimezoneListTile(
                 title: 'UTC',
                 leadingIcon: Icons.language,
+                selected: currentMode == TimezoneMode.utc,
                 onTap: () {
                   Navigator.pop(ctx);
                   onModeChanged(TimezoneMode.utc);
@@ -41,6 +42,7 @@ class TimezonePicker {
               _TimezoneListTile(
                 title: 'Local Time',
                 leadingIcon: Icons.access_time,
+                selected: currentMode == TimezoneMode.local,
                 onTap: () {
                   Navigator.pop(ctx);
                   onModeChanged(TimezoneMode.local);
@@ -49,6 +51,7 @@ class TimezonePicker {
               _TimezoneListTile(
                 title: 'Other (search world timezone...)',
                 leadingIcon: Icons.search,
+                selected: currentMode == TimezoneMode.iana,
                 onTap: () {
                   Navigator.pop(ctx);
                   _showIanaTzSearch(
@@ -144,6 +147,7 @@ class TimezonePicker {
                             title: entry.name,
                             leading: entry.offset,
                             trailing: entry.abbreviation,
+                            selected: entry.name == currentIanaLocation,
                             onTap: () {
                               Navigator.pop(ctx);
                               onModeChanged(TimezoneMode.iana);
@@ -201,12 +205,14 @@ class _TimezoneListTile extends StatelessWidget {
     this.leadingIcon,
     this.leading,
     this.trailing,
+    this.selected = false,
     this.onTap,
   });
   final String title;
   final IconData? leadingIcon;
   final String? leading;
   final String? trailing;
+  final bool selected;
   final VoidCallback? onTap;
 
   @override
@@ -215,6 +221,7 @@ class _TimezoneListTile extends StatelessWidget {
 
     return ListTile(
       dense: true,
+      selected: selected,
       leading: leadingIcon != null
           ? Icon(leadingIcon, color: theme.colorScheme.onSurfaceVariant)
           : leading != null
