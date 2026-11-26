@@ -96,7 +96,7 @@ class AircraftTypesService {
     try {
       final uri = Uri.parse(icaoTypesUrl);
       final response = await client
-          .send(http.Request('POST', uri))
+          .send(http.Request('GET', uri))
           .withTimeout();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw http.ClientException(
