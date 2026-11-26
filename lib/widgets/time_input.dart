@@ -8,15 +8,20 @@ class TimeInput extends StatelessWidget {
     required this.hint,
     required this.onChanged,
     this.textAlign = TextAlign.center,
+    this.scale = 1,
   });
   final String value;
   final String hint;
   final ValueChanged<String> onChanged;
   final TextAlign textAlign;
 
+  /// Multiplies the text size, hint included.
+  final double scale;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final fontSize = (theme.textTheme.titleMedium?.fontSize ?? 16) * scale;
 
     // The room the text leaves for the cursor after it.
     final caret = textAlign == TextAlign.end ? 3.0 : 0.0;
@@ -31,7 +36,7 @@ class TimeInput extends StatelessWidget {
         decoration: InputDecoration(
           // On the baseline of the larger input: up to its centre.
           hint: Transform.translate(
-            offset: Offset(-caret, -1.5),
+            offset: Offset(-caret, -1.5 * scale),
             child: Text(
               hint,
               textAlign: textAlign,
@@ -40,7 +45,7 @@ class TimeInput extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: 0.4,
                 ),
-                fontSize: 13,
+                fontSize: 13 * scale,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -53,6 +58,7 @@ class TimeInput extends StatelessWidget {
           filled: false,
         ),
         style: theme.textTheme.titleMedium?.copyWith(
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
         onChanged: onChanged,

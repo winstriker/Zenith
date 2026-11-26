@@ -194,18 +194,13 @@ class _FlightEndpoint extends StatelessWidget {
         ),
         if (time != null && time.timeZoneOffset != Duration.zero) ...[
           const SizedBox(height: 2),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(4),
+          Text(
+            '${_timeFormat.format(time.toUtc())} UTC',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 10,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-            child: Text(
-              'UTC ${_timeFormat.format(time.toUtc())}',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
+            textAlign: alignEnd ? TextAlign.right : TextAlign.left,
           ),
         ],
       ],
