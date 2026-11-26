@@ -177,8 +177,8 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Foreground on [overlay] (text, icons, map marker borders).
   final Color onOverlay;
 
-  /// Badge background per crew role. Foreground is [onOverlay].
-  final Map<CrewRole, Color> crewRoles;
+  /// Pill and badge colours per crew role.
+  final Map<CrewRole, CrewRoleColors> crewRoles;
 
   /// Neutral grey background for people without a profile picture.
   final Color avatar;
@@ -186,21 +186,40 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Initial letter drawn on [avatar].
   final Color onAvatar;
 
-  Color crewRole(CrewRole role) => crewRoles[role] ?? info;
+  CrewRoleColors crewRole(CrewRole role) =>
+      crewRoles[role] ?? crewRoles[CrewRole.oth]!;
 
-  static const _crewRoles = {
-    CrewRole.pic: Color(0xFF1565C0),
-    CrewRole.picus: Color(0xFFE65100),
-    CrewRole.sic: Color(0xFF1976D2),
-    CrewRole.crcp: Color(0xFF0D47A1),
-    CrewRole.dual: Color(0xFF2E7D32),
-    CrewRole.spic: Color(0xFF388E3C),
-    CrewRole.ins: Color(0xFFD32F2F),
-    CrewRole.exm: Color(0xFFE53935),
-    CrewRole.p3: Color(0xFF42A5F5),
-    CrewRole.sp: Color(0xFF00897B),
-    CrewRole.att: Color(0xFF757575),
-    CrewRole.oth: Color(0xFF757575),
+  // Related roles share a hue family, each role a neighbouring shade:
+  // command blue/indigo, co-pilots teal/cyan, training green/lime,
+  // instruction and checking amber/red, safety pilot violet, the rest grey.
+  static const _crewRolesLight = {
+    CrewRole.pic: CrewRoleColors(Color(0xFFD3E4FF), Color(0xFF0B3D78)),
+    CrewRole.picus: CrewRoleColors(Color(0xFFDDE1FF), Color(0xFF2A3A8F)),
+    CrewRole.sic: CrewRoleColors(Color(0xFFCFF2EE), Color(0xFF00504A)),
+    CrewRole.crcp: CrewRoleColors(Color(0xFFCBEAF6), Color(0xFF004E63)),
+    CrewRole.p3: CrewRoleColors(Color(0xFFD8EEF2), Color(0xFF2F4F57)),
+    CrewRole.dual: CrewRoleColors(Color(0xFFD3F2D0), Color(0xFF1E5220)),
+    CrewRole.spic: CrewRoleColors(Color(0xFFE2F2C6), Color(0xFF3A4F10)),
+    CrewRole.ins: CrewRoleColors(Color(0xFFFFE0C2), Color(0xFF6B3A00)),
+    CrewRole.exm: CrewRoleColors(Color(0xFFFFDAD4), Color(0xFF7A1F14)),
+    CrewRole.sp: CrewRoleColors(Color(0xFFEADDFF), Color(0xFF4A2C80)),
+    CrewRole.att: CrewRoleColors(Color(0xFFEDE3E8), Color(0xFF4F4249)),
+    CrewRole.oth: CrewRoleColors(Color(0xFFE3E3E3), Color(0xFF474747)),
+  };
+
+  static const _crewRolesDark = {
+    CrewRole.pic: CrewRoleColors(Color(0xFF1F3F6E), Color(0xFFD3E4FF)),
+    CrewRole.picus: CrewRoleColors(Color(0xFF2E3A80), Color(0xFFDDE1FF)),
+    CrewRole.sic: CrewRoleColors(Color(0xFF0E4B46), Color(0xFFB5EFE7)),
+    CrewRole.crcp: CrewRoleColors(Color(0xFF0B4659), Color(0xFFBCE9F8)),
+    CrewRole.p3: CrewRoleColors(Color(0xFF2C4A52), Color(0xFFCFE9EF)),
+    CrewRole.dual: CrewRoleColors(Color(0xFF1F4D22), Color(0xFFC6EFC2)),
+    CrewRole.spic: CrewRoleColors(Color(0xFF3A4A12), Color(0xFFDCEFB4)),
+    CrewRole.ins: CrewRoleColors(Color(0xFF5E3600), Color(0xFFFFDCBC)),
+    CrewRole.exm: CrewRoleColors(Color(0xFF6E2219), Color(0xFFFFDAD4)),
+    CrewRole.sp: CrewRoleColors(Color(0xFF47307A), Color(0xFFEBDDFF)),
+    CrewRole.att: CrewRoleColors(Color(0xFF4A3F45), Color(0xFFEDE0E7)),
+    CrewRole.oth: CrewRoleColors(Color(0xFF444444), Color(0xFFE3E3E3)),
   };
 
   static const light = AppColors(
@@ -209,7 +228,7 @@ class AppColors extends ThemeExtension<AppColors> {
     info: Color(0xFF1976D2),
     overlay: Colors.black,
     onOverlay: Colors.white,
-    crewRoles: _crewRoles,
+    crewRoles: _crewRolesLight,
     avatar: Color(0xFF9E9E9E),
     onAvatar: Colors.white,
   );
@@ -220,7 +239,7 @@ class AppColors extends ThemeExtension<AppColors> {
     info: Color(0xFF64B5F6),
     overlay: Colors.black,
     onOverlay: Colors.white,
-    crewRoles: _crewRoles,
+    crewRoles: _crewRolesDark,
     avatar: Color(0xFF616161),
     onAvatar: Colors.white,
   );
@@ -232,7 +251,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? info,
     Color? overlay,
     Color? onOverlay,
-    Map<CrewRole, Color>? crewRoles,
+    Map<CrewRole, CrewRoleColors>? crewRoles,
     Color? avatar,
     Color? onAvatar,
   }) {
@@ -259,12 +278,26 @@ class AppColors extends ThemeExtension<AppColors> {
       onOverlay: Color.lerp(onOverlay, other.onOverlay, t)!,
       crewRoles: {
         for (final role in CrewRole.values)
-          role: Color.lerp(crewRole(role), other.crewRole(role), t)!,
+          role: CrewRoleColors.lerp(crewRole(role), other.crewRole(role), t),
       },
       avatar: Color.lerp(avatar, other.avatar, t)!,
       onAvatar: Color.lerp(onAvatar, other.onAvatar, t)!,
     );
   }
+}
+
+/// Tonal pair for a crew role: a [container] fill with [onContainer] text.
+@immutable
+class CrewRoleColors {
+  const CrewRoleColors(this.container, this.onContainer);
+  final Color container;
+  final Color onContainer;
+
+  static CrewRoleColors lerp(CrewRoleColors a, CrewRoleColors b, double t) =>
+      CrewRoleColors(
+        Color.lerp(a.container, b.container, t)!,
+        Color.lerp(a.onContainer, b.onContainer, t)!,
+      );
 }
 
 extension AppColorsTheme on ThemeData {

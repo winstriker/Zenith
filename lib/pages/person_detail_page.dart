@@ -157,7 +157,7 @@ class _PersonDetailView extends ConsumerWidget {
                             padding: const EdgeInsets.fromLTRB(20, 8, 16, 0),
                             child: Row(
                               children: [
-                                CrewRoleBadge(role: role, size: 28),
+                                crewRoleChip(context, role),
                                 const SizedBox(width: 8),
                                 Text(
                                   role.displayName,

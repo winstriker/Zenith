@@ -4,6 +4,7 @@ import '../core/app_page_route.dart';
 import '../core/theme.dart';
 import '../pages/person_select_page.dart';
 import '../services/database.dart';
+import 'info_chip.dart';
 import 'picker_sheet.dart';
 import 'section_header.dart';
 
@@ -229,7 +230,7 @@ class _SelfRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
-            CrewRoleBadge(role: role),
+            _alignedRoleChip(context, role),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -276,7 +277,7 @@ class _CrewMemberRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           children: [
-            CrewRoleBadge(role: member.role),
+            _alignedRoleChip(context, member.role),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -316,33 +317,42 @@ class _CrewMemberRow extends StatelessWidget {
   }
 }
 
-/// Coloured square with the role's abbreviation.
-class CrewRoleBadge extends StatelessWidget {
-  const CrewRoleBadge({super.key, required this.role, this.size = 52});
-  final CrewRole role;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: context.appColors.crewRole(role),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        role.abbreviation,
-        style: TextStyle(
-          color: context.appColors.onOverlay,
-          fontWeight: FontWeight.bold,
-          fontSize: size * 11 / 52,
-        ),
-      ),
-    );
-  }
+/// [InfoChip] with the role's abbreviation in the role's colours.
+InfoChip crewRoleChip(BuildContext context, CrewRole role) {
+  final colors = context.appColors.crewRole(role);
+  return InfoChip(
+    label: role.abbreviation,
+    backgroundColor: colors.container,
+    textColor: colors.onContainer,
+  );
 }
+
+/// [crewRoleChip] in a fixed-width slot, so the text beside a column of
+/// chips lines up.
+Widget _alignedRoleChip(BuildContext context, CrewRole role) => SizedBox(
+  width: 60,
+  child: Align(
+    alignment: Alignment.centerLeft,
+    child: crewRoleChip(context, role),
+  ),
+);
+
+/// Roles from the most to the least commonly logged: everyday command and
+/// co-pilot, then training and checking, then relief and the rest.
+const _rolesByLikelyUse = [
+  CrewRole.pic,
+  CrewRole.sic,
+  CrewRole.dual,
+  CrewRole.ins,
+  CrewRole.picus,
+  CrewRole.spic,
+  CrewRole.exm,
+  CrewRole.sp,
+  CrewRole.crcp,
+  CrewRole.p3,
+  CrewRole.att,
+  CrewRole.oth,
+];
 
 Future<CrewRole?> showCrewRolePicker(
   BuildContext context, {
@@ -351,10 +361,10 @@ Future<CrewRole?> showCrewRolePicker(
   return showPickerSheet<CrewRole>(
     context,
     title: 'Select Role',
-    items: CrewRole.values,
+    items: _rolesByLikelyUse,
     label: (r) => r.displayName,
     subtitle: (r) => r.subtitle,
-    leading: (r) => CrewRoleBadge(role: r, size: 48),
+    leading: (r) => _alignedRoleChip(context, r),
     selected: current,
     searchHint: null,
   );
