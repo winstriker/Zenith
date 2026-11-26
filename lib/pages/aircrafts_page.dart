@@ -53,7 +53,7 @@ class _AircraftsPageState extends ConsumerState<AircraftsPage> {
     return switch (_fleet) {
       _Fleet.aircraft => AircraftListScaffold(
         key: const ValueKey(_Fleet.aircraft),
-        title: 'My Aircrafts',
+        title: 'My Aircraft',
         header: header,
         onTap: _showAircraft,
         onLongPress: _confirmDeleteAircraft,
